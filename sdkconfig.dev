@@ -1,0 +1,9 @@
+# MAO development overlay (applied on top of sdkconfig.defaults).
+# Build: .\tools\idf.ps1 build            (dev is the default profile)
+
+CONFIG_MAO_DEV_CONSOLE=y
+CONFIG_MAO_PERF_PROBE=y
+CONFIG_MAO_PERF_PERIOD_S=10
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_LV_USE_LOG=y
+CONFIG_LV_LOG_LEVEL_WARN=y

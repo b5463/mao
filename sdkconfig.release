@@ -1,0 +1,11 @@
+# MAO release overlay (applied on top of sdkconfig.defaults).
+# Build: .\tools\idf.ps1 -Profile release build   (output in build-release/)
+
+# No development instrumentation.
+CONFIG_MAO_DEV_CONSOLE=n
+CONFIG_MAO_PERF_PROBE=n
+
+# Reduced logging: warnings and errors only.
+CONFIG_LOG_DEFAULT_LEVEL_WARN=y
+CONFIG_BOOTLOADER_LOG_LEVEL_WARN=y
+CONFIG_LV_USE_LOG=n
