@@ -47,6 +47,7 @@ typedef enum {
     MAO_CHAR_REACT_SURPRISED,    /* wide eyes + small "o" */
     MAO_CHAR_REACT_HAPPY,        /* eyes squint into a smile */
     MAO_CHAR_REACT_WAKE,         /* eyes open from closed/sleepy */
+    MAO_CHAR_REACT_ATTEND,       /* something appeared: brief look towards the edge */
 } mao_character_reaction_t;
 
 /* Build the character inside parent (display lock held). Starts hidden

@@ -91,6 +91,9 @@ const char *mao_event_name(mao_event_type_t type)
     case MAO_EVENT_SYSTEM_READY:       return "SYSTEM_READY";
     case MAO_EVENT_IDLE_TIMEOUT:       return "IDLE_TIMEOUT";
     case MAO_EVENT_DEV_COMMAND:        return "DEV_COMMAND";
+    case MAO_EVENT_DEVICE_FOUND:       return "DEVICE_FOUND";
+    case MAO_EVENT_DEVICE_LOST:        return "DEVICE_LOST";
+    case MAO_EVENT_DEVICE_CHANGED:     return "DEVICE_CHANGED";
     default:                           break;
     }
     ESP_LOGD(TAG, "unknown event %d", (int)type);

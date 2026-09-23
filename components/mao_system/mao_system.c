@@ -126,6 +126,7 @@ static void dispatch_task(void *arg)
 /* Tasks whose unused stack (high-water mark, bytes) is reported by health_cb. */
 static const char *const kWatchedTasks[] = {
     "mao_dispatch", "mao_input", "mao_audio", "taskLVGL", "esp_timer", "mao_devcmd",
+    "mao_devices", "wifi", "sys_evt",
 };
 
 static void health_cb(void *arg)
@@ -133,7 +134,7 @@ static void health_cb(void *arg)
     (void)arg;
     mao_system_log_heap(TAG, "health");
 
-    char line[160];
+    char line[240];
     int n = 0;
     for (size_t i = 0; i < sizeof(kWatchedTasks) / sizeof(kWatchedTasks[0]) && n < (int)sizeof(line); i++) {
         TaskHandle_t h = xTaskGetHandle(kWatchedTasks[i]);

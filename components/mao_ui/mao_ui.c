@@ -56,6 +56,8 @@ const char *mao_ui_view_name(mao_view_t view)
     case MAO_VIEW_HOME:        return "HOME";
     case MAO_VIEW_MENU:        return "MENU";
     case MAO_VIEW_PLACEHOLDER: return "PLACEHOLDER";
+    case MAO_VIEW_DEVICES:     return "DEVICES";
+    case MAO_VIEW_DEVICE:      return "DEVICE";
     default:                   return "?";
     }
 }
@@ -86,6 +88,7 @@ esp_err_t mao_ui_init(mao_view_t initial_view)
     mao_home_create(scr, initial_view == MAO_VIEW_HOME);
     esp_err_t err = mao_character_create(scr);
     mao_overlay_create(scr, initial_view == MAO_VIEW_INTRO);
+    mao_devices_ui_create(scr);
     s_shown = initial_view;
 
     mao_display_unlock();
@@ -126,6 +129,12 @@ void mao_ui_show(mao_view_t view, int menu_index)
             mao_overlay_placeholder(false, NULL, 0);
         }
         break;
+    case MAO_VIEW_DEVICES:
+        mao_devlist_show(false, 0);
+        break;
+    case MAO_VIEW_DEVICE:
+        mao_devpanel_show(false, 0);
+        break;
     case MAO_VIEW_HOME:
     default:
         break;
@@ -149,6 +158,12 @@ void mao_ui_show(mao_view_t view, int menu_index)
         break;
     case MAO_VIEW_PLACEHOLDER:
         mao_overlay_placeholder(true, mao_ui_menu_label(menu_index), MAO_UI_T_STAGGER);
+        break;
+    case MAO_VIEW_DEVICES:
+        mao_devlist_show(true, MAO_UI_T_STAGGER);
+        break;
+    case MAO_VIEW_DEVICE:
+        mao_devpanel_show(true, MAO_UI_T_STAGGER);
         break;
     case MAO_VIEW_INTRO:
     default:

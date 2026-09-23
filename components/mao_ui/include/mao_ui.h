@@ -21,7 +21,34 @@ typedef enum {
     MAO_VIEW_HOME,
     MAO_VIEW_MENU,
     MAO_VIEW_PLACEHOLDER,    /* a menu entry's (future) page */
+    MAO_VIEW_DEVICES,        /* nearby ODD devices */
+    MAO_VIEW_DEVICE,         /* generic control view for one device */
 } mao_view_t;
+
+/* Menu entries (index into the shell). */
+#define MAO_MENU_DEVICES 0
+
+#define MAO_UI_DEVICES_MAX 8
+
+/* What the DEVICES list shows (built by the app from the registry). */
+typedef struct {
+    int count;
+    const char *name[MAO_UI_DEVICES_MAX];
+    bool online[MAO_UI_DEVICES_MAX];
+    int selected;
+} mao_ui_devices_t;
+
+/* What the device view shows (built by the app from capabilities). */
+typedef struct {
+    const char *title;
+    bool has_level;
+    int32_t level;
+    bool has_toggle;
+    bool on;
+    bool online;
+    bool problem;        /* recent commands unconfirmed */
+    bool described;      /* capabilities/state known */
+} mao_ui_device_t;
 
 /* Build all views with initial_view visible. Call before mao_display_start()
  * so the first frame the panel shows is already correct. */
@@ -39,6 +66,11 @@ void mao_ui_menu_select(int index);
 
 /* Menu: the dial pushed past an end (small elastic nudge). */
 void mao_ui_menu_bump(int direction);
+
+/* Device views: push content (call before or after mao_ui_show). */
+void mao_ui_devices_update(const mao_ui_devices_t *model);
+void mao_ui_devices_bump(int direction);
+void mao_ui_device_update(const mao_ui_device_t *model);
 
 int mao_ui_menu_count(void);
 const char *mao_ui_menu_label(int index);

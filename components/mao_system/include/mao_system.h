@@ -11,11 +11,12 @@
 extern "C" {
 #endif
 
-#define MAO_FIRMWARE_STAGE "M1"
+#define MAO_FIRMWARE_STAGE "M2"
 
 /* Values carried by MAO_EVENT_DEV_COMMAND. */
 typedef enum {
     MAO_DEVCMD_STATUS = 1,
+    MAO_DEVCMD_ODD_RESET,            /* reset ODD latency statistics */
     MAO_DEVCMD_STRESS_BASE = 1000,   /* value - base = duration in seconds */
 } mao_devcmd_t;
 

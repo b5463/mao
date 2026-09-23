@@ -56,6 +56,16 @@ void mao_state_set_menu_index(int index)
     s_state.menu_index = index;
 }
 
+void mao_state_set_devices_index(int index)
+{
+    s_state.devices_index = index;
+}
+
+void mao_state_set_device(uint64_t id)
+{
+    s_state.device_id = id;
+}
+
 void mao_state_set_awake(bool awake)
 {
     s_state.awake = awake;

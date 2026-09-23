@@ -259,6 +259,17 @@ static void on_react(mao_character_reaction_t r, uint32_t now)
         s_mouth = MAO_MOUTH_O;
         set_state(MAO_CHAR_SURPRISED, now, SURPRISED_MS);
         break;
+    case MAO_CHAR_REACT_ATTEND:
+        /* Notice + a glance to the rim, as if towards the new arrival. */
+        mao_motion_set(&s_m, CH_OPEN, 1.15f);
+        s_wide_until = now + WIDE_HOLD_MS;
+        mao_motion_set(&s_m, CH_GAZE_X, 11.0f);
+        mao_motion_set(&s_m, CH_GAZE_Y, -2.0f);
+        mao_motion_set(&s_m, CH_FACE_X, s_base_x + 7.0f);
+        s_glance_until = now + 1000;
+        mao_motion_kick(&s_m, CH_FACE_Y, -30.0f);
+        set_state(MAO_CHAR_NOTICE, now, 1000);
+        break;
     case MAO_CHAR_REACT_HAPPY:
         mao_motion_set(&s_m, CH_HAPPY, 1.0f);
         mao_motion_kick(&s_m, CH_FACE_Y, -30.0f);

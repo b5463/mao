@@ -9,6 +9,7 @@
 #include "esp_timer.h"
 #include "mao_audio.h"
 #include "mao_character.h"
+#include "mao_devices.h"
 #include "mao_display.h"
 #include "mao_events.h"
 #include "mao_input.h"
@@ -32,6 +33,86 @@ static int64_t s_last_tick_us;
 static int64_t s_last_bump_us;
 
 /* ---------------------------------------------------------------------- */
+/* Device views: models are built here from the registry + capabilities.  */
+/* ---------------------------------------------------------------------- */
+
+static void refresh_devices_list(void)
+{
+    static mao_device_t devs[MAO_DEVICES_MAX];   /* dispatcher task only */
+    mao_ui_devices_t model = { 0 };
+    for (int i = 0; i < MAO_DEVICES_MAX && model.count < MAO_UI_DEVICES_MAX; i++) {
+        if (mao_devices_get(i, &devs[model.count])) {
+            model.name[model.count] = devs[model.count].info.name;
+            model.online[model.count] = devs[model.count].online;
+            model.count++;
+        }
+    }
+    int sel = mao_state()->devices_index;
+    if (sel >= model.count) {
+        sel = model.count > 0 ? model.count - 1 : 0;
+        mao_state_set_devices_index(sel);
+    }
+    model.selected = sel;
+    mao_ui_devices_update(&model);
+}
+
+/* List row -> registry slot (the list shows used slots in order). */
+static int list_row_to_slot(int row)
+{
+    int n = 0;
+    for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+        mao_device_t d;
+        if (mao_devices_get(i, &d)) {
+            if (n == row) {
+                return i;
+            }
+            n++;
+        }
+    }
+    return -1;
+}
+
+static bool open_device(mao_device_t *dev, mao_device_controls_t *ctl)
+{
+    const int slot = mao_devices_find(mao_state()->device_id);
+    if (slot < 0 || !mao_devices_get(slot, dev)) {
+        return false;
+    }
+    mao_device_controls(dev, ctl);
+    return true;
+}
+
+static void refresh_device_panel(void)
+{
+    mao_device_t dev;
+    mao_device_controls_t ctl;
+    if (!open_device(&dev, &ctl)) {
+        return;
+    }
+    const mao_ui_device_t model = {
+        .title = dev.info.name,
+        .has_level = ctl.level_idx >= 0,
+        .level = ctl.level_idx >= 0 ? dev.caps[ctl.level_idx].value : 0,
+        .has_toggle = ctl.toggle_idx >= 0,
+        .on = ctl.toggle_idx >= 0 ? dev.caps[ctl.toggle_idx].value != 0 : true,
+        .online = dev.online,
+        .problem = dev.link_problem,
+        .described = dev.described,
+    };
+    mao_ui_device_update(&model);
+}
+
+static void refresh_device_views(void)
+{
+    const mao_view_t v = mao_state()->view;
+    if (v == MAO_VIEW_DEVICES) {
+        refresh_devices_list();
+    } else if (v == MAO_VIEW_DEVICE) {
+        refresh_device_panel();
+    }
+}
+
+/* ---------------------------------------------------------------------- */
 
 static void go_view(mao_view_t view)
 {
@@ -40,7 +121,12 @@ static void go_view(mao_view_t view)
         return;
     }
     ESP_LOGI(TAG, "view %s -> %s", mao_ui_view_name(st->view), mao_ui_view_name(view));
+    /* Discover quickly only while the user is looking at devices. */
+    mao_devices_set_active(view == MAO_VIEW_DEVICES || view == MAO_VIEW_DEVICE);
     mao_state_set_view(view);
+    if (view == MAO_VIEW_DEVICES || view == MAO_VIEW_DEVICE) {
+        refresh_device_views();
+    }
     mao_ui_show(view, st->menu_index);
 }
 
@@ -184,7 +270,7 @@ static void on_menu(const mao_event_t *ev, int64_t now)
         ESP_LOGI(TAG, "open %s", mao_ui_menu_label(st->menu_index));
         mao_audio_confirm();
         mao_led_pulse(MAO_LED_PULSE_INTERACTION);
-        go_view(MAO_VIEW_PLACEHOLDER);
+        go_view(st->menu_index == MAO_MENU_DEVICES ? MAO_VIEW_DEVICES : MAO_VIEW_PLACEHOLDER);
         break;
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_audio_back();
@@ -209,6 +295,115 @@ static void on_placeholder(const mao_event_t *ev)
     default:
         break;
     }
+}
+
+static void on_devices(const mao_event_t *ev, int64_t now)
+{
+    const mao_app_state_t *st = mao_state();
+    switch (ev->type) {
+    case MAO_EVENT_INPUT_CW:
+    case MAO_EVENT_INPUT_CCW: {
+        const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
+        const mao_dial_motion_t m = dial_motion(d, now);
+        const int count = mao_devices_count();
+        int idx = st->devices_index + (int)d;
+        idx = idx < 0 ? 0 : (idx > count - 1 ? count - 1 : idx);
+        if (count > 0 && idx != st->devices_index) {
+            mao_state_set_devices_index(idx);
+            refresh_devices_list();
+            dial_tick(m.speed, now);
+        } else if (now - s_last_bump_us >= MENU_BUMP_GAP_US) {
+            s_last_bump_us = now;
+            mao_ui_devices_bump(d > 0 ? 1 : -1);
+        }
+        break;
+    }
+    case MAO_EVENT_INPUT_CLICK: {
+        const int slot = list_row_to_slot(st->devices_index);
+        mao_device_t dev;
+        if (slot >= 0 && mao_devices_get(slot, &dev)) {
+            ESP_LOGI(TAG, "open device '%s'", dev.info.name);
+            mao_state_set_device(dev.info.id);
+            mao_audio_confirm();
+            mao_led_pulse(MAO_LED_PULSE_INTERACTION);
+            go_view(MAO_VIEW_DEVICE);
+        }
+        break;
+    }
+    case MAO_EVENT_INPUT_LONG_PRESS:
+        mao_audio_back();
+        go_view(MAO_VIEW_HOME);
+        break;
+    default:
+        break;
+    }
+}
+
+/* The generic device view: the dial drives the device's LEVEL-like
+ * capability, a click toggles its POWER-like capability. Which capabilities
+ * those are is decided by mao_device_controls() from what the device reports. */
+static void on_device(const mao_event_t *ev, int64_t now)
+{
+    mao_device_t dev;
+    mao_device_controls_t ctl;
+    const bool ok = open_device(&dev, &ctl);
+    switch (ev->type) {
+    case MAO_EVENT_INPUT_CW:
+    case MAO_EVENT_INPUT_CCW: {
+        const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
+        const mao_dial_motion_t m = dial_motion(d, now);
+        if (!ok || !dev.online || !dev.described || ctl.level_idx < 0) {
+            break;
+        }
+        const mao_device_cap_t *c = &dev.caps[ctl.level_idx];
+        int32_t v = c->value + d * c->cap.step;
+        v = v < c->cap.min ? c->cap.min : (v > c->cap.max ? c->cap.max : v);
+        if (v != c->value) {
+            mao_devices_set_value(dev.info.id, c->cap.id, v);
+            refresh_device_panel();
+            dial_tick(m.speed, now);
+        }
+        break;
+    }
+    case MAO_EVENT_INPUT_CLICK:
+        if (ok && dev.online && dev.described && ctl.toggle_idx >= 0) {
+            const mao_device_cap_t *c = &dev.caps[ctl.toggle_idx];
+            const int32_t v = c->value ? c->cap.min : c->cap.max;
+            mao_devices_set_value(dev.info.id, c->cap.id, v);
+            refresh_device_panel();
+            if (v) {
+                mao_audio_confirm();
+            } else {
+                mao_audio_back();
+            }
+            mao_led_pulse(MAO_LED_PULSE_INTERACTION);
+        }
+        break;
+    case MAO_EVENT_INPUT_LONG_PRESS:
+        mao_audio_back();
+        go_view(MAO_VIEW_DEVICES);
+        break;
+    default:
+        break;
+    }
+}
+
+static void on_device_event(const mao_event_t *ev)
+{
+    if (ev->type == MAO_EVENT_DEVICE_FOUND) {
+        /* Newly available (first sighting, or back from offline): one brief
+         * acknowledgement. Beacons from devices already online never get here. */
+        mao_device_t dev;
+        if (mao_devices_get((int)ev->value, &dev)) {
+            ESP_LOGI(TAG, "device available: '%s'", dev.info.name);
+        }
+        mao_audio_notice();
+        mao_led_pulse(MAO_LED_PULSE_NOTICE);
+        if (mao_state()->view == MAO_VIEW_HOME && mao_state()->awake) {
+            mao_character_react(MAO_CHAR_REACT_ATTEND);
+        }
+    }
+    refresh_device_views();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -248,6 +443,10 @@ static void on_dev_command(int32_t value, int64_t now)
                  in.detents, in.invalid_transitions, in.recovered_detents, in.rest_bounces,
                  mao_events_dropped());
         mao_system_log_heap(TAG, "status");
+        mao_devices_log_status();
+    } else if (value == MAO_DEVCMD_ODD_RESET) {
+        mao_devices_reset_latency();
+        ESP_LOGI(TAG, "latency statistics reset");
     } else if (value > MAO_DEVCMD_STRESS_BASE) {
         const uint32_t seconds = (uint32_t)(value - MAO_DEVCMD_STRESS_BASE);
         ESP_LOGI(TAG, "stress: continuous character motion for %" PRIu32 " s", seconds);
@@ -279,6 +478,8 @@ static void on_event(const mao_event_t *ev, void *ctx)
         case MAO_VIEW_HOME:        on_home(ev, now); break;
         case MAO_VIEW_MENU:        on_menu(ev, now); break;
         case MAO_VIEW_PLACEHOLDER: on_placeholder(ev); break;
+        case MAO_VIEW_DEVICES:     on_devices(ev, now); break;
+        case MAO_VIEW_DEVICE:      on_device(ev, now); break;
         default: break;
         }
         return;
@@ -298,6 +499,11 @@ static void on_event(const mao_event_t *ev, void *ctx)
         break;
     case MAO_EVENT_DEV_COMMAND:
         on_dev_command(ev->value, now);
+        break;
+    case MAO_EVENT_DEVICE_FOUND:
+    case MAO_EVENT_DEVICE_LOST:
+    case MAO_EVENT_DEVICE_CHANGED:
+        on_device_event(ev);
         break;
     default:
         break;

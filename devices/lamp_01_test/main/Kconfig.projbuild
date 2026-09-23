@@ -1,0 +1,28 @@
+menu "LAMP 01 test device"
+
+    choice LAMP_OUTPUT
+        prompt "How LEVEL is shown"
+        default LAMP_OUTPUT_LOG
+        help
+            LEVEL/POWER changes are always logged. Optionally also drive an LED.
+
+        config LAMP_OUTPUT_LOG
+            bool "Serial log only"
+        config LAMP_OUTPUT_WS2812
+            bool "Addressable RGB LED (WS2812)"
+        config LAMP_OUTPUT_PWM
+            bool "Plain LED on a GPIO (LEDC PWM)"
+    endchoice
+
+    config LAMP_LED_GPIO
+        int "LED GPIO"
+        depends on !LAMP_OUTPUT_LOG
+        range 0 21
+        default 8
+
+    config LAMP_LED_ACTIVE_LOW
+        bool "LED is active low"
+        depends on LAMP_OUTPUT_PWM
+        default n
+
+endmenu

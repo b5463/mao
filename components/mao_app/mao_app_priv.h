@@ -9,6 +9,8 @@
 typedef struct {
     mao_view_t view;
     int menu_index;          /* selected menu entry (also names the open page) */
+    int devices_index;       /* selected row in DEVICES */
+    uint64_t device_id;      /* ODD id of the device open in DEVICE (0 = none) */
     int32_t dial_position;   /* cumulative signed detents since boot (unbounded) */
     bool awake;              /* false while sleepy */
     bool interacting;        /* knob touched since the last idle timeout */
@@ -27,6 +29,8 @@ const mao_app_state_t *mao_state(void);
 
 void mao_state_set_view(mao_view_t view);
 void mao_state_set_menu_index(int index);
+void mao_state_set_devices_index(int index);
+void mao_state_set_device(uint64_t id);
 void mao_state_set_awake(bool awake);
 void mao_state_note_input(int64_t now_us);
 void mao_state_note_idle(void);

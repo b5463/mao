@@ -10,6 +10,7 @@
 #include "mao_led.h"
 #include "mao_ir.h"
 #include "mao_app.h"
+#include "mao_devices.h"
 
 void app_main(void)
 {
@@ -23,6 +24,9 @@ void app_main(void)
     mao_system_report("input", mao_input_init());
     mao_system_report("audio", mao_audio_init());
     mao_ir_init();
+    /* Radio + ODD BUS. Before the app, so device events have a listener
+     * as soon as the dispatcher starts. */
+    mao_system_report("devices", mao_devices_init());
 
     /* Builds the first view and lights the panel with it. */
     mao_system_report("app", mao_app_init());

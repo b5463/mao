@@ -33,6 +33,11 @@ typedef enum {
     MAO_EVENT_IDLE_TIMEOUT,      /* no input for the configured idle period */
     MAO_EVENT_DEV_COMMAND,       /* value = mao_devcmd_t (development console) */
 
+    /* External ODD devices. value = registry index. */
+    MAO_EVENT_DEVICE_FOUND,      /* new, or back online after being offline */
+    MAO_EVENT_DEVICE_LOST,       /* went offline */
+    MAO_EVENT_DEVICE_CHANGED,    /* description, state or link status changed */
+
     MAO_EVENT_COUNT,
 } mao_event_type_t;
 
