@@ -1,7 +1,7 @@
 # MAO firmware
 
-Firmware for **MAO**, the ODD JOBS handheld controller. Current stage: **M1**
-(home experience, interaction model, character presence).
+Firmware for **MAO**, the ODD JOBS handheld controller. Current stage: **M2** (in progress)
+(ODD BUS v1 over ESP-NOW: discovery and generic capability control).
 
 - Board: Espressif ESP32-C3-LCDkit (ESP32-C3 rev v0.4, 4 MB flash, no PSRAM)
 - Framework: native ESP-IDF **v6.0.3**
@@ -21,6 +21,13 @@ PowerShell, not Git Bash; ESP-IDF refuses to run under MSYS.
 
 Override the IDF location with `MAO_IDF_PATH` if needed.
 
+Build profiles layer over `sdkconfig.defaults`:
+
+| Profile | Command | Output | Differences |
+|---|---|---|---|
+| dev (default) | `.	ools\idf.ps1 build` | `build/` | dev console, perf probe, INFO logs |
+| release | `.	ools\idf.ps1 release build` | `build-release/` | no console/probe, WARN logs |
+
 ## Layout
 
 Data flow: input driver → event bus → `mao_app` (state) → `mao_ui` / `mao_character` / `mao_audio` / `mao_led`.
@@ -38,6 +45,10 @@ Data flow: input driver → event bus → `mao_app` (state) → `mao_ui` / `mao_
 | `components/mao_app` | Application behaviour and the authoritative app state (`mao_state.c`) |
 | `components/mao_ui` | Views: HOME, menu shell, placeholder pages, first encounter; transitions |
 | `components/mao_character` | Procedural character: reaction states, idle behaviour, spring motion |
+| `components/mao_radio` | Wi-Fi STA (never associated) + ESP-NOW transport |
+| `components/odd_bus` | ODD BUS v1: shared, product-agnostic protocol (also used by device firmware) |
+| `components/mao_devices` | ODD BUS controller: registry, discovery, liveness, confirmed value control |
+| `devices/lamp_01_test` | LAMP 01: minimal ODD BUS test light (POWER, LEVEL) for a second ESP32-C3 |
 | `assets/`, `tools/`, `tests/` | Assets (unused so far), helper scripts, future tests |
 
 ## Development tools
@@ -53,7 +64,13 @@ python tools\mao_cmd.py COM13 reset-first-boot    # clears only MAO's first-boot
 python tools\mao_cmd.py COM13 reboot
 python tools\mao_cmd.py COM13 stress 20 --listen 25
 python tools\mao_smoke.py COM13 --cycles 5        # scripted walk through every view and gesture
+python tools\mao_cmd.py COM13 odd-selftest        # ODD BUS codec self-test on target
+python tools\mao_cmd.py COM13 odd-flood 30        # 50 Hz radio load (coexistence testing)
+python tools\odd_m2_test.py --mao COM13 --lamp COMx   # end-to-end with LAMP 01
 ```
+
+ESP-NOW runs on the fixed development channel `ODD_BUS_DEV_CHANNEL` (1) with
+unencrypted peers: **development network only**.
 
 ## Partition map (4 MB)
 
