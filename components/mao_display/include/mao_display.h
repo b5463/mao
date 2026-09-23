@@ -27,8 +27,13 @@ esp_err_t mao_display_start(uint8_t brightness_percent);
 bool mao_display_lock(uint32_t timeout_ms);
 void mao_display_unlock(void);
 
-/* Backlight 0..100 %. */
+/* Backlight 0..100 %. fade_ms > 0 ramps smoothly (hardware fade). */
 esp_err_t mao_display_set_brightness(uint8_t percent);
+esp_err_t mao_display_fade_brightness(uint8_t percent, uint32_t fade_ms);
+
+/* Development: stream the current screen as base64 RGB565 over the console
+ * (tools/mao_snap.py). Needs ~115 KB of free heap for a moment. */
+esp_err_t mao_display_snapshot_dump(void);
 
 #ifdef __cplusplus
 }

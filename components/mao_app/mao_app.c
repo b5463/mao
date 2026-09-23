@@ -22,13 +22,14 @@ static const char *TAG = "MAO_APP";
 #define SLEEPY_TIMEOUT_MS     (CONFIG_MAO_SLEEPY_TIMEOUT_S * 1000)
 #define SLEEPY_BRIGHTNESS_PCT 35          /* of the preferred brightness */
 #define DIAL_SETTLE_US        (700 * 1000)
-#define FAST_TICK_GAP_US      (90 * 1000) /* audio thinning at FAST speed */
 #define MENU_BUMP_GAP_US      (250 * 1000)
+#define SLEEPY_FADE_MS        2500        /* the light goes down slowly ... */
+#define WAKE_FADE_MS          150         /* ... and comes back at once */
+#define TICK_FULL_DPS         60.0f       /* dial speed at which ticks are softest */
 
 static mao_dial_speed_t s_logged_speed = MAO_DIAL_STILL;
 static bool s_logged_reversing;
 static int64_t s_last_dial_us;
-static int64_t s_last_tick_us;
 static int64_t s_last_bump_us;
 
 /* ---------------------------------------------------------------------- */
@@ -51,7 +52,7 @@ static void apply_brightness(bool sleepy)
     if (pct < 5) {
         pct = 5;
     }
-    mao_display_set_brightness(pct);
+    mao_display_fade_brightness(pct, sleepy ? SLEEPY_FADE_MS : WAKE_FADE_MS);
 }
 
 static void wake(void)
@@ -83,25 +84,13 @@ static mao_dial_motion_t dial_motion(int32_t detents, int64_t now)
     return m;
 }
 
-static void dial_tick(mao_dial_speed_t speed, int64_t now)
+/* Rotary sound follows speed continuously: softer and sparser as the dial
+ * spins faster (mao_audio does the thinning). */
+static void dial_tick(const mao_dial_motion_t *m)
 {
-    switch (speed) {
-    case MAO_DIAL_STILL:
-    case MAO_DIAL_SLOW:
-    case MAO_DIAL_NORMAL:
-        mao_audio_tick();
-        s_last_tick_us = now;
-        break;
-    case MAO_DIAL_FAST:
-        if (now - s_last_tick_us >= FAST_TICK_GAP_US) {
-            mao_audio_tick();
-            s_last_tick_us = now;
-        }
-        break;
-    case MAO_DIAL_VERY_FAST:
-    default:
-        break;   /* motion speaks for itself */
-    }
+    float i = m->detents_per_s / TICK_FULL_DPS;
+    i = i > 1.0f ? 1.0f : i;
+    mao_audio_tick((uint8_t)(i * 255.0f));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -115,7 +104,9 @@ static void on_intro(const mao_event_t *ev)
         ESP_LOGI(TAG, "first encounter complete (first-boot flag stored)");
         mao_audio_notice();
         mao_led_pulse(MAO_LED_PULSE_NOTICE);
-        go_view(MAO_VIEW_HOME);
+        ESP_LOGI(TAG, "view INTRO -> HOME");
+        mao_state_set_view(MAO_VIEW_HOME);
+        mao_ui_intro_exit(ev->type == MAO_EVENT_INPUT_CW ? 1 : -1);
     }
 }
 
@@ -126,29 +117,28 @@ static void on_home(const mao_event_t *ev, int64_t now)
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
         const mao_dial_motion_t m = dial_motion(d, now);
-        mao_character_dial(d, m.speed, m.reversing);
-        dial_tick(m.speed, now);
+        mao_character_dial(d);
+        dial_tick(&m);
         break;
     }
     case MAO_EVENT_INPUT_PRESS:
+        /* Touching MAO: compress + a soft low contact sound. */
         mao_character_press(true);
-        mao_led_pulse(MAO_LED_PULSE_INTERACTION);
+        mao_audio_touch();
         break;
     case MAO_EVENT_INPUT_RELEASE:
         mao_character_press(false);
-        break;
-    case MAO_EVENT_INPUT_CLICK:
-        mao_audio_notice();
+        mao_audio_release();
         break;
     case MAO_EVENT_INPUT_DOUBLE_CLICK:
-        mao_character_react(MAO_CHAR_REACT_SURPRISED);
+        /* MAO makes room for the system (the UI choreographs the drop). */
         mao_audio_confirm();
         go_view(MAO_VIEW_MENU);
         break;
     case MAO_EVENT_INPUT_LONG_PRESS:
-        mao_character_react(MAO_CHAR_REACT_HAPPY);
-        mao_audio_notice();
-        mao_led_pulse(MAO_LED_PULSE_NOTICE);
+        mao_character_react(MAO_CHAR_REACT_WARM);
+        mao_audio_warm();
+        mao_led_pulse(MAO_LED_PULSE_CONFIRM);
         break;
     default:
         break;
@@ -173,7 +163,7 @@ static void on_menu(const mao_event_t *ev, int64_t now)
         if (idx != st->menu_index) {
             mao_state_set_menu_index(idx);
             mao_ui_menu_select(idx);
-            dial_tick(m.speed, now);
+            dial_tick(&m);
         } else if (now - s_last_bump_us >= MENU_BUMP_GAP_US) {
             s_last_bump_us = now;
             mao_ui_menu_bump(d > 0 ? 1 : -1);
@@ -183,7 +173,7 @@ static void on_menu(const mao_event_t *ev, int64_t now)
     case MAO_EVENT_INPUT_CLICK:
         ESP_LOGI(TAG, "open %s", mao_ui_menu_label(st->menu_index));
         mao_audio_confirm();
-        mao_led_pulse(MAO_LED_PULSE_INTERACTION);
+        mao_led_pulse(MAO_LED_PULSE_CONFIRM);
         go_view(MAO_VIEW_PLACEHOLDER);
         break;
     case MAO_EVENT_INPUT_LONG_PRESS:
@@ -248,12 +238,42 @@ static void on_dev_command(int32_t value, int64_t now)
                  in.detents, in.invalid_transitions, in.recovered_detents, in.rest_bounces,
                  mao_events_dropped());
         mao_system_log_heap(TAG, "status");
-    } else if (value > MAO_DEVCMD_STRESS_BASE) {
-        const uint32_t seconds = (uint32_t)(value - MAO_DEVCMD_STRESS_BASE);
-        ESP_LOGI(TAG, "stress: continuous character motion for %" PRIu32 " s", seconds);
+    } else if (value >= MAO_DEVCMD_DIAL_BASE) {
+        /* dial: value = base + dps * 1000 + seconds (synthetic detents to the character only) */
+        const int32_t v = value - MAO_DEVCMD_DIAL_BASE;
+        const float dps = (float)(v / 1000) - 500.0f;
+        const uint32_t seconds = (uint32_t)(v % 1000);
+        ESP_LOGI(TAG, "dev: dial %.0f detents/s for %" PRIu32 " s", (double)dps, seconds);
         wake();
         go_view(MAO_VIEW_HOME);
-        mao_character_debug_stress(seconds * 1000);
+        mao_character_debug_dial(dps, seconds * 1000);
+        mao_system_idle_kick(seconds * 1000 + SLEEPY_TIMEOUT_MS);
+    } else if (value >= MAO_DEVCMD_LOOK_BASE) {
+        if (!mao_character_debug_look(value - MAO_DEVCMD_LOOK_BASE)) {
+            ESP_LOGW(TAG, "dev: look 0..%d", mao_character_look_count() - 1);
+        }
+    } else if (value >= MAO_DEVCMD_VIEW_BASE) {
+        const mao_view_t v = (mao_view_t)(value - MAO_DEVCMD_VIEW_BASE);
+        if (v == MAO_VIEW_PLACEHOLDER && mao_state()->view == MAO_VIEW_HOME) {
+            go_view(MAO_VIEW_MENU);
+        }
+        go_view(v);
+    } else if (value >= MAO_DEVCMD_ANIM_BASE) {
+        const mao_character_preview_t p = (mao_character_preview_t)(value - MAO_DEVCMD_ANIM_BASE);
+        go_view(MAO_VIEW_HOME);
+        mao_character_debug_preview(p);
+        mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
+    } else if (value == MAO_DEVCMD_REPLAY_BOOT) {
+        go_view(MAO_VIEW_HOME);
+        mao_ui_debug_replay_boot();
+    } else if (value == MAO_DEVCMD_SNAP) {
+        mao_display_snapshot_dump();
+    } else if (value > MAO_DEVCMD_STRESS_BASE) {
+        const uint32_t seconds = (uint32_t)(value - MAO_DEVCMD_STRESS_BASE);
+        ESP_LOGI(TAG, "stress: continuous fast orbit for %" PRIu32 " s", seconds);
+        wake();
+        go_view(MAO_VIEW_HOME);
+        mao_character_debug_dial(70.0f, seconds * 1000);
         mao_system_idle_kick(seconds * 1000 + SLEEPY_TIMEOUT_MS);
     }
 }
@@ -286,7 +306,7 @@ static void on_event(const mao_event_t *ev, void *ctx)
 
     switch (ev->type) {
     case MAO_EVENT_SYSTEM_READY:
-        mao_led_set_state(MAO_LED_STATE_OFF);
+        mao_led_set_state(MAO_LED_STATE_OFF);   /* the LED is off at rest */
         mao_state_note_input(now);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
         if (mao_state()->view == MAO_VIEW_HOME) {

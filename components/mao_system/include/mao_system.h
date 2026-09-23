@@ -16,7 +16,13 @@ extern "C" {
 /* Values carried by MAO_EVENT_DEV_COMMAND. */
 typedef enum {
     MAO_DEVCMD_STATUS = 1,
+    MAO_DEVCMD_SNAP,                 /* stream a screen snapshot */
+    MAO_DEVCMD_REPLAY_BOOT,          /* replay the HOME boot sequence */
     MAO_DEVCMD_STRESS_BASE = 1000,   /* value - base = duration in seconds */
+    MAO_DEVCMD_ANIM_BASE = 3000,     /* + mao_character_preview_t */
+    MAO_DEVCMD_VIEW_BASE = 4000,     /* + mao_view_t */
+    MAO_DEVCMD_LOOK_BASE = 5000,     /* + look preset index */
+    MAO_DEVCMD_DIAL_BASE = 100000,   /* + (dps + 500) * 1000 + seconds */
 } mao_devcmd_t;
 
 /* Print banner and chip/boot info, create the event bus, load settings.

@@ -55,6 +55,7 @@ static esp_err_t backlight_init(void)
         .hpoint = 0,
     };
     ESP_RETURN_ON_ERROR(ledc_channel_config(&channel), TAG, "backlight channel");
+    ESP_RETURN_ON_ERROR(ledc_fade_func_install(0), TAG, "backlight fade");
     s_backlight_ready = true;
     return ESP_OK;
 }
@@ -140,6 +141,21 @@ esp_err_t mao_board_display_init(size_t max_transfer_bytes, mao_board_display_t 
     ESP_LOGI(TAG, "display: GC9A01 %dx%d, SPI2 @ %d MHz, max transfer %u B",
              MAO_LCD_H_RES, MAO_LCD_V_RES, MAO_LCD_PCLK_HZ / 1000000, (unsigned)max_transfer_bytes);
     return ESP_OK;
+}
+
+esp_err_t mao_board_backlight_fade(uint8_t percent, uint32_t fade_ms)
+{
+    ESP_RETURN_ON_FALSE(s_backlight_ready, ESP_ERR_INVALID_STATE, TAG, "backlight not initialised");
+    if (fade_ms == 0) {
+        return mao_board_backlight_set(percent);
+    }
+    if (percent > 100) {
+        percent = 100;
+    }
+    const uint32_t duty = (((1u << BACKLIGHT_LEDC_RES) - 1) * percent) / 100;
+    /* Hardware fade: no CPU involvement, retargets if a fade is running. */
+    return ledc_set_fade_time_and_start(LEDC_LOW_SPEED_MODE, BACKLIGHT_LEDC_CHANNEL, duty, fade_ms,
+                                        LEDC_FADE_NO_WAIT);
 }
 
 /* ------------------------------------------------------------------------ */

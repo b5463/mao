@@ -2,32 +2,36 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "lvgl.h"
+#include "mao_spring.h"
+#include "mao_ui_type.h"
 
-/* Palette. */
-#define MAO_UI_BG          0x08080A
-#define MAO_UI_FG          0xF1ECE2
-#define MAO_UI_DIM         0x6E6C68
+/* Wake the shared UI motion tick (it pauses itself once everything settles). */
+void mao_ui_wake(void);
 
-/* Motion language: short, direct, eased. */
-#define MAO_UI_T_ENTER     220
-#define MAO_UI_T_LEAVE     150
-#define MAO_UI_T_STAGGER   70
+/* Text helpers. */
+typedef struct {
+    int16_t x, y;
+    lv_opa_t opa;
+} mao_text_cache_t;
 
-/* Animate *var from its current value to `to` (0..1 style floats) and wake
- * `timer` so the owner can re-layout. ease_out = true for arrivals. */
-void mao_ui_anim_float(float *var, float to, uint32_t duration_ms, uint32_t delay_ms,
-                       bool ease_out, lv_timer_t *timer);
-bool mao_ui_anim_running(float *var);
+lv_obj_t *mao_ui_make_text(lv_obj_t *scr, const lv_font_t *font, uint32_t color, int32_t track, const char *txt);
+/* Move/fade a label, touching LVGL only when values change; hides at ~0 opacity. */
+void mao_ui_text_place(lv_obj_t *o, float x, float y, float opa, mao_text_cache_t *c);
+void mao_ui_text_cache_reset(mao_text_cache_t *c);
 
-/* HOME (mao_home.c) */
-void mao_home_create(lv_obj_t *scr, bool wordmark_visible);
-void mao_home_boot(void);
+/* HOME wordmark (mao_home.c). Tick functions return true while still moving. */
+void mao_home_create(lv_obj_t *scr, bool visible);
+void mao_home_boot(uint32_t now_ms);
+void mao_home_replay(uint32_t now_ms);
+bool mao_home_tick(float dt, uint32_t now_ms);
 
-/* Overlay views (mao_overlay.c) */
+/* Menu, placeholder and first encounter (mao_overlay.c). */
 void mao_overlay_create(lv_obj_t *scr, bool intro_visible);
-void mao_overlay_intro(bool show);
-void mao_overlay_menu(bool show, int index, uint32_t delay_ms);
+bool mao_overlay_tick(float dt, uint32_t now_ms);
+void mao_overlay_menu_show(bool show, int index, uint32_t delay_ms);
 void mao_overlay_menu_select(int index);
 void mao_overlay_menu_bump(int direction);
-void mao_overlay_placeholder(bool show, const char *title, uint32_t delay_ms);
+void mao_overlay_page_show(bool show, const char *title);
+void mao_overlay_intro_exit(int direction);

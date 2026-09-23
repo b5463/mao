@@ -62,6 +62,9 @@ esp_err_t mao_board_display_init(size_t max_transfer_bytes, mao_board_display_t 
 /* Backlight 0..100 %. Valid after mao_board_display_init(). */
 esp_err_t mao_board_backlight_set(uint8_t percent);
 
+/* Smooth backlight change using the LEDC hardware fader. */
+esp_err_t mao_board_backlight_fade(uint8_t percent, uint32_t fade_ms);
+
 /* Configure encoder/switch GPIOs as inputs with pull-ups (no ISR installed). */
 esp_err_t mao_board_input_init(mao_board_encoder_t *out);
 

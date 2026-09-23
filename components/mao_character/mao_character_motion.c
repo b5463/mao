@@ -1,7 +1,7 @@
 /*
- * Character motion model: every pose channel is a damped spring chasing a
- * target. Reactions only set targets or kick velocities; the springs supply
- * the physical feel (ease, slight overshoot, settle). No LVGL here.
+ * Character motion model: channels are springs (profiles in
+ * mao_character_tune.h); this file composes them into a pose. Behaviour lives
+ * in mao_character.c; geometry numbers live in mao_character_tune.h.
  */
 #include <math.h>
 #include <string.h>
@@ -9,54 +9,31 @@
 
 #define TWO_PI 6.28318531f
 
-/* Geometry of the face (px). */
-#define EYE_W          18.0f
-#define EYE_H          26.0f
-#define EYE_HALF_GAP   26.0f
-#define MOUTH_DY       26.0f
+static const mao_spring_profile_t kProfile[CH_COUNT] = {
+    [CH_FACE_X] = MAO_P_FACE,     [CH_FACE_Y] = MAO_P_FACE,
+    [CH_GAZE_X] = MAO_P_GAZE,     [CH_GAZE_Y] = MAO_P_GAZE,
+    [CH_OPEN] = MAO_P_OPEN,       [CH_SQUASH] = MAO_P_SQUASH,
+    [CH_TILT] = MAO_P_TILT,       [CH_NARROW] = MAO_P_NARROW,
+    [CH_ORBIT_R] = MAO_P_ORBIT_R, [CH_ORBIT_A] = MAO_P_ORBIT_A,
+    [CH_AWAY] = MAO_P_AWAY,       [CH_PRESS] = MAO_P_PRESS,
+    [CH_SPREAD] = MAO_P_PRESS,    [CH_WOBBLE] = MAO_SPRING_SOFT,
+    [CH_SLEEP] = MAO_SLEEP_PROFILE,
+    [CH_TINT_MOVE] = MAO_P_TINT,  [CH_TINT_WARM] = MAO_P_TINT,
+};
 
-typedef struct {
-    float k;   /* stiffness (1/s^2) */
-    float c;   /* damping = 2 * zeta * sqrt(k) */
-} spring_param_t;
-
-/* zeta < 1 overshoots slightly: that is the "physical" character. */
-static spring_param_t s_param[CH_COUNT];
-
-static void param(mao_channel_t ch, float k, float zeta)
-{
-    s_param[ch].k = k;
-    s_param[ch].c = 2.0f * zeta * sqrtf(k);
-}
-
-void mao_motion_init(mao_motion_t *m)
+void mao_motion_init(mao_motion_t *m, const mao_look_t *look)
 {
     memset(m, 0, sizeof(*m));
-    param(CH_FACE_X,   160.0f, 0.55f);
-    param(CH_FACE_Y,   160.0f, 0.55f);
-    param(CH_AWAY_Y,    95.0f, 0.85f);
-    param(CH_GAZE_X,   260.0f, 0.70f);
-    param(CH_GAZE_Y,   260.0f, 0.70f);
-    param(CH_OPEN,     420.0f, 0.45f);
-    param(CH_SQUASH,   520.0f, 0.30f);
-    param(CH_TILT,     200.0f, 0.60f);
-    param(CH_HAPPY,    220.0f, 0.70f);
-    param(CH_ORBIT_R,   70.0f, 0.70f);
-    param(CH_ORBIT_A,  160.0f, 0.90f);
-    param(CH_WOBBLE,    60.0f, 1.00f);
-    /* Start with eyes closed; the owner opens them (wake / appear). */
-    m->ch[CH_OPEN].x = 0.0f;
-    m->target[CH_OPEN] = 0.0f;
+    m->look = *look;
+    for (int i = 0; i < CH_COUNT; i++) {
+        mao_spring_init(&m->ch[i], 0.0f, kProfile[i]);
+    }
+    /* Eyes start closed; the owner opens them (appear / wake). */
 }
 
-void mao_motion_set(mao_motion_t *m, mao_channel_t ch, float target)
+void mao_motion_profile(mao_motion_t *m, mao_channel_t c, mao_spring_profile_t p)
 {
-    m->target[ch] = target;
-}
-
-void mao_motion_kick(mao_motion_t *m, mao_channel_t ch, float velocity)
-{
-    m->ch[ch].v += velocity;
+    m->ch[c].p = p;
 }
 
 void mao_motion_blink(mao_motion_t *m, uint32_t now_ms, uint16_t len_ms, uint8_t count)
@@ -70,39 +47,20 @@ void mao_motion_blink(mao_motion_t *m, uint32_t now_ms, uint16_t len_ms, uint8_t
     m->blinks_left = count;
 }
 
-void mao_motion_step(mao_motion_t *m, float dt_s, uint32_t now_ms)
+void mao_motion_step(mao_motion_t *m, float dt, uint32_t now_ms)
 {
-    /* Semi-implicit Euler in <= 12 ms sub-steps (stable for the stiffest
-     * channel at any tick rate). */
-    int steps = (int)ceilf(dt_s / 0.012f);
-    if (steps < 1) {
-        steps = 1;
+    for (int i = 0; i < CH_COUNT; i++) {
+        mao_spring_step(&m->ch[i], dt);
     }
-    const float h = dt_s / (float)steps;
-    for (int s = 0; s < steps; s++) {
-        for (int i = 0; i < CH_COUNT; i++) {
-            mao_spring_t *sp = &m->ch[i];
-            const float a = s_param[i].k * (m->target[i] - sp->x) - s_param[i].c * sp->v;
-            sp->v += a * h;
-            sp->x += sp->v * h;
-        }
-    }
-
-    m->wobble_phase += dt_s * TWO_PI * 1.6f;
-    if (m->wobble_phase > TWO_PI) {
-        m->wobble_phase -= TWO_PI;
-    }
-    if (m->breathing) {
-        m->breath_phase += dt_s * TWO_PI / 4.5f;
-        if (m->breath_phase > TWO_PI) {
-            m->breath_phase -= TWO_PI;
-        }
-    }
+    /* Two independent wobble phases: the eyes drift apart, not in sync. */
+    m->wobble_phase_l = fmodf(m->wobble_phase_l + dt * TWO_PI * 1.35f, TWO_PI);
+    m->wobble_phase_r = fmodf(m->wobble_phase_r + dt * TWO_PI * 1.95f, TWO_PI);
+    m->breath_phase = fmodf(m->breath_phase + dt * TWO_PI / MAO_SLEEP_BREATH_S, TWO_PI);
 
     if (m->blinking && (int32_t)(now_ms - m->blink_start_ms) >= (int32_t)m->blink_len_ms) {
         if (m->blinks_left > 1) {
             m->blinks_left--;
-            m->blink_start_ms = now_ms + 70;   /* short gap between double blinks */
+            m->blink_start_ms = now_ms + 70;   /* gap inside a double blink */
         } else {
             m->blinking = false;
         }
@@ -115,70 +73,80 @@ static float blink_envelope(const mao_motion_t *m, uint32_t now_ms)
         return 1.0f;
     }
     const float t = (float)(now_ms - m->blink_start_ms) / (float)m->blink_len_ms;
-    /* Close quickly (35 %), reopen more slowly (65 %). */
     if (t < 0.35f) {
-        return 1.0f - t / 0.35f;
+        return 1.0f - t / 0.35f;           /* close fast */
     }
-    if (t < 1.0f) {
-        return (t - 0.35f) / 0.65f;
-    }
-    return 1.0f;
+    return t < 1.0f ? (t - 0.35f) / 0.65f : 1.0f;   /* open slower */
 }
 
-void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, mao_pose_t *out)
+static float clampf(float v, float lo, float hi)
+{
+    return v < lo ? lo : (v > hi ? hi : v);
+}
+
+static uint32_t mix(uint32_t a, uint32_t b, float t)
+{
+    t = clampf(t, 0.0f, 1.0f);
+    uint32_t out = 0;
+    for (int s = 0; s <= 16; s += 8) {
+        const float ca = (float)((a >> s) & 0xFF);
+        const float cb = (float)((b >> s) & 0xFF);
+        out |= (uint32_t)lrintf(ca + (cb - ca) * t) << s;
+    }
+    return out;
+}
+
+void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, mao_pose_t *out)
 {
     float v[CH_COUNT];
     for (int i = 0; i < CH_COUNT; i++) {
         v[i] = m->ch[i].x;
     }
+    const mao_look_t *L = &m->look;
+    const float sleep = clampf(v[CH_SLEEP], 0.0f, 1.0f);
 
-    const uint32_t now_ms = lv_tick_get();
-    float open = v[CH_OPEN] * blink_envelope(m, now_ms);
-    if (open < 0.0f) {
-        open = 0.0f;
-    }
-    float squash = v[CH_SQUASH];
-    if (squash < -0.4f) {
-        squash = -0.4f;
-    }
-    float happy = v[CH_HAPPY];
-    if (happy < 0.0f) {
-        happy = 0.0f;
-    }
+    /* Openness: base x blink x sleep x narrowing. */
+    float open = v[CH_OPEN] * blink_envelope(m, now_ms) * (1.0f - MAO_SLEEP_OPEN_LOSS * sleep);
+    open = open < 0.0f ? 0.0f : open;
+    const float squash = clampf(v[CH_SQUASH], -0.4f, 1.0f);
+    const float narrow = clampf(v[CH_NARROW], 0.0f, 1.0f);
 
-    /* Wide eyes grow a little in width too; squash trades height for width. */
-    const float widen = open > 1.0f ? 1.0f + (open - 1.0f) * 0.5f : 1.0f;
-    float w = EYE_W * widen * (1.0f + 0.30f * squash);
-    float hgt = EYE_H * open * (1.0f - 0.60f * squash);
-    hgt = hgt + (6.0f - hgt) * (happy > 1.0f ? 1.0f : happy);   /* squint towards 6 px */
-    if (hgt < 2.0f) {
-        hgt = 2.0f;                                              /* closed = thin line */
-    }
+    const float widen = open > 1.0f ? 1.0f + (open - 1.0f) * MAO_WIDE_GROW : 1.0f;
+    const float w = L->eye_w * widen * (1.0f + MAO_SQUASH_WIDEN * squash);
+    float h = L->eye_h * open * (1.0f - MAO_SQUASH_FLATTEN * squash) * (1.0f - MAO_NARROW_MAX * narrow);
 
-    /* Face centre: base offset + orbit around the screen centre + away. */
+    /* Face centre: rest + offset + orbit around the screen centre + travel. */
     const float r = v[CH_ORBIT_R];
     const float a = v[CH_ORBIT_A];
     float fx = v[CH_FACE_X] + r * sinf(a);
-    float fy = v[CH_FACE_Y] - r * cosf(a) + v[CH_AWAY_Y] - 3.0f * happy;
-    if (m->breathing) {
-        fy += 1.5f * sinf(m->breath_phase);
-    }
+    float fy = L->rest_y + v[CH_FACE_Y] - r * cosf(a) + v[CH_AWAY] + v[CH_PRESS]
+             + MAO_SLEEP_DROP * sleep + MAO_SLEEP_BREATH * sleep * sinf(m->breath_phase);
 
-    const float wob = v[CH_WOBBLE];
-    const float wx = wob * cosf(m->wobble_phase);
-    const float wy = wob * sinf(m->wobble_phase);
+    /* Lost coordination: each eye drifts on its own phase. */
+    const float wob = clampf(v[CH_WOBBLE], 0.0f, MAO_REV_WOBBLE_MAX);
+    const float wlx = wob * cosf(m->wobble_phase_l), wly = wob * 0.6f * sinf(m->wobble_phase_l);
+    const float wrx = wob * cosf(m->wobble_phase_r + 1.3f), wry = wob * 0.6f * sinf(m->wobble_phase_r);
 
     const float gx = v[CH_GAZE_X];
-    const float gy = v[CH_GAZE_Y];
+    const float gy = v[CH_GAZE_Y] + MAO_SLEEP_GAZE_DOWN * sleep;
+    const float half = L->eye_gap * 0.5f + v[CH_SPREAD];
     const float tilt = v[CH_TILT];
 
-    out->eye_w = w;
-    out->eye_h = hgt;
-    out->left_x = fx + gx - EYE_HALF_GAP - wx;
-    out->left_y = fy + gy - tilt - wy;
-    out->right_x = fx + gx + EYE_HALF_GAP + wx;
-    out->right_y = fy + gy + tilt + wy;
+    out->lx = fx + gx - half + wlx;
+    out->ly = fy + gy - tilt + wly;
+    out->rx = fx + gx + half + wrx;
+    out->ry = fy + gy + tilt + wry;
+    out->lw = out->rw = w;
+    /* When coordination is lost the eyes also disagree slightly in openness. */
+    out->lh = h * (1.0f - 0.04f * wob);
+    out->rh = h * (1.0f - 0.04f * wob * sinf(m->wobble_phase_r));
+    if (out->lh < MAO_EYE_MIN_H) out->lh = MAO_EYE_MIN_H;
+    if (out->rh < MAO_EYE_MIN_H) out->rh = MAO_EYE_MIN_H;
+
     out->mouth = mouth;
-    out->mouth_x = fx + gx * 0.5f;
-    out->mouth_y = fy + gy * 0.5f + MOUTH_DY;
+    out->mx = fx + gx * 0.5f;
+    out->my = fy + gy * 0.5f + L->eye_h * 0.5f + 12.0f;
+
+    uint32_t c = mix(MAO_EYE_COLOR, MAO_TINT_MOVE_COLOR, MAO_TINT_MOVE_MAX * v[CH_TINT_MOVE]);
+    out->color = mix(c, MAO_TINT_WARM_COLOR, MAO_TINT_WARM_MAX * v[CH_TINT_WARM]);
 }

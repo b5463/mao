@@ -21,8 +21,9 @@ static const rgb_t kStateColor[] = {
     [MAO_LED_STATE_BOOTING] = { 0, 0, 6 },   /* dim blue */
 };
 static const rgb_t kPulseColor[] = {
-    [MAO_LED_PULSE_INTERACTION] = { 10, 7, 3 },   /* warm */
-    [MAO_LED_PULSE_NOTICE]      = { 4, 7, 10 },   /* cool */
+    [MAO_LED_PULSE_NOTICE]  = { 3, 6, 12 },   /* cool / cobalt */
+    [MAO_LED_PULSE_CONFIRM] = { 12, 8, 2 },   /* warm / yellow */
+    [MAO_LED_PULSE_ERROR]   = { 14, 1, 1 },   /* red */
 };
 
 static led_strip_handle_t s_strip;
@@ -77,7 +78,7 @@ void mao_led_set_state(mao_led_state_t state)
 
 void mao_led_pulse(mao_led_pulse_t kind)
 {
-    if (!s_strip || kind > MAO_LED_PULSE_NOTICE) {
+    if (!s_strip || kind > MAO_LED_PULSE_ERROR) {
         return;
     }
     show(kPulseColor[kind]);

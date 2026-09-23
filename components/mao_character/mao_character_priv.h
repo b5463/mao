@@ -5,71 +5,85 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "lvgl.h"
+#include "mao_spring.h"
+#include "mao_character_tune.h"
 
-/* ---------------------------------------------------------------------- */
-/* Motion: damped springs driving a small set of pose channels.           */
-/* ---------------------------------------------------------------------- */
-
-typedef struct {
-    float x;   /* position */
-    float v;   /* velocity (units / s) */
-} mao_spring_t;
-
+/* Pose channels, each a spring (see mao_spring.h / mao_character_tune.h). */
 typedef enum {
-    MAO_MOUTH_NONE = 0,
-    MAO_MOUTH_O,       /* small ring: surprise */
-    MAO_MOUTH_FLAT,    /* short bar: dizzy */
-} mao_mouth_t;
-
-/* Channels, each a spring towards a target. Units: pixels unless noted. */
-typedef enum {
-    CH_FACE_X = 0,   /* face offset from screen centre */
+    CH_FACE_X = 0,   /* face offset from its rest position */
     CH_FACE_Y,
-    CH_AWAY_Y,       /* extra offset used to leave / return (menu) */
-    CH_GAZE_X,       /* eyes within the face */
+    CH_GAZE_X,       /* eyes within the face: leads the face */
     CH_GAZE_Y,
-    CH_OPEN,         /* eye openness: 0 closed, 1 normal, >1 wide */
-    CH_SQUASH,       /* 0 none .. 1 fully compressed (press) */
+    CH_OPEN,         /* 0 closed, 1 normal, > 1 wide */
+    CH_SQUASH,       /* 0 none .. 1 compressed (press, fold) */
     CH_TILT,         /* + = right eye lower */
-    CH_HAPPY,        /* 0..1 smiling squint */
+    CH_NARROW,       /* 0..1 soft narrowing (warm acknowledgement) */
     CH_ORBIT_R,      /* orbit radius around the screen centre */
-    CH_ORBIT_A,      /* orbit angle (radians, 0 = top, + = clockwise) */
-    CH_WOBBLE,       /* dizzy wobble amplitude */
+    CH_ORBIT_A,      /* orbit angle, rad, 0 = top, + = clockwise */
+    CH_AWAY,         /* vertical travel out of the circle (view transitions) */
+    CH_PRESS,        /* press depth in px */
+    CH_SPREAD,       /* extra px per eye outward */
+    CH_WOBBLE,       /* loss of eye coordination, px */
+    CH_SLEEP,        /* 0 awake .. 1 sleepy (very slow) */
+    CH_TINT_MOVE,    /* 0..1 cobalt tint */
+    CH_TINT_WARM,    /* 0..1 yellow tint */
     CH_COUNT,
 } mao_channel_t;
 
+typedef enum {
+    MAO_MOUTH_NONE = 0,
+    MAO_MOUTH_O,     /* tiny ring: surprise, only for an instant */
+} mao_mouth_t;
+
 typedef struct {
     mao_spring_t ch[CH_COUNT];
-    float target[CH_COUNT];
+    mao_look_t look;
 
-    /* blink envelope */
     uint32_t blink_start_ms;
     uint16_t blink_len_ms;
     uint8_t blinks_left;
     bool blinking;
 
-    float wobble_phase;   /* radians */
-    float breath_phase;   /* radians */
-    bool breathing;
+    float wobble_phase_l, wobble_phase_r;
+    float breath_phase;
 } mao_motion_t;
 
-/* Final pose handed to the renderer. */
 typedef struct {
-    float left_x, left_y, right_x, right_y;   /* eye centres (px from centre) */
-    float eye_w, eye_h;
-    float mouth_x, mouth_y;
+    float lx, ly, rx, ry;    /* eye centres, px from screen centre */
+    float lw, lh, rw, rh;    /* eye sizes (may differ when coordination is lost) */
+    float mx, my;
     mao_mouth_t mouth;
+    uint32_t color;          /* 0xRRGGBB */
 } mao_pose_t;
 
-void mao_motion_init(mao_motion_t *m);
-void mao_motion_set(mao_motion_t *m, mao_channel_t ch, float target);
-void mao_motion_kick(mao_motion_t *m, mao_channel_t ch, float velocity);
+void mao_motion_init(mao_motion_t *m, const mao_look_t *look);
+static inline void mao_motion_set(mao_motion_t *m, mao_channel_t c, float target) { m->ch[c].target = target; }
+static inline void mao_motion_kick(mao_motion_t *m, mao_channel_t c, float v) { m->ch[c].v += v; }
+static inline float mao_motion_get(const mao_motion_t *m, mao_channel_t c) { return m->ch[c].x; }
+void mao_motion_profile(mao_motion_t *m, mao_channel_t c, mao_spring_profile_t p);
 void mao_motion_blink(mao_motion_t *m, uint32_t now_ms, uint16_t len_ms, uint8_t count);
 void mao_motion_step(mao_motion_t *m, float dt_s, uint32_t now_ms);
-void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, mao_pose_t *out);
+void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, mao_pose_t *out);
 
 /* ---------------------------------------------------------------------- */
-/* Drawing: two eyes + mouth as plain LVGL objects.                       */
+/* Idle behaviour (mao_character_idle.c)                                  */
+/* ---------------------------------------------------------------------- */
+
+typedef struct {
+    float base_x, base_y;      /* resting offset, drifts via repositions */
+    uint32_t next_ms;          /* next idle event */
+    uint32_t glance_until;     /* 0 = no temporary look active */
+} mao_idle_t;
+
+/* Plan the next idle event. after_interaction: longer first pause. */
+void mao_idle_schedule(mao_idle_t *s, uint32_t now_ms, bool sleepy, bool after_interaction);
+/* Run the due event and/or end a temporary glance. Only call at idle priority. */
+void mao_idle_update(mao_idle_t *s, mao_motion_t *m, uint32_t now_ms, bool sleepy);
+/* Yield immediately to anything more important. */
+void mao_idle_cancel(mao_idle_t *s, mao_motion_t *m);
+
+float mao_frand(float lo, float hi);
+
 /* ---------------------------------------------------------------------- */
 
 typedef struct {
@@ -83,9 +97,9 @@ typedef struct {
     mao_box_t last_eye[2];
     mao_box_t last_mouth;
     mao_mouth_t last_mouth_kind;
+    uint32_t last_color;
 } mao_char_draw_t;
 
-/* Parts start hidden. */
 esp_err_t mao_char_draw_create(mao_char_draw_t *d, lv_obj_t *parent);
 void mao_char_draw_apply(mao_char_draw_t *d, const mao_pose_t *pose);
 void mao_char_draw_hide(mao_char_draw_t *d);

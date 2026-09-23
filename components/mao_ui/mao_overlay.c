@@ -1,88 +1,76 @@
 /*
- * Text layers above HOME: the menu shell, placeholder pages and the first
- * encounter prompt. Typography, spacing and motion only: no boxes, icons or
- * selection rectangles.
+ * Text layers above HOME: menu, placeholder page and first encounter.
+ * Typography, spacing and motion only: no boxes, bullets, icons, chevrons,
+ * cards or scrollbars. The selected word IS the interface.
  *
- * The menu is laid out from two floats: `pos` (continuous scroll position, a
- * spring chasing the selected index) and `presence` (0 = gone, 1 = shown).
- * A 30 Hz layout timer runs only while either is moving.
+ * Menu: the words sit on a gentle arc that follows the round edge. Each word
+ * exists in two sizes (NORMAL, LARGE) and cross-fades between them by its
+ * distance from the selection, so the selected word appears to grow as it
+ * arrives, without any bitmap scaling. Scroll position is a spring: every
+ * detent retargets it (deterministic index, continuous motion). Words fade
+ * out as they approach the circular boundary.
  */
 #include <math.h>
 #include "mao_ui_priv.h"
 #include "mao_ui.h"
 
-#define MENU_SPACING      40.0f
-#define MENU_ENTER_DY     26.0f
-#define MENU_TICK_MS      33
-#define MENU_VISIBLE_Y    100       /* rows beyond this are hidden (round screen) */
+/* Layout tuning. */
+#define MENU_SPACING      46.0f    /* px between words */
+#define MENU_ARC          -14.0f   /* px sideways at MENU_ARC_REF from centre */
+#define MENU_ARC_REF      92.0f
+#define MENU_ENTER_DY     74.0f    /* words rise from below MAO's vacated space */
+#define MENU_EDGE_R       104.0f   /* words fade out towards the circle */
+#define MENU_EDGE_FADE    34.0f
+#define MENU_BUMP_V       2.6f     /* elastic resistance at the ends */
+#define PAGE_TITLE_Y      -22.0f
+#define PAGE_NOTE_Y       24.0f
+#define INTRO_WORD_Y      -14.0f
+#define INTRO_PROMPT_Y    26.0f
 
-#define SPRING_K          240.0f
-#define SPRING_C          (2.0f * 0.78f * 15.49f)   /* zeta 0.78, sqrt(240) = 15.49 */
+#define MENU_MAX          8
+
+/* Menu movement sits between SNAP and HEAVY: 120-250 ms per step. */
+#define MENU_POS_PROFILE  ((mao_spring_profile_t){ .k = 260.0f, .zeta = 0.78f })
 
 typedef struct {
-    lv_obj_t *label[8];
+    lv_obj_t *small[MENU_MAX];
+    lv_obj_t *large[MENU_MAX];
+    mao_text_cache_t cs[MENU_MAX], cl[MENU_MAX];
     int count;
-    float pos;          /* continuous selection position */
-    float vel;
-    float target;
-    float presence;
-    int16_t last_y[8];
-    lv_opa_t last_opa[8];
-    lv_timer_t *timer;
-    uint32_t last_ms;
+    mao_spring_t pos;
+    mao_spring_t presence;
+    uint32_t show_at;
+    float show_target;
 } menu_t;
 
 typedef struct {
     lv_obj_t *title;
     lv_obj_t *note;
-    float presence;
-    lv_timer_t *timer;
+    mao_text_cache_t ct, cn;
+    mao_spring_t presence;
 } page_t;
 
 typedef struct {
     lv_obj_t *word;
     lv_obj_t *prompt;
-    float presence;
-    lv_timer_t *timer;
+    mao_text_cache_t cw, cp;
+    mao_spring_t presence;
+    mao_spring_t shift;
 } intro_t;
 
 static menu_t s_menu;
 static page_t s_page;
 static intro_t s_intro;
 
-static lv_obj_t *make_text(lv_obj_t *scr, const lv_font_t *font, uint32_t color, int32_t letter_space)
+static float clampf(float v, float lo, float hi)
 {
-    lv_obj_t *l = lv_label_create(scr);
-    lv_obj_set_style_text_font(l, font, 0);
-    lv_obj_set_style_text_color(l, lv_color_hex(color), 0);
-    lv_obj_set_style_text_letter_space(l, letter_space, 0);
-    lv_obj_set_style_text_opa(l, LV_OPA_TRANSP, 0);
-    lv_obj_set_align(l, LV_ALIGN_CENTER);
-    lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN);
-    return l;
+    return v < lo ? lo : (v > hi ? hi : v);
 }
 
-static void set_text_state(lv_obj_t *o, int16_t y, lv_opa_t opa, int16_t *last_y, lv_opa_t *last_opa)
+static float smooth01(float t)
 {
-    const bool hide = opa < 4;
-    if (hide) {
-        if (*last_opa >= 4) {
-            lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-        }
-        *last_opa = 0;
-        return;
-    }
-    if (*last_opa < 4) {
-        lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
-    }
-    if (y != *last_y) {
-        lv_obj_set_y(o, y);
-        *last_y = y;
-    }
-    if (opa != *last_opa) {
-        lv_obj_set_style_text_opa(o, opa, 0);
-        *last_opa = opa;
-    }
+    t = clampf(t, 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -91,168 +79,146 @@ static void set_text_state(lv_obj_t *o, int16_t y, lv_opa_t opa, int16_t *last_y
 
 static void menu_layout(void)
 {
-    const float p = s_menu.presence;
-    const float spread = 0.45f + 0.55f * p;          /* rows gather to the centre when leaving */
-    const float enter_dy = (1.0f - p) * MENU_ENTER_DY;
+    const float p = clampf(s_menu.presence.x, 0.0f, 1.0f);
+    const float q = clampf(s_page.presence.x, 0.0f, 1.0f);
+    const float context = p * (1.0f - q);           /* neighbours leave when a page opens */
+    const bool handed_over = q > 0.01f;             /* the page title is the selected word */
+    const float enter = (1.0f - p) * MENU_ENTER_DY;
+
     for (int i = 0; i < s_menu.count; i++) {
-        const float d = (float)i - s_menu.pos;
-        const float y = d * MENU_SPACING * spread + enter_dy;
-        /* Selected row full brightness, neighbours recede with distance. */
-        float o = 255.0f - fabsf(d) * 150.0f;
-        if (o < 60.0f) {
-            o = 60.0f;
-        }
-        if (fabsf(y) > MENU_VISIBLE_Y) {
-            o = 0.0f;
-        }
-        set_text_state(s_menu.label[i], (int16_t)lrintf(y), (lv_opa_t)(o * p),
-                       &s_menu.last_y[i], &s_menu.last_opa[i]);
+        const float d = (float)i - s_menu.pos.x;
+        const float ad = fabsf(d);
+        const float sel = 1.0f - smooth01(ad / 0.8f);
+        const float y = d * MENU_SPACING + enter;
+        const float x = MENU_ARC * (y / MENU_ARC_REF) * (y / MENU_ARC_REF);
+        const float edge = clampf((MENU_EDGE_R - fabsf(y)) / MENU_EDGE_FADE, 0.0f, 1.0f);
+        const float falloff = 1.0f - 0.35f * clampf(ad - 1.0f, 0.0f, 2.0f);
+
+        const bool is_selected = lrintf(s_menu.pos.target) == i;
+        const float large = 255.0f * sel * edge * (is_selected ? p * (handed_over ? 0.0f : 1.0f) : context);
+        const float small = MAO_OPA_CONTEXT * (1.0f - sel) * edge * falloff * context;
+        mao_ui_text_place(s_menu.large[i], x, y, large, &s_menu.cl[i]);
+        mao_ui_text_place(s_menu.small[i], x, y, small, &s_menu.cs[i]);
     }
 }
 
-static void menu_tick(lv_timer_t *t)
-{
-    const uint32_t now = lv_tick_get();
-    float dt = (float)(now - s_menu.last_ms) / 1000.0f;
-    s_menu.last_ms = now;
-    if (dt > 0.05f) {
-        dt = 0.05f;
-    }
-    /* Two sub-steps of a damped spring towards the selected index. */
-    for (int k = 0; k < 2; k++) {
-        const float h = dt / 2.0f;
-        const float a = SPRING_K * (s_menu.target - s_menu.pos) - SPRING_C * s_menu.vel;
-        s_menu.vel += a * h;
-        s_menu.pos += s_menu.vel * h;
-    }
-    menu_layout();
-
-    const bool settled = fabsf(s_menu.target - s_menu.pos) < 0.002f && fabsf(s_menu.vel) < 0.01f;
-    if (settled && !mao_ui_anim_running(&s_menu.presence)) {
-        s_menu.pos = s_menu.target;
-        menu_layout();
-        lv_timer_pause(t);
-    }
-}
-
-void mao_overlay_menu(bool show, int index, uint32_t delay_ms)
+void mao_overlay_menu_show(bool show, int index, uint32_t delay_ms)
 {
     if (show) {
-        s_menu.target = (float)index;
-        if (s_menu.presence < 0.01f) {
-            s_menu.pos = (float)index;   /* appear already on the selection */
-            s_menu.vel = 0.0f;
+        s_menu.pos.target = (float)index;
+        if (s_menu.presence.x < 0.01f) {
+            s_menu.pos.x = (float)index;   /* appear already on the selection */
+            s_menu.pos.v = 0.0f;
         }
-        s_menu.last_ms = lv_tick_get();
-        mao_ui_anim_float(&s_menu.presence, 1.0f, MAO_UI_T_ENTER, delay_ms, true, s_menu.timer);
+    }
+    s_menu.show_target = show ? 1.0f : 0.0f;
+    if (delay_ms) {
+        s_menu.show_at = lv_tick_get() + delay_ms;
     } else {
-        mao_ui_anim_float(&s_menu.presence, 0.0f, MAO_UI_T_LEAVE, delay_ms, false, s_menu.timer);
+        s_menu.show_at = 0;
+        s_menu.presence.target = s_menu.show_target;
     }
 }
 
 void mao_overlay_menu_select(int index)
 {
-    s_menu.target = (float)index;
-    s_menu.last_ms = lv_tick_get();
-    lv_timer_resume(s_menu.timer);
+    s_menu.pos.target = (float)index;
 }
 
 void mao_overlay_menu_bump(int direction)
 {
-    /* Elastic nudge past the end; the spring pulls it back. */
-    s_menu.vel += direction > 0 ? 2.2f : -2.2f;
-    s_menu.last_ms = lv_tick_get();
-    lv_timer_resume(s_menu.timer);
+    s_menu.pos.v += direction > 0 ? MENU_BUMP_V : -MENU_BUMP_V;
 }
 
 /* ---------------------------------------------------------------------- */
-/* Placeholder page                                                       */
+/* Placeholder page: the selected word relocates to become its title.     */
 /* ---------------------------------------------------------------------- */
 
-static int16_t s_page_last_y[2];
-static lv_opa_t s_page_last_opa[2];
-
-static void page_tick(lv_timer_t *t)
+static void page_layout(void)
 {
-    const float p = s_page.presence;
-    set_text_state(s_page.title, (int16_t)lrintf(-8.0f + (1.0f - p) * 14.0f), (lv_opa_t)(255.0f * p),
-                   &s_page_last_y[0], &s_page_last_opa[0]);
-    set_text_state(s_page.note, (int16_t)lrintf(26.0f + (1.0f - p) * 8.0f), (lv_opa_t)(150.0f * p),
-                   &s_page_last_y[1], &s_page_last_opa[1]);
-    if (!mao_ui_anim_running(&s_page.presence)) {
-        lv_timer_pause(t);
-    }
+    const float q = clampf(s_page.presence.x, 0.0f, 1.0f);
+    const bool visible = q > 0.01f || s_page.presence.target > 0.5f;
+    mao_ui_text_place(s_page.title, 0.0f, PAGE_TITLE_Y * q, visible ? 255.0f : 0.0f, &s_page.ct);
+    mao_ui_text_place(s_page.note, 0.0f, PAGE_NOTE_Y + 10.0f * (1.0f - q),
+                      MAO_OPA_SECONDARY * smooth01((q - 0.6f) / 0.4f), &s_page.cn);   /* leaves first */
 }
 
-void mao_overlay_placeholder(bool show, const char *title, uint32_t delay_ms)
+void mao_overlay_page_show(bool show, const char *title)
 {
     if (show && title) {
         lv_label_set_text(s_page.title, title);
     }
-    mao_ui_anim_float(&s_page.presence, show ? 1.0f : 0.0f,
-                      show ? MAO_UI_T_ENTER : MAO_UI_T_LEAVE, delay_ms, show, s_page.timer);
+    s_page.presence.target = show ? 1.0f : 0.0f;
 }
 
 /* ---------------------------------------------------------------------- */
 /* First encounter                                                        */
 /* ---------------------------------------------------------------------- */
 
-static int16_t s_intro_last_y[2];
-static lv_opa_t s_intro_last_opa[2];
-
-static void intro_tick(lv_timer_t *t)
+static void intro_layout(uint32_t now)
 {
-    const float p = s_intro.presence;
-    /* "TURN" breathes gently while waiting; everything fades on exit. */
-    const float pulse = 0.55f + 0.45f * (0.5f + 0.5f * sinf((float)lv_tick_get() / 1000.0f * 3.2f));
-    set_text_state(s_intro.word, (int16_t)lrintf(-14.0f - (1.0f - p) * 10.0f), (lv_opa_t)(255.0f * p),
-                   &s_intro_last_y[0], &s_intro_last_opa[0]);
-    set_text_state(s_intro.prompt, 26, (lv_opa_t)(170.0f * p * pulse),
-                   &s_intro_last_y[1], &s_intro_last_opa[1]);
-    if (p < 0.01f && !mao_ui_anim_running(&s_intro.presence)) {
-        lv_timer_pause(t);
-    }
+    const float p = clampf(s_intro.presence.x, 0.0f, 1.0f);
+    /* "TURN" breathes while waiting, and leaves first. */
+    const float pulse = 0.55f + 0.45f * (0.5f + 0.5f * sinf((float)now / 1000.0f * 3.2f));
+    mao_ui_text_place(s_intro.word, s_intro.shift.x, INTRO_WORD_Y, 255.0f * p, &s_intro.cw);
+    mao_ui_text_place(s_intro.prompt, 0.0f, INTRO_PROMPT_Y, 170.0f * p * p * p * pulse, &s_intro.cp);
 }
 
-void mao_overlay_intro(bool show)
+void mao_overlay_intro_exit(int direction)
 {
-    mao_ui_anim_float(&s_intro.presence, show ? 1.0f : 0.0f,
-                      show ? MAO_UI_T_ENTER : MAO_UI_T_LEAVE, 0, show, s_intro.timer);
+    /* The word is pulled towards the turn as it dissolves; MAO appears there. */
+    s_intro.presence.p = MAO_SPRING_SNAP;      /* clear the stage quickly */
+    s_intro.presence.target = 0.0f;
+    s_intro.shift.target = (float)direction * 22.0f;
 }
 
 /* ---------------------------------------------------------------------- */
 
+bool mao_overlay_tick(float dt, uint32_t now)
+{
+    if (s_menu.show_at && (int32_t)(now - s_menu.show_at) >= 0) {
+        s_menu.show_at = 0;
+        s_menu.presence.target = s_menu.show_target;
+    }
+    mao_spring_step(&s_menu.pos, dt);
+    mao_spring_step(&s_menu.presence, dt);
+    mao_spring_step(&s_page.presence, dt);
+    mao_spring_step(&s_intro.presence, dt);
+    mao_spring_step(&s_intro.shift, dt);
+
+    menu_layout();
+    page_layout();
+    intro_layout(now);
+
+    const bool intro_waiting = s_intro.presence.target > 0.5f;
+    return s_menu.show_at != 0 || intro_waiting ||
+           !mao_spring_settled(&s_menu.pos, 0.002f) || !mao_spring_settled(&s_menu.presence, 0.002f) ||
+           !mao_spring_settled(&s_page.presence, 0.002f) || !mao_spring_settled(&s_intro.presence, 0.002f) ||
+           !mao_spring_settled(&s_intro.shift, 0.05f);
+}
+
 void mao_overlay_create(lv_obj_t *scr, bool intro_visible)
 {
-    s_menu.count = mao_ui_menu_count();
+    s_menu.count = mao_ui_menu_count() < MENU_MAX ? mao_ui_menu_count() : MENU_MAX;
     for (int i = 0; i < s_menu.count; i++) {
-        s_menu.label[i] = make_text(scr, &lv_font_montserrat_20, MAO_UI_FG, 3);
-        lv_label_set_text(s_menu.label[i], mao_ui_menu_label(i));
-        s_menu.last_y[i] = INT16_MIN;
+        s_menu.small[i] = mao_ui_make_text(scr, MAO_FONT_NORMAL, MAO_COL_FG, MAO_TRACK_NORMAL, mao_ui_menu_label(i));
+        s_menu.large[i] = mao_ui_make_text(scr, MAO_FONT_LARGE, MAO_COL_FG, MAO_TRACK_LARGE, mao_ui_menu_label(i));
+        mao_ui_text_cache_reset(&s_menu.cs[i]);
+        mao_ui_text_cache_reset(&s_menu.cl[i]);
     }
-    s_menu.timer = lv_timer_create(menu_tick, MENU_TICK_MS, NULL);
-    lv_timer_pause(s_menu.timer);
+    mao_spring_init(&s_menu.pos, 0.0f, MENU_POS_PROFILE);
+    mao_spring_init(&s_menu.presence, 0.0f, MAO_SPRING_HEAVY);
 
-    s_page.title = make_text(scr, &lv_font_montserrat_28, MAO_UI_FG, 4);
-    s_page.note = make_text(scr, &lv_font_montserrat_14, MAO_UI_DIM, 4);
-    lv_label_set_text(s_page.note, "SOON");
-    s_page_last_y[0] = s_page_last_y[1] = INT16_MIN;
-    s_page.timer = lv_timer_create(page_tick, MENU_TICK_MS, NULL);
-    lv_timer_pause(s_page.timer);
+    s_page.title = mao_ui_make_text(scr, MAO_FONT_LARGE, MAO_COL_FG, MAO_TRACK_LARGE, "");
+    s_page.note = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, MAO_TRACK_SMALL, "NOT YET");
+    mao_ui_text_cache_reset(&s_page.ct);
+    mao_ui_text_cache_reset(&s_page.cn);
+    mao_spring_init(&s_page.presence, 0.0f, MAO_SPRING_HEAVY);
 
-    s_intro.word = make_text(scr, &lv_font_montserrat_28, MAO_UI_FG, 6);
-    lv_label_set_text(s_intro.word, "MAO");
-    s_intro.prompt = make_text(scr, &lv_font_montserrat_14, MAO_UI_FG, 5);
-    lv_label_set_text(s_intro.prompt, "TURN");
-    s_intro_last_y[0] = s_intro_last_y[1] = INT16_MIN;
-    /* The waiting pulse is slow; 15 Hz is plenty and halves its render cost. */
-    s_intro.timer = lv_timer_create(intro_tick, 66, NULL);
-    if (intro_visible) {
-        /* Fully visible in the very first frame (no fade-in at boot). */
-        s_intro.presence = 1.0f;
-        intro_tick(s_intro.timer);
-        lv_timer_resume(s_intro.timer);
-    } else {
-        lv_timer_pause(s_intro.timer);
-    }
+    s_intro.word = mao_ui_make_text(scr, MAO_FONT_LARGE, MAO_COL_FG, 8, "MAO");
+    s_intro.prompt = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, MAO_TRACK_SMALL, "TURN");
+    mao_ui_text_cache_reset(&s_intro.cw);
+    mao_ui_text_cache_reset(&s_intro.cp);
+    mao_spring_init(&s_intro.presence, intro_visible ? 1.0f : 0.0f, MAO_SPRING_HEAVY);
+    mao_spring_init(&s_intro.shift, 0.0f, MAO_SPRING_SOFT);
 }
