@@ -85,6 +85,8 @@ static odd_discovery_t s_discovery;
 static volatile bool s_active;
 static volatile bool s_active_changed;
 static uint32_t s_grace_until_ms;
+static volatile uint32_t s_flood_until_ms;
+static uint32_t s_flood_next_ms;
 
 static inline uint32_t now_ms(void)
 {
@@ -497,6 +499,13 @@ static void devices_task(void *arg)
         service_liveness(now);
 
         uint32_t wait_ms = until_discovery < 500 ? until_discovery : 500;
+        if ((int32_t)(s_flood_until_ms - now) > 0) {
+            if ((int32_t)(now - s_flood_next_ms) >= 0) {
+                odd_bus_discover();
+                s_flood_next_ms = now + 20;
+            }
+            wait_ms = wait_ms > 5 ? 5 : wait_ms;
+        }
         if (busy && wait_ms > 5) {
             wait_ms = 5;
         }
@@ -614,6 +623,13 @@ esp_err_t mao_devices_set_value(uint64_t id, uint8_t cap_id, int32_t value)
         wake_task();
     }
     return err;
+}
+
+void mao_devices_debug_flood(uint32_t duration_ms)
+{
+    s_flood_next_ms = now_ms();
+    s_flood_until_ms = now_ms() + duration_ms;
+    wake_task();
 }
 
 void mao_devices_reset_latency(void)

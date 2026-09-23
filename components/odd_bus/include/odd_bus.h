@@ -70,6 +70,9 @@ esp_err_t odd_bus_announce(const uint8_t *dst_mac, uint64_t dst_id);
 
 void odd_bus_get_stats(odd_bus_stats_t *out);
 
+/* Codec self-test (no radio). Returns the number of failed checks. */
+int odd_bus_selftest(void);
+
 /* Discovery pacing helper for controllers. */
 typedef struct {
     uint32_t interval_ms;

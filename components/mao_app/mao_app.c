@@ -10,6 +10,7 @@
 #include "mao_audio.h"
 #include "mao_character.h"
 #include "mao_devices.h"
+#include "odd_bus.h"
 #include "mao_display.h"
 #include "mao_events.h"
 #include "mao_input.h"
@@ -444,10 +445,16 @@ static void on_dev_command(int32_t value, int64_t now)
                  mao_events_dropped());
         mao_system_log_heap(TAG, "status");
         mao_devices_log_status();
+    } else if (value == MAO_DEVCMD_ODD_SELFTEST) {
+        odd_bus_selftest();
+    } else if (value > MAO_DEVCMD_FLOOD_BASE) {
+        const uint32_t seconds = (uint32_t)(value - MAO_DEVCMD_FLOOD_BASE);
+        ESP_LOGI(TAG, "flood: 50 Hz ODD broadcasts for %" PRIu32 " s", seconds);
+        mao_devices_debug_flood(seconds * 1000);
     } else if (value == MAO_DEVCMD_ODD_RESET) {
         mao_devices_reset_latency();
         ESP_LOGI(TAG, "latency statistics reset");
-    } else if (value > MAO_DEVCMD_STRESS_BASE) {
+    } else if (value > MAO_DEVCMD_STRESS_BASE && value < MAO_DEVCMD_FLOOD_BASE) {
         const uint32_t seconds = (uint32_t)(value - MAO_DEVCMD_STRESS_BASE);
         ESP_LOGI(TAG, "stress: continuous character motion for %" PRIu32 " s", seconds);
         wake();

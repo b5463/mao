@@ -89,6 +89,9 @@ void mao_device_controls(const mao_device_t *dev, mao_device_controls_t *out);
 
 void mao_devices_get_stats(mao_devices_stats_t *out);
 void mao_devices_reset_latency(void);
+
+/* Development: broadcast DISCOVER at 50 Hz for the given time (radio load test). */
+void mao_devices_debug_flood(uint32_t duration_ms);
 void mao_devices_log_status(void);
 
 #ifdef __cplusplus

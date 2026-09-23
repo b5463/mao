@@ -52,7 +52,7 @@ static void run_command(char *line)
     }
 
     if (strcmp(cmd, "help") == 0) {
-        ESP_LOGI(TAG, "dev commands: help | status | odd-reset | reset-first-boot | reboot | stress <seconds> | "
+        ESP_LOGI(TAG, "dev commands: help | status | odd-reset | odd-selftest | odd-flood <s> | reset-first-boot | reboot | stress <seconds> | "
                  "key <cw|ccw|press|release|click|double|long> [count]");
     } else if (strcmp(cmd, "key") == 0 && arg) {
         /* Inject a synthetic input event: indistinguishable from the knob for
@@ -88,6 +88,12 @@ static void run_command(char *line)
         ESP_LOGW(TAG, "dev: rebooting");
         vTaskDelay(pdMS_TO_TICKS(100));
         esp_restart();
+    } else if (strcmp(cmd, "odd-selftest") == 0) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_ODD_SELFTEST);
+    } else if (strcmp(cmd, "odd-flood") == 0) {
+        int seconds = arg ? atoi(arg) : 10;
+        seconds = seconds < 1 ? 1 : (seconds > 300 ? 300 : seconds);
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_FLOOD_BASE + seconds);
     } else if (strcmp(cmd, "odd-reset") == 0) {
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_ODD_RESET);
     } else if (strcmp(cmd, "status") == 0) {

@@ -17,6 +17,8 @@ extern "C" {
 typedef enum {
     MAO_DEVCMD_STATUS = 1,
     MAO_DEVCMD_ODD_RESET,            /* reset ODD latency statistics */
+    MAO_DEVCMD_ODD_SELFTEST,         /* ODD BUS codec self-test */
+    MAO_DEVCMD_FLOOD_BASE = 2000,    /* value - base = seconds of 50 Hz broadcast traffic */
     MAO_DEVCMD_STRESS_BASE = 1000,   /* value - base = duration in seconds */
 } mao_devcmd_t;
 
