@@ -1,0 +1,10 @@
+menu "MAO application"
+
+    config MAO_SLEEPY_TIMEOUT_S
+        int "Seconds without input before MAO becomes sleepy"
+        range 10 3600
+        default 45
+        help
+            Purely visual/application idle state; the chip does not sleep.
+
+endmenu

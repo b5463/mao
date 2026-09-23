@@ -1,0 +1,17 @@
+menu "MAO display"
+
+    config MAO_PERF_PROBE
+        bool "Frame performance probe (development)"
+        default y
+        help
+            Measure rendered frames, frame time and render load, and log a
+            summary periodically while the screen is animating. Disable for
+            release builds.
+
+    config MAO_PERF_PERIOD_S
+        int "Performance summary period (seconds)"
+        depends on MAO_PERF_PROBE
+        range 2 120
+        default 10
+
+endmenu

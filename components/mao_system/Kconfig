@@ -1,0 +1,10 @@
+menu "MAO system"
+
+    config MAO_DEV_CONSOLE
+        bool "Development console (serial line commands)"
+        default y
+        help
+            Poll the USB-Serial/JTAG console for development commands such as
+            "mao reset-first-boot" and "mao stress 20". Disable for release.
+
+endmenu

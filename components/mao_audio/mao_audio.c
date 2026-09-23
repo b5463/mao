@@ -1,0 +1,197 @@
+#include "mao_audio.h"
+
+#include <math.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
+#include "driver/i2s_common.h"
+#include "esp_check.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "mao_board.h"
+
+static const char *TAG = "MAO_AUDIO";
+
+#define SAMPLE_RATE_HZ       16000
+#define AUDIO_TASK_STACK     3072
+#define AUDIO_TASK_PRIO      6
+#define AUDIO_QUEUE_LEN      4
+#define CHUNK_FRAMES         160            /* 10 ms per i2s write */
+#define TICK_MIN_GAP_MS      35             /* hard ceiling for tick rate */
+
+/* volume 100 % -> gain 0.58, so the 60 % default equals the M0 level (0.35).
+ * The NS4150 is loud; restraint is deliberate. */
+#define GAIN_AT_FULL_VOLUME  0.58f
+
+#define SINE_LUT_BITS        8
+#define SINE_LUT_SIZE        (1 << SINE_LUT_BITS)
+
+typedef enum {
+    SOUND_TICK,
+    SOUND_NOTICE,
+    SOUND_CONFIRM,
+    SOUND_BACK,
+    SOUND_COUNT,
+} sound_id_t;
+
+/* One tone segment with a linear attack and release (never starts or ends
+ * at non-zero amplitude, so no DC steps / pops). */
+typedef struct {
+    uint16_t freq_hz;
+    uint16_t dur_ms;
+    uint16_t attack_ms;
+    uint16_t release_ms;
+    uint16_t amp_q15;
+} tone_seg_t;
+
+typedef struct {
+    const tone_seg_t *segs;
+    uint8_t count;
+} sound_t;
+
+static const tone_seg_t kTick[] = {
+    { .freq_hz = 2600, .dur_ms = 7,  .attack_ms = 1, .release_ms = 5,  .amp_q15 = 9000 },
+};
+static const tone_seg_t kNotice[] = {
+    { .freq_hz = 1319, .dur_ms = 45, .attack_ms = 2, .release_ms = 32, .amp_q15 = 12000 },
+};
+static const tone_seg_t kConfirm[] = {
+    { .freq_hz = 1047, .dur_ms = 50, .attack_ms = 3, .release_ms = 20, .amp_q15 = 16000 },
+    { .freq_hz = 1568, .dur_ms = 80, .attack_ms = 3, .release_ms = 50, .amp_q15 = 16000 },
+};
+static const tone_seg_t kBack[] = {
+    { .freq_hz = 1568, .dur_ms = 40, .attack_ms = 3, .release_ms = 16, .amp_q15 = 13000 },
+    { .freq_hz = 1047, .dur_ms = 60, .attack_ms = 3, .release_ms = 40, .amp_q15 = 13000 },
+};
+
+#define SOUND(arr) { arr, (uint8_t)(sizeof(arr) / sizeof(arr[0])) }
+static const sound_t kSounds[SOUND_COUNT] = {
+    [SOUND_TICK]    = SOUND(kTick),
+    [SOUND_NOTICE]  = SOUND(kNotice),
+    [SOUND_CONFIRM] = SOUND(kConfirm),
+    [SOUND_BACK]    = SOUND(kBack),
+};
+
+static i2s_chan_handle_t s_tx;
+static QueueHandle_t s_queue;
+static int16_t s_sine[SINE_LUT_SIZE];
+static int16_t s_chunk[CHUNK_FRAMES];
+static int64_t s_last_tick_us;
+static volatile int32_t s_gain_q15 = (int32_t)(0.35f * 32767);
+
+static void render_segment(const tone_seg_t *seg)
+{
+    const uint32_t total = (uint32_t)seg->dur_ms * SAMPLE_RATE_HZ / 1000;
+    const uint32_t attack = (uint32_t)seg->attack_ms * SAMPLE_RATE_HZ / 1000;
+    const uint32_t release = (uint32_t)seg->release_ms * SAMPLE_RATE_HZ / 1000;
+    /* 32-bit phase accumulator; top SINE_LUT_BITS index the table. */
+    const uint32_t phase_inc = (uint32_t)(((uint64_t)seg->freq_hz << 32) / SAMPLE_RATE_HZ);
+    const int32_t gain = s_gain_q15;
+    uint32_t phase = 0;
+
+    uint32_t n = 0;
+    while (n < total) {
+        uint32_t frames = total - n;
+        if (frames > CHUNK_FRAMES) {
+            frames = CHUNK_FRAMES;
+        }
+        for (uint32_t i = 0; i < frames; i++, n++) {
+            int32_t env = seg->amp_q15;
+            if (attack && n < attack) {
+                env = env * (int32_t)n / (int32_t)attack;
+            } else if (release && n >= total - release) {
+                env = env * (int32_t)(total - n) / (int32_t)release;
+            }
+            int32_t s = s_sine[phase >> (32 - SINE_LUT_BITS)];
+            s = (s * env) >> 15;
+            s = (s * gain) >> 15;
+            s_chunk[i] = (int16_t)s;
+            phase += phase_inc;
+        }
+        size_t written = 0;
+        i2s_channel_write(s_tx, s_chunk, frames * sizeof(int16_t), &written, portMAX_DELAY);
+    }
+}
+
+static void audio_task(void *arg)
+{
+    (void)arg;
+    sound_id_t id;
+    for (;;) {
+        if (xQueueReceive(s_queue, &id, portMAX_DELAY) == pdTRUE && id < SOUND_COUNT) {
+            for (uint8_t i = 0; i < kSounds[id].count; i++) {
+                render_segment(&kSounds[id].segs[i]);
+            }
+        }
+    }
+}
+
+esp_err_t mao_audio_init(void)
+{
+    for (int i = 0; i < SINE_LUT_SIZE; i++) {
+        s_sine[i] = (int16_t)lrintf(32767.0f * sinf(2.0f * (float)M_PI * (float)i / SINE_LUT_SIZE));
+    }
+
+    ESP_RETURN_ON_ERROR(mao_board_audio_init(SAMPLE_RATE_HZ, &s_tx), TAG, "board audio");
+    /* The channel stays enabled for the lifetime of the firmware; with
+     * auto_clear the DMA plays silence between sounds. */
+    ESP_RETURN_ON_ERROR(i2s_channel_enable(s_tx), TAG, "enable");
+
+    s_queue = xQueueCreate(AUDIO_QUEUE_LEN, sizeof(sound_id_t));
+    ESP_RETURN_ON_FALSE(s_queue, ESP_ERR_NO_MEM, TAG, "queue");
+    if (xTaskCreate(audio_task, "mao_audio", AUDIO_TASK_STACK, NULL, AUDIO_TASK_PRIO, NULL) != pdPASS) {
+        return ESP_ERR_NO_MEM;
+    }
+    ESP_LOGI(TAG, "tone engine ready: %d Hz mono, %d ms chunks, sounds: tick notice confirm back",
+             SAMPLE_RATE_HZ, CHUNK_FRAMES * 1000 / SAMPLE_RATE_HZ);
+    return ESP_OK;
+}
+
+void mao_audio_set_volume(uint8_t percent)
+{
+    if (percent > 100) {
+        percent = 100;
+    }
+    s_gain_q15 = (int32_t)(GAIN_AT_FULL_VOLUME * 32767.0f * (float)percent / 100.0f);
+}
+
+static void enqueue(sound_id_t id)
+{
+    if (s_queue) {
+        xQueueSend(s_queue, &id, 0);
+    }
+}
+
+void mao_audio_tick(void)
+{
+    if (!s_queue) {
+        return;
+    }
+    const int64_t now = esp_timer_get_time();
+    if (now - s_last_tick_us < TICK_MIN_GAP_MS * 1000) {
+        return;
+    }
+    /* Ticks never queue behind other sounds. */
+    if (uxQueueMessagesWaiting(s_queue) > 0) {
+        return;
+    }
+    const sound_id_t id = SOUND_TICK;
+    if (xQueueSend(s_queue, &id, 0) == pdTRUE) {
+        s_last_tick_us = now;
+    }
+}
+
+void mao_audio_notice(void)
+{
+    enqueue(SOUND_NOTICE);
+}
+
+void mao_audio_confirm(void)
+{
+    enqueue(SOUND_CONFIRM);
+}
+
+void mao_audio_back(void)
+{
+    enqueue(SOUND_BACK);
+}
