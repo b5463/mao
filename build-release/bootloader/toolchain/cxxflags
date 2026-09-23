@@ -1,4 +1,0 @@
-"-specs=C:/Users/AlexanderMoravcik/Desktop/ODD JOBS/MAO 01/mao/build-release/bootloader/specs/picolibc.specs"
--march=rv32imc_zicsr_zifencei
--mtune=esp-base
--fno-rtti
