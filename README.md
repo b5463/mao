@@ -25,8 +25,8 @@ Build profiles layer over `sdkconfig.defaults`:
 
 | Profile | Command | Output | Differences |
 |---|---|---|---|
-| dev (default) | `.	ools\idf.ps1 build` | `build/` | dev console, perf probe, INFO logs |
-| release | `.	ools\idf.ps1 release build` | `build-release/` | no console/probe, WARN logs |
+| dev (default) | `.\tools\idf.ps1 build` | `build/` | dev console, perf probe, INFO logs |
+| release | `.\tools\idf.ps1 release build` | `build-release/` | no console/probe, WARN logs |
 
 ## Layout
 
