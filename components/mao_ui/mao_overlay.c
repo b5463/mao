@@ -18,7 +18,8 @@
 #define MENU_SPACING      46.0f    /* px between words */
 #define MENU_ARC          -14.0f   /* px sideways at MENU_ARC_REF from centre */
 #define MENU_ARC_REF      92.0f
-#define MENU_ENTER_DY     74.0f    /* words rise from below MAO's vacated space */
+#define MENU_ENTER_DY     10.0f    /* words open outward from the centre, rising slightly */
+#define MENU_ENTER_SPREAD 0.40f    /* row spacing at the start of the entrance */
 #define MENU_EDGE_R       104.0f   /* words fade out towards the circle */
 #define MENU_EDGE_FADE    34.0f
 #define MENU_BUMP_V       2.6f     /* elastic resistance at the ends */
@@ -84,12 +85,13 @@ static void menu_layout(void)
     const float context = p * (1.0f - q);           /* neighbours leave when a page opens */
     const bool handed_over = q > 0.01f;             /* the page title is the selected word */
     const float enter = (1.0f - p) * MENU_ENTER_DY;
+    const float spread = MENU_ENTER_SPREAD + (1.0f - MENU_ENTER_SPREAD) * p;
 
     for (int i = 0; i < s_menu.count; i++) {
         const float d = (float)i - s_menu.pos.x;
         const float ad = fabsf(d);
         const float sel = 1.0f - smooth01(ad / 0.8f);
-        const float y = d * MENU_SPACING + enter;
+        const float y = d * MENU_SPACING * spread + enter;
         const float x = MENU_ARC * (y / MENU_ARC_REF) * (y / MENU_ARC_REF);
         const float edge = clampf((MENU_EDGE_R - fabsf(y)) / MENU_EDGE_FADE, 0.0f, 1.0f);
         const float falloff = 1.0f - 0.35f * clampf(ad - 1.0f, 0.0f, 2.0f);
@@ -112,6 +114,8 @@ void mao_overlay_menu_show(bool show, int index, uint32_t delay_ms)
         }
     }
     s_menu.show_target = show ? 1.0f : 0.0f;
+    /* Arrive with weight; leave quickly so MAO can return into a clear space. */
+    s_menu.presence.p = show ? MAO_SPRING_HEAVY : MAO_SPRING_SNAP;
     if (delay_ms) {
         s_menu.show_at = lv_tick_get() + delay_ms;
     } else {

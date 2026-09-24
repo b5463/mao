@@ -10,9 +10,17 @@
  * the eyes keep looking a moment longer. Direction reversals add to a
  * decaying "disturbance": each one kicks the face sideways (harder as it
  * accumulates) and above a level the eyes lose coordination.
+ *
+ * On top of all this runs the Lark-style expression layer (mao_lark.c):
+ * authored states chosen by a small mood model, blended additively and
+ * weighted down while the user is interacting; and the inner life
+ * (mao_life.c): drives and impulses that make MAO act on its own, real
+ * saccades, cat mode, and reactions to people that depend on its mood.
  */
 #include "mao_character.h"
 #include "mao_character_priv.h"
+#include "mao_lark.h"
+#include "mao_life.h"
 
 #include <math.h>
 #include "freertos/FreeRTOS.h"
@@ -30,7 +38,7 @@ typedef enum { PRIO_IDLE = 0, PRIO_SYSTEM, PRIO_DIAL, PRIO_PRESS, PRIO_NAV } pri
 
 typedef enum {
     CMD_DIAL, CMD_PRESS, CMD_REACT, CMD_APPEAR, CMD_SLEEPY, CMD_LEAVE, CMD_RETURN,
-    CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK,
+    CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION,
 } cmd_type_t;
 
 typedef struct {
@@ -48,6 +56,9 @@ static QueueHandle_t s_cmds;
 static mao_motion_t s_m;
 static mao_char_draw_t s_draw;
 static mao_idle_t s_idle;
+static mao_lark_t s_lark;
+static mao_life_t s_life;
+static bool s_dizzy_noted;
 static uint32_t s_last_tick_ms;
 static volatile mao_character_state_t s_state = MAO_CHAR_IDLE;
 static volatile uint8_t s_detents_per_rev = (uint8_t)MAO_DETENTS_PER_REV;
@@ -77,6 +88,7 @@ static uint32_t s_warm_tint_until;
 static uint32_t s_wide_until;
 static uint32_t s_leave_drop_at;    /* leave: when the drop starts */
 static uint32_t s_away_until;       /* away/transition in progress */
+static uint32_t s_last_input_ms;    /* dial or press, for the curiosity spark */
 
 /* Development */
 static uint32_t s_dbg_dial_until;
@@ -184,6 +196,7 @@ static void wake(uint32_t now)
 {
     if (s_sleepy) {
         s_sleepy = false;
+        mao_life_event(&s_life, &s_lark, LIFE_EV_WOKEN, now);
         /* Waking is fast: swap the slow sleep spring for a quick one. */
         mao_motion_profile(&s_m, CH_SLEEP, (mao_spring_profile_t){ .k = 300.0f, .zeta = 0.9f });
         mao_motion_set(&s_m, CH_SLEEP, 0.0f);
@@ -198,12 +211,23 @@ static void on_dial(int32_t n, uint32_t now)
         return;
     }
     wake(now);
+    if (!s_last_input_ms || now - s_last_input_ms > (uint32_t)(MAO_SPARK_AFTER_S * 1000.0f)) {
+        /* Something interesting: a brief keen widening before following. */
+        mao_motion_set(&s_m, CH_OPEN, MAO_SPARK_OPEN);
+        s_wide_until = now + (uint32_t)(MAO_SPARK_S * 1000.0f);
+        mao_life_event(&s_life, &s_lark, LIFE_EV_FIRST_TOUCH, now);
+    }
+    s_last_input_ms = now;
+    mao_lark_event(&s_lark, LARK_EV_INPUT, now);
+    mao_life_event(&s_life, &s_lark, LIFE_EV_INPUT, now);
     const int sign = n > 0 ? 1 : -1;
     if (s_last_sign && sign != s_last_sign &&
         (now - s_last_detent_ms) < (uint32_t)(MAO_REV_WINDOW_S * 1000.0f)) {
         /* Reversal: momentum jerks the face on in the old direction while the
          * eyes (fast spring) already look the new way. Accumulates. */
         s_disturb += 1.0f;
+        mao_lark_event(&s_lark, LARK_EV_REVERSAL, now);
+        mao_life_event(&s_life, &s_lark, LIFE_EV_REVERSAL, now);
         mao_motion_kick(&s_m, CH_FACE_X, (float)s_last_sign * MAO_REV_KICK * (1.0f + s_disturb));
     }
     s_last_sign = sign;
@@ -217,6 +241,16 @@ static void on_press(bool down, uint32_t now)
         return;
     }
     wake(now);
+    if (down && (!s_last_input_ms || now - s_last_input_ms > (uint32_t)(MAO_SPARK_AFTER_S * 1000.0f))) {
+        mao_life_event(&s_life, &s_lark, LIFE_EV_FIRST_TOUCH, now);
+    }
+    s_last_input_ms = now;
+    mao_lark_event(&s_lark, LARK_EV_INPUT, now);
+    mao_life_event(&s_life, &s_lark, LIFE_EV_INPUT, now);
+    if (down) {
+        mao_lark_event(&s_lark, LARK_EV_PRESS, now);
+        mao_life_event(&s_life, &s_lark, LIFE_EV_TOUCH, now);
+    }
     s_pressed = down;
     mao_motion_set(&s_m, CH_PRESS, down ? MAO_PRESS_DROP : 0.0f);
     mao_motion_set(&s_m, CH_SPREAD, down ? MAO_PRESS_SPREAD : 0.0f);
@@ -246,6 +280,8 @@ static void react(mao_character_reaction_t r, uint32_t now)
         mao_motion_kick(&s_m, CH_FACE_Y, -18.0f);
         s_warm_until = now + (uint32_t)(MAO_WARM_S * 1000.0f);
         s_warm_tint_until = now + (uint32_t)(MAO_WARM_TINT_S * 1000.0f);
+        mao_lark_event(&s_lark, LARK_EV_WARM, now);
+        mao_life_event(&s_life, &s_lark, LIFE_EV_WARM, now);
         return;
     }
     /* System reactions yield to anything the user is doing. */
@@ -305,11 +341,13 @@ static void come_back(uint32_t now)
     s_mouth = MAO_MOUTH_NONE;
     s_leave_drop_at = 0;
     mao_motion_set(&s_m, CH_AWAY, 0.0f);
+    mao_motion_set(&s_m, CH_CLOSE, 0.0f);
     mao_motion_set(&s_m, CH_SQUASH, s_pressed ? MAO_PRESS_SQUASH : 0.0f);
     mao_motion_set(&s_m, CH_SPREAD, 0.0f);
     mao_motion_set(&s_m, CH_OPEN, 1.0f);
     s_away_until = now + 350;
     mao_idle_schedule(&s_idle, now, s_sleepy, true);
+    mao_lark_event(&s_lark, LARK_EV_RETURN, now);
 }
 
 static void set_sleepy(bool sleepy, uint32_t now)
@@ -349,6 +387,13 @@ static void dial_update(float dt, uint32_t now)
     const bool engaged = dial_engaged(now) || i > 0.05f;
     const float wob = clampf((s_disturb - MAO_REV_WOBBLE_START) * MAO_REV_WOBBLE_GAIN, 0.0f, MAO_REV_WOBBLE_MAX);
     mao_motion_set(&s_m, CH_WOBBLE, wob);
+    if (s_disturb >= MAO_REV_DIZZY && !s_dizzy_noted) {
+        s_dizzy_noted = true;   /* the dizzy expression plays once the dial stops */
+        mao_lark_event(&s_lark, LARK_EV_DIZZY, now);
+        mao_life_event(&s_life, &s_lark, LIFE_EV_DIZZY, now);
+    } else if (s_disturb < 1.0f) {
+        s_dizzy_noted = false;
+    }
 
     if (!s_present) {
         return;
@@ -365,7 +410,9 @@ static void dial_update(float dt, uint32_t now)
         mao_motion_set(&s_m, CH_TILT, dir * (MAO_TILT_MAX * s * lat + lean));
         mao_motion_set(&s_m, CH_SQUASH, (s_pressed ? MAO_PRESS_SQUASH : 0.0f) - MAO_MOTION_STRETCH * i);
         mao_motion_set(&s_m, CH_TINT_MOVE, o);
-        mao_motion_set(&s_m, CH_OPEN, before(now, s_wide_until) ? MAO_NOTICE_OPEN : 1.0f - 0.06f * wob);
+        if (!before(now, s_wide_until)) {
+            mao_motion_set(&s_m, CH_OPEN, 1.0f - 0.06f * wob);
+        }
 
         if (o > 0.01f) {
             if (!s_orbiting) {
@@ -382,6 +429,9 @@ static void dial_update(float dt, uint32_t now)
             /* Follow the knob's real angle (the spring adds a slight lag). */
             s_orbit_target += (float)n * TWO_PI_F / (float)s_detents_per_rev;
             mao_motion_set(&s_m, CH_ORBIT_A, s_orbit_target);
+            if (o > 0.5f) {
+                mao_lark_event(&s_lark, LARK_EV_FAST, now);
+            }
             mao_motion_set(&s_m, CH_ORBIT_R, o * MAO_ORBIT_RADIUS +
                            smoothstep(MAO_ORBIT_RIM_START, 1.0f, i) * MAO_ORBIT_RIM_EXTRA);
         } else {
@@ -431,6 +481,7 @@ static void apply(const cmd_t *c, uint32_t now)
     case CMD_PREVIEW:    preview((mao_character_preview_t)c->arg, now); break;
     case CMD_DEBUG_DIAL: s_dbg_dps = c->f; s_dbg_acc = 0.0f; s_dbg_dial_until = now + (uint32_t)c->value; break;
     case CMD_LOOK:       s_m.look = kLooks[c->arg]; ESP_LOGI(TAG, "look '%s'", kLooks[c->arg].name); break;
+    case CMD_EXPRESSION: mao_lark_switch(&s_lark, c->arg, now); break;
     default: break;
     }
 }
@@ -453,7 +504,7 @@ static void timed_reactions(uint32_t now)
     }
     if (s_warm_until && !before(now, s_warm_until)) {
         s_warm_until = 0;
-        mao_motion_set(&s_m, CH_NARROW, 0.0f);
+        mao_motion_set(&s_m, CH_NARROW, MAO_REST_NARROW);
         mao_motion_set(&s_m, CH_FACE_Y, s_idle.base_y);
     }
     if (s_leave_drop_at && !before(now, s_leave_drop_at) && !s_present) {
@@ -462,7 +513,8 @@ static void timed_reactions(uint32_t now)
         s_mouth = MAO_MOUTH_NONE;
         mao_motion_set(&s_m, CH_AWAY, MAO_LEAVE_Y);
         mao_motion_set(&s_m, CH_SQUASH, MAO_LEAVE_SQUASH);
-        mao_motion_set(&s_m, CH_OPEN, 0.9f);
+        mao_motion_set(&s_m, CH_OPEN, MAO_LEAVE_OPEN);
+        mao_motion_set(&s_m, CH_CLOSE, 1.0f);   /* pupil looks: crescents as it drops */
         mao_motion_set(&s_m, CH_SPREAD, 0.0f);
     }
     if (s_dbg_release_at && !before(now, s_dbg_release_at)) {
@@ -506,11 +558,25 @@ static void tick_cb(lv_timer_t *t)
     }
     update_state(now);
 
+    /* Expression layer: full in idle, faint while the user is in charge. */
+    static const float kLayerGain[] = { [PRIO_IDLE] = 1.0f, [PRIO_SYSTEM] = 0.5f, [PRIO_DIAL] = 0.25f,
+                                        [PRIO_PRESS] = 0.45f, [PRIO_NAV] = 0.0f };
+    const prio_t prio = current_prio(now);
+    mao_lark_update(&s_lark, now, s_visible && prio == PRIO_IDLE, s_sleepy, kLayerGain[prio], s_m.layer);
+    float life[CH_COUNT] = { 0 };
+    mao_life_update(&s_life, &s_lark, &s_m, now, s_visible && prio == PRIO_IDLE, s_sleepy, life);
+    if (prio != PRIO_NAV) {
+        for (int i = 0; i < CH_COUNT; i++) {
+            s_m.layer[i] += life[i];
+        }
+    }
+
     mao_motion_step(&s_m, dt, now);
     if (s_visible) {
         mao_pose_t pose;
         mao_motion_pose(&s_m, s_mouth, now, &pose);
         mao_char_draw_apply(&s_draw, &pose);
+        mao_char_draw_star(&s_draw, &pose);
     }
 }
 
@@ -566,6 +632,8 @@ esp_err_t mao_character_create(lv_obj_t *parent)
         return ESP_ERR_NO_MEM;
     }
     mao_motion_init(&s_m, &kLooks[MAO_LOOK_DEFAULT]);
+    mao_lark_init(&s_lark, lv_tick_get());
+    mao_life_init(&s_life, lv_tick_get());
     esp_err_t err = mao_char_draw_create(&s_draw, parent);
     if (err != ESP_OK) {
         return err;
@@ -618,4 +686,23 @@ bool mao_character_debug_look(int index)
     }
     post((cmd_t){ .type = CMD_LOOK, .arg = (int8_t)index });
     return true;
+}
+
+bool mao_character_debug_expression(int index)
+{
+    if (index < 0 || index >= mao_lark_state_count()) {
+        return false;
+    }
+    post((cmd_t){ .type = CMD_EXPRESSION, .arg = (int8_t)index });
+    return true;
+}
+
+int mao_character_expression_count(void)
+{
+    return mao_lark_state_count();
+}
+
+const char *mao_character_expression_name(int index)
+{
+    return index >= 0 && index < mao_lark_state_count() ? mao_lark_state(index)->name : "?";
 }

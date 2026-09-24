@@ -2,9 +2,10 @@
  * MAO UI core: view choreography, the shared motion tick and text helpers.
  *
  * Choreography (the character moves itself; see mao_character):
- *   HOME -> MENU   MAO widens, drops and folds out of the circle; the menu
- *                  words rise into the space it vacated (starting ~110 ms in).
- *   MENU -> HOME   the words sink away while MAO rises back into place.
+ *   HOME -> MENU   MAO widens, then drops and closes to lines as it folds out
+ *                  of the circle; only then do the words open outward from
+ *                  the centre (~210 ms in). The two never cross.
+ *   MENU -> HOME   the words collapse quickly, then MAO rises back (~150 ms).
  *   MENU -> PAGE   the selected word itself relocates upward to become the
  *                  page title; the neighbouring words fade out.
  *   PAGE -> MENU   the title slides back into its list position.
@@ -21,8 +22,8 @@
 static const char *TAG = "MAO_UI";
 
 #define UI_TICK_MS        33
-#define MENU_ENTER_DELAY  110    /* words start rising once MAO has begun to drop */
-#define HOME_RETURN_DELAY 40
+#define MENU_ENTER_DELAY  210    /* words appear only once MAO has dropped out of the centre */
+#define HOME_RETURN_DELAY 150    /* MAO rises only once the words have collapsed */
 
 static const char *const kMenuItems[] = { "DEVICES", "ACTIONS", "TOOLS", "SETUP" };
 #define MENU_COUNT ((int)(sizeof(kMenuItems) / sizeof(kMenuItems[0])))

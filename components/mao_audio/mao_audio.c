@@ -17,6 +17,13 @@ static const char *TAG = "MAO_AUDIO";
 #define AUDIO_TASK_PRIO      6
 #define AUDIO_QUEUE_LEN      4
 #define CHUNK_FRAMES         160            /* 10 ms per i2s write */
+/* The line idles at the bottom of the PDM range: an almost static signal.
+ * PDM silence at mid scale is a dense bit pattern that the NS4150 (no
+ * enable pin) turns into an audible ring, and stopping / starting the
+ * stream cracks. So the stream never stops, idles at this floor, and every
+ * sound rides up from it inside its own soft envelope. */
+#define FLOOR                (-32768)       /* the very bottom: no PDM pulses at all */
+#define BOOT_RAMP_MS         600            /* mid scale -> floor, once, at start */
 #define TICK_MIN_GAP_MS      35             /* hard ceiling for tick rate */
 
 /* volume 100 % -> gain 0.58, so the 60 % default equals the M0 level (0.35).
@@ -53,7 +60,8 @@ typedef struct {
 } sound_t;
 
 static const tone_seg_t kTick[] = {
-    { .freq_hz = 2600, .dur_ms = 7,  .attack_ms = 1, .release_ms = 5,  .amp_q15 = 9000 },
+    /* A rounder tick: lower, with soft edges (a 1 ms attack cracks). */
+    { .freq_hz = 1850, .dur_ms = 10, .attack_ms = 3, .release_ms = 7,  .amp_q15 = 7500 },
 };
 /* Touch: a low, soft contact. Release: a slightly higher lift. */
 static const tone_seg_t kTouch[] = {
@@ -125,9 +133,9 @@ static void render_segment(const tone_seg_t *seg, uint8_t level)
             } else if (release && n >= total - release) {
                 env = env * (int32_t)(total - n) / (int32_t)release;
             }
-            int32_t s = s_sine[phase >> (32 - SINE_LUT_BITS)];
-            s = (s * env) >> 15;
-            s = (s * gain) >> 15;
+            /* Peak amplitude a, riding on the floor: floor .. floor + 2a. */
+            const int32_t a = (env * gain) >> 15;
+            const int32_t s = FLOOR + a + ((s_sine[phase >> (32 - SINE_LUT_BITS)] * a) >> 15);
             s_chunk[i] = (int16_t)s;
             phase += phase_inc;
         }
@@ -136,12 +144,37 @@ static void render_segment(const tone_seg_t *seg, uint8_t level)
     }
 }
 
+static void write_chunk(uint32_t frames)
+{
+    size_t written = 0;
+    i2s_channel_write(s_tx, s_chunk, frames * sizeof(int16_t), &written, portMAX_DELAY);
+}
+
 static void audio_task(void *arg)
 {
     (void)arg;
+    /* Once: glide from mid scale (where the stream starts) down to the floor. */
+    const uint32_t ramp = BOOT_RAMP_MS * SAMPLE_RATE_HZ / 1000;
+    for (uint32_t n = 0; n < ramp;) {
+        uint32_t i = 0;
+        for (; i < CHUNK_FRAMES && n < ramp; i++, n++) {
+            const float u = 0.5f - 0.5f * cosf((float)M_PI * (float)n / (float)ramp);
+            s_chunk[i] = (int16_t)(FLOOR * u);
+        }
+        write_chunk(i);
+    }
     play_t p;
     for (;;) {
-        if (xQueueReceive(s_queue, &p, portMAX_DELAY) == pdTRUE && p.id < SOUND_COUNT) {
+        /* Keep the DMA fed with the floor: if it ever ran dry it would play
+         * mid-scale zeros, a jump the speaker hears. */
+        if (xQueueReceive(s_queue, &p, 0) != pdTRUE) {
+            for (int i = 0; i < CHUNK_FRAMES; i++) {
+                s_chunk[i] = FLOOR;
+            }
+            write_chunk(CHUNK_FRAMES);
+            continue;
+        }
+        if (p.id < SOUND_COUNT) {
             for (uint8_t i = 0; i < kSounds[p.id].count; i++) {
                 render_segment(&kSounds[p.id].segs[i], p.level);
             }
@@ -156,8 +189,8 @@ esp_err_t mao_audio_init(void)
     }
 
     ESP_RETURN_ON_ERROR(mao_board_audio_init(SAMPLE_RATE_HZ, &s_tx), TAG, "board audio");
-    /* The channel stays enabled for the lifetime of the firmware; with
-     * auto_clear the DMA plays silence between sounds. */
+    /* The channel stays enabled for the lifetime of the firmware and the
+     * task keeps it fed with the idle floor between sounds. */
     ESP_RETURN_ON_ERROR(i2s_channel_enable(s_tx), TAG, "enable");
 
     s_queue = xQueueCreate(AUDIO_QUEUE_LEN, sizeof(play_t));

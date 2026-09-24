@@ -248,6 +248,17 @@ static void on_dev_command(int32_t value, int64_t now)
         go_view(MAO_VIEW_HOME);
         mao_character_debug_dial(dps, seconds * 1000);
         mao_system_idle_kick(seconds * 1000 + SLEEPY_TIMEOUT_MS);
+    } else if (value >= MAO_DEVCMD_EXPR_BASE) {
+        const int idx = value - MAO_DEVCMD_EXPR_BASE;
+        wake();
+        mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
+        if (!mao_character_debug_expression(idx)) {
+            for (int i = 0; i < mao_character_expression_count(); i++) {
+                ESP_LOGI(TAG, "dev: state %d = %s", i, mao_character_expression_name(i));
+            }
+        } else {
+            ESP_LOGI(TAG, "dev: state %s", mao_character_expression_name(idx));
+        }
     } else if (value >= MAO_DEVCMD_LOOK_BASE) {
         if (!mao_character_debug_look(value - MAO_DEVCMD_LOOK_BASE)) {
             ESP_LOGW(TAG, "dev: look 0..%d", mao_character_look_count() - 1);
@@ -260,6 +271,7 @@ static void on_dev_command(int32_t value, int64_t now)
         go_view(v);
     } else if (value >= MAO_DEVCMD_ANIM_BASE) {
         const mao_character_preview_t p = (mao_character_preview_t)(value - MAO_DEVCMD_ANIM_BASE);
+        wake();   /* previews show the awake character */
         go_view(MAO_VIEW_HOME);
         mao_character_debug_preview(p);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);

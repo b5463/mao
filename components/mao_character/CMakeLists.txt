@@ -1,6 +1,8 @@
 idf_component_register(
     SRCS "mao_character.c" "mao_character_draw.c" "mao_character_motion.c" "mao_character_idle.c"
+         "mao_lark.c" "mao_lark_gen.c" "mao_lark_library.c" "mao_lark_states_daily.c" "mao_lark_states_moods.c"
+         "mao_lark_states_life.c" "mao_lark_states_cat.c" "mao_lark_states_more.c" "mao_life.c" "mao_life_improv.c"
     INCLUDE_DIRS "include"
     REQUIRES lvgl
-    PRIV_REQUIRES esp_hw_support
+    PRIV_REQUIRES esp_hw_support log
 )

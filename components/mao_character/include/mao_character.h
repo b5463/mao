@@ -97,6 +97,10 @@ const char *mao_character_preview_name(mao_character_preview_t preview);
 void mao_character_debug_dial(float detents_per_s, uint32_t duration_ms);
 bool mao_character_debug_look(int index);
 int mao_character_look_count(void);
+/* Lark-style expression states (mao_lark_states.c). */
+bool mao_character_debug_expression(int index);
+int mao_character_expression_count(void);
+const char *mao_character_expression_name(int index);
 
 #ifdef __cplusplus
 }

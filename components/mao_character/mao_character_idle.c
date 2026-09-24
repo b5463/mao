@@ -45,25 +45,26 @@ static void look(mao_idle_t *s, mao_motion_t *m, float gx, float gy, float face_
 static void run_awake_event(mao_idle_t *s, mao_motion_t *m, uint32_t now)
 {
     enum { TOTAL = MAO_W_BLINK + MAO_W_GLANCE_SMALL + MAO_W_MICRO + MAO_W_GLANCE_LONG +
-                   MAO_W_REPOSITION + MAO_W_DOUBLE_BLINK + MAO_W_EDGE + MAO_W_HOP };
+                   MAO_W_REPOSITION + MAO_W_DOUBLE_BLINK + MAO_W_EDGE + MAO_W_HOP + MAO_W_INSPECT };
+    const float A = MAO_IDLE_AMP;
     int r = (int)(esp_random() % TOTAL);
 
     if ((r -= MAO_W_BLINK) < 0) {
         mao_motion_blink(m, now, (uint16_t)(MAO_BLINK_S * 1000.0f), 1);
     } else if ((r -= MAO_W_GLANCE_SMALL) < 0) {
         /* Barely there: a couple of pixels, back soon. */
-        look(s, m, rsign() * mao_frand(2.0f, 4.0f), mao_frand(-2.0f, 2.0f), 0.0f, mao_frand(0.5f, 1.1f), now);
+        look(s, m, rsign() * mao_frand(2.0f, 4.0f) * A, mao_frand(-2.0f, 2.0f) * A, 0.0f, mao_frand(0.5f, 1.1f), now);
     } else if ((r -= MAO_W_MICRO) < 0) {
         /* The whole face settles by a pixel: almost subliminal. */
         s->base_x += rsign();
         s->base_x = s->base_x > 6.0f ? 6.0f : (s->base_x < -6.0f ? -6.0f : s->base_x);
         mao_motion_set(m, CH_FACE_X, s->base_x);
     } else if ((r -= MAO_W_GLANCE_LONG) < 0) {
-        look(s, m, rsign() * mao_frand(6.0f, 9.0f), mao_frand(-3.0f, 3.0f), rsign() * 2.0f,
+        look(s, m, rsign() * mao_frand(6.0f, 9.0f) * A, mao_frand(-3.0f, 3.0f) * A, rsign() * 3.0f,
              mao_frand(1.2f, 2.2f), now);
     } else if ((r -= MAO_W_REPOSITION) < 0) {
-        s->base_x = mao_frand(-5.0f, 5.0f);
-        s->base_y = mao_frand(-3.0f, 3.0f);
+        s->base_x = mao_frand(-5.0f, 5.0f) * A;
+        s->base_y = mao_frand(-3.0f, 3.0f) * A;
         mao_motion_set(m, CH_FACE_X, s->base_x);
         mao_motion_set(m, CH_FACE_Y, s->base_y);
     } else if ((r -= MAO_W_DOUBLE_BLINK) < 0) {
@@ -71,9 +72,16 @@ static void run_awake_event(mao_idle_t *s, mao_motion_t *m, uint32_t now)
     } else if ((r -= MAO_W_EDGE) < 0) {
         /* Inspect the rim of the circle. */
         const float side = rsign();
-        look(s, m, 11.0f * side, mao_frand(-4.0f, 2.0f), 8.0f * side, 0.9f, now);
+        look(s, m, 14.0f * side, mao_frand(-4.0f, 2.0f), 11.0f * side, 0.9f, now);
+    } else if ((r -= MAO_W_HOP) < 0) {
+        mao_motion_kick(m, CH_FACE_Y, -36.0f);   /* tiny hop */
     } else {
-        mao_motion_kick(m, CH_FACE_Y, -26.0f);   /* tiny hop */
+        /* Maomao's inspection: lean towards the rim, one eye narrowed,
+         * as if examining something suspicious. */
+        const float side = rsign();
+        look(s, m, 12.0f * side, -2.0f, 14.0f * side, mao_frand(1.1f, 1.8f), now);
+        mao_motion_set(m, CH_SQUINT, side > 0 ? -0.5f : 0.5f);   /* narrow the eye nearer the rim */
+        mao_motion_set(m, CH_TILT, side * 2.5f);
     }
 }
 
@@ -96,6 +104,8 @@ void mao_idle_update(mao_idle_t *s, mao_motion_t *m, uint32_t now, bool sleepy)
         mao_motion_set(m, CH_GAZE_X, 0.0f);
         mao_motion_set(m, CH_GAZE_Y, 0.0f);
         mao_motion_set(m, CH_FACE_X, s->base_x);
+        mao_motion_set(m, CH_SQUINT, 0.0f);
+        mao_motion_set(m, CH_TILT, 0.0f);
     }
     if ((int32_t)(now - s->next_ms) >= 0) {
         if (sleepy) {
@@ -114,5 +124,6 @@ void mao_idle_cancel(mao_idle_t *s, mao_motion_t *m)
         mao_motion_set(m, CH_GAZE_X, 0.0f);
         mao_motion_set(m, CH_GAZE_Y, 0.0f);
     }
+    mao_motion_set(m, CH_SQUINT, 0.0f);
     m->blinking = false;   /* a blink in progress must not hide a reaction */
 }
