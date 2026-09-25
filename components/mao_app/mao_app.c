@@ -518,6 +518,8 @@ static void on_dev_command(int32_t value, int64_t now)
                  mao_events_dropped());
         mao_system_log_heap(TAG, "status");
         mao_devices_log_status();
+    } else if (value == MAO_DEVCMD_PERF_BURST) {
+        mao_display_perf_burst(3000);
     } else if (value == MAO_DEVCMD_ODD_SELFTEST) {
         odd_bus_selftest();
     } else if (value == MAO_DEVCMD_ODD_RESET) {

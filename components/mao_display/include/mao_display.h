@@ -35,6 +35,10 @@ esp_err_t mao_display_fade_brightness(uint8_t percent, uint32_t fade_ms);
  * (tools/mao_snap.py). Needs ~115 KB of free heap for a moment. */
 esp_err_t mao_display_snapshot_dump(void);
 
+/* Development: record rendered-frame intervals for duration_ms and log the
+ * distribution (needs CONFIG_MAO_PERF_PROBE; otherwise ESP_ERR_NOT_SUPPORTED). */
+esp_err_t mao_display_perf_burst(uint32_t duration_ms);
+
 #ifdef __cplusplus
 }
 #endif

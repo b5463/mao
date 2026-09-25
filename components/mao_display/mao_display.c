@@ -1,6 +1,7 @@
 #include "mao_display.h"
 
 #include <inttypes.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include "sdkconfig.h"
 #include "esp_check.h"
@@ -42,6 +43,51 @@ typedef struct {
 
 static perf_t s_perf;
 
+/* Frame-interval burst: answers "is this motion smooth or stepped?" better
+ * than fps(active), whose 1 s buckets punish poses that hold still. Records
+ * the gap between consecutive rendered frames for a while, then logs the
+ * distribution (only gaps < 500 ms count: a settled pose is not a stutter). */
+#define BURST_MAX 256
+static int64_t s_burst_until_us;
+static int64_t s_burst_prev_us;
+static uint16_t s_burst_gap_ms[BURST_MAX];
+static uint16_t s_burst_n;
+
+static int cmp_u16(const void *a, const void *b)
+{
+    return (int)*(const uint16_t *)a - (int)*(const uint16_t *)b;
+}
+
+static void burst_frame(int64_t now)
+{
+    if (now >= s_burst_until_us) {
+        if (s_burst_until_us && s_burst_n) {
+            qsort(s_burst_gap_ms, s_burst_n, sizeof(s_burst_gap_ms[0]), cmp_u16);
+            ESP_LOGI(TAG, "cadence: %u moving frames, gap min=%u median=%u p90=%u max=%u ms",
+                     (unsigned)s_burst_n, (unsigned)s_burst_gap_ms[0], (unsigned)s_burst_gap_ms[s_burst_n / 2],
+                     (unsigned)s_burst_gap_ms[(uint32_t)s_burst_n * 9 / 10],
+                     (unsigned)s_burst_gap_ms[s_burst_n - 1]);
+            s_burst_until_us = 0;
+        }
+        s_burst_prev_us = now;
+        return;
+    }
+    const int64_t gap = now - s_burst_prev_us;
+    s_burst_prev_us = now;
+    if (gap < 500000 && s_burst_n < BURST_MAX) {
+        s_burst_gap_ms[s_burst_n++] = (uint16_t)(gap / 1000);
+    }
+}
+
+esp_err_t mao_display_perf_burst(uint32_t duration_ms)
+{
+    s_burst_n = 0;
+    s_burst_prev_us = esp_timer_get_time();
+    s_burst_until_us = s_burst_prev_us + (int64_t)duration_ms * 1000;
+    ESP_LOGI(TAG, "cadence burst: recording frame intervals for %" PRIu32 " ms", duration_ms);
+    return ESP_OK;
+}
+
 static void perf_close_second(void)
 {
     if (s_perf.sec_frames > 0) {
@@ -63,6 +109,7 @@ static void perf_event_cb(lv_event_t *e)
         s_perf.in_frame = true;
     } else if (code == LV_EVENT_REFR_READY && s_perf.in_frame) {
         s_perf.in_frame = false;
+        burst_frame(now);
         const int64_t dt = now - s_perf.frame_start_us;
         s_perf.frames++;
         s_perf.total_us += dt;
@@ -109,6 +156,14 @@ static void perf_attach(lv_display_t *disp)
     lv_display_add_event_cb(disp, perf_event_cb, LV_EVENT_REFR_READY, NULL);
     lv_timer_create(perf_report_cb, CONFIG_MAO_PERF_PERIOD_S * 1000, NULL);
     ESP_LOGI(TAG, "perf probe on (summary every %d s while rendering)", CONFIG_MAO_PERF_PERIOD_S);
+}
+
+#else
+
+esp_err_t mao_display_perf_burst(uint32_t duration_ms)
+{
+    (void)duration_ms;
+    return ESP_ERR_NOT_SUPPORTED;
 }
 
 #endif /* CONFIG_MAO_PERF_PROBE */

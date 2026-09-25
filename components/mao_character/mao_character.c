@@ -29,7 +29,12 @@
 
 static const char *TAG = "MAO_CHARACTER";
 
-#define TICK_MS        33
+/* The motion tick must not share the display's 33 ms refresh period: two
+ * unsynchronised 33 ms timers beat, a refresh regularly found no fresh pose
+ * and motion stuttered to 66 ms steps (measured: median gap 38 ms, max 67).
+ * At 16 ms the median gap fell to 20 ms (~50 fps) but render-busy rose to
+ * ~39 %; 25 ms lands the target ~30 fps with a uniform cadence. */
+#define TICK_MS        25
 #define CMD_QUEUE_LEN  16
 #define PI_F           3.14159265f
 #define TWO_PI_F       6.28318531f

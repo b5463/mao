@@ -118,6 +118,8 @@ static void run_command(char *line)
         int seconds = arg ? atoi(arg) : 10;
         seconds = seconds < 1 ? 1 : (seconds > 300 ? 300 : seconds);
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_FLOOD_BASE + seconds);
+    } else if (strcmp(cmd, "perf") == 0) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_PERF_BURST);
     } else if (strcmp(cmd, "odd-reset") == 0) {
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_ODD_RESET);
     } else if (strcmp(cmd, "status") == 0) {
