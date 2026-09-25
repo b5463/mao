@@ -14,6 +14,8 @@ void mao_device_controls(const mao_device_t *dev, mao_device_controls_t *out)
 {
     out->level_idx = -1;
     out->toggle_idx = -1;
+    out->action_idx = -1;
+    out->action_semantic = 0;
     if (!dev) {
         return;
     }
@@ -21,6 +23,13 @@ void mao_device_controls(const mao_device_t *dev, mao_device_controls_t *out)
         const odd_capability_t *c = &dev->caps[i].cap;
         if (!writable(c)) {
             continue;
+        }
+        if (c->type == ODD_CAP_ACTION) {
+            if (out->action_idx < 0) {
+                out->action_idx = i;
+                out->action_semantic = odd_action_semantic_of(c);
+            }
+            continue;   /* an action is never a toggle or a level */
         }
         const bool binary = c->min == 0 && c->max == 1;
         if (out->toggle_idx < 0 && (c->type == ODD_CAP_POWER || binary)) {

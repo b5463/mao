@@ -39,6 +39,8 @@ typedef enum {
     MAO_EVENT_DEVICE_CHANGED,    /* description, state or link status changed */
     MAO_EVENT_TRANSFER_STEP,     /* transfer state machine timer; value = transfer id */
     MAO_EVENT_DEVICE_PROBED,     /* a reachability probe was answered; value = registry index */
+    MAO_EVENT_ACTION_UPDATE,     /* action transaction changed; value = (index << 4) | mao_action_state_t */
+    MAO_EVENT_UI_SETTLE,         /* one-shot app timer: feedback presentation may retire */
 
     MAO_EVENT_COUNT,
 } mao_event_type_t;

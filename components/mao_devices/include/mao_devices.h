@@ -50,6 +50,8 @@ typedef struct {
 typedef struct {
     int level_idx;          /* index into caps[], -1 if none */
     int toggle_idx;         /* index into caps[], -1 if none */
+    int action_idx;         /* first writable ACTION capability, -1 if none */
+    int32_t action_semantic;   /* odd_action_semantic_t of that action (0 if none) */
 } mao_device_controls_t;
 
 typedef struct {
@@ -96,6 +98,31 @@ void mao_device_controls(const mao_device_t *dev, mao_device_controls_t *out);
 
 void mao_devices_get_stats(mao_devices_stats_t *out);
 void mao_devices_reset_latency(void);
+
+/* ---------------------------------------------------------------------- */
+/* Actions: one in-flight transaction (see docs/odd_bus_identity.md).      */
+/* Identity: (our device_id, this boot's incarnation, cap_id, seq). Loss   */
+/* of the ACK or the result NEVER creates a new identity: the same one is  */
+/* re-sent as status recovery and the device replays the cached outcome.   */
+/* ---------------------------------------------------------------------- */
+
+typedef enum {
+    MAO_ACTION_IDLE = 0,
+    MAO_ACTION_SENDING,      /* invoked; waiting for the ACK */
+    MAO_ACTION_ACCEPTED,     /* the device runs it; waiting for the result */
+    MAO_ACTION_DONE,
+    MAO_ACTION_FAILED,       /* refused (unsupported) or completed FAILED */
+    MAO_ACTION_BUSY,         /* refused: the device cannot start it now */
+    MAO_ACTION_UNKNOWN,      /* it may have run; the outcome is unrecoverable */
+} mao_action_state_t;
+
+/* Invoke an action capability once. One transaction at a time
+ * (ESP_ERR_INVALID_STATE while one is in flight). Progress arrives as
+ * MAO_EVENT_ACTION_UPDATE events. */
+esp_err_t mao_devices_invoke_action(uint64_t id, uint8_t cap_id);
+mao_action_state_t mao_devices_action_state(void);
+const char *mao_devices_action_state_name(mao_action_state_t st);
+void mao_devices_action_dump(void);
 
 /* This boot's controller incarnation (0 before init). */
 uint64_t mao_devices_incarnation(void);
