@@ -308,7 +308,9 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     out->cover_r = cr > 0.02f ? out->ry - (out->rh + 2.0f) * (1.0f - cr) - MAO_CRESCENT_PX * cr : -400.0f;
 
     /* Lower lids: an eye-sized background shape rising from below. */
-    const float smile = clampf(v[CH_SMILE], 0.0f, 1.0f) * MAO_SMILE_MAX;
+    /* Closing and smiling don't stack: a half-closed eye with a rising lower
+     * lid would leave spiky notches. The more it closes, the less it smiles. */
+    const float smile = clampf(v[CH_SMILE], 0.0f, 1.0f) * MAO_SMILE_MAX * (1.0f - fmaxf(cl, cr));
     out->low_on = smile > 0.02f;
     out->low_l = out->ly + (out->lh + 2.0f) - smile * out->lh;
     out->low_r = out->ry + (out->rh + 2.0f) - smile * out->rh;
