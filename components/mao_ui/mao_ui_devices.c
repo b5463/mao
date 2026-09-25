@@ -224,8 +224,8 @@ static void panel_layout(void)
     }
     const float row = smooth01((p - 0.4f) / 0.6f);
     const float wy = (s_panel.has_facts ? PANEL_CTRL_LOW_Y : PANEL_CTRL_Y) + (1.0f - p) * 6.0f;
-    static const float kX2[2] = { -58.0f, 58.0f };
-    static const float kX3[3] = { -82.0f, 0.0f, 84.0f };
+    static const float kX2[2] = { -54.0f, 52.0f };
+    static const float kX3[3] = { -84.0f, -2.0f, 82.0f };
     for (int i = 0; i < s_panel.word_count; i++) {
         const float x = s_panel.word_count == 1 ? 0.0f
                         : (s_panel.word_count == 2 ? kX2[i] : kX3[i]);
@@ -234,9 +234,9 @@ static void panel_layout(void)
     }
     if (s_panel.has_facts) {
         /* Facts are quiet: never focusable, never boxed. */
-        mao_ui_text_place(s_panel.fact_l, -50.0f, PANEL_FACTS_Y + (1.0f - p) * 6.0f,
+        mao_ui_text_place(s_panel.fact_l, -58.0f, PANEL_FACTS_Y + (1.0f - p) * 6.0f,
                           MAO_OPA_SECONDARY * row, &s_panel.cfl);
-        mao_ui_text_place(s_panel.fact_r, 52.0f, PANEL_FACTS_Y + (1.0f - p) * 6.0f,
+        mao_ui_text_place(s_panel.fact_r, 50.0f, PANEL_FACTS_Y + (1.0f - p) * 6.0f,
                           MAO_OPA_SECONDARY * row, &s_panel.cfr);
     }
     if (!s_panel.has_facts) {
@@ -383,11 +383,11 @@ void mao_devices_ui_create(lv_obj_t *scr)
     s_panel.connect = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, 6, "CONNECT");
     s_panel.primary = mao_ui_make_text(scr, MAO_FONT_LARGE, MAO_COL_FG, MAO_TRACK_LARGE, "");
     for (int i = 0; i < MAO_UI_DEVICE_WORDS; i++) {
-        s_panel.word[i] = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, MAO_TRACK_SMALL, "");
+        s_panel.word[i] = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, 2, "");   /* tight: rows share the width */
         mao_ui_text_cache_reset(&s_panel.cw[i]);
     }
-    s_panel.fact_l = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, MAO_TRACK_SMALL, "");
-    s_panel.fact_r = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, MAO_TRACK_SMALL, "");
+    s_panel.fact_l = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, 2, "");
+    s_panel.fact_r = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, 2, "");
     mao_ui_text_cache_reset(&s_panel.cpr);
     mao_ui_text_cache_reset(&s_panel.cfl);
     mao_ui_text_cache_reset(&s_panel.cfr);
