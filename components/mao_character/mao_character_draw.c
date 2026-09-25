@@ -11,6 +11,7 @@
  * the eye and leaves a lower crescent (blink, happy, asleep).
  */
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 #include "mao_character_priv.h"
 
@@ -90,6 +91,24 @@ static void fill_columns(lv_layer_t *layer, const lv_area_t *a, const lv_point_p
     }
 }
 
+/* Anti-aliased edge: the column fill is exact but stair-stepped on slopes
+ * and curves; a thin line in the lid colour along the edge blends each step
+ * into the eye white. */
+static void aa_edge(lv_layer_t *layer, const lv_area_t *a, const lv_point_precise_t *p, int n)
+{
+    lv_draw_line_dsc_t l;
+    lv_draw_line_dsc_init(&l);
+    l.color = lv_color_hex(MAO_LID_COLOR);
+    l.width = 2;
+    l.round_start = 1;
+    l.round_end = 1;
+    for (int k = 0; k < n - 1; k++) {
+        l.p1 = (lv_point_precise_t) { a->x1 + p[k].x, a->y1 + p[k].y };
+        l.p2 = (lv_point_precise_t) { a->x1 + p[k + 1].x, a->y1 + p[k + 1].y };
+        lv_draw_line(layer, &l);
+    }
+}
+
 /* Upper lid (pts: top-left, top-right, bottom-right, bottom-left): fill
  * from the top down to the sloped edge bottom-left -> bottom-right. */
 static void lid_draw_cb(lv_event_t *e)
@@ -100,6 +119,9 @@ static void lid_draw_cb(lv_event_t *e)
     lv_obj_get_coords(o, &a);
     const lv_point_precise_t edge[2] = { p[3], p[2] };
     fill_columns(lv_event_get_layer(e), &a, edge, 2, (int32_t)p[0].y, false);
+    if (abs((int)(edge[0].y - edge[1].y)) >= 3) {
+        aa_edge(lv_event_get_layer(e), &a, edge, 2);   /* only visibly sloped lids step */
+    }
 }
 
 /* Lower lid: pts 0..11 the arc (left to right), 12 / 13 the bottom corners. */
@@ -110,6 +132,9 @@ static void low_draw_cb(lv_event_t *e)
     lv_area_t a;
     lv_obj_get_coords(o, &a);
     fill_columns(lv_event_get_layer(e), &a, p, 12, (int32_t)p[12].y, true);
+    /* Every other arc point: 6 segments are smooth enough and half the cost. */
+    const lv_point_precise_t arc[7] = { p[0], p[2], p[4], p[6], p[8], p[10], p[11] };
+    aa_edge(lv_event_get_layer(e), &a, arc, 7);
 }
 
 /* Place a custom-drawn object over the screen-centred box and store its
