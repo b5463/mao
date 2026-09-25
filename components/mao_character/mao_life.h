@@ -58,6 +58,7 @@ typedef enum {
     LIFE_EV_CMD_OK,            /* it worked (dry: "yes, obviously") */
     LIFE_EV_CMD_FAIL,          /* it failed: analysis first, aimed at the device */
     LIFE_EV_CMD_BUSY,          /* the device says busy: skeptical, habituates */
+    LIFE_EV_CMD_UNSURE,        /* outcome unknowable: analytical uncertainty, then move on */
 } life_event_t;
 
 enum {

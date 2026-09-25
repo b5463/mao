@@ -26,9 +26,10 @@
 #define LIST_TITLE_Y      -88.0f
 #define LIST_STATUS_Y     86.0f
 #define PANEL_TITLE_Y     -70.0f
-#define PANEL_VALUE_Y     -8.0f
-#define PANEL_STATUS_Y    40.0f
-#define PANEL_CONNECT_Y   72.0f
+#define PANEL_VALUE_Y     -16.0f
+#define PANEL_CTRL_Y      34.0f    /* the control words row (POWER, actions) */
+#define PANEL_STATUS_Y    62.0f
+#define PANEL_CONNECT_Y   86.0f
 #define OFFLINE_SCALE     0.45f
 
 #define LIST_POS_PROFILE  ((mao_spring_profile_t){ .k = 260.0f, .zeta = 0.78f })
@@ -55,7 +56,12 @@ typedef struct {
     lv_obj_t *value;
     lv_obj_t *status;
     lv_obj_t *connect;          /* "CONNECT": typography, never a button */
-    mao_text_cache_t ct, cv, cst, cc;
+    lv_obj_t *power;            /* the POWER control word */
+    lv_obj_t *action;           /* the ACTION control word (e.g. IDENTIFY) */
+    mao_text_cache_t ct, cv, cst, cc, cpw, cac;
+    int8_t focus;
+    bool editing;
+    bool has_power, has_action;
     mao_spring_t presence;
     mao_spring_t ty;            /* title travels from its list row position */
     mao_spring_t hot;           /* CONNECT emphasis while arming / starting */
@@ -202,7 +208,23 @@ static void panel_layout(void)
     /* The name IS the selected list row, moved deeper: it travels from its
      * list position up to the heading, and back again on the way out. */
     mao_ui_text_place(s_panel.title, 0.0f, s_panel.ty.x, 150.0f * p, &s_panel.ct);
-    mao_ui_text_place(s_panel.value, 0.0f, PANEL_VALUE_Y + (1.0f - p) * 14.0f, s_panel.value_opa * p, &s_panel.cv);
+    /* Focus is typography: the focused control is bright, the others recede.
+     * Editing lifts the value a pixel and gives it full presence. */
+    const float vf = s_panel.focus == 0 ? (s_panel.editing ? 1.0f : 0.9f) : 0.62f;
+    mao_ui_text_place(s_panel.value, 0.0f,
+                      PANEL_VALUE_Y + (1.0f - p) * 14.0f - (s_panel.editing ? 2.0f : 0.0f),
+                      s_panel.value_opa * vf * p, &s_panel.cv);
+    const float row = smooth01((p - 0.4f) / 0.6f);
+    if (s_panel.has_power) {
+        const float x = s_panel.has_action ? -52.0f : 0.0f;
+        mao_ui_text_place(s_panel.power, x, PANEL_CTRL_Y + (1.0f - p) * 6.0f,
+                          (s_panel.focus == 1 ? 255.0f : (float)MAO_OPA_CONTEXT) * row, &s_panel.cpw);
+    }
+    if (s_panel.has_action) {
+        const float x = s_panel.has_power ? 44.0f : 0.0f;
+        mao_ui_text_place(s_panel.action, x, PANEL_CTRL_Y + (1.0f - p) * 6.0f,
+                          (s_panel.focus == 2 ? 255.0f : (float)MAO_OPA_CONTEXT) * row, &s_panel.cac);
+    }
     mao_ui_text_place(s_panel.status, 0.0f, PANEL_STATUS_Y + (1.0f - p) * 8.0f,
                       MAO_OPA_SECONDARY * smooth01((p - 0.4f) / 0.6f), &s_panel.cst);
     /* CONNECT is a quiet word until the user reaches for it. */
@@ -240,6 +262,21 @@ void mao_ui_device_update(const mao_ui_device_t *m)
         return;
     }
     set_text(s_panel.title, m->title ? m->title : "");
+    s_panel.focus = m->focus;
+    s_panel.editing = m->editing;
+    s_panel.has_power = m->has_toggle;
+    s_panel.has_action = m->action != NULL;
+    if (m->action) {
+        set_text(s_panel.action, m->action);
+    }
+    if (!s_panel.has_power) {
+        lv_obj_add_flag(s_panel.power, LV_OBJ_FLAG_HIDDEN);
+        s_panel.cpw.opa = 0;
+    }
+    if (!s_panel.has_action) {
+        lv_obj_add_flag(s_panel.action, LV_OBJ_FLAG_HIDDEN);
+        s_panel.cac.opa = 0;
+    }
 
     char big[12];
     if (!m->described) {
@@ -311,6 +348,10 @@ void mao_devices_ui_create(lv_obj_t *scr)
     s_panel.value = mao_ui_make_text(scr, &lv_font_montserrat_48, MAO_COL_FG, 2, "");
     s_panel.status = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, MAO_TRACK_SMALL, "");
     s_panel.connect = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, 6, "CONNECT");
+    s_panel.power = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, MAO_TRACK_SMALL, "POWER");
+    s_panel.action = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, MAO_TRACK_SMALL, "");
+    mao_ui_text_cache_reset(&s_panel.cpw);
+    mao_ui_text_cache_reset(&s_panel.cac);
     mao_ui_text_cache_reset(&s_panel.ct);
     mao_ui_text_cache_reset(&s_panel.cv);
     mao_ui_text_cache_reset(&s_panel.cst);

@@ -29,6 +29,14 @@ static const char *TAG = "MAO_APP";
 #define WAKE_FADE_MS          150         /* ... and comes back at once */
 #define TICK_FULL_DPS         60.0f       /* dial speed at which ticks are softest */
 
+/* DEVICE page control focus: 0 = the value (LEVEL), 1 = POWER, 2 = ACTION.
+ * Editing means the dial changes the LEVEL; otherwise it moves the focus. */
+static int8_t s_dev_focus;
+static bool s_dev_edit;
+static esp_timer_handle_t s_settle_timer;   /* retires action feedback presentation */
+static void on_action_update(int32_t value);
+static void on_ui_settle(void);
+
 static mao_dial_speed_t s_logged_speed = MAO_DIAL_STILL;
 static bool s_logged_reversing;
 static int64_t s_last_dial_us;
@@ -113,8 +121,29 @@ static void refresh_device_panel(void)
         .online = dev.online,
         .problem = dev.link_problem,
         .described = dev.described,
+        /* Rendered purely from capabilities: the word comes from the action's
+         * generic semantic, never from what kind of product this is. */
+        .action = ctl.action_idx >= 0 ? odd_action_semantic_name(ctl.action_semantic) : NULL,
+        .focus = s_dev_focus,
+        .editing = s_dev_edit,
     };
     mao_ui_device_update(&model);
+}
+
+/* The focus slots present on this device, in display order. */
+static int focus_slots(const mao_device_controls_t *ctl, int8_t slots[3])
+{
+    int n = 0;
+    if (ctl->level_idx >= 0) {
+        slots[n++] = 0;
+    }
+    if (ctl->toggle_idx >= 0) {
+        slots[n++] = 1;
+    }
+    if (ctl->action_idx >= 0) {
+        slots[n++] = 2;
+    }
+    return n;
 }
 
 static void refresh_device_views(void)
@@ -136,6 +165,10 @@ static void go_view(mao_view_t view)
         return;
     }
     ESP_LOGI(TAG, "view %s -> %s", mao_ui_view_name(st->view), mao_ui_view_name(view));
+    if (st->view == MAO_VIEW_DEVICE) {
+        mao_character_peek(false);
+        s_dev_edit = false;
+    }
     /* Discover quickly only while the user is looking at devices. */
     mao_devices_set_active(view == MAO_VIEW_DEVICES || view == MAO_VIEW_DEVICE);
     mao_state_set_view(view);
@@ -333,6 +366,8 @@ static void on_devices(const mao_event_t *ev, int64_t now)
         if (slot >= 0 && mao_devices_get(slot, &dev)) {
             ESP_LOGI(TAG, "open device '%s'", dev.info.name);
             mao_state_set_device(dev.info.id);
+            s_dev_focus = 0;
+            s_dev_edit = false;
             mao_audio_confirm();
             mao_led_pulse(MAO_LED_PULSE_CONFIRM);
             go_view(MAO_VIEW_DEVICE);
@@ -361,21 +396,49 @@ static void on_device(const mao_event_t *ev, int64_t now)
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
         const mao_dial_motion_t m = dial_motion(d, now);
-        if (!ok || !dev.online || !dev.described || ctl.level_idx < 0) {
+        if (!ok || !dev.described) {
             break;
         }
-        const mao_device_cap_t *c = &dev.caps[ctl.level_idx];
-        int32_t v = c->value + d * c->cap.step;
-        v = v < c->cap.min ? c->cap.min : (v > c->cap.max ? c->cap.max : v);
-        if (v != c->value) {
-            mao_devices_set_value(dev.info.id, c->cap.id, v);
+        if (s_dev_edit && ctl.level_idx >= 0) {
+            /* Editing: the physical encoder IS the control. */
+            if (!dev.online) {
+                break;
+            }
+            const mao_device_cap_t *c = &dev.caps[ctl.level_idx];
+            int32_t v = c->value + d * c->cap.step;
+            v = v < c->cap.min ? c->cap.min : (v > c->cap.max ? c->cap.max : v);
+            if (v != c->value) {
+                mao_devices_set_value(dev.info.id, c->cap.id, v);
+                refresh_device_panel();
+                dial_tick(&m);
+            }
+            break;
+        }
+        /* Focus moves between the controls this device advertises. */
+        int8_t slots[3];
+        const int n = focus_slots(&ctl, slots);
+        int cur = 0;
+        for (int i = 0; i < n; i++) {
+            cur = slots[i] == s_dev_focus ? i : cur;
+        }
+        int next = cur + (d > 0 ? 1 : -1);
+        if (n > 0 && next >= 0 && next < n) {
+            s_dev_focus = slots[next];
             refresh_device_panel();
             dial_tick(&m);
         }
         break;
     }
     case MAO_EVENT_INPUT_CLICK:
-        if (ok && dev.online && dev.described && ctl.toggle_idx >= 0) {
+        if (!ok || !dev.described) {
+            break;
+        }
+        if (s_dev_focus == 0 && ctl.level_idx >= 0) {
+            /* The value: enter / leave editing. */
+            s_dev_edit = !s_dev_edit;
+            mao_audio_touch();
+            refresh_device_panel();
+        } else if (s_dev_focus == 1 && ctl.toggle_idx >= 0 && dev.online) {
             const mao_device_cap_t *c = &dev.caps[ctl.toggle_idx];
             const int32_t v = c->value ? c->cap.min : c->cap.max;
             mao_devices_set_value(dev.info.id, c->cap.id, v);
@@ -386,6 +449,15 @@ static void on_device(const mao_event_t *ev, int64_t now)
                 mao_audio_back();
             }
             mao_led_pulse(MAO_LED_PULSE_CONFIRM);
+        } else if (s_dev_focus == 2 && ctl.action_idx >= 0) {
+            /* One press = one action identity. The press answers locally at
+             * once; the device's answers drive the character afterwards. */
+            mao_audio_confirm();
+            mao_led_pulse(MAO_LED_PULSE_CONFIRM);
+            const esp_err_t err = mao_devices_invoke_action(dev.info.id, dev.caps[ctl.action_idx].cap.id);
+            if (err != ESP_OK) {
+                ESP_LOGW(TAG, "action already in flight; press again when it resolves");
+            }
         }
         break;
     case MAO_EVENT_INPUT_DOUBLE_CLICK:
@@ -524,6 +596,22 @@ static void on_dev_command(int32_t value, int64_t now)
         ESP_LOGI(TAG, "MAO ODD incarnation = %016llx", (unsigned long long)mao_devices_incarnation());
     } else if (value == MAO_DEVCMD_STALE_SET) {
         mao_devices_debug_stale_set();
+    } else if (value == MAO_DEVCMD_ACTION_DUMP) {
+        mao_devices_action_dump();
+    } else if (value == MAO_DEVCMD_ACTION_INVOKE) {
+        for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+            mao_device_t dv;
+            mao_device_controls_t ct;
+            if (mao_devices_get(i, &dv)) {
+                mao_device_controls(&dv, &ct);
+                if (ct.action_idx >= 0) {
+                    ESP_LOGI(TAG, "dev: invoking %s on '%s'",
+                             odd_action_semantic_name(ct.action_semantic), dv.info.name);
+                    mao_devices_invoke_action(dv.info.id, dv.caps[ct.action_idx].cap.id);
+                    break;
+                }
+            }
+        }
     } else if (value == MAO_DEVCMD_ODD_SELFTEST) {
         odd_bus_selftest();
     } else if (value == MAO_DEVCMD_ODD_RESET) {
@@ -663,8 +751,85 @@ static void on_event(const mao_event_t *ev, void *ctx)
     case MAO_EVENT_DEVICE_PROBED:
         mao_transfer_probed(ev->value);
         break;
+    case MAO_EVENT_ACTION_UPDATE:
+        on_action_update(ev->value);
+        break;
+    case MAO_EVENT_UI_SETTLE:
+        on_ui_settle();
+        break;
     default:
         break;
+    }
+}
+
+static void settle_cb(void *arg)
+{
+    (void)arg;
+    mao_event_post(MAO_EVENT_UI_SETTLE, 0);
+}
+
+static void schedule_settle(uint32_t ms)
+{
+    if (!s_settle_timer) {
+        const esp_timer_create_args_t args = { .callback = settle_cb, .name = "mao_settle" };
+        if (esp_timer_create(&args, &s_settle_timer) != ESP_OK) {
+            return;
+        }
+    }
+    esp_timer_stop(s_settle_timer);
+    esp_timer_start_once(s_settle_timer, (uint64_t)ms * 1000);
+}
+
+/* Action transaction progress -> restrained character punctuation. On the
+ * DEVICE page the eyes borrow the stage compactly (peek) and give it back;
+ * the typography remains primary (§60: no cutscenes for routine actions). */
+static void on_action_update(int32_t value)
+{
+    const mao_action_state_t st = (mao_action_state_t)(value & 0x0F);
+    const bool on_device_page = mao_state()->view == MAO_VIEW_DEVICE;
+    switch (st) {
+    case MAO_ACTION_ACCEPTED:
+        if (on_device_page) {
+            mao_character_peek(true);
+        }
+        mao_character_react(MAO_CHAR_REACT_ACK);
+        break;
+    case MAO_ACTION_DONE:
+        mao_character_react(MAO_CHAR_REACT_DONE);
+        schedule_settle(1700);
+        break;
+    case MAO_ACTION_BUSY:
+        if (on_device_page) {
+            mao_character_peek(true);
+        }
+        mao_character_react(MAO_CHAR_REACT_BUSY);
+        schedule_settle(2100);
+        break;
+    case MAO_ACTION_FAILED:
+        if (on_device_page) {
+            mao_character_peek(true);
+        }
+        mao_character_react(MAO_CHAR_REACT_FAIL);
+        schedule_settle(2600);
+        break;
+    case MAO_ACTION_UNKNOWN:
+        mao_character_react(MAO_CHAR_REACT_UNSURE);
+        schedule_settle(1600);
+        break;
+    default:
+        break;
+    }
+    refresh_device_views();
+}
+
+static void on_ui_settle(void)
+{
+    const mao_action_state_t st = mao_devices_action_state();
+    if (st == MAO_ACTION_BUSY) {
+        mao_character_react(MAO_CHAR_REACT_IDLE);   /* end the held busy loop */
+    }
+    if (st != MAO_ACTION_SENDING && st != MAO_ACTION_ACCEPTED) {
+        mao_character_peek(false);                  /* the typography returns */
     }
 }
 

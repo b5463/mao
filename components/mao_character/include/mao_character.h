@@ -56,6 +56,7 @@ typedef enum {
     MAO_CHAR_REACT_BACK,         /* stepped back a level */
     MAO_CHAR_REACT_DEVICE_ON,    /* a device appeared / connected */
     MAO_CHAR_REACT_DEVICE_OFF,   /* a device went away */
+    MAO_CHAR_REACT_UNSURE,       /* outcome unknowable: brief analytical uncertainty, no verdict */
     MAO_CHAR_REACT_IDLE,         /* end a held feedback (busy) with no result */
     MAO_CHAR_REACT_COUNT,
 } mao_character_reaction_t;

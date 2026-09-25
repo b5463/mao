@@ -124,6 +124,9 @@ static void run_command(char *line)
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_ODD_INCARNATION);
     } else if (strcmp(cmd, "odd-stale-set") == 0) {
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_STALE_SET);
+    } else if (strcmp(cmd, "odd-action") == 0) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, arg && strstr(arg, "dump") ? MAO_DEVCMD_ACTION_DUMP
+                                                                         : MAO_DEVCMD_ACTION_INVOKE);
     } else if (strcmp(cmd, "odd-seq") == 0 && arg) {
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_SEQSEED_BASE + (atoi(arg) & 0xFFFF));
     } else if (strcmp(cmd, "odd-reset") == 0) {

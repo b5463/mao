@@ -295,6 +295,7 @@ static void react(mao_character_reaction_t r, uint32_t now)
             [MAO_CHAR_REACT_ACK] = "ack", [MAO_CHAR_REACT_BUSY] = "busy", [MAO_CHAR_REACT_DONE] = "done",
             [MAO_CHAR_REACT_FAIL] = "fail", [MAO_CHAR_REACT_BACK] = "back",
             [MAO_CHAR_REACT_DEVICE_ON] = "device_on", [MAO_CHAR_REACT_DEVICE_OFF] = "device_off",
+            [MAO_CHAR_REACT_UNSURE] = "neutral",   /* unreachable: handled above */
             [MAO_CHAR_REACT_IDLE] = "neutral",
         };
         wake(now);
@@ -306,6 +307,15 @@ static void react(mao_character_reaction_t r, uint32_t now)
         case MAO_CHAR_REACT_DEVICE_OFF:
             mao_life_event(&s_life, &s_lark, LIFE_EV_DEVICE_LOST, now);
             break;
+        case MAO_CHAR_REACT_ACK:
+            /* Pending attention: focused waiting, no celebration. */
+            mao_life_event(&s_life, &s_lark, LIFE_EV_CMD_WAIT, now);
+            break;
+        case MAO_CHAR_REACT_UNSURE:
+            /* No verdict exists: EVALUATE, a later second look, and back to
+             * work. No lark state at all - the mind carries it. */
+            mao_life_event(&s_life, &s_lark, LIFE_EV_CMD_UNSURE, now);
+            return;
         case MAO_CHAR_REACT_DONE:
             mao_life_event(&s_life, &s_lark, LIFE_EV_CMD_OK, now);
             break;
@@ -876,7 +886,8 @@ const char *mao_character_expression_name(int index)
 const char *mao_character_reaction_name(mao_character_reaction_t r)
 {
     static const char *const kNames[MAO_CHAR_REACT_COUNT] = {
-        "notice", "attend", "warm", "wake", "ack", "busy", "done", "fail", "back", "device_on", "device_off", "idle",
+        "notice", "attend", "warm", "wake", "ack", "busy", "done", "fail", "back", "device_on", "device_off",
+        "unsure", "idle",
     };
     return r < MAO_CHAR_REACT_COUNT ? kNames[r] : "?";
 }

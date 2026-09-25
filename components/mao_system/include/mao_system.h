@@ -22,6 +22,8 @@ typedef enum {
     MAO_DEVCMD_PERF_BURST,           /* record frame intervals for 3 s (cadence check) */
     MAO_DEVCMD_ODD_INCARNATION,      /* log this boot's controller incarnation */
     MAO_DEVCMD_STALE_SET,            /* send one SET with a foreign incarnation (must be refused) */
+    MAO_DEVCMD_ACTION_INVOKE,        /* invoke the first advertised action (IDENTIFY) */
+    MAO_DEVCMD_ACTION_DUMP,          /* log the action transaction state */
     MAO_DEVCMD_ODD_SELFTEST,         /* ODD BUS codec self-test */
     MAO_DEVCMD_FLOOD_BASE = 2000,    /* value - base = seconds of 50 Hz broadcast traffic */
     MAO_DEVCMD_STRESS_BASE = 1000,   /* value - base = duration in seconds */

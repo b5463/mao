@@ -58,6 +58,9 @@ typedef struct {
     bool online;
     bool problem;        /* recent commands unconfirmed */
     bool described;      /* capabilities/state known */
+    const char *action;  /* ACTION control word (NULL = none), e.g. "IDENTIFY" */
+    int8_t focus;        /* 0 = the value (LEVEL), 1 = POWER, 2 = the action */
+    bool editing;        /* LEVEL edit: the dial changes the value */
 } mao_ui_device_t;
 
 /* Build all views with initial_view visible (INTRO or HOME). Call before

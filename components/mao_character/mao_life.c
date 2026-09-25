@@ -236,7 +236,7 @@ void mao_life_event(mao_life_t *l, mao_lark_t *lark, life_event_t ev, uint32_t n
         ESP_LOGI(TAG, "glance right <- device gone (confirm and move on)");
         break;
     case LIFE_EV_CMD_WAIT:
-        l->interest = clamp01(l->interest + 0.10f);
+        /* Focused waiting only: routine commands stop being interesting. */
         evaluate(l, 1, 0.5f, now);
         break;
     case LIFE_EV_CMD_OK:
@@ -257,6 +257,13 @@ void mao_life_event(mao_life_t *l, mao_lark_t *lark, life_event_t ev, uint32_t n
         stimulus(l, 0.3f * (1.0f - 0.75f * l->habit_busy), l->habit_busy, 1, now);
         l->habit_busy = clamp01(l->habit_busy + 0.30f);
         evaluate(l, 1, 0.4f, now);
+        break;
+    case LIFE_EV_CMD_UNSURE:
+        /* "Hm." Fixed gaze, one eye a fraction narrower, a quiet second
+         * look later - and then back to whatever it was doing. */
+        evaluate(l, 1, 0.6f, now);
+        l->second_look_at = now + (uint32_t)frand(1600.0f, 2400.0f);
+        l->interest = clamp01(l->interest + 0.10f);
         break;
     }
 }
