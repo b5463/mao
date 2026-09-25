@@ -132,6 +132,29 @@ Action invariants (CAPTURE-critical):
 > Only a new explicit user intention may create a new action sequence after
 > a completed, refused or unknown action.
 
+## State facts and camera semantics
+
+The capability TYPE carries the semantic (the v1 record has no spare field,
+and a variable-length record would break every existing decoder):
+
+| Type | Value | Canonical record | Meaning |
+|---|---|---|---|
+| `ODD_CAP_READY`   | 4 | min 0, max 1, step 1, READ only | able to perform the primary operation now |
+| `ODD_CAP_STORAGE` | 5 | min 0, max 100, step 1, READ only | remaining logical capacity, percent |
+
+A writable fact, or one with a non-canonical range, is malformed. Facts are
+displayed, never offered as controls (`odd_cap_is_status()`). READY is known
+BEFORE a press; ACK BUSY answers the race after it - both are needed.
+
+Action semantics: `IDENTIFY = 1`, `CAPTURE = 2` ("perform your primary image
+capture once" - the device decides how), `SYNC_TEST = 3`. Device type
+`ODD_DEVICE_CAMERA = 6` is broad classification only; controllers render from
+capabilities. The primary action of a page is chosen by semantic priority
+(CAPTURE first), never by device type or name.
+
+A refusal (BUSY, not ready, storage empty) is an ACK outcome: no
+ACTION_RESULT follows, because nothing was accepted.
+
 ## Threat model and limits
 
 This is **not** authentication or pairing; ESP-NOW remains development-plain.
