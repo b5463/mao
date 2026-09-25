@@ -34,6 +34,7 @@ typedef enum {
     MAO_DEVCMD_TRANSFER_BASE = 8000, /* + mao_transfer_cmd_t */
     MAO_DEVCMD_INTEREST_BASE = 9000, /* + 0..100: force the mind's interest */
     MAO_DEVCMD_NOVELTY_BASE = 9200,  /* + 0..100: force device novelty */
+    MAO_DEVCMD_CAMLAYOUT_BASE = 9400, /* + 0..2: device-page facts layout variant (A/B/C) */
     MAO_DEVCMD_EXPR_BASE = 6000,     /* + expression state index; base + 999 = list */
     MAO_DEVCMD_DIAL_BASE = 100000,   /* + (dps + 500) * 1000 + seconds */
     MAO_DEVCMD_SEQSEED_BASE = 300000, /* + n: force the next ODD sequence number (tests) */

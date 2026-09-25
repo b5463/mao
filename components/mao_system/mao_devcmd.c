@@ -104,6 +104,10 @@ static void run_command(char *line)
         } else {
             ESP_LOGW(TAG, "transfer <left|right|up|down|success|fail|return|abort>");
         }
+    } else if (strcmp(cmd, "camlayout") == 0 && arg) {
+        int v = atoi(arg);
+        v = v < 0 ? 0 : (v > 2 ? 2 : v);
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_CAMLAYOUT_BASE + v);
     } else if (strcmp(cmd, "interest") == 0 && arg) {
         int v = atoi(arg);
         v = v < 0 ? 0 : (v > 100 ? 100 : v);

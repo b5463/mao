@@ -6,6 +6,7 @@
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_random.h"
 #include "esp_timer.h"
 #include "mao_audio.h"
 #include "mao_character.h"
@@ -34,6 +35,20 @@ static const char *TAG = "MAO_APP";
 static int8_t s_dev_focus;
 static bool s_dev_edit;
 static esp_timer_handle_t s_settle_timer;   /* retires action feedback presentation */
+
+/* Camera-use context (UI-local, never protocol): how the page is laid out,
+ * what the current action is, and whether the user is in a shooting rhythm.
+ * Only feedback INTENSITY depends on it - never safety or identity. */
+static uint8_t s_cam_layout = 1;     /* 0 A: READY + STORAGE; 1 B: asymmetric (default); 2 C: n% */
+static int32_t s_act_sem;            /* semantic of the action in flight / last resolved */
+static bool s_act_via_centre;        /* invoked from the centre word (tool feedback owner) */
+static int64_t s_dev_opened_us;      /* entry guard against a double tap's second click */
+static int64_t s_cap_last_done_us;
+static uint8_t s_cap_streak;         /* routine captures in a row (habituation) */
+static bool s_feedback_up;           /* the character currently borrows the page */
+#define ENTRY_GUARD_US      (350 * 1000)
+#define CAPTURE_RHYTHM_US   (6LL * 1000 * 1000)
+#define MAGNET_QUIET_US     (1500 * 1000)
 static void on_action_update(int32_t value);
 static void on_ui_settle(void);
 
@@ -50,11 +65,13 @@ static int64_t s_last_bump_us;
  * (level value, or the primary action), then the words row (POWER, then the
  * remaining actions). Focus is an index into this list. */
 typedef struct {
-    uint8_t kind;   /* 0 centre-level, 1 centre-action, 2 toggle word, 3 action word */
+    uint8_t kind;   /* 0 centre-level, 1 centre-action, 2 toggle word, 3 action word, 4 CONNECT */
     int idx;        /* caps[] index (levels/toggles) or action list index (actions) */
 } devctl_t;
 
-static int build_controls(const mao_device_controls_t *ctl, devctl_t out[2 + MAO_CONTROLS_MAX_ACTIONS])
+#define DEVCTL_MAX (3 + MAO_CONTROLS_MAX_ACTIONS)
+
+static int build_controls(const mao_device_controls_t *ctl, devctl_t out[DEVCTL_MAX])
 {
     int n = 0;
     if (ctl->level_idx >= 0) {
@@ -70,6 +87,9 @@ static int build_controls(const mao_device_controls_t *ctl, devctl_t out[2 + MAO
             out[n++] = (devctl_t) { .kind = 3, .idx = i };
         }
     }
+    /* CONNECT is MAO's own relationship action: always last, selectable like
+     * any word (single press), so no gesture ever overloads the shutter. */
+    out[n++] = (devctl_t) { .kind = 4, .idx = -1 };
     return n;
 }
 
@@ -90,10 +110,9 @@ static esp_err_t invoke_action_checked(const mao_device_t *dev, const mao_device
     }
     const esp_err_t err = mao_devices_invoke_action(dev->info.id, dev->caps[ctl->action_idx[list_idx]].cap.id);
     if (err == ESP_OK) {
-        mao_audio_confirm();
+        s_act_sem = ctl->action_sem[list_idx];
+        mao_audio_touch();   /* the controller's own tiny cue - never a shutter sound */
         mao_led_pulse(MAO_LED_PULSE_CONFIRM);
-    } else {
-        mao_audio_back();   /* one at a time: still working on the last one */
     }
     return err;
 }
@@ -164,7 +183,7 @@ static void refresh_device_panel(void)
     if (!open_device(&dev, &ctl)) {
         return;
     }
-    devctl_t list[2 + MAO_CONTROLS_MAX_ACTIONS];
+    devctl_t list[DEVCTL_MAX];
     const int n = build_controls(&ctl, list);
     if (s_dev_focus >= n) {
         s_dev_focus = 0;   /* the focused control vanished (capability change) */
@@ -186,6 +205,9 @@ static void refresh_device_panel(void)
      * names - no product knowledge anywhere. */
     static char storage_txt[16];
     for (int i = 0; i < n; i++) {
+        if (list[i].kind == 4) {
+            continue;   /* CONNECT has its own place at the bottom */
+        }
         const char *label =
             list[i].kind == 2 ? "POWER" : odd_action_semantic_name(ctl.action_sem[list[i].idx]);
         if (i == 0 && list[i].kind == 1) {
@@ -194,17 +216,31 @@ static void refresh_device_panel(void)
             model.words[model.word_count++] = label;
         }
     }
+    /* Facts: normal conditions are quiet, exceptions create information. */
+    const mao_action_state_t ast = mao_devices_action_state();
+    const bool pending = ast == MAO_ACTION_SENDING || ast == MAO_ACTION_ACCEPTED;
     if (!dev.online) {
         if (ctl.ready_idx >= 0 || ctl.storage_idx >= 0) {
             model.status_l = "OFFLINE";
         }
     } else {
         if (ctl.ready_idx >= 0) {
-            model.status_l = dev.caps[ctl.ready_idx].value ? "READY" : "NOT READY";
+            const bool ready = dev.caps[ctl.ready_idx].value != 0;
+            if (s_cam_layout == 0) {
+                model.status_l = ready || pending ? "READY" : "NOT READY";
+            } else if (!ready && !pending) {
+                model.status_l = "NOT READY";   /* only the exception is shown */
+            }
         }
         if (ctl.storage_idx >= 0) {
-            snprintf(storage_txt, sizeof(storage_txt), "STORAGE %ld", (long)dev.caps[ctl.storage_idx].value);
+            const long v = (long)dev.caps[ctl.storage_idx].value;
+            if (s_cam_layout == 2) {
+                snprintf(storage_txt, sizeof(storage_txt), "%ld%%", v);
+            } else {
+                snprintf(storage_txt, sizeof(storage_txt), "STORAGE %ld", v);
+            }
             model.status_r = storage_txt;
+            model.status_r_emph = v <= 10;       /* running low: a little more present */
         }
     }
     mao_ui_device_update(&model);
@@ -231,6 +267,7 @@ static void go_view(mao_view_t view)
     ESP_LOGI(TAG, "view %s -> %s", mao_ui_view_name(st->view), mao_ui_view_name(view));
     if (st->view == MAO_VIEW_DEVICE) {
         mao_character_peek(false);
+        s_feedback_up = false;
         s_dev_edit = false;
     }
     /* Discover quickly only while the user is looking at devices. */
@@ -430,8 +467,10 @@ static void on_devices(const mao_event_t *ev, int64_t now)
         if (slot >= 0 && mao_devices_get(slot, &dev)) {
             ESP_LOGI(TAG, "open device '%s'", dev.info.name);
             mao_state_set_device(dev.info.id);
-            s_dev_focus = 0;
+            s_dev_focus = 0;   /* the centre: the value, or the primary action */
             s_dev_edit = false;
+            s_dev_opened_us = now;
+            s_cap_streak = 0;
             mao_audio_confirm();
             mao_led_pulse(MAO_LED_PULSE_CONFIRM);
             go_view(MAO_VIEW_DEVICE);
@@ -450,12 +489,41 @@ static void on_devices(const mao_event_t *ev, int64_t now)
 /* The generic device view: the dial drives the device's LEVEL-like
  * capability, a click toggles its POWER-like capability. Which capabilities
  * those are is decided by mao_device_controls() from what the device reports. */
+/* The user takes the controls back: any decorative feedback yields NOW. */
+static void interrupt_feedback(void)
+{
+    if (s_feedback_up) {
+        if (s_settle_timer) {
+            esp_timer_stop(s_settle_timer);
+        }
+        mao_character_peek(false);
+        s_feedback_up = false;
+    }
+}
+
+static bool centre_is_action(const mao_device_controls_t *ctl)
+{
+    return ctl->level_idx < 0 && ctl->primary_action >= 0 && s_dev_focus == 0;
+}
+
 static void on_device(const mao_event_t *ev, int64_t now)
 {
     mao_device_t dev;
     mao_device_controls_t ctl;
     const bool ok = open_device(&dev, &ctl);
     switch (ev->type) {
+    case MAO_EVENT_INPUT_PRESS:
+        if (ok && centre_is_action(&ctl)) {
+            mao_ui_device_feedback(MAO_UI_FB_PRESS);   /* the word answers the finger */
+        }
+        break;
+    case MAO_EVENT_INPUT_RELEASE:
+        if (ok && centre_is_action(&ctl)) {
+            const mao_action_state_t st = mao_devices_action_state();
+            mao_ui_device_feedback(st == MAO_ACTION_SENDING || st == MAO_ACTION_ACCEPTED ? MAO_UI_FB_PENDING
+                                                                                         : MAO_UI_FB_REST);
+        }
+        break;
     case MAO_EVENT_INPUT_CW:
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
@@ -479,7 +547,7 @@ static void on_device(const mao_event_t *ev, int64_t now)
             break;
         }
         /* Focus moves between the controls this device advertises. */
-        devctl_t list[2 + MAO_CONTROLS_MAX_ACTIONS];
+        devctl_t list[DEVCTL_MAX];
         const int n = build_controls(&ctl, list);
         int next = s_dev_focus + (int)d;
         next = next < 0 ? 0 : (next > n - 1 ? n - 1 : next);
@@ -494,7 +562,13 @@ static void on_device(const mao_event_t *ev, int64_t now)
         if (!ok || !dev.described) {
             break;
         }
-        devctl_t list[2 + MAO_CONTROLS_MAX_ACTIONS];
+        if (now - s_dev_opened_us < ENTRY_GUARD_US) {
+            /* The second tap of a double tap that opened this page: it was
+             * never meant for the shutter. */
+            ESP_LOGI(TAG, "click ignored: page just opened");
+            break;
+        }
+        devctl_t list[DEVCTL_MAX];
         const int n = build_controls(&ctl, list);
         if (s_dev_focus >= n) {
             break;
@@ -517,21 +591,41 @@ static void on_device(const mao_event_t *ev, int64_t now)
             }
             mao_led_pulse(MAO_LED_PULSE_CONFIRM);
         } else if (c->kind == 1 || c->kind == 3) {
-            /* One press = one action identity; the press answers locally at
-             * once and the device's answers drive the character afterwards. */
-            invoke_action_checked(&dev, &ctl, c->idx);
-        }
-        break;
-    case MAO_EVENT_INPUT_DOUBLE_CLICK:
-        /* The deliberate gesture: CONNECT. The word answers, the character
-         * carries the rest. Works on an offline device too - the attempt
-         * fails honestly (the failed escape), which is the answer. */
-        if (ok) {
+            /* One press = one action identity, sent at once: no character
+             * "thinking" before a command (that beat belongs to CONNECT). */
+            interrupt_feedback();
+            const uint32_t t_release = ev->time_ms;
+            const int64_t t_commit = esp_timer_get_time();
+            const esp_err_t err = invoke_action_checked(&dev, &ctl, c->idx);
+            s_act_via_centre = c->kind == 1;
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, "%s: release -> committed %lld ms",
+                         odd_action_semantic_name(ctl.action_sem[c->idx]),
+                         (long long)(t_commit / 1000 - (int64_t)t_release));
+                if (c->kind == 1) {
+                    mao_ui_device_feedback(MAO_UI_FB_PENDING);
+                }
+            } else {
+                ESP_LOGI(TAG, "%s refused locally (%s)", odd_action_semantic_name(ctl.action_sem[c->idx]),
+                         err == ESP_ERR_INVALID_STATE && mao_devices_action_state() != MAO_ACTION_SENDING &&
+                         mao_devices_action_state() != MAO_ACTION_ACCEPTED ? "not ready" : "still working");
+                if (c->kind == 1) {
+                    /* Still working / not ready: the word could not move. */
+                    mao_ui_device_feedback(MAO_UI_FB_BUSY);
+                }
+            }
+        } else if (c->kind == 4) {
+            /* CONNECT: MAO visits the device. Works offline too - the attempt
+             * fails honestly (the failed escape), which is the answer. */
             ESP_LOGI(TAG, "connect requested: '%s'", dev.info.name);
             mao_ui_device_connect_hot(1.0f);
             mao_audio_confirm();
             mao_transfer_connect();
         }
+        break;
+    case MAO_EVENT_INPUT_DOUBLE_CLICK:
+        /* Deliberately nothing on a device page: every CLICK has already
+         * acted, so a double gesture here could only mean "two clicks". */
         break;
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_audio_back();
@@ -692,6 +786,10 @@ static void on_dev_command(int32_t value, int64_t now)
         go_view(MAO_VIEW_HOME);
         mao_character_debug_dial(dps, seconds * 1000);
         mao_system_idle_kick(seconds * 1000 + SLEEPY_TIMEOUT_MS);
+    } else if (value >= MAO_DEVCMD_CAMLAYOUT_BASE) {
+        s_cam_layout = (uint8_t)(value - MAO_DEVCMD_CAMLAYOUT_BASE);
+        ESP_LOGI(TAG, "dev: device-page facts layout %c", 'A' + s_cam_layout);
+        refresh_device_views();
     } else if (value >= MAO_DEVCMD_NOVELTY_BASE) {
         mao_character_debug_novelty((uint8_t)(value - MAO_DEVCMD_NOVELTY_BASE));
     } else if (value >= MAO_DEVCMD_INTEREST_BASE) {
@@ -843,44 +941,86 @@ static void schedule_settle(uint32_t ms)
     esp_timer_start_once(s_settle_timer, (uint64_t)ms * 1000);
 }
 
-/* Action transaction progress -> restrained character punctuation. On the
- * DEVICE page the eyes borrow the stage compactly (peek) and give it back;
- * the typography remains primary (§60: no cutscenes for routine actions). */
+/* Action transaction progress -> restrained punctuation. Two layers:
+ * the TOOL answers first (the centre word's microstates), the CHARACTER is
+ * interruptible and secondary. Routine captures habituate: the first gets a
+ * brief look, the next a shorter one, then mostly the tool alone. Exceptions
+ * (BUSY, FAILED, UNKNOWN) still earn the eyes. Nothing here can block input:
+ * any new press retires the feedback at once (interrupt_feedback). */
+static void show_feedback(mao_character_reaction_t r, uint32_t hold_ms)
+{
+    const mao_view_t v = mao_state()->view;
+    if (v == MAO_VIEW_DEVICE) {
+        mao_character_peek(true);
+        s_feedback_up = true;
+        mao_character_react(r);
+        schedule_settle(hold_ms);
+    } else if (v == MAO_VIEW_HOME) {
+        mao_character_react(r);   /* the user left: a small note where they are */
+    }
+    /* Elsewhere (menus, lists): silent state resolution - never hijack. */
+}
+
 static void on_action_update(int32_t value)
 {
     const mao_action_state_t st = (mao_action_state_t)(value & 0x0F);
-    const bool on_device_page = mao_state()->view == MAO_VIEW_DEVICE;
+    const bool capture = s_act_sem == ODD_ACTION_CAPTURE;
+    const bool tool = capture && s_act_via_centre && mao_state()->view == MAO_VIEW_DEVICE;
     switch (st) {
     case MAO_ACTION_ACCEPTED:
-        if (on_device_page) {
-            mao_character_peek(true);
+        if (!capture) {
+            show_feedback(MAO_CHAR_REACT_ACK, 2000);   /* resolved by the result */
         }
-        mao_character_react(MAO_CHAR_REACT_ACK);
+        /* CAPTURE: the held word already says "underway". */
         break;
     case MAO_ACTION_DONE:
-        mao_character_react(MAO_CHAR_REACT_DONE);
-        schedule_settle(1700);
+        if (tool) {
+            mao_ui_device_feedback(MAO_UI_FB_DONE);
+        }
+        if (capture) {
+            const int64_t now = esp_timer_get_time();
+            s_cap_streak = (s_cap_last_done_us && now - s_cap_last_done_us < CAPTURE_RHYTHM_US)
+                               ? (uint8_t)(s_cap_streak < 9 ? s_cap_streak + 1 : 9) : 0;
+            s_cap_last_done_us = now;
+            if (s_cap_streak == 0) {
+                show_feedback(MAO_CHAR_REACT_DONE, 800);     /* "Yes. Done." */
+            } else if (s_cap_streak == 1) {
+                show_feedback(MAO_CHAR_REACT_DONE, 480);     /* shorter */
+            } else if ((esp_random() % 100) < 12) {
+                show_feedback(MAO_CHAR_REACT_DONE, 420);     /* the occasional glance */
+            }
+            /* Otherwise the word's settle is the whole answer: working with
+             * you, not commenting on every photograph. */
+        } else {
+            show_feedback(MAO_CHAR_REACT_DONE, 1200);
+        }
         break;
     case MAO_ACTION_BUSY:
-        if (on_device_page) {
-            mao_character_peek(true);
+        if (tool) {
+            mao_ui_device_feedback(MAO_UI_FB_BUSY);
         }
-        mao_character_react(MAO_CHAR_REACT_BUSY);
-        schedule_settle(2100);
+        show_feedback(MAO_CHAR_REACT_BUSY, capture ? 900 : 1800);
         break;
     case MAO_ACTION_FAILED:
-        if (on_device_page) {
-            mao_character_peek(true);
+        if (tool) {
+            mao_ui_device_feedback(MAO_UI_FB_FAILED);
         }
-        mao_character_react(MAO_CHAR_REACT_FAIL);
-        schedule_settle(2600);
+        show_feedback(MAO_CHAR_REACT_FAIL, capture ? 1300 : 2200);
         break;
     case MAO_ACTION_UNKNOWN:
-        mao_character_react(MAO_CHAR_REACT_UNSURE);
-        schedule_settle(1600);
+        if (tool) {
+            mao_ui_device_feedback(MAO_UI_FB_REST);
+        }
+        show_feedback(MAO_CHAR_REACT_UNSURE, 1500);   /* hold, second look, settle */
         break;
     default:
         break;
+    }
+    /* Magnetism: after a secondary action resolves, the primary action takes
+     * focus back - but only if the user is not steering right now. */
+    if ((st == MAO_ACTION_DONE || st == MAO_ACTION_FAILED || st == MAO_ACTION_BUSY) && !capture &&
+        mao_state()->view == MAO_VIEW_DEVICE && esp_timer_get_time() - s_last_dial_us > MAGNET_QUIET_US) {
+        s_dev_focus = 0;
     }
     refresh_device_views();
 }
@@ -893,6 +1033,7 @@ static void on_ui_settle(void)
     }
     if (st != MAO_ACTION_SENDING && st != MAO_ACTION_ACCEPTED) {
         mao_character_peek(false);                  /* the typography returns */
+        s_feedback_up = false;
     }
 }
 
