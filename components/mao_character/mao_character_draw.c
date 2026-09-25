@@ -63,16 +63,29 @@ static void fill_columns(lv_layer_t *layer, const lv_area_t *a, const lv_point_p
     lv_draw_rect_dsc_init(&r);
     r.bg_color = lv_color_hex(MAO_LID_COLOR);
     int k = 0;
-    for (int32_t x = (int32_t)p[0].x; x <= (int32_t)p[n - 1].x; x++) {
-        while (k < n - 2 && x > p[k + 1].x) {
-            k++;
+    int32_t run_x = 0, run_y = INT32_MIN;
+    const int32_t x_end = (int32_t)p[n - 1].x;
+    for (int32_t x = (int32_t)p[0].x; x <= x_end + 1; x++) {
+        int32_t y = INT32_MIN;
+        if (x <= x_end) {
+            while (k < n - 2 && x > p[k + 1].x) {
+                k++;
+            }
+            const float x0 = p[k].x, x1 = p[k + 1].x;
+            const float u = x1 > x0 ? ((float)x - x0) / (x1 - x0) : 0.0f;
+            y = (int32_t)lrintf(p[k].y + (p[k + 1].y - p[k].y) * (u < 0.0f ? 0.0f : (u > 1.0f ? 1.0f : u)));
         }
-        const float x0 = p[k].x, x1 = p[k + 1].x;
-        const float u = x1 > x0 ? ((float)x - x0) / (x1 - x0) : 0.0f;
-        const int32_t y = (int32_t)lrintf(p[k].y + (p[k + 1].y - p[k].y) * (u < 0.0f ? 0.0f : (u > 1.0f ? 1.0f : u)));
-        const lv_area_t col = { a->x1 + x, a->y1 + (below ? y : y_line), a->x1 + x, a->y1 + (below ? y_line : y) };
-        if (col.y2 >= col.y1) {
-            lv_draw_rect(layer, &r, &col);
+        if (y != run_y) {
+            /* Flush the run of equal-height columns as one rectangle. */
+            if (run_y != INT32_MIN) {
+                const lv_area_t col = { a->x1 + run_x, a->y1 + (below ? run_y : y_line), a->x1 + x - 1,
+                                        a->y1 + (below ? y_line : run_y) };
+                if (col.y2 >= col.y1) {
+                    lv_draw_rect(layer, &r, &col);
+                }
+            }
+            run_x = x;
+            run_y = y;
         }
     }
 }

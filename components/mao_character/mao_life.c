@@ -261,12 +261,20 @@ static void attention(mao_life_t *l, mao_motion_t *m, uint32_t now)
         ty = -1.0f + frand(-1.0f, 1.0f);
         hold_ms = (uint32_t)frand(700.0f, 1600.0f);
     } else {
-        /* Resting: straight ahead, a touch low when calm or tired; small
-         * re-fixations whose size grows with arousal. */
-        const float amp = 0.6f + 2.2f * l->arousal;
-        tx = frand(-amp, amp);
-        ty = 1.5f * calm + 2.0f * (1.0f - l->energy) + frand(-amp, amp) * 0.6f;
-        hold_ms = (uint32_t)frand(2000.0f, 3500.0f + 3500.0f * calm);
+        /* Resting: near straight ahead, a touch low when calm or tired, with
+         * visible re-fixations. Alertness or boredom sometimes takes the eyes
+         * further aside for a moment (looking around), then back. */
+        const float wander = 0.12f + 0.35f * l->arousal + 0.3f * l->boredom;
+        if (fabsf(l->gx) < 4.0f && frand(0.0f, 1.0f) < wander) {
+            tx = (frand(0.0f, 1.0f) < 0.5f ? -1.0f : 1.0f) * frand(5.0f, 9.0f);
+            ty = frand(-4.0f, 3.0f);
+            hold_ms = (uint32_t)frand(700.0f, 1700.0f);
+        } else {
+            const float amp = 2.0f + 2.5f * l->arousal;
+            tx = frand(-amp, amp);
+            ty = 1.5f * calm + 2.0f * (1.0f - l->energy) + frand(-amp, amp) * 0.6f;
+            hold_ms = (uint32_t)frand(1500.0f, 3000.0f + 2000.0f * calm);
+        }
     }
     const float jump = fabsf(tx - l->gx) + fabsf(ty - l->gy);
     l->gx = tx;
@@ -288,7 +296,7 @@ static void blinks(mao_life_t *l, mao_motion_t *m, uint32_t now)
     const bool slow = tired > 0.6f;
     const uint8_t count = (frand(0.0f, 1.0f) < 0.08f + 0.1f * l->irritation) ? 2 : 1;
     mao_motion_blink(m, now, (uint16_t)(MAO_BLINK_S * 1000.0f * (slow ? 1.8f : 1.0f)), count);
-    const float base = 3200.0f + 2600.0f * calm - 1400.0f * tired;
+    const float base = 2800.0f + 1400.0f * calm - 900.0f * tired;   /* ~3-5 s, like STARBOY */
     l->next_blink_ms = now + (uint32_t)(base * frand(0.6f, 1.5f));
 }
 
@@ -313,6 +321,13 @@ void mao_life_update(mao_life_t *l, mao_lark_t *lark, mao_motion_t *m, uint32_t 
         l->dial_rate *= expf(-dt / 0.4f);
     }
 
+    /* A looping reaction (purr after a long press, flustered...) is a mood,
+     * not a loop: it fades back to her own resting face after a while
+     * unless the mind is deliberately holding it (doze, sulk). */
+    if (lark->cur != 0 && lark->cur != l->holding && !(mao_lark_state(lark->cur)->flags & LARK_ONESHOT) &&
+        now - lark->cur_t0 > 7000u + (uint32_t)(5000.0f * l->affection)) {
+        mao_lark_switch(lark, 0, now);
+    }
     if (idle && !sleepy) {
         /* Careful slow turning that just stopped: she keeps studying it. */
         if (l->slow_since && now - l->last_input_ms > 300 && l->last_input_ms - l->slow_since > SLOW_DIAL_S * 1000.0f &&

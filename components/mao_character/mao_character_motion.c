@@ -298,7 +298,9 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
 
     /* Covers: a round lid descends over each eye; fully closed leaves a thin
      * lower crescent. Blinks and sleep use it too. */
-    const float close = v[CH_CLOSE] + (1.0f - env), wink = v[CH_WINK];
+    /* Blinks fade out as the eyes smile shut - "^ ^" eyes don't vanish. */
+    const float close = v[CH_CLOSE] + (1.0f - env) * (1.0f - 0.9f * clampf(v[CH_SMILE], 0.0f, 1.0f)),
+                wink = v[CH_WINK];
     const float cl = clampf(close + (wink > 0.0f ? wink : 0.0f), 0.0f, 1.0f);
     const float cr = clampf(close + (wink < 0.0f ? -wink : 0.0f), 0.0f, 1.0f);
     out->cover_on = cl > 0.02f || cr > 0.02f;
