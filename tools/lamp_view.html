@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LAMP 01</title>
+<style>
+  :root {
+    --bg: #08080a; --fg: #f1ece2; --dim: #6e6c68; --cobalt: #3d63ff;
+    --gold: #f2c94c; --panel: rgba(12, 12, 16, .82);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font: 13px/1.45 "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid #1c1c22;
+    border-radius: 10px; padding: 12px 14px; backdrop-filter: blur(4px); }
+  #hud { left: 14px; top: 14px; width: 250px; }
+  h1 { font-size: 14px; letter-spacing: 3px; margin: 0 0 2px; font-weight: 600; }
+  .sub { color: var(--dim); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px; }
+  .badges { display: flex; gap: 6px; margin-bottom: 10px; }
+  .badge { font-size: 10px; letter-spacing: 1.5px; padding: 2px 8px; border-radius: 99px;
+    border: 1px solid #333; color: var(--dim); }
+  .badge.on { color: #9be89b; border-color: #2c4a2c; }
+  .badge.off { color: #e89b9b; border-color: #4a2c2c; }
+  .big { display: flex; align-items: baseline; gap: 14px; margin: 6px 0 2px; }
+  .big .lv { font-size: 44px; font-weight: 200; letter-spacing: 2px; }
+  .big .pw { font-size: 15px; letter-spacing: 3px; color: var(--gold); }
+  .big .pw.off { color: var(--dim); }
+  .bar { height: 3px; background: #1e1e26; border-radius: 2px; margin: 4px 0 12px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--gold); border-radius: 2px;
+    transition: width .25s; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  td { padding: 1.5px 0; color: var(--dim); }
+  td + td { text-align: right; color: var(--fg); font-variant-numeric: tabular-nums; }
+  #log { right: 14px; top: 14px; width: 320px; max-height: 46vh; overflow: hidden; }
+  #log h1 { margin-bottom: 8px; }
+  #log div { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; padding: 1px 0; }
+  #log div b { color: var(--fg); font-weight: 500; }
+  #log div.tx b { color: var(--cobalt); }
+  #ctl { left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 8px;
+    align-items: center; flex-wrap: wrap; justify-content: center; max-width: 96vw; }
+  button { background: #15151b; color: var(--fg); border: 1px solid #26262e; border-radius: 8px;
+    padding: 7px 12px; font: inherit; font-size: 12px; letter-spacing: 1px; cursor: pointer; }
+  button:hover { border-color: var(--cobalt); }
+  button:active { transform: translateY(1px); }
+  input[type=range] { width: 150px; accent-color: var(--gold); }
+  .lbl { color: var(--dim); font-size: 10px; letter-spacing: 1.5px; }
+  #hint { position: fixed; right: 16px; bottom: 14px; color: #3a3a40; font-size: 10px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div class="panel" id="hud">
+  <h1>LAMP 01</h1>
+  <div class="sub">ODD TEST DEVICE &middot; LIVE</div>
+  <div class="badges">
+    <span class="badge" id="bSerial">SERIAL</span>
+    <span class="badge" id="bLink">DEVICE</span>
+  </div>
+  <div class="big"><span class="lv" id="vLevel">--</span><span class="pw off" id="vPower">?</span></div>
+  <div class="bar"><i id="vBar"></i></div>
+  <table>
+    <tr><td>SETs applied</td><td id="cApplied">-</td></tr>
+    <tr><td>duplicates re-ACKed</td><td id="cDup">-</td></tr>
+    <tr><td>stale refused</td><td id="cStale">-</td></tr>
+    <tr><td>ODD frames rx / tx</td><td id="cRxTx">-</td></tr>
+    <tr><td>SET_VALUE received</td><td id="cSet">-</td></tr>
+    <tr><td>DISCOVER heard</td><td id="cDisc">-</td></tr>
+    <tr><td>ACKs dropped (test)</td><td id="cDrop">-</td></tr>
+    <tr><td>ACK delay (test)</td><td id="cDelay">-</td></tr>
+  </table>
+</div>
+
+<div class="panel" id="log"><h1>TRAFFIC</h1><div id="lines"></div></div>
+
+<div class="panel" id="ctl">
+  <button id="btPower">POWER</button>
+  <span class="lbl">LEVEL</span>
+  <input type="range" id="slLevel" min="0" max="100" value="50">
+  <button id="btOffline">SIMULATE POWER LOSS</button>
+  <button data-cmd="lamp drop_ack 1">DROP NEXT ACK</button>
+  <button data-cmd="lamp junk">JUNK FRAMES</button>
+  <button data-cmd="lamp flood 25 10 state">FLOOD 25 Hz</button>
+  <button data-cmd="lamp reboot">REBOOT</button>
+</div>
+<div id="hint">drag to orbit &middot; wheel to zoom &middot; buttons act on the REAL device</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+        integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ=="
+        crossorigin="anonymous"></script>
+<script>
+"use strict";
+/* ------------------------------------------------------------------ */
+/* Scene: MAO's totem on the left, the lamp on the right, packets fly  */
+/* between them when the real radio does something.                    */
+/* ------------------------------------------------------------------ */
+const canvas = document.getElementById("view");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x08080a);
+scene.fog = new THREE.Fog(0x08080a, 9, 17);
+const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 50);
+
+scene.add(new THREE.AmbientLight(0x404050, 0.9));
+const key = new THREE.DirectionalLight(0x8090b0, 0.5);
+key.position.set(-4, 6, 5);
+scene.add(key);
+
+/* Floor: a dark disc with a faint ring. */
+const floor = new THREE.Mesh(new THREE.CircleGeometry(7, 64),
+  new THREE.MeshStandardMaterial({ color: 0x0d0d11, roughness: 0.95 }));
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
+const ring = new THREE.Mesh(new THREE.RingGeometry(6.7, 6.78, 96),
+  new THREE.MeshBasicMaterial({ color: 0x1a1a22, side: THREE.DoubleSide }));
+ring.rotation.x = -Math.PI / 2;
+ring.position.y = 0.002;
+scene.add(ring);
+
+const M = (c, e, ei, r) => new THREE.MeshStandardMaterial(
+  { color: c, emissive: e || 0, emissiveIntensity: ei || 0, roughness: r ?? 0.6, metalness: 0.15 });
+
+/* The lamp. */
+const lamp = new THREE.Group();
+lamp.position.set(2.1, 0, 0);
+const matShadeIn = M(0x111114, 0xf2c94c, 0, 0.8);
+const matBulb = M(0x2a2a20, 0xf2c94c, 0, 0.4);
+lamp.add(new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, 0.16, 40), M(0x17171c)));
+const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.7, 16), M(0x202027));
+pole.position.y = 0.9;
+lamp.add(pole);
+const shade = new THREE.Mesh(new THREE.ConeGeometry(0.72, 0.85, 40, 1, true), M(0x1c1c23, 0, 0, 0.5));
+shade.position.y = 1.95;
+lamp.add(shade);
+const shadeIn = new THREE.Mesh(new THREE.ConeGeometry(0.68, 0.8, 40, 1, true), matShadeIn);
+shadeIn.material.side = THREE.BackSide;
+shadeIn.position.y = 1.94;
+lamp.add(shadeIn);
+const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 24, 16), matBulb);
+bulb.position.y = 1.62;
+lamp.add(bulb);
+const glow = new THREE.PointLight(0xffd870, 0, 11, 1.6);
+glow.position.copy(bulb.position);
+lamp.add(glow);
+const pool = new THREE.Mesh(new THREE.CircleGeometry(2.3, 48),
+  new THREE.MeshBasicMaterial({ color: 0xf2c94c, transparent: true, opacity: 0, depthWrite: false,
+                                blending: THREE.AdditiveBlending }));
+pool.rotation.x = -Math.PI / 2;
+pool.position.set(2.1, 0.004, 0);
+scene.add(pool);
+/* A visible cone of light under the shade. */
+const beam = new THREE.Mesh(new THREE.ConeGeometry(1.35, 1.62, 40, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0xf2c94c, transparent: true, opacity: 0, depthWrite: false,
+                                side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+beam.position.set(2.1, 0.81, 0);
+scene.add(beam);
+scene.add(lamp);
+
+/* MAO's totem: the round controller, eyes and all. */
+const mao = new THREE.Group();
+mao.position.set(-2.6, 0, 0);
+const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.68, 0.5, 48), M(0x141419, 0, 0, 0.45));
+puck.position.y = 0.25;
+mao.add(puck);
+const face = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.56, 0.02, 48), M(0x060608, 0x0a0a10, 0.4, 0.2));
+face.position.y = 0.52;
+mao.add(face);
+for (const s of [-1, 1]) {
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.085, 16, 12), M(0xf1ece2, 0xf1ece2, 0.55, 0.3));
+  eye.scale.set(1, 0.35, 1.25);
+  eye.position.set(s * 0.16, 0.55, 0.14);
+  mao.add(eye);
+}
+scene.add(mao);
+
+const SRC = new THREE.Vector3(-2.6, 0.6, 0);          /* MAO's face */
+const DST = new THREE.Vector3(2.1, 1.62, 0);          /* the bulb */
+
+/* Packets and pulses. */
+const flying = [];
+const pulses = [];
+function packet(from, to, color, dur, size) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(size || 0.05, 10, 8),
+    new THREE.MeshBasicMaterial({ color }));
+  scene.add(m);
+  flying.push({ m, from: from.clone(), to: to.clone(), t0: performance.now(), dur: dur || 420 });
+}
+function pulse(at, color, maxR) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.14, 48),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, side: THREE.DoubleSide,
+                                  depthWrite: false }));
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(at.x, 0.015, at.z);
+  scene.add(m);
+  pulses.push({ m, t0: performance.now(), dur: 900, maxR: maxR || 2.4 });
+}
+let flash = 0;   /* bulb kick when a command lands */
+
+/* Camera orbit: slow drift, drag to steer, wheel to zoom. */
+let az = 0.55, el = 0.42, dist = 8.2, drag = null, idleSpin = true;
+canvas.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY }; idleSpin = false; });
+addEventListener("pointerup", () => drag = null);
+addEventListener("pointermove", e => {
+  if (!drag) return;
+  az -= (e.clientX - drag.x) * 0.005;
+  el = Math.min(1.2, Math.max(0.08, el + (e.clientY - drag.y) * 0.004));
+  drag = { x: e.clientX, y: e.clientY };
+});
+canvas.addEventListener("wheel", e => { dist = Math.min(14, Math.max(4.5, dist + e.deltaY * 0.004)); });
+
+function resize() {
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize);
+resize();
+
+/* ------------------------------------------------------------------ */
+/* Live state                                                          */
+/* ------------------------------------------------------------------ */
+const ui = id => document.getElementById(id);
+const st = { power: false, level: 0, online: false, serial: false, shown: 0 };
+let prev = null;   /* previous counters, for packet animation deltas */
+
+function badge(el2, on, txtOn, txtOff) {
+  el2.className = "badge " + (on ? "on" : "off");
+  el2.textContent = on ? txtOn : txtOff;
+}
+function logLine(text, cls) {
+  const d = document.createElement("div");
+  if (cls) d.className = cls;
+  const t = new Date().toTimeString().slice(0, 8);
+  d.innerHTML = `${t} <b></b>`;
+  d.querySelector("b").textContent = text;
+  const box = ui("lines");
+  box.prepend(d);
+  while (box.children.length > 14) box.lastChild.remove();
+}
+
+function apply(ev) {
+  if (ev.type === "state") {
+    st.power = ev.power;
+    st.level = ev.level;
+    if (/SET seq/.test(ev.why)) {
+      flash = 1;
+      logLine(`SET applied -> power=${ev.power ? "ON" : "OFF"} level=${ev.level} (${ev.why})`);
+    } else if (ev.why !== "boot") {
+      packet(DST, SRC, 0xf2c94c, 500, 0.04);   /* local change: NOTIFY back to MAO */
+      logLine(`local change -> power=${ev.power ? "ON" : "OFF"} level=${ev.level}`);
+    } else {
+      logLine(`boot -> power=${ev.power ? "ON" : "OFF"} level=${ev.level}`);
+    }
+  } else if (ev.type === "status") {
+    if (ev.power !== null) { st.power = ev.power; st.level = ev.level; }
+    st.online = !!ev.online;
+    st.serial = !!ev.serial;
+    const c = ev.counters || {};
+    if (c.applied !== undefined) {
+      ui("cApplied").textContent = c.applied;
+      ui("cDup").textContent = c.dup;
+      ui("cStale").textContent = c.stale;
+      ui("cRxTx").textContent = `${c.odd_rx} / ${c.odd_tx}`;
+      ui("cSet").textContent = c.set_rx;
+      ui("cDisc").textContent = c.discover_rx;
+      ui("cDrop").textContent = `${c.acks_dropped} (${c.drop_pending} pending)`;
+      ui("cDelay").textContent = c.ack_delay_ms + " ms";
+      if (prev) {
+        for (let i = 0; i < Math.min(c.set_rx - prev.set_rx, 5); i++) {
+          setTimeout(() => { packet(SRC, DST, 0x3d63ff); }, i * 130);
+          setTimeout(() => { packet(DST, SRC, 0x9be89b, 380, 0.035); }, 420 + i * 130);  /* ACK */
+        }
+        for (let i = 0; i < Math.min(c.discover_rx - prev.discover_rx, 3); i++) {
+          setTimeout(() => pulse(SRC, 0x3d63ff), i * 200);
+        }
+      }
+      prev = c;
+    }
+  } else if (ev.type === "note") {
+    logLine(ev.text);
+  } else if (ev.type === "sent") {
+    logLine(ev.text, "tx");
+  }
+  badge(ui("bSerial"), st.serial, "SERIAL OK", "SERIAL LOST");
+  badge(ui("bLink"), st.online, "ANSWERING", "PLAYING DEAD");
+  ui("vLevel").textContent = st.level === null ? "--" : st.level;
+  ui("vPower").textContent = st.power ? "ON" : "OFF";
+  ui("vPower").className = "pw" + (st.power ? "" : " off");
+  ui("vBar").style.width = (st.power ? st.level : 0) + "%";
+  ui("btPower").textContent = st.power ? "SWITCH OFF" : "SWITCH ON";
+  ui("btOffline").textContent = st.online ? "SIMULATE POWER LOSS" : "COME BACK";
+  if (document.activeElement !== ui("slLevel")) ui("slLevel").value = st.level ?? 50;
+}
+
+const es = new EventSource("/events");
+es.onmessage = e => apply(JSON.parse(e.data));
+es.onerror = () => { st.serial = false; badge(ui("bSerial"), false, "", "VIEWER OFFLINE"); };
+
+function cmd(c) {
+  fetch("/cmd", { method: "POST", body: c });
+}
+ui("btPower").onclick = () => cmd("lamp power " + (st.power ? 0 : 1));
+ui("btOffline").onclick = () => cmd(st.online ? "lamp offline" : "lamp online");
+ui("slLevel").onchange = e => cmd("lamp level " + e.target.value);
+for (const b of document.querySelectorAll("[data-cmd]")) b.onclick = () => cmd(b.dataset.cmd);
+
+/* ------------------------------------------------------------------ */
+/* Render loop                                                         */
+/* ------------------------------------------------------------------ */
+let warm = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (idleSpin) az += 0.0009;
+  camera.position.set(Math.sin(az) * dist, 1.1 + Math.sin(el) * dist * 0.55, Math.cos(az) * dist);
+  camera.lookAt(0, 0.9, 0);
+
+  /* The bulb follows the real device, softly. */
+  const target = st.power ? st.level / 100 : 0;
+  warm += (target - warm) * 0.08;
+  flash *= 0.90;
+  const w = Math.min(1.35, warm + flash * 0.5);
+  glow.intensity = w * 8.0;
+  matBulb.emissiveIntensity = w * 3.4 + 0.03;
+  matShadeIn.emissiveIntensity = w * 1.5;
+  pool.material.opacity = w * 0.30;
+  beam.material.opacity = w * 0.14;
+
+  for (let i = flying.length - 1; i >= 0; i--) {
+    const p = flying[i];
+    const t = (now - p.t0) / p.dur;
+    if (t >= 1) {
+      scene.remove(p.m);
+      flying.splice(i, 1);
+      if (p.to === p.to) { /* landed */ }
+      if (p.to.x > 0) { flash = Math.max(flash, 0.6); pulse(DST, 0x3d63ff, 1.6); }
+      continue;
+    }
+    p.m.position.lerpVectors(p.from, p.to, t);
+    p.m.position.y += Math.sin(t * Math.PI) * 1.1;   /* an arc over the floor */
+  }
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const p = pulses[i];
+    const t = (now - p.t0) / p.dur;
+    if (t >= 1) {
+      scene.remove(p.m);
+      pulses.splice(i, 1);
+      continue;
+    }
+    p.m.scale.setScalar(1 + t * p.maxR * 7);
+    p.m.material.opacity = 0.8 * (1 - t);
+  }
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
