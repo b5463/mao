@@ -17,7 +17,10 @@ static const char *TAG = "MAO_BOARD";
 #define BACKLIGHT_LEDC_TIMER     LEDC_TIMER_0
 #define BACKLIGHT_LEDC_CHANNEL   LEDC_CHANNEL_0
 #define BACKLIGHT_LEDC_RES       LEDC_TIMER_10_BIT
-#define BACKLIGHT_LEDC_FREQ_HZ   5000
+/* Above hearing: at 5 kHz the backlight's switching current rode the shared
+ * supply into the always-on NS4150 (no enable pin on the C3 board) as an
+ * audible whine. 30 kHz x 10 bit needs 30.7 MHz, from the 80 MHz APB. */
+#define BACKLIGHT_LEDC_FREQ_HZ   30000
 
 static bool s_backlight_ready;
 
@@ -42,7 +45,7 @@ static esp_err_t backlight_init(void)
         .duty_resolution = BACKLIGHT_LEDC_RES,
         .timer_num = BACKLIGHT_LEDC_TIMER,
         .freq_hz = BACKLIGHT_LEDC_FREQ_HZ,
-        .clk_cfg = LEDC_AUTO_CLK,
+        .clk_cfg = LEDC_USE_APB_CLK,
     };
     ESP_RETURN_ON_ERROR(ledc_timer_config(&timer), TAG, "backlight timer");
 
