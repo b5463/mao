@@ -161,56 +161,7 @@ static void react(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
         return;
     }
     if (r >= MAO_CHAR_REACT_ACK && r < MAO_CHAR_REACT_COUNT) {
-        /* Controller feedback: queued, and played as soon as MAO is on
-         * screen - even mid-dial, at full strength. The mind hears about it
-         * too (interest, habituation, the analytical EVALUATE phase). */
-        static const char *const kFb[] = {
-            [MAO_CHAR_REACT_ACK] = "ack", [MAO_CHAR_REACT_BUSY] = "busy", [MAO_CHAR_REACT_DONE] = "done",
-            [MAO_CHAR_REACT_FAIL] = "fail", [MAO_CHAR_REACT_BACK] = "back",
-            [MAO_CHAR_REACT_DEVICE_ON] = "device_on", [MAO_CHAR_REACT_DEVICE_OFF] = "device_off",
-            [MAO_CHAR_REACT_UNSURE] = "neutral",   /* unreachable: handled above */
-            [MAO_CHAR_REACT_IDLE] = "neutral",
-        };
-        mao_char_wake(mc, now);
-        mc->fb_play_at = 0;
-        switch (r) {
-        case MAO_CHAR_REACT_DEVICE_ON:
-            mao_life_event(&mc->life, &mc->lark, LIFE_EV_DEVICE_NEW, now);
-            break;
-        case MAO_CHAR_REACT_DEVICE_OFF:
-            mao_life_event(&mc->life, &mc->lark, LIFE_EV_DEVICE_LOST, now);
-            break;
-        case MAO_CHAR_REACT_ACK:
-            /* Pending attention: focused waiting, no celebration. */
-            mao_life_event(&mc->life, &mc->lark, LIFE_EV_CMD_WAIT, now);
-            break;
-        case MAO_CHAR_REACT_UNSURE:
-            /* No verdict exists: EVALUATE, a later second look, and back to
-             * work. No lark state at all - the mind carries it. */
-            mao_life_event(&mc->life, &mc->lark, LIFE_EV_CMD_UNSURE, now);
-            return;
-        case MAO_CHAR_REACT_DONE:
-            mao_life_event(&mc->life, &mc->lark, LIFE_EV_CMD_OK, now);
-            break;
-        case MAO_CHAR_REACT_FAIL:
-            /* Analysis first: freeze and study for a beat, then the verdict. */
-            mao_life_event(&mc->life, &mc->lark, LIFE_EV_CMD_FAIL, now);
-            mc->fb_play_at = now + 450;
-            break;
-        case MAO_CHAR_REACT_BUSY:
-            mao_life_event(&mc->life, &mc->lark, LIFE_EV_CMD_BUSY, now);
-            if (mc->life.habit_busy > 0.65f) {
-                /* The third "busy" in a row barely registers: a slight
-                 * narrowing from the mind's evaluation, nothing more. */
-                ESP_LOGI(TAG, "busy barely noted (habituated %.2f)", (double)mc->life.habit_busy);
-                return;
-            }
-            break;
-        default:
-            break;
-        }
-        mc->fb_pending = mao_lark_find(kFb[r]);
-        mc->fb_hold = r == MAO_CHAR_REACT_BUSY;
+        mao_char_feedback(mc, r, now);
         return;
     }
     if (!mc->visible || !mc->present) {
@@ -475,37 +426,10 @@ static void tick_cb(lv_timer_t *t)
     }
     update_state(mc, now);
 
-    /* Expression layer: full in idle, faint while the user is in charge. */
-    if (mc->fb_pending >= 0 && mc->visible && mc->present && !before(now, mc->away_until) &&
-        mc->transfer.phase == MAO_TR_NONE && !before(now, mc->fb_play_at)) {
-        const int st = mc->fb_pending;
-        mc->fb_pending = -1;
-        mc->lark.pending = -1;           /* controller feedback wins over a queued mood */
-        mao_lark_switch(&mc->lark, st, now);
-        const lark_state_t *ls = mao_lark_state(st);
-        mc->fb_until = now + ((ls->flags & LARK_ONESHOT) ? (uint32_t)ls->length_ms + 300u : 0u);
-    }
-    if (mc->fb_hold && mc->lark.cur != mao_lark_find("busy")) {
-        mc->fb_hold = false;             /* busy ended (done / fail / idle / input) */
-    }
-    static const float kLayerGain[] = { [PRIO_IDLE] = 1.0f, [PRIO_SYSTEM] = 0.5f, [PRIO_DIAL] = 0.25f,
-                                        [PRIO_PRESS] = 0.45f, [PRIO_NAV] = 0.0f };
-    const prio_t prio = mao_char_current_prio(mc, now);
-    const bool feedback = mc->fb_hold || before(now, mc->fb_until);
-    float gain = feedback ? 1.0f : kLayerGain[prio];
-    if (mc->peek) {
-        gain *= MAO_PEEK_LAYER_GAIN;   /* the page is in charge; MAO observes */
-    }
-    mao_lark_update(&mc->lark, now, mc->visible && prio == PRIO_IDLE, mc->sleepy, gain, mc->m.layer);
-    float life[CH_COUNT] = { 0 };
-    mao_life_update(&mc->life, &mc->lark, &mc->m, now, mc->visible && prio == PRIO_IDLE, mc->sleepy, life);
-    if (prio != PRIO_NAV) {
-        const float lg = mc->peek ? MAO_PEEK_LAYER_GAIN : 1.0f;
-        for (int i = 0; i < CH_COUNT; i++) {
-            mc->m.layer[i] += life[i] * lg;
-        }
-    }
+    /* ATTENTION: controller feedback and the mind's expression layers. */
+    mao_char_attention_update(mc, now);
 
+    /* MOTION + RENDER */
     mao_motion_step(&mc->m, dt, now);
     if (mc->visible) {
         mao_pose_t pose;

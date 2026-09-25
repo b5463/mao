@@ -112,3 +112,7 @@ void mao_char_dial_update(mao_char_t *mc, float dt, uint32_t now);
 /* Priority and wake (mao_character_react.c) */
 prio_t mao_char_current_prio(mao_char_t *mc, uint32_t now);
 void mao_char_wake(mao_char_t *mc, uint32_t now);
+
+/* Attention (mao_character_attention.c) */
+void mao_char_feedback(mao_char_t *mc, mao_character_reaction_t r, uint32_t now);
+void mao_char_attention_update(mao_char_t *mc, uint32_t now);
