@@ -91,6 +91,47 @@ result and executes once; after a controller reboot the same seq under the
 new incarnation is a new intentional act; a delayed command from the old
 incarnation is refused.
 
+## Actions (one-shot operations)
+
+`ODD_CAP_ACTION` (type 3) advertises a discrete operation; its semantic is
+generic (`ODD_ACTION_IDENTIFY = 1`), carried as `min == max` of the ordinary
+capability record (`step == 1`), so the v1 CAPABILITIES layout is unchanged.
+An `ODD_MSG_ACTION` (0x0A, 35 B) invokes it; the incarnation flag is
+MANDATORY - no legacy unflagged ACTION exists. The lifecycle:
+
+```
+ACTION (source, incarnation, cap, seq)
+  -> ACK  ACCEPTED            command taken; execution may be asynchronous
+       |  BUSY                refused now; the refusal IS this identity's outcome
+       |  UNKNOWN_CAP         unsupported
+       |  NO_SESSION /        not executed; the session gate refused it
+       |  STALE_SESSION
+  -> remote work
+  -> ACTION_RESULT (0x0B, 38 B): DONE | FAILED, carrying the ORIGINAL
+     (incarnation, cap, seq)
+```
+
+Retrying the SAME identity is **status recovery, never a new execution**:
+the device replays the cached acceptance and, when complete, the cached
+result. Losing the ACK, the result, or both cannot execute anything twice.
+A controller that never gets an answer resolves the outcome as UNKNOWN -
+the action may have run - and never invents a new identity by itself; only
+a new explicit user intention creates a new sequence. A device that reboots
+mid-action loses its cache: the recovery knock is answered NO_SESSION and
+the controller resolves UNKNOWN (after acceptance) or safely re-sends the
+same identity (before acceptance, where nothing can have executed).
+
+Action invariants (CAPTURE-critical):
+
+> A duplicate ACTION with the same (source_id, incarnation_id, action_id,
+> sequence) must never execute the action more than once.
+
+> Loss of ACK or ACTION_RESULT must never cause the controller to generate
+> a new action identity automatically.
+
+> Only a new explicit user intention may create a new action sequence after
+> a completed, refused or unknown action.
+
 ## Threat model and limits
 
 This is **not** authentication or pairing; ESP-NOW remains development-plain.
