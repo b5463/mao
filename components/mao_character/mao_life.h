@@ -20,6 +20,17 @@
  *                the resting expression and, when one crosses a threshold,
  *                trigger a behaviour (yawn, doze, sigh, sulk, watch the knob,
  *                a quiet pleased look) - each with its own refractory time.
+ *   INTEREST     different from arousal: high arousal + low interest is
+ *                alert but not engaged; low arousal + high interest is calm
+ *                intense scrutiny. Raised by novel devices, unexpected
+ *                results and unusual actions; habituates. It locks the gaze,
+ *                widens the pupils, slows and delays blinks and stills the
+ *                idle wander.
+ *   EVALUATION   uncertain stimuli get a short analytical phase before the
+ *                verdict: NOTICE -> EVALUATE (gaze fixed, lids narrowed a
+ *                touch, one eye a fraction more, blink held) -> RESOLVE.
+ *                Surprising-but-not-dramatic things earn a "second look"
+ *                shortly after, instead of a startle.
  * Reactions to people pick an authored or generated Lark state according to
  * the stimulus and the current state. Private to mao_character.
  */
@@ -38,6 +49,15 @@ typedef enum {
     LIFE_EV_DIZZY,
     LIFE_EV_WARM,              /* long press */
     LIFE_EV_WOKEN,             /* woken from sleep by the user */
+    /* ODD BUS: the controller's world. The character reacts to devices and
+     * to how remote work turns out - never to the user's inputs. */
+    LIFE_EV_DEVICE_NEW,        /* a genuinely new device appeared */
+    LIFE_EV_DEVICE_BACK,       /* a known device returned */
+    LIFE_EV_DEVICE_LOST,       /* a device went away: confirm, move on */
+    LIFE_EV_CMD_WAIT,          /* remote work started: focused waiting */
+    LIFE_EV_CMD_OK,            /* it worked (dry: "yes, obviously") */
+    LIFE_EV_CMD_FAIL,          /* it failed: analysis first, aimed at the device */
+    LIFE_EV_CMD_BUSY,          /* the device says busy: skeptical, habituates */
 } life_event_t;
 
 enum {
@@ -49,6 +69,14 @@ enum {
 typedef struct {
     /* Drives and arousal, 0..1. */
     float energy, boredom, irritation, affection, arousal;
+    float interest;                 /* engaged scrutiny; habituates and decays */
+    float habit_device, habit_busy; /* habituation to device events, decays slowly */
+
+    /* Evaluation transient and the second look. */
+    uint32_t eval_until;            /* analytical phase: gaze fixed, lids narrowed */
+    int8_t eval_side;               /* asymmetry: which eye narrows a fraction more */
+    uint32_t second_look_at;        /* a scheduled quiet re-inspection (0 = none) */
+    uint32_t last_fail_ms;          /* recent context: repeated failures irritate */
 
     /* Stimulus memory. */
     uint32_t last_ms, last_input_ms, last_stim_ms;
@@ -86,3 +114,7 @@ void mao_life_dial(mao_life_t *l, int32_t detents, uint32_t now);
 void mao_life_update(mao_life_t *l, mao_lark_t *lark, mao_motion_t *m, uint32_t now, bool idle, bool sleepy,
                      float add[CH_COUNT]);
 bool mao_life_is_cat(const mao_life_t *l, uint32_t now);
+/* Development: force interest / novelty (0..100). Novelty clears device
+ * habituation at 100 and saturates it at 0. */
+void mao_life_debug_interest(mao_life_t *l, uint8_t pct);
+void mao_life_debug_novelty(mao_life_t *l, uint8_t pct);

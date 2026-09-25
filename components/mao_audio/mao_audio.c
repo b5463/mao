@@ -41,6 +41,10 @@ typedef enum {
     SOUND_NOTICE,
     SOUND_CONFIRM,
     SOUND_BACK,
+    SOUND_BUMP1,
+    SOUND_BUMP2,
+    SOUND_THUNK,
+    SOUND_DEPART,
     SOUND_COUNT,
 } sound_id_t;
 
@@ -86,6 +90,23 @@ static const tone_seg_t kBack[] = {
     { .freq_hz = 1568, .dur_ms = 40, .attack_ms = 3, .release_ms = 16, .amp_q15 = 13000 },
     { .freq_hz = 1047, .dur_ms = 60, .attack_ms = 3, .release_ms = 40, .amp_q15 = 13000 },
 };
+/* Wall contact: three escalating thuds. Low but not so low the tiny speaker
+ * loses them; the last one gets a short lower tail (the "THUNK"). */
+static const tone_seg_t kBump1[] = {
+    { .freq_hz = 380, .dur_ms = 26, .attack_ms = 2, .release_ms = 22, .amp_q15 = 9500 },
+};
+static const tone_seg_t kBump2[] = {
+    { .freq_hz = 330, .dur_ms = 38, .attack_ms = 2, .release_ms = 32, .amp_q15 = 13500 },
+};
+static const tone_seg_t kThunk[] = {
+    { .freq_hz = 290, .dur_ms = 46, .attack_ms = 1, .release_ms = 36, .amp_q15 = 17500 },
+    { .freq_hz = 210, .dur_ms = 70, .attack_ms = 2, .release_ms = 62, .amp_q15 = 11000 },
+};
+/* Departure: a tiny soft rising pair, quieter than confirm. */
+static const tone_seg_t kDepart[] = {
+    { .freq_hz = 740,  .dur_ms = 30, .attack_ms = 3, .release_ms = 18, .amp_q15 = 7000 },
+    { .freq_hz = 1180, .dur_ms = 45, .attack_ms = 3, .release_ms = 36, .amp_q15 = 6000 },
+};
 
 #define SOUND(arr) { arr, (uint8_t)(sizeof(arr) / sizeof(arr[0])) }
 static const sound_t kSounds[SOUND_COUNT] = {
@@ -96,6 +117,10 @@ static const sound_t kSounds[SOUND_COUNT] = {
     [SOUND_NOTICE]  = SOUND(kNotice),
     [SOUND_CONFIRM] = SOUND(kConfirm),
     [SOUND_BACK]    = SOUND(kBack),
+    [SOUND_BUMP1]   = SOUND(kBump1),
+    [SOUND_BUMP2]   = SOUND(kBump2),
+    [SOUND_THUNK]   = SOUND(kThunk),
+    [SOUND_DEPART]  = SOUND(kDepart),
 };
 
 static i2s_chan_handle_t s_tx;
@@ -264,4 +289,14 @@ void mao_audio_confirm(void)
 void mao_audio_back(void)
 {
     enqueue(SOUND_BACK);
+}
+
+void mao_audio_bump(uint8_t strength)
+{
+    enqueue(strength >= 3 ? SOUND_THUNK : (strength == 2 ? SOUND_BUMP2 : SOUND_BUMP1));
+}
+
+void mao_audio_depart(void)
+{
+    enqueue(SOUND_DEPART);
 }

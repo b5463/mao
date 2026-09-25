@@ -381,19 +381,68 @@ static void on_device(const mao_event_t *ev, int64_t now)
     }
 }
 
-static void on_device_event(const mao_event_t *ev)
+/* Which devices MAO has met this session, and when they were last lost.
+ * A genuinely new device is a strong stimulus (analytical curiosity); a
+ * device coming back is worth a look proportional to how long it was gone;
+ * repeated announcements are almost invisible (habituation in the mind). */
+typedef struct {
+    uint64_t id;
+    uint32_t lost_ms;   /* 0 = currently around */
+} met_device_t;
+static met_device_t s_met[MAO_DEVICES_MAX];
+
+static met_device_t *met(uint64_t id)
 {
-    if (ev->type == MAO_EVENT_DEVICE_FOUND) {
-        /* Newly available (first sighting, or back from offline): one brief
-         * acknowledgement. Beacons from devices already online never get here. */
-        mao_device_t dev;
-        if (mao_devices_get((int)ev->value, &dev)) {
-            ESP_LOGI(TAG, "device available: '%s'", dev.info.name);
+    for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+        if (s_met[i].id == id) {
+            return &s_met[i];
         }
+    }
+    for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+        if (!s_met[i].id) {
+            s_met[i].id = id;
+            s_met[i].lost_ms = 0;
+            return &s_met[i];
+        }
+    }
+    s_met[0] = (met_device_t) { .id = id };
+    return &s_met[0];
+}
+
+#define BACK_IS_NEWS_MS (60 * 1000)   /* gone longer than this = worth a look */
+
+static void on_device_event(const mao_event_t *ev, int64_t now_us)
+{
+    const uint32_t now = (uint32_t)(now_us / 1000);
+    mao_device_t dev;
+    const bool have = mao_devices_get((int)ev->value, &dev);
+    if (ev->type == MAO_EVENT_DEVICE_FOUND && have) {
+        bool known = false;
+        for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+            known = known || s_met[i].id == dev.info.id;
+        }
+        met_device_t *m = met(dev.info.id);
+        const uint32_t gone = m->lost_ms ? now - m->lost_ms : 0;
+        m->lost_ms = 0;
+        ESP_LOGI(TAG, "device available: '%s'%s", dev.info.name,
+                 !known ? " (new)" : (gone > BACK_IS_NEWS_MS ? " (long absence)" : ""));
         mao_audio_notice();
         mao_led_pulse(MAO_LED_PULSE_NOTICE);
-        if (mao_state()->view == MAO_VIEW_HOME && mao_state()->awake) {
-            mao_character_react(MAO_CHAR_REACT_ATTEND);
+        /* The character only stirs while someone is around to see it. */
+        if (mao_state()->awake) {
+            if (!known) {
+                mao_character_react(MAO_CHAR_REACT_DEVICE_ON);    /* analytical curiosity */
+            } else if (gone > BACK_IS_NEWS_MS) {
+                mao_character_react(MAO_CHAR_REACT_ATTEND);       /* a glance: "you again" */
+            } else {
+                mao_character_react(MAO_CHAR_REACT_NOTICE);       /* barely registered */
+            }
+        }
+    } else if (ev->type == MAO_EVENT_DEVICE_LOST && have) {
+        met(dev.info.id)->lost_ms = now;
+        ESP_LOGI(TAG, "device gone: '%s'", dev.info.name);
+        if (mao_state()->awake) {
+            mao_character_react(MAO_CHAR_REACT_DEVICE_OFF);       /* confirm, move on */
         }
     }
     refresh_device_views();
@@ -408,6 +457,10 @@ static void on_idle_timeout(void)
     const mao_app_state_t *st = mao_state();
     if (st->view == MAO_VIEW_INTRO) {
         return;   /* the first encounter waits indefinitely */
+    }
+    if (mao_transfer_active()) {
+        mao_system_idle_kick(SLEEPY_TIMEOUT_MS);   /* no dozing off mid-transfer */
+        return;
     }
     mao_state_note_idle();
     if (st->view != MAO_VIEW_HOME) {
@@ -452,6 +505,13 @@ static void on_dev_command(int32_t value, int64_t now)
         go_view(MAO_VIEW_HOME);
         mao_character_debug_dial(dps, seconds * 1000);
         mao_system_idle_kick(seconds * 1000 + SLEEPY_TIMEOUT_MS);
+    } else if (value >= MAO_DEVCMD_NOVELTY_BASE) {
+        mao_character_debug_novelty((uint8_t)(value - MAO_DEVCMD_NOVELTY_BASE));
+    } else if (value >= MAO_DEVCMD_INTEREST_BASE) {
+        wake();
+        mao_character_debug_interest((uint8_t)(value - MAO_DEVCMD_INTEREST_BASE));
+    } else if (value >= MAO_DEVCMD_TRANSFER_BASE) {
+        mao_transfer_devcmd(value - MAO_DEVCMD_TRANSFER_BASE);
     } else if (value >= MAO_DEVCMD_REACT_BASE) {
         const int r = value - MAO_DEVCMD_REACT_BASE;
         if (r < MAO_CHAR_REACT_COUNT) {
@@ -526,6 +586,9 @@ static void on_event(const mao_event_t *ev, void *ctx)
         mao_state_note_input(now);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
         wake();
+        if (mao_transfer_input(ev)) {
+            return;   /* a transfer is running; it decides what input means */
+        }
         switch (mao_state()->view) {
         case MAO_VIEW_INTRO:       on_intro(ev); break;
         case MAO_VIEW_HOME:        on_home(ev, now); break;
@@ -556,10 +619,21 @@ static void on_event(const mao_event_t *ev, void *ctx)
     case MAO_EVENT_DEVICE_FOUND:
     case MAO_EVENT_DEVICE_LOST:
     case MAO_EVENT_DEVICE_CHANGED:
-        on_device_event(ev);
+        on_device_event(ev, now);
+        break;
+    case MAO_EVENT_TRANSFER_STEP:
+        mao_transfer_step(ev->value);
         break;
     default:
         break;
+    }
+}
+
+void mao_app_go_home(void)
+{
+    wake();
+    if (mao_state()->view != MAO_VIEW_HOME) {
+        go_view(MAO_VIEW_HOME);
     }
 }
 

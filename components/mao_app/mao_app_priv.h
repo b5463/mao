@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "mao_events.h"
 #include "mao_ui.h"
 
 /* Dial speed classes: used by the app for sound thinning and logs. The
@@ -49,3 +50,19 @@ uint32_t mao_state_idle_ms(int64_t now_us);
 mao_dial_motion_t mao_state_dial(int32_t detents, int64_t now_us);
 
 const char *mao_dial_speed_name(mao_dial_speed_t speed);
+
+/* ---------------------------------------------------------------------- */
+/* Transfer (mao_app_transfer.c): MAO's connection state machine.         */
+/* All functions run in the dispatcher task.                              */
+/* ---------------------------------------------------------------------- */
+
+bool mao_transfer_active(void);
+/* Input while a transfer is running. Returns true when consumed. */
+bool mao_transfer_input(const mao_event_t *ev);
+/* MAO_EVENT_TRANSFER_STEP; value = transfer id (stale steps are ignored). */
+void mao_transfer_step(int32_t id);
+/* "mao transfer <...>": mao_transfer_cmd_t. */
+void mao_transfer_devcmd(int cmd);
+
+/* Defined in mao_app.c for the transfer module: wake and show HOME. */
+void mao_app_go_home(void);

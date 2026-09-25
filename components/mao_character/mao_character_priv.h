@@ -43,6 +43,7 @@ typedef enum {
     CH_HEAD_YAW,     /* rad, added head turn (+ = towards screen right) */
     CH_LID_ANGLE,    /* upper lid slope: + inner corners down (cross), - outer down (sad) */
     CH_HEAD_PITCH,   /* rad, added head nod (+ = looking down) */
+    CH_EXIT_X,       /* horizontal travel out of the circle (transfer); bypasses the head clamp */
     CH_COUNT,
 } mao_channel_t;
 
@@ -138,6 +139,7 @@ typedef struct {
     lv_obj_t *shine[4];          /* big + small catchlight per eye */
     lv_obj_t *mouth;
     lv_obj_t *star[2];           /* custom-drawn star pupils */
+    lv_obj_t *mark[3];           /* impact ticks at the rim (transfer failure) */
     mao_box_t last_star[2];
     mao_box_t last_eye[2];
     mao_box_t last_pupil[2];
@@ -158,4 +160,36 @@ esp_err_t mao_char_draw_create(mao_char_draw_t *d, lv_obj_t *parent);
 void mao_char_draw_apply(mao_char_draw_t *d, const mao_pose_t *pose);
 void mao_char_draw_hide(mao_char_draw_t *d);
 void mao_char_draw_star(mao_char_draw_t *d, const mao_pose_t *pose);
+/* Impact marks: 3 short off-white radial ticks at the rim in direction
+ * (dx, dy). show = false hides them (they live ~150 ms after a hard hit). */
+void mao_char_draw_marks(mao_char_draw_t *d, int dx, int dy, bool show);
+
+/* ---------------------------------------------------------------------- */
+/* Transfer (mao_character_transfer.c): the physical connection sequence.  */
+/* MAO exits through the screen edge into a connected device, or tries to  */
+/* and finds the glass very much still there. Owns the pose while active.  */
+/* ---------------------------------------------------------------------- */
+
+typedef enum {
+    MAO_TR_NONE = 0,
+    MAO_TR_SEARCH,   /* looking at the chosen edge, listening (connecting) */
+    MAO_TR_EXIT,     /* purposeful directional exit */
+    MAO_TR_GONE,     /* off screen (away on the other device) */
+    MAO_TR_ENTER,    /* coming back in from the edge */
+    MAO_TR_BASH,     /* three escalating attempts against the glass */
+} mao_transfer_phase_t;
+
+typedef struct {
+    uint8_t phase;        /* mao_transfer_phase_t */
+    int8_t dx, dy;        /* logical direction, exactly one of them non-zero */
+    uint32_t t0;
+    uint8_t step;         /* next scripted action index */
+    uint32_t marks_until; /* impact marks visible until (0 = hidden) */
+    bool marks_on;
+} mao_transfer_t;
+
+/* Enter a phase (SEARCH / EXIT / ENTER / BASH; NONE aborts and restores). */
+void mao_transfer_begin(mao_transfer_t *t, mao_motion_t *m, uint8_t phase, int dx, int dy, uint32_t now);
+/* Run the script. Returns true while the transfer owns the pose. */
+bool mao_transfer_tick(mao_transfer_t *t, mao_motion_t *m, mao_char_draw_t *d, uint32_t now);
 

@@ -23,6 +23,9 @@ static const char *TAG = "MAO_MIND";
 #define AFFECTION_DECAY_S   180.0f
 #define HABIT_DECAY_S       20.0f
 #define ABSENT_S            90.0f     /* gone this long = "you're back" */
+#define INTEREST_DECAY_S    28.0f
+#define HABIT_DEV_DECAY_S   240.0f    /* device novelty wears back in slowly */
+#define REPEAT_FAIL_S       30.0f     /* a second failure this soon is annoying (at the device) */
 /* Behaviours. */
 #define SPONT_GAP_MS        6000      /* at least this between spontaneous behaviours */
 #define SLOW_DIAL_MIN       0.4f      /* detents/s: careful, deliberate turning */
@@ -63,6 +66,22 @@ static void hold(mao_life_t *l, mao_lark_t *lark, const char *state, uint32_t no
 {
     play(l, lark, state, now, why);
     l->holding = (int8_t)mao_lark_find(state);
+}
+
+/* NOTICE -> EVALUATE: fix the gaze on a side and study it for a moment.
+ * Blinks are held; one eye narrows a fraction more (skeptical asymmetry). */
+static void evaluate(mao_life_t *l, int8_t side, float seconds, uint32_t now)
+{
+    l->eval_until = now + (uint32_t)(1000.0f * seconds * frand(0.85f, 1.2f));
+    l->eval_side = side ? side : (frand(0.0f, 1.0f) < 0.5f ? -1 : 1);
+    if (side) {
+        l->stim_side = side;
+        l->watch_until = l->eval_until + 400;
+    }
+    l->next_fix_ms = now;                     /* re-fix immediately, then hold */
+    if (l->next_blink_ms < l->eval_until + 300) {
+        l->next_blink_ms = l->eval_until + 300;
+    }
 }
 
 static void refract(mao_life_t *l, int b, uint32_t now, float seconds)
@@ -150,7 +169,8 @@ void mao_life_event(mao_life_t *l, mao_lark_t *lark, life_event_t ev, uint32_t n
     case LIFE_EV_TOUCH: {
         const float sal = stimulus(l, 0.5f, l->habit_press, 0, now);
         l->habit_press = clamp01(l->habit_press + 0.15f);
-        if (l->affection > 0.35f && sal > 0.3f && lark->cur == 0) {
+        /* Warmth is rare: mostly a touch is just registered. */
+        if (l->affection > 0.55f && sal > 0.4f && lark->cur == 0 && frand(0.0f, 1.0f) < 0.4f) {
             play(l, lark, "pleased", now, "touched by someone she likes");
         }
         if (l->irritation < 0.5f) {
@@ -187,6 +207,56 @@ void mao_life_event(mao_life_t *l, mao_lark_t *lark, life_event_t ev, uint32_t n
         l->energy = clamp01(l->energy + 0.1f);
         l->arousal = clamp01(l->arousal + 0.5f);
         play(l, lark, "wakeup", now, "picked up");
+        break;
+
+    /* ODD BUS events. Devices "live" at the right rim (the transfer side). */
+    case LIFE_EV_DEVICE_NEW: {
+        const float sal = stimulus(l, 0.85f, l->habit_device, 1, now);
+        l->habit_device = clamp01(l->habit_device + 0.30f);
+        l->interest = clamp01(l->interest + 0.45f + 0.4f * sal);
+        evaluate(l, 1, 0.7f, now);
+        l->second_look_at = now + (uint32_t)frand(1500.0f, 2400.0f);
+        ESP_LOGI(TAG, "interest %.2f <- new device (salience %.2f)", (double)l->interest, (double)sal);
+        /* The rare gold glint: the first really novel find while fully engaged. */
+        if (l->interest > 0.9f && l->habit_device < 0.35f && lark->cur == 0) {
+            play(l, lark, "glint", now, "a genuinely new device: fascinating");
+        }
+        break;
+    }
+    case LIFE_EV_DEVICE_BACK:
+        stimulus(l, 0.3f, l->habit_device, 1, now);
+        l->habit_device = clamp01(l->habit_device + 0.10f);
+        l->interest = clamp01(l->interest + 0.12f);
+        break;
+    case LIFE_EV_DEVICE_LOST:
+        /* A look toward where it was, brief confirmation, move on. Not sad. */
+        stimulus(l, 0.25f, 0.3f, 1, now);
+        l->watch_until = now + (uint32_t)frand(1100.0f, 1700.0f);
+        l->next_fix_ms = now;
+        ESP_LOGI(TAG, "glance right <- device gone (confirm and move on)");
+        break;
+    case LIFE_EV_CMD_WAIT:
+        l->interest = clamp01(l->interest + 0.10f);
+        evaluate(l, 1, 0.5f, now);
+        break;
+    case LIFE_EV_CMD_OK:
+        /* "Yes, obviously." The reaction state carries what little there is. */
+        l->eval_until = 0;
+        break;
+    case LIFE_EV_CMD_FAIL:
+        /* A puzzle, and it's the device's fault - never the user's. */
+        l->interest = clamp01(l->interest + 0.20f);
+        if (l->last_fail_ms && (float)(now - l->last_fail_ms) / 1000.0f < REPEAT_FAIL_S) {
+            l->irritation = clamp01(l->irritation + 0.30f);
+            ESP_LOGI(TAG, "irritation %.2f <- that device failed again", (double)l->irritation);
+        }
+        l->last_fail_ms = now;
+        l->second_look_at = now + (uint32_t)frand(1800.0f, 2600.0f);
+        break;
+    case LIFE_EV_CMD_BUSY:
+        stimulus(l, 0.3f * (1.0f - 0.75f * l->habit_busy), l->habit_busy, 1, now);
+        l->habit_busy = clamp01(l->habit_busy + 0.30f);
+        evaluate(l, 1, 0.4f, now);
         break;
     }
 }
@@ -251,16 +321,23 @@ static void attention(mao_life_t *l, mao_motion_t *m, uint32_t now)
     }
     float tx, ty;
     uint32_t hold_ms;
-    if (before(now, l->watch_until) && l->stim_side) {
-        /* Watching the side the stimulus came from. */
-        tx = (float)l->stim_side * (6.0f + 5.0f * l->arousal) + frand(-1.2f, 1.2f);
+    if (before(now, l->eval_until) && l->eval_side) {
+        /* Evaluating: the gaze locks on and stays there. */
+        tx = (float)l->eval_side * (8.0f + 4.0f * l->interest);
+        ty = -1.0f;
+        hold_ms = l->eval_until - now + 100;
+    } else if (before(now, l->watch_until) && l->stim_side) {
+        /* Watching the side the stimulus came from. Interest steadies it. */
+        tx = (float)l->stim_side * (6.0f + 5.0f * fmaxf(l->arousal, l->interest))
+             + frand(-1.2f, 1.2f) * (1.0f - 0.8f * l->interest);
         ty = -1.0f + frand(-1.0f, 1.0f);
-        hold_ms = (uint32_t)frand(700.0f, 1600.0f);
+        hold_ms = (uint32_t)(frand(700.0f, 1600.0f) * (1.0f + 1.2f * l->interest));
     } else {
         /* Resting: near straight ahead, a touch low when calm or tired, with
          * visible re-fixations. Alertness or boredom sometimes takes the eyes
-         * further aside for a moment (looking around), then back. */
-        const float wander = 0.12f + 0.35f * l->arousal + 0.3f * l->boredom;
+         * further aside for a moment (looking around), then back. Engaged
+         * scrutiny stills the wander almost entirely. */
+        const float wander = (0.12f + 0.35f * l->arousal + 0.3f * l->boredom) * (1.0f - 0.85f * l->interest);
         if (fabsf(l->gx) < 4.0f && frand(0.0f, 1.0f) < wander) {
             tx = (frand(0.0f, 1.0f) < 0.5f ? -1.0f : 1.0f) * frand(5.0f, 9.0f);
             ty = frand(-4.0f, 3.0f);
@@ -289,10 +366,11 @@ static void blinks(mao_life_t *l, mao_motion_t *m, uint32_t now)
         return;
     }
     const float calm = 1.0f - l->arousal, tired = 1.0f - l->energy;
-    const bool slow = tired > 0.6f;
+    /* Deliberate, slower blinks while tired - or while intently interested. */
+    const bool slow = tired > 0.6f || l->interest > 0.6f;
     const uint8_t count = (frand(0.0f, 1.0f) < 0.08f + 0.1f * l->irritation) ? 2 : 1;
     mao_motion_blink(m, now, (uint16_t)(MAO_BLINK_S * 1000.0f * (slow ? 1.8f : 1.0f)), count);
-    const float base = 2800.0f + 1400.0f * calm - 900.0f * tired;   /* ~3-5 s, like STARBOY */
+    const float base = (2800.0f + 1400.0f * calm - 900.0f * tired) * (1.0f + 0.9f * l->interest);
     l->next_blink_ms = now + (uint32_t)(base * frand(0.6f, 1.5f));
 }
 
@@ -313,18 +391,30 @@ void mao_life_update(mao_life_t *l, mao_lark_t *lark, mao_motion_t *m, uint32_t 
     l->affection -= l->affection * dt / AFFECTION_DECAY_S;
     l->habit_dial -= l->habit_dial * dt / HABIT_DECAY_S;
     l->habit_press -= l->habit_press * dt / HABIT_DECAY_S;
+    l->interest -= l->interest * dt / INTEREST_DECAY_S;
+    l->habit_device -= l->habit_device * dt / HABIT_DEV_DECAY_S;
+    l->habit_busy -= l->habit_busy * dt / HABIT_DEV_DECAY_S;
     if ((float)(now - l->last_input_ms) > 600.0f) {
         l->dial_rate *= expf(-dt / 0.4f);
     }
 
     /* A looping reaction (purr after a long press, flustered...) is a mood,
      * not a loop: it fades back to her own resting face after a while
-     * unless the mind is deliberately holding it (doze, sulk). */
-    if (lark->cur != 0 && lark->cur != l->holding && !(mao_lark_state(lark->cur)->flags & LARK_ONESHOT) &&
+     * unless the mind is deliberately holding it (doze, sulk) - or the sleep
+     * state owns it (fading "asleep" would flick the eyes open all night). */
+    if (!sleepy && lark->cur != 0 && lark->cur != l->holding && !(mao_lark_state(lark->cur)->flags & LARK_ONESHOT) &&
         now - lark->cur_t0 > 7000u + (uint32_t)(5000.0f * l->affection)) {
         mao_lark_switch(lark, 0, now);
     }
     if (idle && !sleepy) {
+        /* The scheduled second look: a quiet re-inspection, not a startle. */
+        if (l->second_look_at && (int32_t)(now - l->second_look_at) >= 0) {
+            l->second_look_at = 0;
+            if (lark->cur == 0) {
+                evaluate(l, l->stim_side ? l->stim_side : 1, 0.55f, now);
+                ESP_LOGI(TAG, "second look <- something earlier deserved another glance");
+            }
+        }
         /* Careful slow turning that just stopped: she keeps studying it. */
         if (l->slow_since && now - l->last_input_ms > 300 && l->last_input_ms - l->slow_since > SLOW_DIAL_S * 1000.0f &&
             ready(l, LIFE_B_EXAMINE, now) && lark->cur == 0) {
@@ -351,10 +441,15 @@ void mao_life_update(mao_life_t *l, mao_lark_t *lark, mao_motion_t *m, uint32_t 
     add[CH_GAZE_Y] += g * l->gy;
     if (!sleepy) {
         add[CH_NARROW] += 0.10f * calm + 0.22f * tired + 0.10f * l->boredom + 0.08f * l->irritation
-                          - 0.26f * powf(l->arousal, 0.7f);
-        add[CH_PUPIL] += 0.40f * l->arousal - 0.15f * l->irritation - 0.08f * calm;
+                          - 0.26f * powf(l->arousal, 0.7f) - 0.12f * l->interest;
+        add[CH_PUPIL] += 0.40f * l->arousal - 0.15f * l->irritation - 0.08f * calm + 0.45f * l->interest;
         add[CH_SMILE] += 0.26f * l->affection * (1.0f - l->irritation) * calm;
         add[CH_LID_ANGLE] += 0.40f * l->irritation - 0.25f * l->boredom * (1.0f - l->irritation);
+        if (before(now, l->eval_until)) {
+            /* Evaluating: a touch narrowed, one eye a fraction more. */
+            add[CH_NARROW] += 0.14f;
+            add[CH_SQUINT] += 0.12f * (float)l->eval_side;
+        }
     }
 
     /* Cat mode: slit pupils and almond eyes. */
@@ -369,4 +464,16 @@ void mao_life_update(mao_life_t *l, mao_lark_t *lark, mao_motion_t *m, uint32_t 
     add[CH_SLIT] += 0.75f * k;
     add[CH_EYE_W] += 0.06f * k;
     add[CH_EYE_H] -= 0.12f * k;
+}
+
+void mao_life_debug_interest(mao_life_t *l, uint8_t pct)
+{
+    l->interest = clamp01((float)pct / 100.0f);
+    ESP_LOGI(TAG, "interest %.2f <- dev command", (double)l->interest);
+}
+
+void mao_life_debug_novelty(mao_life_t *l, uint8_t pct)
+{
+    l->habit_device = clamp01(1.0f - (float)pct / 100.0f);
+    ESP_LOGI(TAG, "device habituation %.2f <- dev command (novelty %u%%)", (double)l->habit_device, (unsigned)pct);
 }

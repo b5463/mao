@@ -37,6 +37,7 @@ typedef enum {
     MAO_EVENT_DEVICE_FOUND,      /* new, or back online after being offline */
     MAO_EVENT_DEVICE_LOST,       /* went offline */
     MAO_EVENT_DEVICE_CHANGED,    /* description, state or link status changed */
+    MAO_EVENT_TRANSFER_STEP,     /* transfer state machine timer; value = transfer id */
 
     MAO_EVENT_COUNT,
 } mao_event_type_t;

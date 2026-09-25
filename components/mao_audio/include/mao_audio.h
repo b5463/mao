@@ -9,6 +9,9 @@
  *   back     - falling two-note: leave / return.
  *   notice   - something happened that MAO noticed (first encounter).
  *   warm     - long press on HOME: attention acknowledged.
+ *   bump     - MAO hits the screen edge (failed transfer), strength 1..3.
+ *   depart   - MAO leaves into a connected device (tiny; the motion is the
+ *              feedback, this is just the air it displaces).
  *
  * All play functions are non-blocking and safe from any task. When the queue
  * is busy, the request is dropped (UI sounds are disposable).
@@ -35,6 +38,9 @@ void mao_audio_warm(void);
 void mao_audio_notice(void);
 void mao_audio_confirm(void);
 void mao_audio_back(void);
+/* strength 1 = soft bump, 2 = firmer, 3 = the decisive THUNK. */
+void mao_audio_bump(uint8_t strength);
+void mao_audio_depart(void);
 
 #ifdef __cplusplus
 }

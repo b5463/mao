@@ -74,6 +74,7 @@ typedef struct {
     cmd_t cmd[ODD_MAX_CAPS];
     uint8_t failures;
     uint32_t describe_req_ms;
+    volatile bool refresh_req;   /* reachability probe requested (any task) */
 } entry_t;
 
 static QueueHandle_t s_inbox;
@@ -352,13 +353,25 @@ static void on_message(const odd_message_t *m, void *ctx)
 
     lock();
     const int idx = find_locked(m->hdr.src_id);
+    bool revived = false;
     if (idx >= 0) {
         s_dev[idx].pub.last_seen_ms = now;
         s_dev[idx].pub.rssi = m->rssi;
+        /* Any direct answer proves it is alive: a device marked offline that
+         * still replies (e.g. to a reachability probe) comes back at once. */
+        if (!s_dev[idx].pub.online) {
+            s_dev[idx].pub.online = true;
+            revived = true;
+            count_online_locked();
+        }
     }
     unlock();
     if (idx < 0) {
         return;   /* unknown device: wait for its ANNOUNCE */
+    }
+    if (revived) {
+        ESP_LOGI(TAG, "'%s' answered while marked offline: back online", s_dev[idx].pub.info.name);
+        post(MAO_EVENT_DEVICE_FOUND, idx);
     }
     entry_t *e = &s_dev[idx];
     switch (m->hdr.type) {
@@ -493,6 +506,13 @@ static void devices_task(void *arg)
                 s_grace_until_ms = now + MODE_GRACE_MS;
             }
         }
+        /* Reachability probes requested from other tasks. */
+        for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+            if (s_dev[i].used && s_dev[i].refresh_req) {
+                s_dev[i].refresh_req = false;
+                request(&s_dev[i], ODD_MSG_GET_STATE);
+            }
+        }
         const bool busy = service_commands(esp_timer_get_time());
         const uint32_t until_discovery = odd_discovery_poll(&s_discovery, now);
         s_stats.discoveries_sent = s_discovery.sent;
@@ -623,6 +643,21 @@ esp_err_t mao_devices_set_value(uint64_t id, uint8_t cap_id, int32_t value)
         wake_task();
     }
     return err;
+}
+
+esp_err_t mao_devices_refresh(uint64_t id)
+{
+    lock();
+    const int idx = find_locked(id);
+    if (idx >= 0) {
+        s_dev[idx].refresh_req = true;
+    }
+    unlock();
+    if (idx < 0) {
+        return ESP_ERR_NOT_FOUND;
+    }
+    wake_task();
+    return ESP_OK;
 }
 
 void mao_devices_debug_flood(uint32_t duration_ms)

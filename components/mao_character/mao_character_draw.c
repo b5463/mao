@@ -229,6 +229,33 @@ void mao_char_draw_hide(mao_char_draw_t *d)
     }
 }
 
+void mao_char_draw_marks(mao_char_draw_t *d, int dx, int dy, bool show)
+{
+    /* Three short radial ticks just inside the rim, fanned out around the
+     * impact point. Very restrained: no cracks, no particles. */
+    static const int8_t kFan[3] = { -17, 0, 17 };
+    static const int8_t kLen[3] = { 7, 11, 7 };
+    for (int i = 0; i < 3; i++) {
+        if (!d->mark[i]) {
+            continue;
+        }
+        if (!show) {
+            lv_obj_add_flag(d->mark[i], LV_OBJ_FLAG_HIDDEN);
+            continue;
+        }
+        const int in = 104 - (i == 1 ? 2 : 0);   /* the middle tick sits a touch deeper */
+        if (dx) {
+            lv_obj_set_size(d->mark[i], kLen[i], 2);
+            lv_obj_set_pos(d->mark[i], dx * in, kFan[i]);
+        } else {
+            lv_obj_set_size(d->mark[i], 2, kLen[i]);
+            lv_obj_set_pos(d->mark[i], kFan[i], dy * in);
+        }
+        lv_obj_set_style_bg_opa(d->mark[i], i == 1 ? LV_OPA_90 : LV_OPA_60, 0);
+        lv_obj_remove_flag(d->mark[i], LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
 esp_err_t mao_char_draw_create(mao_char_draw_t *d, lv_obj_t *parent)
 {
     bool ok = true;
@@ -246,6 +273,13 @@ esp_err_t mao_char_draw_create(mao_char_draw_t *d, lv_obj_t *parent)
         ok &= (d->cover[i] = make_part(parent, MAO_LID_COLOR)) != NULL;
     }
     ok &= (d->mouth = make_part(parent, MAO_EYE_COLOR)) != NULL;
+    for (int i = 0; i < 3; i++) {
+        ok &= (d->mark[i] = make_part(parent, MAO_EYE_COLOR)) != NULL;
+        if (d->mark[i]) {
+            lv_obj_set_style_radius(d->mark[i], 1, 0);
+            lv_obj_add_flag(d->mark[i], LV_OBJ_FLAG_HIDDEN);
+        }
+    }
     if (!ok) {
         return ESP_ERR_NO_MEM;
     }

@@ -38,7 +38,7 @@ typedef enum { PRIO_IDLE = 0, PRIO_SYSTEM, PRIO_DIAL, PRIO_PRESS, PRIO_NAV } pri
 
 typedef enum {
     CMD_DIAL, CMD_PRESS, CMD_REACT, CMD_APPEAR, CMD_SLEEPY, CMD_LEAVE, CMD_RETURN,
-    CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION,
+    CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION, CMD_TRANSFER, CMD_MIND,
 } cmd_type_t;
 
 typedef struct {
@@ -58,8 +58,10 @@ static mao_char_draw_t s_draw;
 static mao_idle_t s_idle;
 static mao_lark_t s_lark;
 static mao_life_t s_life;
+static mao_transfer_t s_transfer;
 static int s_fb_pending = -1;       /* controller feedback state waiting to play */
 static uint32_t s_fb_until;         /* feedback playing: full layer gain */
+static uint32_t s_fb_play_at;       /* verdicts wait for the mind's EVALUATE phase */
 static bool s_fb_hold;              /* a held feedback (busy) is on */
 static bool s_dizzy_noted;
 static uint32_t s_last_tick_ms;
@@ -100,6 +102,7 @@ static uint32_t s_dbg_release_at, s_dbg_return_at;
 
 static const char *const kStateNames[MAO_CHAR_STATE_COUNT] = {
     "IDLE", "NOTICE", "FOLLOW", "DIZZY", "SLEEPY", "SURPRISED", "WARM", "AWAY",
+    "EXIT", "GONE", "ENTER", "BASH",
 };
 static const char *const kPreviewNames[MAO_CHAR_PREVIEW_COUNT] = {
     "idle", "blink", "follow", "fast", "vfast", "dizzy", "press", "happy", "sleepy", "leave", "hide",
@@ -152,7 +155,7 @@ static bool dial_engaged(uint32_t now)
 
 static prio_t current_prio(uint32_t now)
 {
-    if (!s_present || before(now, s_away_until)) {
+    if (s_transfer.phase != MAO_TR_NONE || !s_present || before(now, s_away_until)) {
         return PRIO_NAV;
     }
     if (s_pressed || before(now, s_press_until) || before(now, s_warm_until)) {
@@ -170,7 +173,12 @@ static prio_t current_prio(uint32_t now)
 static void update_state(uint32_t now)
 {
     mao_character_state_t st;
-    if (!s_present || before(now, s_away_until)) {
+    if (s_transfer.phase != MAO_TR_NONE) {
+        st = s_transfer.phase == MAO_TR_EXIT ? MAO_CHAR_EXIT :
+             s_transfer.phase == MAO_TR_GONE ? MAO_CHAR_GONE :
+             s_transfer.phase == MAO_TR_ENTER ? MAO_CHAR_ENTER :
+             s_transfer.phase == MAO_TR_BASH ? MAO_CHAR_BASH : MAO_CHAR_NOTICE;
+    } else if (!s_present || before(now, s_away_until)) {
         st = before(now, s_leave_drop_at) ? MAO_CHAR_SURPRISED : MAO_CHAR_AWAY;
     } else if (before(now, s_warm_until)) {
         st = MAO_CHAR_WARM;
@@ -275,7 +283,8 @@ static void react(mao_character_reaction_t r, uint32_t now)
     }
     if (r >= MAO_CHAR_REACT_ACK && r < MAO_CHAR_REACT_COUNT) {
         /* Controller feedback: queued, and played as soon as MAO is on
-         * screen - even mid-dial, at full strength. */
+         * screen - even mid-dial, at full strength. The mind hears about it
+         * too (interest, habituation, the analytical EVALUATE phase). */
         static const char *const kFb[] = {
             [MAO_CHAR_REACT_ACK] = "ack", [MAO_CHAR_REACT_BUSY] = "busy", [MAO_CHAR_REACT_DONE] = "done",
             [MAO_CHAR_REACT_FAIL] = "fail", [MAO_CHAR_REACT_BACK] = "back",
@@ -283,6 +292,34 @@ static void react(mao_character_reaction_t r, uint32_t now)
             [MAO_CHAR_REACT_IDLE] = "neutral",
         };
         wake(now);
+        s_fb_play_at = 0;
+        switch (r) {
+        case MAO_CHAR_REACT_DEVICE_ON:
+            mao_life_event(&s_life, &s_lark, LIFE_EV_DEVICE_NEW, now);
+            break;
+        case MAO_CHAR_REACT_DEVICE_OFF:
+            mao_life_event(&s_life, &s_lark, LIFE_EV_DEVICE_LOST, now);
+            break;
+        case MAO_CHAR_REACT_DONE:
+            mao_life_event(&s_life, &s_lark, LIFE_EV_CMD_OK, now);
+            break;
+        case MAO_CHAR_REACT_FAIL:
+            /* Analysis first: freeze and study for a beat, then the verdict. */
+            mao_life_event(&s_life, &s_lark, LIFE_EV_CMD_FAIL, now);
+            s_fb_play_at = now + 450;
+            break;
+        case MAO_CHAR_REACT_BUSY:
+            mao_life_event(&s_life, &s_lark, LIFE_EV_CMD_BUSY, now);
+            if (s_life.habit_busy > 0.65f) {
+                /* The third "busy" in a row barely registers: a slight
+                 * narrowing from the mind's evaluation, nothing more. */
+                ESP_LOGI(TAG, "busy barely noted (habituated %.2f)", (double)s_life.habit_busy);
+                return;
+            }
+            break;
+        default:
+            break;
+        }
         s_fb_pending = mao_lark_find(kFb[r]);
         s_fb_hold = r == MAO_CHAR_REACT_BUSY;
         return;
@@ -500,6 +537,28 @@ static void apply(const cmd_t *c, uint32_t now)
     case CMD_DEBUG_DIAL: s_dbg_dps = c->f; s_dbg_acc = 0.0f; s_dbg_dial_until = now + (uint32_t)c->value; break;
     case CMD_LOOK:       s_m.look = kLooks[c->arg]; ESP_LOGI(TAG, "look '%s'", kLooks[c->arg].name); break;
     case CMD_EXPRESSION: mao_lark_switch(&s_lark, c->arg, now); break;
+    case CMD_TRANSFER: {
+        const int dx = c->value / 10, dy = c->value % 10;
+        if (c->arg == (int8_t)MAO_TR_NONE) {
+            mao_transfer_begin(&s_transfer, &s_m, MAO_TR_NONE, 0, 0, now);
+            mao_idle_schedule(&s_idle, now, s_sleepy, true);
+        } else {
+            if (!s_visible) {
+                appear(0, now);
+            }
+            wake(now);
+            s_fb_pending = -1;   /* a transfer outranks queued feedback */
+            mao_transfer_begin(&s_transfer, &s_m, (uint8_t)c->arg, dx, dy, now);
+        }
+        break;
+    }
+    case CMD_MIND:
+        if (c->arg == 0) {
+            mao_life_debug_interest(&s_life, (uint8_t)c->value);
+        } else {
+            mao_life_debug_novelty(&s_life, (uint8_t)c->value);
+        }
+        break;
     default: break;
     }
 }
@@ -568,6 +627,7 @@ static void tick_cb(lv_timer_t *t)
 
     dial_update(dt, now);
     timed_reactions(now);
+    mao_transfer_tick(&s_transfer, &s_m, &s_draw, now);
     if (s_visible && current_prio(now) == PRIO_IDLE) {
         /* Idle behaviour now comes from the mind (mao_life.c). */
     } else if (current_prio(now) != PRIO_IDLE) {
@@ -577,7 +637,8 @@ static void tick_cb(lv_timer_t *t)
     update_state(now);
 
     /* Expression layer: full in idle, faint while the user is in charge. */
-    if (s_fb_pending >= 0 && s_visible && s_present && !before(now, s_away_until)) {
+    if (s_fb_pending >= 0 && s_visible && s_present && !before(now, s_away_until) &&
+        s_transfer.phase == MAO_TR_NONE && !before(now, s_fb_play_at)) {
         const int st = s_fb_pending;
         s_fb_pending = -1;
         s_lark.pending = -1;           /* controller feedback wins over a queued mood */
@@ -703,6 +764,27 @@ void mao_character_return(void)                 { post((cmd_t){ .type = CMD_RETU
 void mao_character_debug_preview(mao_character_preview_t p)
 {
     post((cmd_t){ .type = CMD_PREVIEW, .arg = (int8_t)p });
+}
+
+static void post_transfer(mao_transfer_phase_t phase, int dx, int dy)
+{
+    post((cmd_t){ .type = CMD_TRANSFER, .arg = (int8_t)phase, .value = dx * 10 + dy });
+}
+
+void mao_character_transfer_search(int dx, int dy) { post_transfer(MAO_TR_SEARCH, dx, dy); }
+void mao_character_transfer_exit(int dx, int dy)   { post_transfer(MAO_TR_EXIT, dx, dy); }
+void mao_character_transfer_fail(int dx, int dy)   { post_transfer(MAO_TR_BASH, dx, dy); }
+void mao_character_transfer_return(int dx, int dy) { post_transfer(MAO_TR_ENTER, dx, dy); }
+void mao_character_transfer_abort(void)            { post_transfer(MAO_TR_NONE, 0, 0); }
+
+void mao_character_debug_interest(uint8_t pct)
+{
+    post((cmd_t){ .type = CMD_MIND, .arg = 0, .value = pct > 100 ? 100 : pct });
+}
+
+void mao_character_debug_novelty(uint8_t pct)
+{
+    post((cmd_t){ .type = CMD_MIND, .arg = 1, .value = pct > 100 ? 100 : pct });
 }
 
 void mao_character_debug_dial(float dps, uint32_t ms)

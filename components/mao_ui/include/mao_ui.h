@@ -76,6 +76,12 @@ void mao_ui_devices_update(const mao_ui_devices_t *model);
 void mao_ui_devices_bump(int direction);
 void mao_ui_device_update(const mao_ui_device_t *model);
 
+/* Away (transfer): MAO is conceptually on another device. The screen goes
+ * sparse near-black with only a very dim, slowly pulsing seam at the edge it
+ * left through ((dx, dy) logical, one non-zero). MAO's absence is the state:
+ * no CONNECTED text, no icons. */
+void mao_ui_away(bool on, int dx, int dy);
+
 /* Development: replay the HOME boot sequence (wordmark -> eyes). */
 void mao_ui_debug_replay_boot(void);
 

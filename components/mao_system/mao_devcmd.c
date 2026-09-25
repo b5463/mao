@@ -54,6 +54,7 @@ static void run_command(char *line)
     if (strcmp(cmd, "help") == 0) {
         ESP_LOGI(TAG, "dev commands: help | status | snap | anim <name> | view <home|menu|page> | "
                  "dial <dps> [s] | look <n> | state [n] | react [n] | stress <s> | key <cw|ccw|press|release|click|double|long> [n] | "
+                 "transfer <left|right|up|down|success|fail|return|abort> | interest <0-100> | novelty <0-100> | "
                  "odd-reset | odd-selftest | odd-flood <s> | reset-first-boot | reboot");
     } else if (strcmp(cmd, "key") == 0 && arg) {
         /* Inject a synthetic input event: indistinguishable from the knob for
@@ -89,6 +90,28 @@ static void run_command(char *line)
         ESP_LOGW(TAG, "dev: rebooting");
         vTaskDelay(pdMS_TO_TICKS(100));
         esp_restart();
+    } else if (strcmp(cmd, "transfer") == 0 && arg) {
+        static const char *const kTr[] = { "left", "right", "up", "down", "success", "fail", "return", "abort" };
+        int t = -1;
+        for (int i = 0; i < (int)(sizeof(kTr) / sizeof(kTr[0])); i++) {
+            if (strncmp(arg, kTr[i], strlen(kTr[i])) == 0) {
+                t = i;
+                break;
+            }
+        }
+        if (t >= 0) {
+            mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_TRANSFER_BASE + t);
+        } else {
+            ESP_LOGW(TAG, "transfer <left|right|up|down|success|fail|return|abort>");
+        }
+    } else if (strcmp(cmd, "interest") == 0 && arg) {
+        int v = atoi(arg);
+        v = v < 0 ? 0 : (v > 100 ? 100 : v);
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_INTEREST_BASE + v);
+    } else if (strcmp(cmd, "novelty") == 0 && arg) {
+        int v = atoi(arg);
+        v = v < 0 ? 0 : (v > 100 ? 100 : v);
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_NOVELTY_BASE + v);
     } else if (strcmp(cmd, "odd-selftest") == 0) {
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_ODD_SELFTEST);
     } else if (strcmp(cmd, "odd-flood") == 0) {

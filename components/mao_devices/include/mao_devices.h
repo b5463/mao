@@ -85,6 +85,11 @@ int mao_devices_find(uint64_t id);
  * command is coalesced (<= 25 ms) and confirmed by ACK. */
 esp_err_t mao_devices_set_value(uint64_t id, uint8_t cap_id, int32_t value);
 
+/* Reachability probe (transfer handshake): sends GET_STATE to the device.
+ * Any answer updates last_seen_ms; the caller polls the snapshot to see
+ * whether the device really responded. ESP_ERR_NOT_FOUND if unknown. */
+esp_err_t mao_devices_refresh(uint64_t id);
+
 void mao_device_controls(const mao_device_t *dev, mao_device_controls_t *out);
 
 void mao_devices_get_stats(mao_devices_stats_t *out);

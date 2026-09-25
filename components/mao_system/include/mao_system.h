@@ -26,9 +26,24 @@ typedef enum {
     MAO_DEVCMD_VIEW_BASE = 4000,     /* + mao_view_t */
     MAO_DEVCMD_LOOK_BASE = 5000,     /* + look preset index */
     MAO_DEVCMD_REACT_BASE = 7000,    /* + mao_character_reaction_t; base + 999 = list */
+    MAO_DEVCMD_TRANSFER_BASE = 8000, /* + mao_transfer_cmd_t */
+    MAO_DEVCMD_INTEREST_BASE = 9000, /* + 0..100: force the mind's interest */
+    MAO_DEVCMD_NOVELTY_BASE = 9200,  /* + 0..100: force device novelty */
     MAO_DEVCMD_EXPR_BASE = 6000,     /* + expression state index; base + 999 = list */
     MAO_DEVCMD_DIAL_BASE = 100000,   /* + (dps + 500) * 1000 + seconds */
 } mao_devcmd_t;
+
+/* MAO_DEVCMD_TRANSFER_BASE offsets ("mao transfer <...>"). */
+typedef enum {
+    MAO_TRANSFER_CMD_LEFT = 0,    /* real connect towards a logical edge */
+    MAO_TRANSFER_CMD_RIGHT,
+    MAO_TRANSFER_CMD_UP,
+    MAO_TRANSFER_CMD_DOWN,
+    MAO_TRANSFER_CMD_SUCCESS,     /* synthetic: exit + away (animation iteration) */
+    MAO_TRANSFER_CMD_FAIL,        /* synthetic: failure escape */
+    MAO_TRANSFER_CMD_RETURN,
+    MAO_TRANSFER_CMD_ABORT,
+} mao_transfer_cmd_t;
 
 /* Print banner and chip/boot info, create the event bus, load settings.
  * Call first. */

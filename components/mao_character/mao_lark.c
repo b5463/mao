@@ -240,7 +240,10 @@ void mao_lark_event(mao_lark_t *l, lark_event_t ev, uint32_t now)
         request(l, "happy");
         break;
     case LARK_EV_RETURN:
-        request(l, (esp_random() & 1) ? "curious" : "doubletake");
+        /* Coming back is routine. Only occasionally is it worth a look. */
+        if ((esp_random() % 100) < 25) {
+            request(l, "curious");
+        }
         break;
     }
 }

@@ -26,6 +26,7 @@ static const mao_spring_profile_t kProfile[CH_COUNT] = {
     [CH_SLIT] = MAO_P_SHAPE,      [CH_EYE_W] = MAO_P_SHAPE,     [CH_EYE_H] = MAO_P_SHAPE,
     [CH_STAR] = MAO_P_SHAPE,      [CH_DARK] = MAO_P_TINT,       [CH_CROSS] = MAO_P_GAZE,
     [CH_HEAD_YAW] = MAO_P_HEAD,   [CH_HEAD_PITCH] = MAO_P_HEAD,  [CH_LID_ANGLE] = MAO_P_NARROW,
+    [CH_EXIT_X] = MAO_SPRING_HEAVY,
 };
 
 void mao_motion_init(mao_motion_t *m, const mao_look_t *look)
@@ -231,6 +232,11 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
         }
         out->front = fabsf(th[1]) < fabsf(th[0]) ? 1 : 0;
     }
+    /* Transfer travel: applied after the head clamp, so MAO really can move
+     * through the edge of the circle (everything downstream - pupils, lids,
+     * covers, catchlights - derives from the eye centres and follows). */
+    out->lx += v[CH_EXIT_X];
+    out->rx += v[CH_EXIT_X];
 
     out->mouth = mouth;
     out->mx = fx + gx * 0.5f * follow;

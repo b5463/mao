@@ -32,6 +32,14 @@ static const char *const kMenuItems[] = { "DEVICES", "ACTIONS", "TOOLS", "SETUP"
 static mao_view_t s_shown = MAO_VIEW_HOME;   /* rendering bookkeeping only */
 static lv_timer_t *s_tick;
 static uint32_t s_last_ms;
+
+/* Away seam: a dim mark at the departure edge, breathing very slowly. */
+static struct {
+    lv_obj_t *obj;
+    bool on;
+    float phase;
+    lv_opa_t last_opa;
+} s_away;
 static uint32_t s_return_at;                 /* delayed character return */
 static uint32_t s_appear_at;                 /* delayed first appearance */
 static int s_appear_dir;
@@ -112,9 +120,52 @@ static void tick_cb(lv_timer_t *t)
     busy |= mao_home_tick(dt, now);
     busy |= mao_overlay_tick(dt, now);
     busy |= mao_devices_ui_tick(dt, now);
+    if (s_away.on && s_away.obj) {
+        s_away.phase += dt * 2.0f * 3.14159265f / 4.2f;   /* one slow breath every ~4 s */
+        const float u = 0.5f + 0.5f * sinf(s_away.phase);
+        const lv_opa_t opa = (lv_opa_t)(16.0f + 34.0f * u);
+        if (opa != s_away.last_opa) {
+            lv_obj_set_style_bg_opa(s_away.obj, opa, 0);
+            s_away.last_opa = opa;
+        }
+        busy = true;
+    }
     if (!busy) {
         lv_timer_pause(t);
     }
+}
+
+void mao_ui_away(bool on, int dx, int dy)
+{
+    if (!mao_display_lock(0)) {
+        return;
+    }
+    if (!s_away.obj) {
+        s_away.obj = lv_obj_create(lv_screen_active());
+        lv_obj_remove_style_all(s_away.obj);
+        lv_obj_remove_flag(s_away.obj, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_align(s_away.obj, LV_ALIGN_CENTER);
+        lv_obj_set_style_radius(s_away.obj, 2, 0);
+        lv_obj_set_style_bg_color(s_away.obj, lv_color_hex(MAO_COL_FG), 0);
+    }
+    s_away.on = on;
+    if (on) {
+        if (dx) {
+            lv_obj_set_size(s_away.obj, 4, 22);
+            lv_obj_set_pos(s_away.obj, dx * 111, 0);
+        } else {
+            lv_obj_set_size(s_away.obj, 22, 4);
+            lv_obj_set_pos(s_away.obj, 0, (dy ? dy : 1) * 111);
+        }
+        lv_obj_set_style_bg_opa(s_away.obj, 16, 0);
+        s_away.last_opa = 16;
+        s_away.phase = 0.0f;
+        lv_obj_remove_flag(s_away.obj, LV_OBJ_FLAG_HIDDEN);
+        mao_ui_wake();
+    } else {
+        lv_obj_add_flag(s_away.obj, LV_OBJ_FLAG_HIDDEN);
+    }
+    mao_display_unlock();
 }
 
 void mao_ui_wake(void)

@@ -35,6 +35,10 @@ typedef enum {
     MAO_CHAR_SURPRISED,
     MAO_CHAR_WARM,
     MAO_CHAR_AWAY,
+    MAO_CHAR_EXIT,       /* transfer: leaving through the edge */
+    MAO_CHAR_GONE,       /* transfer: on the other device */
+    MAO_CHAR_ENTER,      /* transfer: coming back in */
+    MAO_CHAR_BASH,       /* transfer failed: the edge is a wall */
     MAO_CHAR_STATE_COUNT,
 } mao_character_state_t;
 
@@ -101,6 +105,32 @@ void mao_character_return(void);
 
 mao_character_state_t mao_character_get_state(void);
 const char *mao_character_state_name(mao_character_state_t state);
+
+/* ------------------------------------------------------------------------ */
+/* Transfer: MAO's side of the physical connection experience. Directions   */
+/* are logical (dx, dy), exactly one non-zero: (+1,0) = RIGHT edge.         */
+/* The app owns the connection state machine; these run the visuals. The    */
+/* *_MS constants say when each sequence is over (schedule the next step).  */
+/* ------------------------------------------------------------------------ */
+
+#define MAO_CHAR_TRANSFER_EXIT_MS   750   /* search pose -> fully off screen */
+#define MAO_CHAR_TRANSFER_ENTER_MS  800   /* edge -> settled home */
+#define MAO_CHAR_TRANSFER_BASH_MS   6500  /* three attempts + dry aftermath */
+
+/* Connecting: notice the chosen edge and hold there (analytical, no spinner). */
+void mao_character_transfer_search(int dx, int dy);
+/* Confirmed success: purposeful directional exit through the boundary. */
+void mao_character_transfer_exit(int dx, int dy);
+/* Real failure: MAO tries to leave anyway; the edge is a wall. */
+void mao_character_transfer_fail(int dx, int dy);
+/* Come back in from the same edge (the same mind resumes; nothing resets). */
+void mao_character_transfer_return(int dx, int dy);
+/* Cancel any transfer pose and restore the resting character. */
+void mao_character_transfer_abort(void);
+
+/* Development: force the mind's interest / device novelty (0..100). */
+void mao_character_debug_interest(uint8_t pct);
+void mao_character_debug_novelty(uint8_t pct);
 
 /* Development. */
 void mao_character_debug_preview(mao_character_preview_t preview);
