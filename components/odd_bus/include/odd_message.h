@@ -27,7 +27,9 @@
  *
  * ODD_FRAME_F_INCARNATION marks a frame whose payload begins with the
  * sender's 64-bit incarnation (little-endian), before the message's normal
- * payload. Only SESSION_OPEN, SET_VALUE and ACK may carry it. A device
+ * payload. SESSION_OPEN, SET_VALUE, ACK, ACTION and ACTION_RESULT may carry
+ * it; for SESSION_OPEN, ACTION and ACTION_RESULT it is mandatory - there is
+ * no legacy unflagged ACTION form, by design. A device
  * tracks per controller the CURRENT and PREVIOUS incarnation: SESSION_OPEN
  * establishes a new current (previous is refused - a delayed old open can
  * never reclaim the session), and state-changing commands execute only when
@@ -67,7 +69,9 @@ typedef enum {
     ODD_MSG_SET_VALUE    = 0x07,  /* one value */
     ODD_MSG_ACK          = 0x08,  /* result of a SET_VALUE / SESSION_OPEN */
     ODD_MSG_SESSION_OPEN = 0x09,  /* controller establishes its incarnation (flag required) */
-    ODD_MSG_TYPE_MAX     = ODD_MSG_SESSION_OPEN,
+    ODD_MSG_ACTION       = 0x0A,  /* invoke a discrete operation (flag required) */
+    ODD_MSG_ACTION_RESULT = 0x0B, /* asynchronous completion of an ACTION (flag required) */
+    ODD_MSG_TYPE_MAX     = ODD_MSG_ACTION_RESULT,
 } odd_msg_type_t;
 
 /* Frame flags (header byte 6). Unknown bits are rejected as malformed. */
@@ -84,7 +88,15 @@ typedef enum {
     ODD_ACK_READ_ONLY     = 4,
     ODD_ACK_NO_SESSION    = 5,   /* not executed: open a session first (device rebooted?) */
     ODD_ACK_STALE_SESSION = 6,   /* not executed: incarnation is a previous one */
+    ODD_ACK_ACCEPTED      = 7,   /* ACTION taken for execution (completion comes separately) */
+    ODD_ACK_BUSY          = 8,   /* ACTION refused: the device cannot start it now */
 } odd_ack_status_t;
+
+/* Final outcome of an ACTION (ODD_MSG_ACTION_RESULT). 0 is invalid. */
+typedef enum {
+    ODD_ACTION_R_DONE   = 1,
+    ODD_ACTION_R_FAILED = 2,
+} odd_action_result_t;
 
 typedef struct {
     uint8_t version;
@@ -113,6 +125,20 @@ typedef struct {
     odd_value_t applied;           /* value now in effect */
 } odd_ack_msg_t;
 
+/* ACTION: invoke capability `cap_id` once. The command's identity is
+ * (source device_id, incarnation, cap_id, header seq). */
+typedef struct {
+    uint8_t cap_id;
+} odd_action_msg_t;
+
+/* ACTION_RESULT: completion of the invocation identified by
+ * (the controller incarnation in the prefix, cap_id, action_seq). */
+typedef struct {
+    uint8_t cap_id;
+    uint16_t action_seq;           /* the ORIGINAL action's sequence number */
+    uint8_t result;                /* odd_action_result_t */
+} odd_action_result_msg_t;
+
 /* A decoded, validated message. */
 typedef struct {
     odd_header_t hdr;
@@ -125,6 +151,8 @@ typedef struct {
         odd_state_msg_t state;     /* STATE */
         odd_value_t set;           /* SET_VALUE */
         odd_ack_msg_t ack;         /* ACK */
+        odd_action_msg_t action;   /* ACTION */
+        odd_action_result_msg_t action_result;   /* ACTION_RESULT */
     } u;
 } odd_message_t;
 

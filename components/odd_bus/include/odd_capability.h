@@ -16,10 +16,20 @@ extern "C" {
 #define ODD_MAX_CAPS 8
 
 typedef enum {
-    ODD_CAP_NONE  = 0,
-    ODD_CAP_POWER = 1,   /* on/off: min 0, max 1, step 1 */
-    ODD_CAP_LEVEL = 2,   /* generic bounded level (brightness, volume, speed...) */
+    ODD_CAP_NONE   = 0,
+    ODD_CAP_POWER  = 1,  /* on/off: min 0, max 1, step 1 */
+    ODD_CAP_LEVEL  = 2,  /* generic bounded level (brightness, volume, speed...) */
+    ODD_CAP_ACTION = 3,  /* a discrete operation performed exactly once; no stored value.
+                          * Canonical encoding: min = max = semantic, step = 1 (fits the
+                          * v1 record and its validation untouched). */
 } odd_cap_type_t;
+
+/* What an ACTION does, generically - never product-specific. 0 is invalid. */
+typedef enum {
+    ODD_ACTION_IDENTIFY = 1,   /* "make this physical device briefly identify itself" */
+} odd_action_semantic_t;
+
+
 
 typedef enum {
     ODD_CAP_F_READ   = 1u << 0,
@@ -42,6 +52,13 @@ typedef struct {
 } odd_value_t;
 
 const char *odd_cap_type_name(uint8_t type);
+const char *odd_action_semantic_name(int32_t semantic);
+
+/* The semantic of an ACTION capability (carried in its min == max field). */
+static inline int32_t odd_action_semantic_of(const odd_capability_t *c)
+{
+    return c->min;
+}
 
 #ifdef __cplusplus
 }

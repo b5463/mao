@@ -218,6 +218,70 @@ int odd_bus_selftest(void)
     CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.hdr.flags == 0 && d.incarnation == 0,
           "legacy SET decodes with no incarnation");
 
+    /* --- ACTION extension ---------------------------------------------- */
+
+    /* ACTION capability: canonical min == max == semantic, step 1. */
+    memset(&b, 0, sizeof(b));
+    b.u.caps.count = 3;
+    b.u.caps.cap[0] = (odd_capability_t) { 1, ODD_CAP_POWER, ODD_CAP_F_WRITE, 0, 1, 1 };
+    b.u.caps.cap[1] = (odd_capability_t) { 2, ODD_CAP_LEVEL, ODD_CAP_F_WRITE, 0, 100, 1 };
+    b.u.caps.cap[2] = (odd_capability_t) { 3, ODD_CAP_ACTION, ODD_CAP_F_WRITE,
+                                           ODD_ACTION_IDENTIFY, ODD_ACTION_IDENTIFY, 1 };
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(n == ODD_HEADER_LEN + 1 + 3 * 15 + ODD_CRC_LEN, "3-cap frame with ACTION is 72 B");
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.u.caps.cap[2].type == ODD_CAP_ACTION &&
+          odd_action_semantic_of(&d.u.caps.cap[2]) == ODD_ACTION_IDENTIFY, "ACTION capability round trip");
+    b.u.caps.cap[2].max = ODD_ACTION_IDENTIFY + 1;   /* min != max */
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_MALFORMED, "ACTION cap min != max rejected");
+    b.u.caps.cap[2] = (odd_capability_t) { 3, ODD_CAP_ACTION, ODD_CAP_F_WRITE, 0, 0, 1 };
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_MALFORMED, "ACTION semantic 0 rejected");
+
+    /* ACTION invocation: exact size, round trip, flag mandatory. */
+    memset(&b, 0, sizeof(b));
+    b.u.action.cap_id = 3;
+    b.incarnation = INC;
+    {
+        const odd_header_t hh = { .type = ODD_MSG_ACTION, .seq = 900, .flags = ODD_FRAME_F_INCARNATION,
+                                  .src_id = 0x0DD0112233445566ULL, .dst_id = 0x0DD0AABBCCDDEEFFULL };
+        n = odd_encode(&hh, &b, f, sizeof(f));
+    }
+    CHECK(n == ODD_HEADER_LEN + 8 + 1 + ODD_CRC_LEN, "ACTION is 35 B");
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.incarnation == INC && d.u.action.cap_id == 3 &&
+          d.hdr.seq == 900, "ACTION round trip");
+    {
+        const odd_header_t hh = { .type = ODD_MSG_ACTION, .seq = 900,
+                                  .src_id = 0x0DD0112233445566ULL, .dst_id = 0 };
+        CHECK(odd_encode(&hh, &b, g, sizeof(g)) == 0, "unflagged ACTION refused by encoder");
+    }
+    memcpy(g, f, n); g[6] = 0;
+    CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "unflagged ACTION rejected by decoder");
+    memcpy(g, f, n); g[ODD_HEADER_LEN + 8] = 0;   /* cap id 0 */
+    CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "ACTION for cap 0 rejected");
+
+    /* ACTION_RESULT: exact size, round trip, result range, flag mandatory. */
+    memset(&b, 0, sizeof(b));
+    b.u.action_result.cap_id = 3;
+    b.u.action_result.action_seq = 900;
+    b.u.action_result.result = ODD_ACTION_R_DONE;
+    b.incarnation = INC;
+    {
+        const odd_header_t hh = { .type = ODD_MSG_ACTION_RESULT, .seq = 55, .flags = ODD_FRAME_F_INCARNATION,
+                                  .src_id = 0x0DD0AABBCCDDEEFFULL, .dst_id = 0x0DD0112233445566ULL };
+        n = odd_encode(&hh, &b, f, sizeof(f));
+    }
+    CHECK(n == ODD_HEADER_LEN + 8 + 4 + ODD_CRC_LEN, "ACTION_RESULT is 38 B");
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.incarnation == INC &&
+          d.u.action_result.cap_id == 3 && d.u.action_result.action_seq == 900 &&
+          d.u.action_result.result == ODD_ACTION_R_DONE, "ACTION_RESULT round trip");
+    memcpy(g, f, n); g[ODD_HEADER_LEN + 8 + 3] = 0;    /* result 0 */
+    CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "result 0 rejected");
+    memcpy(g, f, n); g[ODD_HEADER_LEN + 8 + 3] = 9;    /* unknown result */
+    CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "unknown result rejected");
+    memcpy(g, f, n); g[6] = 0;
+    CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "unflagged ACTION_RESULT rejected");
+
     /* Sequence arithmetic across wrap-around. */
     CHECK(odd_seq_newer(1, 0) && odd_seq_newer(0, 65535) && odd_seq_newer(10, 65530), "seq newer across wrap");
     CHECK(!odd_seq_newer(65530, 10) && !odd_seq_newer(5, 5), "seq older/equal");

@@ -45,9 +45,18 @@ const char *odd_device_type_name(uint16_t type)
 const char *odd_cap_type_name(uint8_t type)
 {
     switch (type) {
-    case ODD_CAP_POWER: return "POWER";
-    case ODD_CAP_LEVEL: return "LEVEL";
-    default:            return "?";
+    case ODD_CAP_POWER:  return "POWER";
+    case ODD_CAP_LEVEL:  return "LEVEL";
+    case ODD_CAP_ACTION: return "ACTION";
+    default:             return "?";
+    }
+}
+
+const char *odd_action_semantic_name(int32_t semantic)
+{
+    switch (semantic) {
+    case ODD_ACTION_IDENTIFY: return "IDENTIFY";
+    default:                  return "?";
     }
 }
 

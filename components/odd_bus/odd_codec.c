@@ -62,6 +62,14 @@ static void encode_payload(wr_t *w, uint8_t type, const odd_message_t *b)
     switch (type) {
     case ODD_MSG_SESSION_OPEN:
         break;   /* the incarnation prefix IS the payload */
+    case ODD_MSG_ACTION:
+        w8(w, b->u.action.cap_id);
+        break;
+    case ODD_MSG_ACTION_RESULT:
+        w8(w, b->u.action_result.cap_id);
+        w16(w, b->u.action_result.action_seq);
+        w8(w, b->u.action_result.result);
+        break;
     case ODD_MSG_DISCOVER:
     case ODD_MSG_ANNOUNCE: {
         const size_t n = strnlen(b->u.info.name, ODD_NAME_MAX);
@@ -111,7 +119,14 @@ static void encode_payload(wr_t *w, uint8_t type, const odd_message_t *b)
 /* Only controller-identity messages may carry the incarnation prefix. */
 static bool flag_allowed(uint8_t type)
 {
-    return type == ODD_MSG_SET_VALUE || type == ODD_MSG_ACK || type == ODD_MSG_SESSION_OPEN;
+    return type == ODD_MSG_SET_VALUE || type == ODD_MSG_ACK || type == ODD_MSG_SESSION_OPEN ||
+           type == ODD_MSG_ACTION || type == ODD_MSG_ACTION_RESULT;
+}
+
+/* These say nothing without an incarnation: the flag is mandatory. */
+static bool flag_required(uint8_t type)
+{
+    return type == ODD_MSG_SESSION_OPEN || type == ODD_MSG_ACTION || type == ODD_MSG_ACTION_RESULT;
 }
 
 size_t odd_encode(const odd_header_t *hdr, const odd_message_t *body, uint8_t *out, size_t out_size)
@@ -125,8 +140,8 @@ size_t odd_encode(const odd_header_t *hdr, const odd_message_t *body, uint8_t *o
     if (inc && (!flag_allowed(hdr->type) || !body || body->incarnation == 0)) {
         return 0;
     }
-    if (hdr->type == ODD_MSG_SESSION_OPEN && !inc) {
-        return 0;   /* a session open without an incarnation says nothing */
+    if (flag_required(hdr->type) && !inc) {
+        return 0;   /* no legacy form exists for these */
     }
     const bool needs_body = hdr->type != ODD_MSG_GET_CAPS && hdr->type != ODD_MSG_GET_STATE;
     if (needs_body && !body) {
@@ -180,6 +195,18 @@ static bool decode_payload(rd_t *r, uint8_t type, odd_message_t *m)
     case ODD_MSG_SESSION_OPEN:
         /* Nothing besides the prefix, and the prefix is mandatory. */
         return (m->hdr.flags & ODD_FRAME_F_INCARNATION) != 0 && r->left == 0;
+    case ODD_MSG_ACTION:
+        m->u.action.cap_id = r8(r);
+        return (m->hdr.flags & ODD_FRAME_F_INCARNATION) != 0 && r->ok && r->left == 0 &&
+               m->u.action.cap_id != 0;
+    case ODD_MSG_ACTION_RESULT:
+        m->u.action_result.cap_id = r8(r);
+        m->u.action_result.action_seq = r16(r);
+        m->u.action_result.result = r8(r);
+        return (m->hdr.flags & ODD_FRAME_F_INCARNATION) != 0 && r->ok && r->left == 0 &&
+               m->u.action_result.cap_id != 0 &&
+               (m->u.action_result.result == ODD_ACTION_R_DONE ||
+                m->u.action_result.result == ODD_ACTION_R_FAILED);
     case ODD_MSG_DISCOVER:
     case ODD_MSG_ANNOUNCE: {
         m->u.info.id = m->hdr.src_id;
@@ -211,6 +238,10 @@ static bool decode_payload(rd_t *r, uint8_t type, odd_message_t *m)
             c->id = r8(r); c->type = r8(r); c->flags = r8(r);
             c->min = (int32_t)r32(r); c->max = (int32_t)r32(r); c->step = (int32_t)r32(r);
             if (c->id == 0 || c->min > c->max || c->step <= 0) {
+                return false;
+            }
+            /* ACTION's canonical form: min == max == semantic (> 0), step 1. */
+            if (c->type == ODD_CAP_ACTION && (c->min != c->max || c->min <= 0 || c->step != 1)) {
                 return false;
             }
         }
@@ -289,7 +320,7 @@ const char *odd_msg_type_name(uint8_t type)
 {
     static const char *const names[] = {
         "?", "DISCOVER", "ANNOUNCE", "GET_CAPS", "CAPABILITIES", "GET_STATE", "STATE", "SET_VALUE", "ACK",
-        "SESSION_OPEN",
+        "SESSION_OPEN", "ACTION", "ACTION_RESULT",
     };
     return type <= ODD_MSG_TYPE_MAX ? names[type] : "?";
 }
