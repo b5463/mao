@@ -23,6 +23,7 @@
 #include "freertos/task.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_random.h"
 #include "esp_timer.h"
 #include "mao_events.h"
 #include "mao_radio.h"
@@ -76,6 +77,14 @@ typedef struct {
     uint32_t describe_req_ms;
     volatile bool refresh_req;   /* reachability probe requested (any task) */
     bool probe_armed;            /* next direct answer posts MAO_EVENT_DEVICE_PROBED */
+    /* Controller session with this device (see odd_message.h identity
+     * model). Not persisted anywhere: a reboot on either side heals through
+     * NO_SESSION -> SESSION_OPEN automatically. */
+    bool session_ok;
+    bool session_inflight;
+    uint16_t session_seq;
+    int64_t session_tx_us;
+    uint8_t session_retries;
 } entry_t;
 
 static QueueHandle_t s_inbox;
@@ -87,6 +96,7 @@ static odd_discovery_t s_discovery;
 static volatile bool s_active;
 static volatile bool s_active_changed;
 static uint32_t s_grace_until_ms;
+static uint64_t s_incarnation;   /* this boot's identity; generated once, never stored */
 static volatile uint32_t s_flood_until_ms;
 static uint32_t s_flood_next_ms;
 
@@ -284,6 +294,48 @@ static void on_state(entry_t *e, int idx, const odd_message_t *m)
 
 static void on_ack(entry_t *e, int idx, const odd_message_t *m, int64_t now_us)
 {
+    /* INVARIANT: an ACK from another controller incarnation (an earlier MAO
+     * boot, or another controller's exchange) can never confirm anything. */
+    if (m->incarnation != s_incarnation) {
+        s_stats.acks_stale++;
+        ESP_LOGD(TAG, "ACK with foreign incarnation ignored");
+        return;
+    }
+    /* A session reply carries no capability. */
+    if (m->u.ack.applied.cap_id == 0) {
+        if (e->session_inflight && m->u.ack.acked_seq == e->session_seq) {
+            e->session_inflight = false;
+            if (m->u.ack.status == ODD_ACK_OK) {
+                e->session_ok = true;
+                s_stats.sessions_opened++;
+                ESP_LOGI(TAG, "session established with '%s' (incarnation %016llx)",
+                         e->pub.info.name, (unsigned long long)s_incarnation);
+            } else {
+                /* Only possible if the device believes a newer incarnation of
+                 * us exists - impossible within one boot. Log loudly. */
+                ESP_LOGE(TAG, "'%s' refused our SESSION_OPEN (status %u)", e->pub.info.name, m->u.ack.status);
+            }
+        }
+        return;
+    }
+    /* The device lost our session (it rebooted): re-open and re-send. */
+    if (m->u.ack.status == ODD_ACK_NO_SESSION || m->u.ack.status == ODD_ACK_STALE_SESSION) {
+        const int cc = cap_index(e, m->u.ack.applied.cap_id);
+        s_stats.no_session_acks++;
+        e->session_ok = false;
+        e->session_inflight = false;
+        if (cc >= 0 && e->cmd[cc].in_flight && m->u.ack.acked_seq == e->cmd[cc].seq) {
+            e->cmd[cc].in_flight = false;
+            lock();
+            e->cmd[cc].dirty = true;   /* re-sent automatically once the session is back */
+            e->cmd[cc].latest_input_us = e->cmd[cc].input_us;
+            unlock();
+            ESP_LOGW(TAG, "'%s': %s - reopening session and re-sending", e->pub.info.name,
+                     m->u.ack.status == ODD_ACK_NO_SESSION ? "no session (device rebooted?)" : "stale session");
+        }
+        wake_task();
+        return;
+    }
     const int c = cap_index(e, m->u.ack.applied.cap_id);
     if (c < 0) {
         s_stats.acks_stale++;
@@ -398,12 +450,65 @@ static void send_set(entry_t *e, int c, cmd_t *cmd, int64_t now_us, bool retry)
     body.u.set.cap_id = e->pub.caps[c].cap.id;
     body.u.set.value = cmd->sent_value;
     if (retry) {
-        odd_bus_send_seq(e->pub.mac, e->pub.info.id, ODD_MSG_SET_VALUE, &body, cmd->seq);
+        odd_bus_send_session_seq(e->pub.mac, e->pub.info.id, ODD_MSG_SET_VALUE, &body, s_incarnation, cmd->seq);
     } else {
-        odd_bus_send(e->pub.mac, e->pub.info.id, ODD_MSG_SET_VALUE, &body, &cmd->seq);
+        odd_bus_send_session(e->pub.mac, e->pub.info.id, ODD_MSG_SET_VALUE, &body, s_incarnation, &cmd->seq);
         cmd->first_tx_us = now_us;
     }
     cmd->last_tx_us = now_us;
+}
+
+/* Open (or retry opening) this boot's session with a device. Returns true
+ * while commands for it must wait. Same pacing as commands: 40 ms, twice. */
+static bool service_session(entry_t *e, int i, int64_t now_us)
+{
+    if (e->session_ok) {
+        return false;
+    }
+    if (!e->session_inflight) {
+        odd_message_t body = { 0 };
+        odd_bus_send_session(e->pub.mac, e->pub.info.id, ODD_MSG_SESSION_OPEN, &body,
+                             s_incarnation, &e->session_seq);
+        e->session_inflight = true;
+        e->session_retries = 0;
+        e->session_tx_us = now_us;
+        return true;
+    }
+    if (now_us - e->session_tx_us < ACK_TIMEOUT_US) {
+        return true;
+    }
+    if (e->session_retries < MAX_RETRIES) {
+        e->session_retries++;
+        s_stats.retries++;
+        odd_message_t body = { 0 };
+        odd_bus_send_session_seq(e->pub.mac, e->pub.info.id, ODD_MSG_SESSION_OPEN, &body,
+                                 s_incarnation, e->session_seq);
+        e->session_tx_us = now_us;
+        return true;
+    }
+    /* Abandon like a command: don't pretend, don't spin. Dirty commands are
+     * dropped with their caps marked pending; the next user input tries anew. */
+    e->session_inflight = false;
+    s_stats.timeouts++;
+    bool raise = false;
+    lock();
+    for (int c = 0; c < e->pub.cap_count; c++) {
+        if (e->cmd[c].dirty || e->cmd[c].in_flight) {
+            e->pub.caps[c].pending = true;
+        }
+        e->cmd[c].dirty = false;
+        e->cmd[c].in_flight = false;
+    }
+    if (++e->failures >= LINK_PROBLEM_AFTER && !e->pub.link_problem) {
+        e->pub.link_problem = true;
+        raise = true;
+    }
+    unlock();
+    ESP_LOGW(TAG, "'%s': no answer to SESSION_OPEN after %d retries", e->pub.info.name, MAX_RETRIES);
+    if (raise) {
+        post(MAO_EVENT_DEVICE_CHANGED, i);
+    }
+    return true;
 }
 
 /* Returns true while commands still need servicing soon. */
@@ -414,6 +519,14 @@ static bool service_commands(int64_t now_us)
         entry_t *e = &s_dev[i];
         if (!e->used || !e->pub.online) {
             continue;
+        }
+        bool want_session = false;
+        for (int c = 0; c < e->pub.cap_count; c++) {
+            want_session = want_session || e->cmd[c].dirty || e->cmd[c].in_flight;
+        }
+        if (want_session && service_session(e, i, now_us)) {
+            busy = true;
+            continue;   /* commands wait until this boot's session is open */
         }
         for (int c = 0; c < e->pub.cap_count; c++) {
             cmd_t *cmd = &e->cmd[c];
@@ -544,6 +657,34 @@ static void devices_task(void *arg)
 /* Public API                                                             */
 /* ---------------------------------------------------------------------- */
 
+/* This boot's controller incarnation (see odd_message.h): random, non-zero,
+ * never persisted. A reboot IS a new incarnation - that is the point. */
+uint64_t mao_devices_incarnation(void)
+{
+    return s_incarnation;
+}
+
+/* Development: one SET carrying a fabricated foreign incarnation. The device
+ * must refuse it (NO_SESSION) and change nothing. */
+void mao_devices_debug_stale_set(void)
+{
+    for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+        entry_t *e = &s_dev[i];
+        if (!e->used || !e->pub.online || e->pub.cap_count == 0) {
+            continue;
+        }
+        odd_message_t body = { 0 };
+        body.u.set.cap_id = e->pub.caps[0].cap.id;
+        body.u.set.value = e->pub.caps[0].cap.max;
+        const uint64_t fake = s_incarnation ^ 0xDEADBEEFCAFE0001ULL;
+        ESP_LOGW(TAG, "dev: sending SET to '%s' with foreign incarnation %016llx (must be refused)",
+                 e->pub.info.name, (unsigned long long)fake);
+        odd_bus_send_session(e->pub.mac, e->pub.info.id, ODD_MSG_SET_VALUE, &body, fake, NULL);
+        return;
+    }
+    ESP_LOGW(TAG, "dev: no online device to target");
+}
+
 esp_err_t mao_devices_init(void)
 {
     s_mutex = xSemaphoreCreateMutex();
@@ -561,6 +702,11 @@ esp_err_t mao_devices_init(void)
     };
     strncpy(self.name, "MAO", sizeof(self.name) - 1);
     ESP_RETURN_ON_ERROR(odd_bus_init(&self, odd_send, NULL, on_message, NULL), TAG, "odd bus");
+
+    do {
+        s_incarnation = ((uint64_t)esp_random() << 32) | esp_random();
+    } while (s_incarnation == 0);
+    ESP_LOGI(TAG, "MAO ODD incarnation = %016llx", (unsigned long long)s_incarnation);
 
     odd_discovery_init(&s_discovery, DISCOVERY_IDLE_MS);
     mao_radio_set_rx_handler(radio_rx, NULL);
@@ -712,9 +858,9 @@ void mao_devices_log_status(void)
              o.tx, o.rx, o.rx_not_odd, o.rx_bad_version, o.rx_bad_crc, o.rx_malformed, o.rx_not_for_us, o.rx_own);
     ESP_LOGI(TAG, "devices: online=%" PRIu32 " discover=%" PRIu32 " announce=%" PRIu32 " cmd=%" PRIu32
              " ack=%" PRIu32 " stale=%" PRIu32 " retry=%" PRIu32 " timeout=%" PRIu32 " coalesced=%" PRIu32
-             " inbox_drop=%" PRIu32,
+             " inbox_drop=%" PRIu32 " sessions=%" PRIu32 " no_session=%" PRIu32,
              d.devices_online, d.discoveries_sent, d.announces_rx, d.commands_sent, d.acks_rx, d.acks_stale,
-             d.retries, d.timeouts, d.coalesced, d.inbox_dropped);
+             d.retries, d.timeouts, d.coalesced, d.inbox_dropped, d.sessions_opened, d.no_session_acks);
     if (d.rtt_count) {
         ESP_LOGI(TAG, "latency: cmd->ack rtt avg=%.2fms min=%.2fms max=%.2fms (n=%" PRIu32 "), "
                  "input->ack avg=%.2fms max=%.2fms",

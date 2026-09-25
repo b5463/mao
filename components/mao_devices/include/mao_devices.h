@@ -62,6 +62,8 @@ typedef struct {
     uint32_t timeouts;          /* commands abandoned after all retries */
     uint32_t coalesced;         /* dial updates folded into a later command */
     uint32_t inbox_dropped;
+    uint32_t sessions_opened;   /* SESSION_OPENs accepted by devices */
+    uint32_t no_session_acks;   /* commands answered NO_SESSION / STALE_SESSION */
     uint32_t devices_online;
     uint32_t rtt_count;
     uint32_t rtt_min_us, rtt_max_us;
@@ -94,6 +96,12 @@ void mao_device_controls(const mao_device_t *dev, mao_device_controls_t *out);
 
 void mao_devices_get_stats(mao_devices_stats_t *out);
 void mao_devices_reset_latency(void);
+
+/* This boot's controller incarnation (0 before init). */
+uint64_t mao_devices_incarnation(void);
+/* Development: send one SET with a fabricated foreign incarnation - the
+ * device must refuse it without changing state. */
+void mao_devices_debug_stale_set(void);
 
 /* Development: broadcast DISCOVER at 50 Hz for the given time (radio load test). */
 void mao_devices_debug_flood(uint32_t duration_ms);

@@ -120,6 +120,12 @@ static void run_command(char *line)
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_FLOOD_BASE + seconds);
     } else if (strcmp(cmd, "perf") == 0) {
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_PERF_BURST);
+    } else if (strcmp(cmd, "odd-incarnation") == 0) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_ODD_INCARNATION);
+    } else if (strcmp(cmd, "odd-stale-set") == 0) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_STALE_SET);
+    } else if (strcmp(cmd, "odd-seq") == 0 && arg) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_SEQSEED_BASE + (atoi(arg) & 0xFFFF));
     } else if (strcmp(cmd, "odd-reset") == 0) {
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_ODD_RESET);
     } else if (strcmp(cmd, "status") == 0) {

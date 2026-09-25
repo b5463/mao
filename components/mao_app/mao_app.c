@@ -520,11 +520,17 @@ static void on_dev_command(int32_t value, int64_t now)
         mao_devices_log_status();
     } else if (value == MAO_DEVCMD_PERF_BURST) {
         mao_display_perf_burst(3000);
+    } else if (value == MAO_DEVCMD_ODD_INCARNATION) {
+        ESP_LOGI(TAG, "MAO ODD incarnation = %016llx", (unsigned long long)mao_devices_incarnation());
+    } else if (value == MAO_DEVCMD_STALE_SET) {
+        mao_devices_debug_stale_set();
     } else if (value == MAO_DEVCMD_ODD_SELFTEST) {
         odd_bus_selftest();
     } else if (value == MAO_DEVCMD_ODD_RESET) {
         mao_devices_reset_latency();
         ESP_LOGI(TAG, "latency statistics reset");
+    } else if (value >= MAO_DEVCMD_SEQSEED_BASE) {
+        odd_bus_debug_set_seq((uint16_t)(value - MAO_DEVCMD_SEQSEED_BASE));
     } else if (value >= MAO_DEVCMD_DIAL_BASE) {
         /* dial: value = base + dps * 1000 + seconds (synthetic detents to the character only) */
         const int32_t v = value - MAO_DEVCMD_DIAL_BASE;
