@@ -112,11 +112,12 @@ void mao_transfer_begin(mao_transfer_t *t, mao_motion_t *m, uint8_t phase, int d
         travel(t, m, 300.0f);
         break;
     case MAO_TR_ENTER: {
-        /* Already at the far side of the edge, coming in with velocity. */
+        /* Already at the far side of the edge, coming in with velocity.
+         * Home is easier than leaving: MAO knows the way. */
         mao_spring_t *s = &m->ch[t->dx ? CH_EXIT_X : CH_AWAY];
         s->x = (float)(t->dx ? t->dx : t->dy) * 300.0f;
         s->v = 0.0f;
-        travel_profile(t, m, (mao_spring_profile_t){ .k = 120.0f, .zeta = 0.58f });   /* small overshoot */
+        travel_profile(t, m, (mao_spring_profile_t){ .k = 190.0f, .zeta = 0.60f });   /* small overshoot */
         travel(t, m, 0.0f);
         mao_motion_set(m, CH_OPEN, 1.0f);
         mao_motion_set(m, CH_NARROW, MAO_REST_NARROW);
@@ -130,10 +131,14 @@ void mao_transfer_begin(mao_transfer_t *t, mao_motion_t *m, uint8_t phase, int d
 
 /* Scripted timelines: kDue[i] is when action i fires (ms since t0), each
  * action runs exactly once. The last entry ends the phase. */
-static const uint16_t kExitDue[]  = { 0, 140, 250, 660 };
-static const uint16_t kEnterDue[] = { 380, 700 };
-static const uint16_t kBashDue[]  = { 0, 260, 720, 940, 1180, 1560, 1840, 2050, 2190, 2480,
-                                      2840, 3140, 3280, 3620, 4100, 4750, 5000, 5650, 6250 };
+/* The search pose has already fixed the gaze on the edge, so the exit only
+ * needs the anticipation and the launch; the failed escape keeps its three
+ * acts but at controller pace (see the milestone: exploratory / analytical /
+ * decisive, roughly 0.55 + 0.7 + 0.75 s plus a dry aftermath). */
+static const uint16_t kExitDue[]  = { 0, 90, 180, 480 };
+static const uint16_t kEnterDue[] = { 260, 520 };
+static const uint16_t kBashDue[]  = { 0, 140, 340, 450, 560, 760, 900, 1040, 1130, 1300,
+                                      1560, 1700, 1790, 2000, 2350, 2650, 2820, 3120, 3400 };
 #define N_OF(a) ((uint8_t)(sizeof(a) / sizeof(a[0])))
 
 static void exit_step(mao_transfer_t *t, mao_motion_t *m, uint32_t now)
@@ -148,7 +153,7 @@ static void exit_step(mao_transfer_t *t, mao_motion_t *m, uint32_t now)
         mao_motion_set(m, CH_SQUASH, 0.08f);
         break;
     case 2:   /* launch: controlled acceleration, directional stretch */
-        travel_profile(t, m, (mao_spring_profile_t){ .k = 60.0f, .zeta = 1.0f });
+        travel_profile(t, m, (mao_spring_profile_t){ .k = 85.0f, .zeta = 1.0f });
         travel(t, m, 320.0f);
         stretch(t, m, 1.0f);
         mao_motion_set(m, CH_SQUASH, -0.10f);
@@ -185,7 +190,7 @@ static void bash_step(mao_transfer_t *t, mao_motion_t *m, mao_char_draw_t *d, ui
         mao_motion_set(m, CH_NARROW, MAO_REST_NARROW + 0.08f);
         break;
     case 1:
-        travel_profile(t, m, MAO_SPRING_SOFT);
+        travel_profile(t, m, (mao_spring_profile_t){ .k = 150.0f, .zeta = 0.85f });
         travel(t, m, 64.0f);
         break;
     case 2:   /* push into the glass */

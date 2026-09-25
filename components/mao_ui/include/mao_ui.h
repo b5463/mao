@@ -92,6 +92,8 @@ void mao_ui_device_connect_hot(float v);
  * left through ((dx, dy) logical, one non-zero). MAO's absence is the state:
  * no CONNECTED text, no icons. */
 void mao_ui_away(bool on, int dx, int dy);
+/* The dial turned while away: the seam stirs 1-2 px (still alive). */
+void mao_ui_away_nudge(int direction);
 
 /* Development: replay the HOME boot sequence (wordmark -> eyes). */
 void mao_ui_debug_replay_boot(void);

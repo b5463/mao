@@ -118,9 +118,9 @@ const char *mao_character_state_name(mao_character_state_t state);
 /* *_MS constants say when each sequence is over (schedule the next step).  */
 /* ------------------------------------------------------------------------ */
 
-#define MAO_CHAR_TRANSFER_EXIT_MS   750   /* search pose -> fully off screen */
-#define MAO_CHAR_TRANSFER_ENTER_MS  800   /* edge -> settled home */
-#define MAO_CHAR_TRANSFER_BASH_MS   6500  /* three attempts + dry aftermath */
+#define MAO_CHAR_TRANSFER_EXIT_MS   500   /* launch decision -> fully off screen */
+#define MAO_CHAR_TRANSFER_ENTER_MS  560   /* edge -> settled home */
+#define MAO_CHAR_TRANSFER_BASH_MS   3500  /* three attempts + dry aftermath */
 
 /* Connecting: notice the chosen edge and hold there (analytical, no spinner). */
 void mao_character_transfer_search(int dx, int dy);
