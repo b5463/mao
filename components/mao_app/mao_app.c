@@ -421,8 +421,9 @@ static void on_device(const mao_event_t *ev, int64_t now)
         for (int i = 0; i < n; i++) {
             cur = slots[i] == s_dev_focus ? i : cur;
         }
-        int next = cur + (d > 0 ? 1 : -1);
-        if (n > 0 && next >= 0 && next < n) {
+        int next = cur + (int)d;
+        next = next < 0 ? 0 : (next > n - 1 ? n - 1 : next);
+        if (n > 0 && next != cur) {
             s_dev_focus = slots[next];
             refresh_device_panel();
             dial_tick(&m);

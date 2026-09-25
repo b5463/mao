@@ -216,12 +216,12 @@ static void panel_layout(void)
                       s_panel.value_opa * vf * p, &s_panel.cv);
     const float row = smooth01((p - 0.4f) / 0.6f);
     if (s_panel.has_power) {
-        const float x = s_panel.has_action ? -52.0f : 0.0f;
+        const float x = s_panel.has_action ? -62.0f : 0.0f;
         mao_ui_text_place(s_panel.power, x, PANEL_CTRL_Y + (1.0f - p) * 6.0f,
                           (s_panel.focus == 1 ? 255.0f : (float)MAO_OPA_CONTEXT) * row, &s_panel.cpw);
     }
     if (s_panel.has_action) {
-        const float x = s_panel.has_power ? 44.0f : 0.0f;
+        const float x = s_panel.has_power ? 54.0f : 0.0f;
         mao_ui_text_place(s_panel.action, x, PANEL_CTRL_Y + (1.0f - p) * 6.0f,
                           (s_panel.focus == 2 ? 255.0f : (float)MAO_OPA_CONTEXT) * row, &s_panel.cac);
     }
