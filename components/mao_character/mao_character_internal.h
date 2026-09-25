@@ -103,3 +103,12 @@ static inline bool before(uint32_t now, uint32_t t)
 {
     return t && (int32_t)(t - now) > 0;
 }
+
+/* Dial physics (mao_character_dial.c) */
+bool mao_char_dial_engaged(mao_char_t *mc, uint32_t now);
+void mao_char_on_dial(mao_char_t *mc, int32_t n, uint32_t now);
+void mao_char_dial_update(mao_char_t *mc, float dt, uint32_t now);
+
+/* Priority and wake (mao_character_react.c) */
+prio_t mao_char_current_prio(mao_char_t *mc, uint32_t now);
+void mao_char_wake(mao_char_t *mc, uint32_t now);

@@ -1,21 +1,13 @@
 /*
- * MAO character: command intake, continuous dial physics, reactions and
- * priorities. Runs on a 30 Hz LVGL timer; commands arrive through a queue.
+ * MAO character: command intake and the per-tick pipeline. Runs on an LVGL
+ * timer; commands arrive through a queue (see docs/character_architecture.md).
  *
- * Dial model: detents feed a smoothed signed speed estimate. Intensity
- * (speed / MAO_DIAL_FULL_DPS) is mapped continuously onto gaze, face shift,
- * tilt, acceleration lean, stretch, cobalt tint and orbit radius, so there are
- * no visible thresholds. Gaze has a faster spring than the face, so the eyes
- * lead and the face follows; when the dial stops the face settles first and
- * the eyes keep looking a moment longer. Direction reversals add to a
- * decaying "disturbance": each one kicks the face sideways (harder as it
- * accumulates) and above a level the eyes lose coordination.
- *
- * On top of all this runs the Lark-style expression layer (mao_lark.c):
- * authored states chosen by a small mood model, blended additively and
- * weighted down while the user is interacting; and the inner life
- * (mao_life.c): drives and impulses that make MAO act on its own, real
- * saccades, cat mode, and reactions to people that depend on its mood.
+ * On top of the dial physics (mao_character_dial.c) runs the Lark-style
+ * expression layer (mao_lark.c): authored states chosen by a small mood
+ * model, blended additively and weighted down while the user is
+ * interacting; and the inner life (mao_life.c): drives and impulses that make
+ * MAO act on its own, real saccades, cat mode, and reactions to people that
+ * depend on its mood.
  */
 #include "mao_character_internal.h"
 
@@ -70,12 +62,7 @@ int mao_character_look_count(void)
 /* Priority                                                               */
 /* ---------------------------------------------------------------------- */
 
-static bool dial_engaged(mao_char_t *mc, uint32_t now)
-{
-    return mc->last_detent_ms && (now - mc->last_detent_ms) < (uint32_t)(MAO_DIAL_ENGAGE_S * 1000.0f);
-}
-
-static prio_t current_prio(mao_char_t *mc, uint32_t now)
+prio_t mao_char_current_prio(mao_char_t *mc, uint32_t now)
 {
     if (mc->transfer.phase != MAO_TR_NONE || !mc->present || before(now, mc->away_until)) {
         return PRIO_NAV;
@@ -83,7 +70,7 @@ static prio_t current_prio(mao_char_t *mc, uint32_t now)
     if (mc->pressed || before(now, mc->press_until) || before(now, mc->warm_until)) {
         return PRIO_PRESS;
     }
-    if (dial_engaged(mc, now) || fabsf(mc->speed) > 1.0f || mc->disturb > 0.3f) {
+    if (mao_char_dial_engaged(mc, now) || fabsf(mc->speed) > 1.0f || mc->disturb > 0.3f) {
         return PRIO_DIAL;
     }
     if (before(now, mc->react_until)) {
@@ -108,7 +95,7 @@ static void update_state(mao_char_t *mc, uint32_t now)
         st = MAO_CHAR_NOTICE;
     } else if (mc->disturb >= MAO_REV_DIZZY) {
         st = MAO_CHAR_DIZZY;
-    } else if (dial_engaged(mc, now) || fabsf(mc->speed) > 1.0f) {
+    } else if (mao_char_dial_engaged(mc, now) || fabsf(mc->speed) > 1.0f) {
         st = MAO_CHAR_FOLLOW;
     } else if (mc->sleepy) {
         st = MAO_CHAR_SLEEPY;
@@ -125,7 +112,7 @@ static void update_state(mao_char_t *mc, uint32_t now)
 /* Commands                                                               */
 /* ---------------------------------------------------------------------- */
 
-static void wake(mao_char_t *mc, uint32_t now)
+void mao_char_wake(mao_char_t *mc, uint32_t now)
 {
     if (mc->sleepy) {
         mc->sleepy = false;
@@ -138,43 +125,13 @@ static void wake(mao_char_t *mc, uint32_t now)
     mao_idle_schedule(&mc->idle, now, false, true);
 }
 
-static void on_dial(mao_char_t *mc, int32_t n, uint32_t now)
-{
-    if (!mc->visible || current_prio(mc, now) == PRIO_NAV || n == 0) {
-        return;
-    }
-    wake(mc, now);
-    if (!mc->last_input_ms || now - mc->last_input_ms > (uint32_t)(MAO_SPARK_AFTER_S * 1000.0f)) {
-        /* Something interesting: a brief keen widening before following. */
-        mao_motion_set(&mc->m, CH_OPEN, MAO_SPARK_OPEN);
-        mc->wide_until = now + (uint32_t)(MAO_SPARK_S * 1000.0f);
-        mao_life_event(&mc->life, &mc->lark, LIFE_EV_FIRST_TOUCH, now);
-    }
-    mc->last_input_ms = now;
-    mao_lark_event(&mc->lark, LARK_EV_INPUT, now);
-    mao_life_event(&mc->life, &mc->lark, LIFE_EV_INPUT, now);
-    const int sign = n > 0 ? 1 : -1;
-    if (mc->last_sign && sign != mc->last_sign &&
-        (now - mc->last_detent_ms) < (uint32_t)(MAO_REV_WINDOW_S * 1000.0f)) {
-        /* Reversal: momentum jerks the face on in the old direction while the
-         * eyes (fast spring) already look the new way. Accumulates. */
-        mc->disturb += 1.0f;
-        mao_lark_event(&mc->lark, LARK_EV_REVERSAL, now);
-        mao_life_event(&mc->life, &mc->lark, LIFE_EV_REVERSAL, now);
-        mao_motion_kick(&mc->m, CH_FACE_X, (float)mc->last_sign * MAO_REV_KICK * (1.0f + mc->disturb));
-    }
-    mc->last_sign = sign;
-    mc->last_detent_ms = now;
-    mc->tick_detents += n;
-    mao_life_dial(&mc->life, n, now);
-}
 
 static void on_press(mao_char_t *mc, bool down, uint32_t now)
 {
     if (!mc->visible || !mc->present) {
         return;
     }
-    wake(mc, now);
+    mao_char_wake(mc, now);
     if (down && (!mc->last_input_ms || now - mc->last_input_ms > (uint32_t)(MAO_SPARK_AFTER_S * 1000.0f))) {
         mao_life_event(&mc->life, &mc->lark, LIFE_EV_FIRST_TOUCH, now);
     }
@@ -200,7 +157,7 @@ static void on_press(mao_char_t *mc, bool down, uint32_t now)
 static void react(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
 {
     if (r == MAO_CHAR_REACT_WAKE) {
-        wake(mc, now);
+        mao_char_wake(mc, now);
         return;
     }
     if (r >= MAO_CHAR_REACT_ACK && r < MAO_CHAR_REACT_COUNT) {
@@ -214,7 +171,7 @@ static void react(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
             [MAO_CHAR_REACT_UNSURE] = "neutral",   /* unreachable: handled above */
             [MAO_CHAR_REACT_IDLE] = "neutral",
         };
-        wake(mc, now);
+        mao_char_wake(mc, now);
         mc->fb_play_at = 0;
         switch (r) {
         case MAO_CHAR_REACT_DEVICE_ON:
@@ -260,7 +217,7 @@ static void react(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
         return;
     }
     if (r == MAO_CHAR_REACT_WARM) {                       /* press priority (long press) */
-        wake(mc, now);
+        mao_char_wake(mc, now);
         mao_motion_set(&mc->m, CH_NARROW, MAO_WARM_NARROW);
         mao_motion_set(&mc->m, CH_FACE_Y, mc->idle.base_y + MAO_WARM_LIFT);
         mao_motion_set(&mc->m, CH_TINT_WARM, 1.0f);
@@ -272,12 +229,12 @@ static void react(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
         return;
     }
     /* System reactions yield to anything the user is doing. */
-    if (current_prio(mc, now) > PRIO_SYSTEM) {
+    if (mao_char_current_prio(mc, now) > PRIO_SYSTEM) {
         ESP_LOGD(TAG, "system reaction skipped (user interaction has priority)");
         return;
     }
     mao_idle_cancel(&mc->idle, &mc->m);
-    wake(mc, now);
+    mao_char_wake(mc, now);
     mao_motion_set(&mc->m, CH_OPEN, MAO_NOTICE_OPEN);
     mc->wide_until = now + (uint32_t)(MAO_NOTICE_S * 1000.0f);
     mao_motion_kick(&mc->m, CH_FACE_Y, -30.0f);
@@ -392,107 +349,10 @@ static void set_sleepy(mao_char_t *mc, bool sleepy, uint32_t now)
         mao_motion_set(&mc->m, CH_SLEEP, 1.0f);
         mao_idle_schedule(&mc->idle, now, true, false);
     } else {
-        wake(mc, now);
+        mao_char_wake(mc, now);
     }
 }
 
-/* ---------------------------------------------------------------------- */
-/* Dial physics (every tick)                                              */
-/* ---------------------------------------------------------------------- */
-
-static void dial_update(mao_char_t *mc, float dt, uint32_t now)
-{
-    const int32_t n = mc->tick_detents;
-    mc->tick_detents = 0;
-
-    const float rate = (float)n / dt;
-    const float tau = fabsf(rate) > fabsf(mc->speed) ? MAO_DIAL_TAU_UP : MAO_DIAL_TAU_DOWN;
-    mc->speed += (rate - mc->speed) * (1.0f - expf(-dt / tau));
-    const float abs_speed = fabsf(mc->speed);
-    mc->accel += ((abs_speed - mc->prev_abs) / dt - mc->accel) * (1.0f - expf(-dt / 0.10f));
-    mc->prev_abs = abs_speed;
-    mc->disturb *= expf(-dt / MAO_REV_DECAY_S);
-
-    const float i = clampf(abs_speed / MAO_DIAL_FULL_DPS, 0.0f, 1.0f);
-    const float dir = (float)(mc->last_sign ? mc->last_sign : 1);
-    const bool engaged = dial_engaged(mc, now) || i > 0.05f;
-    const float wob = clampf((mc->disturb - MAO_REV_WOBBLE_START) * MAO_REV_WOBBLE_GAIN, 0.0f, MAO_REV_WOBBLE_MAX);
-    mao_motion_set(&mc->m, CH_WOBBLE, wob);
-    if (mc->disturb >= MAO_REV_DIZZY && !mc->dizzy_noted) {
-        mc->dizzy_noted = true;   /* the dizzy expression plays once the dial stops */
-        mao_lark_event(&mc->lark, LARK_EV_DIZZY, now);
-        mao_life_event(&mc->life, &mc->lark, LIFE_EV_DIZZY, now);
-    } else if (mc->disturb < 1.0f) {
-        mc->dizzy_noted = false;
-    }
-
-    if (!mc->present) {
-        return;
-    }
-    if (engaged) {
-        const float pk = mc->peek ? MAO_PEEK_DIAL_GAIN : 1.0f;
-        const float s = smoothstep(0.0f, MAO_LATERAL_RAMP, i) * pk;
-        const float o = mc->peek ? 0.0f : smoothstep(MAO_ORBIT_START, MAO_ORBIT_FULL, i);
-        const float lat = 1.0f - o;
-        mao_motion_set(&mc->m, CH_GAZE_X, dir * (MAO_GAZE_MIN + (MAO_GAZE_MAX - MAO_GAZE_MIN) * s) * lat
-                                        + dir * MAO_GAZE_LAG_ORBIT * o);
-        mao_motion_set(&mc->m, CH_GAZE_Y, mc->peek ? MAO_PEEK_GAZE_UP : 0.0f);
-        mao_motion_set(&mc->m, CH_FACE_X, mc->idle.base_x + dir * (MAO_FACE_MIN + (MAO_FACE_MAX - MAO_FACE_MIN) * s) * lat);
-        const float lean = clampf(mc->accel * MAO_LEAN_GAIN, -MAO_LEAN_MAX, MAO_LEAN_MAX);
-        mao_motion_set(&mc->m, CH_TILT, dir * (MAO_TILT_MAX * s * lat + lean));
-        mao_motion_set(&mc->m, CH_SQUASH, (mc->pressed ? MAO_PRESS_SQUASH : 0.0f) - MAO_MOTION_STRETCH * i);
-        mao_motion_set(&mc->m, CH_TINT_MOVE, o);
-        if (!before(now, mc->wide_until)) {
-            mao_motion_set(&mc->m, CH_OPEN, 1.0f - 0.06f * wob);
-        }
-
-        if (o > 0.01f) {
-            if (!mc->orbiting) {
-                mc->orbiting = true;
-                if (mc->m.ch[CH_ORBIT_R].x < 2.0f) {
-                    /* Start on the side we are turning towards. */
-                    mc->orbit_target = dir * PI_F / 2.0f;
-                    mc->m.ch[CH_ORBIT_A].x = mc->orbit_target;
-                    mc->m.ch[CH_ORBIT_A].v = 0.0f;
-                } else {
-                    mc->orbit_target = mc->m.ch[CH_ORBIT_A].x;
-                }
-            }
-            /* Follow the knob's real angle (the spring adds a slight lag). */
-            mc->orbit_target += (float)n * TWO_PI_F / (float)mao_char_detents_per_rev(mc);
-            mao_motion_set(&mc->m, CH_ORBIT_A, mc->orbit_target);
-            if (o > 0.5f) {
-                mao_lark_event(&mc->lark, LARK_EV_FAST, now);
-            }
-            mao_motion_set(&mc->m, CH_ORBIT_R, o * MAO_ORBIT_RADIUS +
-                           smoothstep(MAO_ORBIT_RIM_START, 1.0f, i) * MAO_ORBIT_RIM_EXTRA);
-        } else {
-            mao_motion_set(&mc->m, CH_ORBIT_R, 0.0f);
-        }
-        return;
-    }
-
-    /* Disengaged: the face settles first, the eyes follow a moment later. */
-    if (mc->last_detent_ms && (now - mc->last_detent_ms) < 5000) {
-        mao_motion_set(&mc->m, CH_FACE_X, mc->idle.base_x);
-        mao_motion_set(&mc->m, CH_TILT, 0.0f);
-        mao_motion_set(&mc->m, CH_ORBIT_R, 0.0f);
-        mao_motion_set(&mc->m, CH_TINT_MOVE, 0.0f);
-        mao_motion_set(&mc->m, CH_SQUASH, mc->pressed ? MAO_PRESS_SQUASH : 0.0f);
-        if ((now - mc->last_detent_ms) > (uint32_t)((MAO_DIAL_ENGAGE_S + MAO_GAZE_HOLD_S) * 1000.0f) &&
-            !mc->idle.glance_until && !before(now, mc->react_until)) {
-            mao_motion_set(&mc->m, CH_GAZE_X, 0.0f);
-        }
-        if (mc->orbiting && mc->m.ch[CH_ORBIT_R].x < 1.0f) {
-            mc->orbiting = false;
-            /* Keep the angle bounded once the orbit has collapsed. */
-            const float wraps = TWO_PI_F * floorf(mc->orbit_target / TWO_PI_F);
-            mc->orbit_target -= wraps;
-            mc->m.ch[CH_ORBIT_A].x -= wraps;
-            mao_motion_set(&mc->m, CH_ORBIT_A, mc->orbit_target);
-        }
-    }
-}
 
 /* ---------------------------------------------------------------------- */
 /* Tick                                                                   */
@@ -503,7 +363,7 @@ static void preview(mao_char_t *mc, mao_character_preview_t p, uint32_t now);
 static void apply(mao_char_t *mc, const cmd_t *c, uint32_t now)
 {
     switch (c->type) {
-    case CMD_DIAL:       on_dial(mc, c->value, now); break;
+    case CMD_DIAL:       mao_char_on_dial(mc, c->value, now); break;
     case CMD_PRESS:      on_press(mc, c->flag, now); break;
     case CMD_REACT:      react(mc, (mao_character_reaction_t)c->arg, now); break;
     case CMD_APPEAR:     appear(mc, c->arg, now); break;
@@ -523,7 +383,7 @@ static void apply(mao_char_t *mc, const cmd_t *c, uint32_t now)
             if (!mc->visible) {
                 appear(mc, 0, now);
             }
-            wake(mc, now);
+            mao_char_wake(mc, now);
             mc->fb_pending = -1;   /* a transfer outranks queued feedback */
             mao_transfer_begin(&mc->transfer, &mc->m, (uint8_t)c->arg, dx, dy, now);
         }
@@ -600,16 +460,16 @@ static void tick_cb(lv_timer_t *t)
         const int32_t n = (int32_t)mc->dbg_acc;
         if (n) {
             mc->dbg_acc -= (float)n;
-            on_dial(mc, n, now);
+            mao_char_on_dial(mc, n, now);
         }
     }
 
-    dial_update(mc, dt, now);
+    mao_char_dial_update(mc, dt, now);
     timed_reactions(mc, now);
     mao_transfer_tick(&mc->transfer, &mc->m, &mc->draw, now);
-    if (mc->visible && current_prio(mc, now) == PRIO_IDLE) {
+    if (mc->visible && mao_char_current_prio(mc, now) == PRIO_IDLE) {
         /* Idle behaviour now comes from the mind (mao_life.c). */
-    } else if (current_prio(mc, now) != PRIO_IDLE) {
+    } else if (mao_char_current_prio(mc, now) != PRIO_IDLE) {
         /* Something more important is happening: push idle back. */
         mao_idle_schedule(&mc->idle, now, mc->sleepy, true);
     }
@@ -630,7 +490,7 @@ static void tick_cb(lv_timer_t *t)
     }
     static const float kLayerGain[] = { [PRIO_IDLE] = 1.0f, [PRIO_SYSTEM] = 0.5f, [PRIO_DIAL] = 0.25f,
                                         [PRIO_PRESS] = 0.45f, [PRIO_NAV] = 0.0f };
-    const prio_t prio = current_prio(mc, now);
+    const prio_t prio = mao_char_current_prio(mc, now);
     const bool feedback = mc->fb_hold || before(now, mc->fb_until);
     float gain = feedback ? 1.0f : kLayerGain[prio];
     if (mc->peek) {
@@ -677,7 +537,7 @@ static void preview(mao_char_t *mc, mao_character_preview_t p, uint32_t now)
     case MAO_CHAR_PREVIEW_IDLE:
         mc->disturb = 0.0f;
         mc->dbg_dial_until = 0;
-        wake(mc, now);
+        mao_char_wake(mc, now);
         break;
     case MAO_CHAR_PREVIEW_BLINK:     mao_motion_blink(&mc->m, now, 150, 1); break;
     case MAO_CHAR_PREVIEW_FOLLOW:    mc->dbg_dps = 6.0f;  mc->dbg_dial_until = now + 2500; break;
@@ -685,7 +545,7 @@ static void preview(mao_char_t *mc, mao_character_preview_t p, uint32_t now)
     case MAO_CHAR_PREVIEW_VERY_FAST: mc->dbg_dps = 75.0f; mc->dbg_dial_until = now + 3000; break;
     case MAO_CHAR_PREVIEW_DIZZY:
         for (int k = 0; k < 4; k++) {
-            on_dial(mc, k % 2 ? 1 : -1, now);
+            mao_char_on_dial(mc, k % 2 ? 1 : -1, now);
         }
         break;
     case MAO_CHAR_PREVIEW_PRESS:     on_press(mc, true, now); mc->dbg_release_at = now + 700; break;
