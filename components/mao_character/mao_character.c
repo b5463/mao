@@ -396,6 +396,7 @@ static void leave(uint32_t now)
         return;
     }
     mao_idle_cancel(&s_idle, &s_m);
+    mao_motion_profile(&s_m, CH_AWAY, MAO_P_AWAY);
     /* 1. notice the double click: eyes widen, tiny "o". */
     mao_motion_set(&s_m, CH_OPEN, MAO_SURPRISE_OPEN);
     mao_motion_set(&s_m, CH_SPREAD, 2.0f);
@@ -410,6 +411,7 @@ static void come_back(uint32_t now)
 {
     s_present = true;
     s_peek = false;
+    mao_motion_profile(&s_m, CH_AWAY, MAO_P_AWAY);
     s_mouth = MAO_MOUTH_NONE;
     mao_motion_set(&s_m, CH_EYE_W, 0.0f);
     mao_motion_set(&s_m, CH_EYE_H, 0.0f);
@@ -433,6 +435,8 @@ static void peek_set(bool on, uint32_t now)
         return;
     }
     s_peek = on;
+    /* A peek into the tool, not a view transition: quick in, quick out. */
+    mao_motion_profile(&s_m, CH_AWAY, (mao_spring_profile_t){ .k = 520.0f, .zeta = 0.95f });
     if (on) {
         s_present = true;
         s_mouth = MAO_MOUTH_NONE;

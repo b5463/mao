@@ -110,6 +110,8 @@ typedef struct {
     bool seq_set;
     int64_t start_us;
     int64_t last_tx_us;
+    int64_t invoke_us;        /* latency instrumentation: requested */
+    int64_t first_tx_us;      /* first ACTION on the radio */
     uint8_t fast_retries;
 } action_tx_t;
 static action_tx_t s_act;
@@ -362,6 +364,7 @@ static void on_ack(entry_t *e, int idx, const odd_message_t *m, int64_t now_us)
         switch (m->u.ack.status) {
         case ODD_ACK_ACCEPTED:
             if (s_act.state == MAO_ACTION_SENDING) {
+                ESP_LOGI(TAG, "latency: radio -> ACK %lld us", (long long)(now_us - s_act.first_tx_us));
                 action_post(idx, MAO_ACTION_ACCEPTED);
             }
             s_act.last_tx_us = now_us;   /* result recovery paces from here */
@@ -600,6 +603,8 @@ static void service_action(int64_t now_us)
         s_act.fast_retries = 0;
         s_act.state = MAO_ACTION_SENDING;
         send_action(e, true, now_us);
+        s_act.first_tx_us = esp_timer_get_time();
+        ESP_LOGI(TAG, "latency: invoke -> radio %lld us", (long long)(s_act.first_tx_us - s_act.invoke_us));
         return;
     }
     if (!e) {
@@ -836,7 +841,7 @@ esp_err_t mao_devices_invoke_action(uint64_t id, uint8_t cap_id)
     if (s_act.req || s_act.state == MAO_ACTION_SENDING || s_act.state == MAO_ACTION_ACCEPTED) {
         return ESP_ERR_INVALID_STATE;   /* one transaction at a time */
     }
-    s_act = (action_tx_t) { .dev = id, .cap = cap_id };
+    s_act = (action_tx_t) { .dev = id, .cap = cap_id, .invoke_us = esp_timer_get_time() };
     s_act.req = true;
     wake_task();
     return ESP_OK;
