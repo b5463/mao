@@ -498,3 +498,44 @@ void lark_gen_anxious(lark_gen_t *g)
     tremble(g, len, lark_rand(1.5f, 2.8f), u32r(90, 130));
     lark_gen_end(g, len);
 }
+
+/* ---------------------------------------------------------------------- */
+/* Asleep (looping: every cycle its own little events)                    */
+/* ---------------------------------------------------------------------- */
+
+void lark_gen_asleep(lark_gen_t *g)
+{
+    lark_gen_begin(g);
+    const uint32_t len = u32r(5000, 12000);
+    const int cl = lark_gen_track(g, CH_CLOSE);
+    lark_gen_key(g, cl, 0, 0.95f, LARK_LINEAR);
+    /* Maybe one small event somewhere in this cycle. */
+    const uint32_t at = u32r(1500, len - 2500);
+    const float r = lark_rand(0.0f, 1.0f);
+    if (r < 0.18f) {                                      /* a sleepy half-peek, then back under */
+        lark_gen_key(g, cl, at, 0.95f, LARK_LINEAR);
+        lark_gen_key(g, cl, at + 500, lark_rand(0.45f, 0.7f), LARK_IN_OUT);
+        lark_gen_key(g, cl, at + 500 + u32r(400, 1200), lark_rand(0.45f, 0.7f), LARK_LINEAR);
+        lark_gen_key(g, cl, at + 2200, 0.95f, LARK_IN_OUT);
+        hold(g, CH_GAZE_X, at + 400, at + 1500, lark_rand(3.0f, 8.0f) * sgn(), 400, 500);
+    } else if (r < 0.36f) {                               /* a twitch in a dream */
+        const int fy = lark_gen_track(g, CH_FACE_Y);
+        lark_gen_key(g, fy, 0, 0.0f, LARK_LINEAR);
+        lark_gen_key(g, fy, at, 0.0f, LARK_LINEAR);
+        lark_gen_key(g, fy, at + 60, -lark_rand(4.0f, 9.0f), LARK_OUT);
+        lark_gen_key(g, fy, at + 260, 0.0f, LARK_IN);
+        if (lark_chance(0.5f)) {
+            lark_gen_key(g, fy, at + 420, -lark_rand(2.0f, 5.0f), LARK_OUT);
+            lark_gen_key(g, fy, at + 600, 0.0f, LARK_IN);
+        }
+    } else if (r < 0.52f) {                               /* a smile in her sleep */
+        hold(g, CH_SMILE, at, at + u32r(1200, 2500), lark_rand(0.2f, 0.4f), 600, 900);
+    } else if (r < 0.68f) {                               /* rolls a little to one side */
+        const float side = sgn();
+        hold(g, CH_TILT, at, len - 200, side * lark_rand(2.0f, 4.0f), 1500, 200);
+        hold(g, CH_FACE_X, at, len - 200, side * lark_rand(6.0f, 14.0f), 1500, 200);
+    } else if (r < 0.78f) {                               /* a deep breath */
+        hold(g, CH_FACE_Y, at, at + 900, -lark_rand(4.0f, 7.0f), 900, 1200);
+    }                                                     /* otherwise: just sleeping */
+    lark_gen_end(g, len);
+}

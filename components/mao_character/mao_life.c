@@ -161,7 +161,7 @@ static void impulse(mao_life_t *l, mao_lark_t *lark, uint32_t now)
     float w[IMP_COUNT] = { 0 };
     w[IMP_GLANCE] = 4.0f;
     w[IMP_IMPROV] = 12.0f;            /* the most common: something new every time */
-    w[IMP_FLY] = 2.0f + 9.0f * c;
+    w[IMP_FLY] = 1.2f + 6.0f * c;
     w[IMP_SNIFF] = 1.5f + 5.0f * c;
     w[IMP_REMEMBER] = 0.8f + 2.5f * c;
     w[IMP_SEEK] = 8.0f * s;
@@ -169,7 +169,7 @@ static void impulse(mao_life_t *l, mao_lark_t *lark, uint32_t now)
     w[IMP_CAT] = cat ? 0.0f : 0.08f;   /* exceedingly rare */
     w[IMP_TIRED] = 6.0f * (1.0f - e);
     w[IMP_DOZE] = 8.0f * (1.0f - e) * (1.0f - e);
-    w[IMP_STARTLE] = 0.7f;
+    w[IMP_STARTLE] = 0.3f;              /* at nothing: rare, or it stops being funny */
     w[IMP_HUM] = 2.5f * (1.0f - ir) * e;
     w[IMP_SCHEME] = 1.2f;
     w[IMP_GRUMBLE] = 9.0f * ir;

@@ -1,7 +1,8 @@
 /*
  * MAO's Lark-style library, part 2: moods. STARBOY's documented behaviours
  * (anxious in noise, shivering in the cold, dizzy and then mad when shaken,
- * sad when flicked off, happy, purring, excited, startled, asleep) plus
+ * sad when flicked off, happy, purring, excited, startled, asleep - never
+ * quite still: it stirs, peeks, smiles and twitches in its sleep) plus
  * Maomao's own (tipsy - she loves strong drink; her rare, bright smile),
  * all played through her eyes. Units: see mao_lark_author.h.
  */
@@ -66,10 +67,6 @@ static const lark_key_t sa_tilt[] = { K(0, 2.0f, LINEAR) };
 static const lark_track_t sad[] = { TRACK(CH_NARROW, sa_lid), TRACK(CH_PUPIL, sa_pu), TRACK(CH_SHINE, sa_sh),
                                     TRACK(CH_GAZE_Y, sa_gy), TRACK(CH_FACE_Y, sa_fy), TRACK(CH_TILT, sa_tilt) };
 
-/* asleep: closed to crescents (the sleep channel does the rest). */
-static const lark_key_t as_cl[] = { K(0, 0.95f, LINEAR) };
-static const lark_track_t asleep[] = { TRACK(CH_CLOSE, as_cl) };
-
 /* ======================================================================== */
 
 const lark_state_t kLarkMoods[] = {
@@ -88,6 +85,6 @@ const lark_state_t kLarkMoods[] = {
     GEN("mad", 100, OUT, ONE, 0, 0, 4, 0, NULL, lark_gen_mad),
     STATE("sad",          4000, 900,  IN_OUT, 0,             0,   4,  0,  0, NULL,    sad),
     GEN("startled", 60, OUT, EVT, 0, 0, 0, 0, NULL, lark_gen_startle),
-    STATE("asleep",       5600, 1500, IN_OUT, LARK_NO_PICK,  0,   0,  0,  0, NULL,    asleep),
+    GEN("asleep", 1500, IN_OUT, LARK_NO_PICK | LARK_REGEN, 0, 0, 0, 0, NULL, lark_gen_asleep),
 };
 const int kLarkMoodsCount = (int)(sizeof(kLarkMoods) / sizeof(kLarkMoods[0]));

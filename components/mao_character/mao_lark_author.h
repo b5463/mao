@@ -43,6 +43,7 @@ void lark_gen_eyeroll(lark_gen_t *g);
 void lark_gen_flustered(lark_gen_t *g);
 void lark_gen_anxious(lark_gen_t *g);
 void lark_gen_keen(lark_gen_t *g);
+void lark_gen_asleep(lark_gen_t *g);
 
 /* Parts of the library (registered in mao_lark_library.c). */
 extern const lark_state_t kLarkDaily[];
