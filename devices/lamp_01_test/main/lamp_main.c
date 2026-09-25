@@ -202,13 +202,23 @@ static void handle_set(const odd_message_t *m)
         ack.u.ack.status = ODD_ACK_UNKNOWN_CAP;
     } else {
         source_t *src = source_for(m->hdr.src_id);
+        /* A sequence far behind the last one is not "stale": the controller
+         * rebooted and its counter restarted (found in real two-board
+         * testing: every SET after a MAO reflash was refused). Genuine
+         * out-of-order commands are at most a handful apart. */
+        const bool restarted = src->seq_valid[cap] && !odd_seq_newer(m->hdr.seq, src->last_seq[cap]) &&
+                               (uint16_t)(src->last_seq[cap] - m->hdr.seq) > 4096;
         if (src->seq_valid[cap] && m->hdr.seq == src->last_seq[cap]) {
             s_duplicates++;                   /* retry of an applied command: re-ACK only */
             ack.u.ack.status = ODD_ACK_OK;
-        } else if (src->seq_valid[cap] && !odd_seq_newer(m->hdr.seq, src->last_seq[cap])) {
+        } else if (src->seq_valid[cap] && !restarted && !odd_seq_newer(m->hdr.seq, src->last_seq[cap])) {
             s_stale++;                        /* arrived after a newer one: ignore */
             ack.u.ack.status = ODD_ACK_STALE;
         } else {
+            if (restarted) {
+                ESP_LOGW(TAG, "controller %016llx sequence restarted (%u -> %u): accepting",
+                         (unsigned long long)m->hdr.src_id, src->last_seq[cap], m->hdr.seq);
+            }
             src->seq_valid[cap] = true;
             src->last_seq[cap] = m->hdr.seq;
             int32_t v = m->u.set.value;
