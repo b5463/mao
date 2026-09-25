@@ -75,6 +75,7 @@ typedef struct {
     uint8_t failures;
     uint32_t describe_req_ms;
     volatile bool refresh_req;   /* reachability probe requested (any task) */
+    bool probe_armed;            /* next direct answer posts MAO_EVENT_DEVICE_PROBED */
 } entry_t;
 
 static QueueHandle_t s_inbox;
@@ -373,6 +374,11 @@ static void on_message(const odd_message_t *m, void *ctx)
         ESP_LOGI(TAG, "'%s' answered while marked offline: back online", s_dev[idx].pub.info.name);
         post(MAO_EVENT_DEVICE_FOUND, idx);
     }
+    if (s_dev[idx].probe_armed) {
+        /* The answer IS the reachability result: no polling in this path. */
+        s_dev[idx].probe_armed = false;
+        post(MAO_EVENT_DEVICE_PROBED, idx);
+    }
     entry_t *e = &s_dev[idx];
     switch (m->hdr.type) {
     case ODD_MSG_CAPABILITIES: on_capabilities(e, idx, m); break;
@@ -510,6 +516,7 @@ static void devices_task(void *arg)
         for (int i = 0; i < MAO_DEVICES_MAX; i++) {
             if (s_dev[i].used && s_dev[i].refresh_req) {
                 s_dev[i].refresh_req = false;
+                s_dev[i].probe_armed = true;
                 request(&s_dev[i], ODD_MSG_GET_STATE);
             }
         }

@@ -34,9 +34,16 @@
 
 static const char *TAG = "MAO_TRANSFER";
 
-#define PROBE_INTERVAL_MS   300      /* poll for the probe's answer */
-#define PROBE_RETRY_AT      2        /* second probe on this poll */
-#define CONNECT_TIMEOUT_MS  1700     /* then the edge turns out to be a wall */
+/* Readiness is event-driven (MAO_EVENT_DEVICE_PROBED, typically 5-10 ms on
+ * this radio); the steps below only re-knock and time out. The visual beat
+ * is separate: however fast the radio answers, MAO gets a moment to be seen
+ * checking before it commits. */
+#define PROBE_STEP_MS        220     /* re-knock cadence while waiting */
+#define MIN_BEAT_MS          260     /* evaluation the user can actually read */
+#define TIMEOUT_ONLINE_MS    700     /* known-online device: several quick knocks */
+#define TIMEOUT_RECENT_MS    1100    /* recently offline: a little more patience */
+#define TIMEOUT_UNKNOWN_MS   1500    /* nothing known: the discovery path */
+#define LOST_AWAY_HOLD_MS    500     /* away, device gone: a beat before coming home */
 
 typedef enum { TR_IDLE = 0, TR_CONNECTING, TR_EXITING, TR_AWAY, TR_RETURNING, TR_FAILING } tr_state_t;
 
@@ -48,7 +55,9 @@ static struct {
     int8_t dx, dy;
     uint64_t dev;
     uint32_t probe_t0;          /* ms, when the reachability probe started */
-    uint8_t polls;
+    uint32_t timeout_ms;        /* policy chosen from the device's known state */
+    bool launch_armed;          /* probe answered; waiting out the visual beat */
+    bool fail_on_return;        /* restrained FAIL once MAO is back home */
     esp_timer_handle_t timer;
 } s_tr;
 
@@ -129,6 +138,19 @@ static void begin_return(const char *why)
     schedule(MAO_CHAR_TRANSFER_ENTER_MS);
 }
 
+static void finish(void)
+{
+    enter(TR_IDLE);
+    mao_ui_device_connect_hot(0.0f);
+    /* Discovery pacing goes back to whatever the current view wants. */
+    const mao_view_t v = mao_state()->view;
+    mao_devices_set_active(v == MAO_VIEW_DEVICES || v == MAO_VIEW_DEVICE);
+    if (s_tr.fail_on_return) {
+        s_tr.fail_on_return = false;
+        mao_character_react(MAO_CHAR_REACT_FAIL);   /* restrained, after the fact */
+    }
+}
+
 static void start(int8_t dx, int8_t dy, int mode)
 {
     if (s_tr.st != TR_IDLE) {
@@ -138,7 +160,10 @@ static void start(int8_t dx, int8_t dy, int mode)
     s_tr.id++;
     s_tr.dx = dx;
     s_tr.dy = dy;
+    s_tr.launch_armed = false;
+    s_tr.fail_on_return = false;
     mao_app_go_home();
+    mao_devices_set_active(true);   /* fast liveness while a transfer runs */
     if (mode == 1) {                    /* synthetic success (animation work) */
         begin_exit();
         return;
@@ -150,15 +175,63 @@ static void start(int8_t dx, int8_t dy, int mode)
     enter(TR_CONNECTING);
     s_tr.dev = pick_target();
     s_tr.probe_t0 = now_ms();
-    s_tr.polls = 0;
     mao_character_transfer_search(dx, dy);
+    /* Patience follows what is known: an online device answers in a few
+     * milliseconds or it isn't there; a recently-offline one gets a little
+     * longer; with nothing known MAO waits out a discovery round. */
+    mao_device_t dev;
+    const int idx = s_tr.dev ? mao_devices_find(s_tr.dev) : -1;
+    if (idx >= 0 && mao_devices_get(idx, &dev) && dev.online) {
+        s_tr.timeout_ms = TIMEOUT_ONLINE_MS;
+    } else if (idx >= 0) {
+        s_tr.timeout_ms = TIMEOUT_RECENT_MS;
+    } else {
+        s_tr.timeout_ms = TIMEOUT_UNKNOWN_MS;
+    }
     if (s_tr.dev) {
-        ESP_LOGI(TAG, "connecting to %016llx (edge %+d%+d)", (unsigned long long)s_tr.dev, dx, dy);
+        ESP_LOGI(TAG, "connecting to %016llx (edge %+d%+d, timeout %" PRIu32 " ms)",
+                 (unsigned long long)s_tr.dev, dx, dy, s_tr.timeout_ms);
         mao_devices_refresh(s_tr.dev);
     } else {
         ESP_LOGI(TAG, "connecting: no device known (edge %+d%+d)", dx, dy);
     }
-    schedule(PROBE_INTERVAL_MS);
+    schedule(PROBE_STEP_MS);
+}
+
+void mao_transfer_connect(void)
+{
+    start(1, 0, 0);   /* devices live at the right edge */
+}
+
+void mao_transfer_probed(int registry_idx)
+{
+    if (s_tr.st != TR_CONNECTING || s_tr.launch_armed) {
+        return;
+    }
+    mao_device_t d;
+    if (!mao_devices_get(registry_idx, &d) || d.info.id != s_tr.dev) {
+        return;
+    }
+    const uint32_t waited = now_ms() - s_tr.probe_t0;
+    /* Technical readiness now; the launch waits out the visual beat. */
+    s_tr.launch_armed = true;
+    ESP_LOGI(TAG, "device answered in %" PRIu32 " ms: connection ready", waited);
+    schedule(waited >= MIN_BEAT_MS ? 1 : MIN_BEAT_MS - waited);
+}
+
+void mao_transfer_device_lost(uint64_t id)
+{
+    if (id != s_tr.dev) {
+        return;
+    }
+    if (s_tr.st == TR_AWAY) {
+        /* Never strand the character: come home, then a restrained FAIL. */
+        s_tr.id++;
+        s_tr.fail_on_return = true;
+        begin_return("remote device lost while away");
+    } else if (s_tr.st == TR_EXITING) {
+        s_tr.fail_on_return = true;   /* finish the committed exit; handled at AWAY */
+    }
 }
 
 static void abort_transfer(const char *why)
@@ -171,13 +244,14 @@ static void abort_transfer(const char *why)
         esp_timer_stop(s_tr.timer);
     }
     s_tr.id++;   /* invalidate stale steps */
+    s_tr.fail_on_return = false;
     if (s_tr.st == TR_AWAY || s_tr.st == TR_EXITING) {
         begin_return(why);
         return;
     }
     mao_ui_away(false, s_tr.dx, s_tr.dy);
     mao_character_transfer_abort();
-    enter(TR_IDLE);
+    finish();
 }
 
 void mao_transfer_step(int32_t id)
@@ -187,33 +261,43 @@ void mao_transfer_step(int32_t id)
     }
     switch (s_tr.st) {
     case TR_CONNECTING: {
-        const uint32_t waited = now_ms() - s_tr.probe_t0;
-        mao_device_t d;
-        const int idx = s_tr.dev ? mao_devices_find(s_tr.dev) : -1;
-        const bool answered = idx >= 0 && mao_devices_get(idx, &d) && d.online &&
-                              (int32_t)(d.last_seen_ms - s_tr.probe_t0) >= 0;
-        if (answered) {
-            ESP_LOGI(TAG, "device answered in %" PRIu32 " ms: connection ready", waited);
-            begin_exit();
+        if (s_tr.launch_armed) {
+            begin_exit();   /* the beat has read; go */
             break;
         }
-        if (waited >= CONNECT_TIMEOUT_MS) {
+        const uint32_t waited = now_ms() - s_tr.probe_t0;
+        if (waited >= s_tr.timeout_ms) {
             begin_fail("connect_timeout");
             break;
         }
-        if (++s_tr.polls == PROBE_RETRY_AT && s_tr.dev) {
-            mao_devices_refresh(s_tr.dev);   /* one more knock */
+        if (s_tr.dev) {
+            mao_devices_refresh(s_tr.dev);   /* knock again */
         }
-        schedule(PROBE_INTERVAL_MS);
+        schedule(PROBE_STEP_MS);
         break;
     }
-    case TR_EXITING:
+    case TR_EXITING: {
         enter(TR_AWAY);
         mao_ui_away(true, s_tr.dx, s_tr.dy);
+        /* The exit was already committed when the device vanished: arrive,
+         * take a beat, come home, and only then the restrained verdict. */
+        mao_device_t d;
+        const int idx = s_tr.dev ? mao_devices_find(s_tr.dev) : -1;
+        const bool gone = idx < 0 || !mao_devices_get(idx, &d) || !d.online;
+        if (s_tr.fail_on_return || (s_tr.dev && gone)) {
+            s_tr.fail_on_return = true;
+            schedule(LOST_AWAY_HOLD_MS);
+        }
+        break;
+    }
+    case TR_AWAY:
+        if (s_tr.fail_on_return) {
+            begin_return("remote device lost during exit");
+        }
         break;
     case TR_RETURNING:
     case TR_FAILING:
-        enter(TR_IDLE);
+        finish();
         break;
     default:
         break;
@@ -238,7 +322,10 @@ bool mao_transfer_input(const mao_event_t *ev)
     case MAO_EVENT_INPUT_CW:
     case MAO_EVENT_INPUT_CCW:
         /* The controller is alive while MAO is away; the dial just isn't
-         * driving anything yet. Acknowledge quietly. */
+         * driving anything yet. The seam stirs, nothing more. */
+        if (s_tr.st == TR_AWAY) {
+            mao_ui_away_nudge(ev->type == MAO_EVENT_INPUT_CW ? 1 : -1);
+        }
         return true;
     case MAO_EVENT_INPUT_PRESS:
     case MAO_EVENT_INPUT_RELEASE:

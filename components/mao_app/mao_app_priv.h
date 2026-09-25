@@ -63,6 +63,12 @@ bool mao_transfer_input(const mao_event_t *ev);
 void mao_transfer_step(int32_t id);
 /* "mao transfer <...>": mao_transfer_cmd_t. */
 void mao_transfer_devcmd(int cmd);
+/* The DEVICE page's CONNECT gesture (targets the open device). */
+void mao_transfer_connect(void);
+/* A reachability probe was answered (MAO_EVENT_DEVICE_PROBED). */
+void mao_transfer_probed(int registry_idx);
+/* A device went offline; never strand the character on the far side. */
+void mao_transfer_device_lost(uint64_t id);
 
 /* Defined in mao_app.c for the transfer module: wake and show HOME. */
 void mao_app_go_home(void);

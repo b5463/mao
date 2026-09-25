@@ -388,6 +388,17 @@ static void on_device(const mao_event_t *ev, int64_t now)
             mao_led_pulse(MAO_LED_PULSE_CONFIRM);
         }
         break;
+    case MAO_EVENT_INPUT_DOUBLE_CLICK:
+        /* The deliberate gesture: CONNECT. The word answers, the character
+         * carries the rest. Works on an offline device too - the attempt
+         * fails honestly (the failed escape), which is the answer. */
+        if (ok) {
+            ESP_LOGI(TAG, "connect requested: '%s'", dev.info.name);
+            mao_ui_device_connect_hot(1.0f);
+            mao_audio_confirm();
+            mao_transfer_connect();
+        }
+        break;
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_audio_back();
         go_view(MAO_VIEW_DEVICES);
@@ -457,7 +468,8 @@ static void on_device_event(const mao_event_t *ev, int64_t now_us)
     } else if (ev->type == MAO_EVENT_DEVICE_LOST && have) {
         met(dev.info.id)->lost_ms = now;
         ESP_LOGI(TAG, "device gone: '%s'", dev.info.name);
-        if (mao_state()->awake) {
+        mao_transfer_device_lost(dev.info.id);
+        if (mao_state()->awake && !mao_transfer_active()) {
             mao_character_react(MAO_CHAR_REACT_DEVICE_OFF);       /* confirm, move on */
         }
     }
@@ -639,6 +651,9 @@ static void on_event(const mao_event_t *ev, void *ctx)
         break;
     case MAO_EVENT_TRANSFER_STEP:
         mao_transfer_step(ev->value);
+        break;
+    case MAO_EVENT_DEVICE_PROBED:
+        mao_transfer_probed(ev->value);
         break;
     default:
         break;
