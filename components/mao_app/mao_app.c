@@ -46,6 +46,58 @@ static int64_t s_last_bump_us;
 /* Device views: models are built here from the registry + capabilities.  */
 /* ---------------------------------------------------------------------- */
 
+/* The focusable controls of a device, in display order: the centre first
+ * (level value, or the primary action), then the words row (POWER, then the
+ * remaining actions). Focus is an index into this list. */
+typedef struct {
+    uint8_t kind;   /* 0 centre-level, 1 centre-action, 2 toggle word, 3 action word */
+    int idx;        /* caps[] index (levels/toggles) or action list index (actions) */
+} devctl_t;
+
+static int build_controls(const mao_device_controls_t *ctl, devctl_t out[2 + MAO_CONTROLS_MAX_ACTIONS])
+{
+    int n = 0;
+    if (ctl->level_idx >= 0) {
+        out[n++] = (devctl_t) { .kind = 0, .idx = ctl->level_idx };
+    } else if (ctl->primary_action >= 0) {
+        out[n++] = (devctl_t) { .kind = 1, .idx = ctl->primary_action };
+    }
+    if (ctl->toggle_idx >= 0) {
+        out[n++] = (devctl_t) { .kind = 2, .idx = ctl->toggle_idx };
+    }
+    for (int i = 0; i < ctl->action_count; i++) {
+        if (i != ctl->primary_action || ctl->level_idx >= 0) {
+            out[n++] = (devctl_t) { .kind = 3, .idx = i };
+        }
+    }
+    return n;
+}
+
+/* The device says whether its primary operation is possible right now. */
+static bool device_ready(const mao_device_t *dev, const mao_device_controls_t *ctl)
+{
+    return ctl->ready_idx < 0 || dev->caps[ctl->ready_idx].value != 0;
+}
+
+static esp_err_t invoke_action_checked(const mao_device_t *dev, const mao_device_controls_t *ctl, int list_idx)
+{
+    /* Known-not-ready: answer locally, send nothing (§43); the remote stays
+     * authoritative for races - a BUSY ACK resolves those. */
+    if (ctl->action_sem[list_idx] == ODD_ACTION_CAPTURE && !device_ready(dev, ctl)) {
+        ESP_LOGI(TAG, "not now: '%s' reports not ready", dev->info.name);
+        mao_audio_back();
+        return ESP_ERR_INVALID_STATE;
+    }
+    const esp_err_t err = mao_devices_invoke_action(dev->info.id, dev->caps[ctl->action_idx[list_idx]].cap.id);
+    if (err == ESP_OK) {
+        mao_audio_confirm();
+        mao_led_pulse(MAO_LED_PULSE_CONFIRM);
+    } else {
+        mao_audio_back();   /* one at a time: still working on the last one */
+    }
+    return err;
+}
+
 static uint64_t s_sel_dev;   /* the selected device's identity (not its row) */
 
 static void refresh_devices_list(void)
@@ -112,7 +164,13 @@ static void refresh_device_panel(void)
     if (!open_device(&dev, &ctl)) {
         return;
     }
-    const mao_ui_device_t model = {
+    devctl_t list[2 + MAO_CONTROLS_MAX_ACTIONS];
+    const int n = build_controls(&ctl, list);
+    if (s_dev_focus >= n) {
+        s_dev_focus = 0;   /* the focused control vanished (capability change) */
+        s_dev_edit = false;
+    }
+    mao_ui_device_t model = {
         .title = dev.info.name,
         .has_level = ctl.level_idx >= 0,
         .level = ctl.level_idx >= 0 ? dev.caps[ctl.level_idx].value : 0,
@@ -121,29 +179,35 @@ static void refresh_device_panel(void)
         .online = dev.online,
         .problem = dev.link_problem,
         .described = dev.described,
-        /* Rendered purely from capabilities: the word comes from the action's
-         * generic semantic, never from what kind of product this is. */
-        .action = ctl.action_idx >= 0 ? odd_action_semantic_name(ctl.action_semantic) : NULL,
         .focus = s_dev_focus,
         .editing = s_dev_edit,
     };
+    /* Everything below is derived from capabilities and generic semantic
+     * names - no product knowledge anywhere. */
+    static char storage_txt[16];
+    for (int i = 0; i < n; i++) {
+        const char *label =
+            list[i].kind == 2 ? "POWER" : odd_action_semantic_name(ctl.action_sem[list[i].idx]);
+        if (i == 0 && list[i].kind == 1) {
+            model.primary = label;
+        } else if (i > 0 && model.word_count < MAO_UI_DEVICE_WORDS) {
+            model.words[model.word_count++] = label;
+        }
+    }
+    if (!dev.online) {
+        if (ctl.ready_idx >= 0 || ctl.storage_idx >= 0) {
+            model.status_l = "OFFLINE";
+        }
+    } else {
+        if (ctl.ready_idx >= 0) {
+            model.status_l = dev.caps[ctl.ready_idx].value ? "READY" : "NOT READY";
+        }
+        if (ctl.storage_idx >= 0) {
+            snprintf(storage_txt, sizeof(storage_txt), "STORAGE %ld", (long)dev.caps[ctl.storage_idx].value);
+            model.status_r = storage_txt;
+        }
+    }
     mao_ui_device_update(&model);
-}
-
-/* The focus slots present on this device, in display order. */
-static int focus_slots(const mao_device_controls_t *ctl, int8_t slots[3])
-{
-    int n = 0;
-    if (ctl->level_idx >= 0) {
-        slots[n++] = 0;
-    }
-    if (ctl->toggle_idx >= 0) {
-        slots[n++] = 1;
-    }
-    if (ctl->action_idx >= 0) {
-        slots[n++] = 2;
-    }
-    return n;
 }
 
 static void refresh_device_views(void)
@@ -415,16 +479,12 @@ static void on_device(const mao_event_t *ev, int64_t now)
             break;
         }
         /* Focus moves between the controls this device advertises. */
-        int8_t slots[3];
-        const int n = focus_slots(&ctl, slots);
-        int cur = 0;
-        for (int i = 0; i < n; i++) {
-            cur = slots[i] == s_dev_focus ? i : cur;
-        }
-        int next = cur + (int)d;
+        devctl_t list[2 + MAO_CONTROLS_MAX_ACTIONS];
+        const int n = build_controls(&ctl, list);
+        int next = s_dev_focus + (int)d;
         next = next < 0 ? 0 : (next > n - 1 ? n - 1 : next);
-        if (n > 0 && next != cur) {
-            s_dev_focus = slots[next];
+        if (n > 0 && next != s_dev_focus) {
+            s_dev_focus = (int8_t)next;
             refresh_device_panel();
             dial_tick(&m);
         }
@@ -434,15 +494,21 @@ static void on_device(const mao_event_t *ev, int64_t now)
         if (!ok || !dev.described) {
             break;
         }
-        if (s_dev_focus == 0 && ctl.level_idx >= 0) {
+        devctl_t list[2 + MAO_CONTROLS_MAX_ACTIONS];
+        const int n = build_controls(&ctl, list);
+        if (s_dev_focus >= n) {
+            break;
+        }
+        const devctl_t *c = &list[s_dev_focus];
+        if (c->kind == 0) {
             /* The value: enter / leave editing. */
             s_dev_edit = !s_dev_edit;
             mao_audio_touch();
             refresh_device_panel();
-        } else if (s_dev_focus == 1 && ctl.toggle_idx >= 0 && dev.online) {
-            const mao_device_cap_t *c = &dev.caps[ctl.toggle_idx];
-            const int32_t v = c->value ? c->cap.min : c->cap.max;
-            mao_devices_set_value(dev.info.id, c->cap.id, v);
+        } else if (c->kind == 2 && dev.online) {
+            const mao_device_cap_t *tc = &dev.caps[c->idx];
+            const int32_t v = tc->value ? tc->cap.min : tc->cap.max;
+            mao_devices_set_value(dev.info.id, tc->cap.id, v);
             refresh_device_panel();
             if (v) {
                 mao_audio_confirm();
@@ -450,15 +516,10 @@ static void on_device(const mao_event_t *ev, int64_t now)
                 mao_audio_back();
             }
             mao_led_pulse(MAO_LED_PULSE_CONFIRM);
-        } else if (s_dev_focus == 2 && ctl.action_idx >= 0) {
-            /* One press = one action identity. The press answers locally at
-             * once; the device's answers drive the character afterwards. */
-            mao_audio_confirm();
-            mao_led_pulse(MAO_LED_PULSE_CONFIRM);
-            const esp_err_t err = mao_devices_invoke_action(dev.info.id, dev.caps[ctl.action_idx].cap.id);
-            if (err != ESP_OK) {
-                ESP_LOGW(TAG, "action already in flight; press again when it resolves");
-            }
+        } else if (c->kind == 1 || c->kind == 3) {
+            /* One press = one action identity; the press answers locally at
+             * once and the device's answers drive the character afterwards. */
+            invoke_action_checked(&dev, &ctl, c->idx);
         }
         break;
     case MAO_EVENT_INPUT_DOUBLE_CLICK:
@@ -605,10 +666,11 @@ static void on_dev_command(int32_t value, int64_t now)
             mao_device_controls_t ct;
             if (mao_devices_get(i, &dv)) {
                 mao_device_controls(&dv, &ct);
-                if (ct.action_idx >= 0) {
+                if (ct.action_count > 0) {
+                    const int pick = ct.primary_action >= 0 ? ct.primary_action : 0;
                     ESP_LOGI(TAG, "dev: invoking %s on '%s'",
-                             odd_action_semantic_name(ct.action_semantic), dv.info.name);
-                    mao_devices_invoke_action(dv.info.id, dv.caps[ct.action_idx].cap.id);
+                             odd_action_semantic_name(ct.action_sem[pick]), dv.info.name);
+                    mao_devices_invoke_action(dv.info.id, dv.caps[ct.action_idx[pick]].cap.id);
                     break;
                 }
             }

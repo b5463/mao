@@ -49,6 +49,12 @@ typedef struct {
 } mao_ui_devices_t;
 
 /* What the device view shows (built by the app from capabilities). */
+#define MAO_UI_DEVICE_WORDS 3
+
+/* What the device view shows, built by the app from capabilities alone.
+ * The centre is the level value or the device's primary action word; the
+ * words row holds the other controls; the facts line (READY / STORAGE...)
+ * is status, never focusable. Focus 0 = centre, 1.. = words[focus - 1]. */
 typedef struct {
     const char *title;
     bool has_level;
@@ -58,8 +64,12 @@ typedef struct {
     bool online;
     bool problem;        /* recent commands unconfirmed */
     bool described;      /* capabilities/state known */
-    const char *action;  /* ACTION control word (NULL = none), e.g. "IDENTIFY" */
-    int8_t focus;        /* 0 = the value (LEVEL), 1 = POWER, 2 = the action */
+    const char *primary; /* centre word when there is no level value (else NULL) */
+    const char *words[MAO_UI_DEVICE_WORDS];   /* other controls, left to right */
+    int8_t word_count;
+    const char *status_l;    /* read-only facts line (NULL = none) */
+    const char *status_r;
+    int8_t focus;
     bool editing;        /* LEVEL edit: the dial changes the value */
 } mao_ui_device_t;
 

@@ -27,7 +27,9 @@
 #define LIST_STATUS_Y     86.0f
 #define PANEL_TITLE_Y     -70.0f
 #define PANEL_VALUE_Y     -16.0f
-#define PANEL_CTRL_Y      34.0f    /* the control words row (POWER, actions) */
+#define PANEL_FACTS_Y     28.0f    /* read-only facts (READY, STORAGE ...) */
+#define PANEL_CTRL_Y      34.0f    /* control words row without facts (LIGHT) */
+#define PANEL_CTRL_LOW_Y  60.0f    /* control words row when facts exist */
 #define PANEL_STATUS_Y    62.0f
 #define PANEL_CONNECT_Y   86.0f
 #define OFFLINE_SCALE     0.45f
@@ -56,12 +58,14 @@ typedef struct {
     lv_obj_t *value;
     lv_obj_t *status;
     lv_obj_t *connect;          /* "CONNECT": typography, never a button */
-    lv_obj_t *power;            /* the POWER control word */
-    lv_obj_t *action;           /* the ACTION control word (e.g. IDENTIFY) */
-    mao_text_cache_t ct, cv, cst, cc, cpw, cac;
+    lv_obj_t *primary;          /* the centre word (a device's primary action) */
+    lv_obj_t *word[MAO_UI_DEVICE_WORDS];      /* the other control words */
+    lv_obj_t *fact_l, *fact_r;  /* read-only facts line */
+    mao_text_cache_t ct, cv, cst, cc, cpr, cw[MAO_UI_DEVICE_WORDS], cfl, cfr;
     int8_t focus;
+    int8_t word_count;
     bool editing;
-    bool has_power, has_action;
+    bool has_value, has_facts;
     mao_spring_t presence;
     mao_spring_t ty;            /* title travels from its list row position */
     mao_spring_t hot;           /* CONNECT emphasis while arming / starting */
@@ -209,24 +213,36 @@ static void panel_layout(void)
      * list position up to the heading, and back again on the way out. */
     mao_ui_text_place(s_panel.title, 0.0f, s_panel.ty.x, 150.0f * p, &s_panel.ct);
     /* Focus is typography: the focused control is bright, the others recede.
-     * Editing lifts the value a pixel and gives it full presence. */
-    const float vf = s_panel.focus == 0 ? (s_panel.editing ? 1.0f : 0.9f) : 0.62f;
-    mao_ui_text_place(s_panel.value, 0.0f,
-                      PANEL_VALUE_Y + (1.0f - p) * 14.0f - (s_panel.editing ? 2.0f : 0.0f),
-                      s_panel.value_opa * vf * p, &s_panel.cv);
+     * The centre is the level value or the primary action word; editing
+     * lifts the value a pixel at full presence. */
+    const float cf = s_panel.focus == 0 ? (s_panel.editing ? 1.0f : 0.9f) : 0.62f;
+    const float cy = PANEL_VALUE_Y + (1.0f - p) * 14.0f - (s_panel.editing ? 2.0f : 0.0f);
+    if (s_panel.has_value) {
+        mao_ui_text_place(s_panel.value, 0.0f, cy, s_panel.value_opa * cf * p, &s_panel.cv);
+    } else {
+        mao_ui_text_place(s_panel.primary, 0.0f, cy, 255.0f * cf * p, &s_panel.cpr);
+    }
     const float row = smooth01((p - 0.4f) / 0.6f);
-    if (s_panel.has_power) {
-        const float x = s_panel.has_action ? -62.0f : 0.0f;
-        mao_ui_text_place(s_panel.power, x, PANEL_CTRL_Y + (1.0f - p) * 6.0f,
-                          (s_panel.focus == 1 ? 255.0f : (float)MAO_OPA_CONTEXT) * row, &s_panel.cpw);
+    const float wy = (s_panel.has_facts ? PANEL_CTRL_LOW_Y : PANEL_CTRL_Y) + (1.0f - p) * 6.0f;
+    static const float kX2[2] = { -58.0f, 58.0f };
+    static const float kX3[3] = { -82.0f, 0.0f, 84.0f };
+    for (int i = 0; i < s_panel.word_count; i++) {
+        const float x = s_panel.word_count == 1 ? 0.0f
+                        : (s_panel.word_count == 2 ? kX2[i] : kX3[i]);
+        mao_ui_text_place(s_panel.word[i], x, wy,
+                          (s_panel.focus == i + 1 ? 255.0f : (float)MAO_OPA_CONTEXT) * row, &s_panel.cw[i]);
     }
-    if (s_panel.has_action) {
-        const float x = s_panel.has_power ? 54.0f : 0.0f;
-        mao_ui_text_place(s_panel.action, x, PANEL_CTRL_Y + (1.0f - p) * 6.0f,
-                          (s_panel.focus == 2 ? 255.0f : (float)MAO_OPA_CONTEXT) * row, &s_panel.cac);
+    if (s_panel.has_facts) {
+        /* Facts are quiet: never focusable, never boxed. */
+        mao_ui_text_place(s_panel.fact_l, -50.0f, PANEL_FACTS_Y + (1.0f - p) * 6.0f,
+                          MAO_OPA_SECONDARY * row, &s_panel.cfl);
+        mao_ui_text_place(s_panel.fact_r, 52.0f, PANEL_FACTS_Y + (1.0f - p) * 6.0f,
+                          MAO_OPA_SECONDARY * row, &s_panel.cfr);
     }
-    mao_ui_text_place(s_panel.status, 0.0f, PANEL_STATUS_Y + (1.0f - p) * 8.0f,
-                      MAO_OPA_SECONDARY * smooth01((p - 0.4f) / 0.6f), &s_panel.cst);
+    if (!s_panel.has_facts) {
+        mao_ui_text_place(s_panel.status, 0.0f, PANEL_STATUS_Y + (1.0f - p) * 8.0f,
+                          MAO_OPA_SECONDARY * smooth01((p - 0.4f) / 0.6f), &s_panel.cst);
+    }
     /* CONNECT is a quiet word until the user reaches for it. */
     mao_ui_text_place(s_panel.connect, 0.0f, PANEL_CONNECT_Y + (1.0f - p) * 6.0f - hot * 2.0f,
                       (100.0f + 155.0f * hot) * smooth01((p - 0.5f) / 0.5f), &s_panel.cc);
@@ -264,18 +280,35 @@ void mao_ui_device_update(const mao_ui_device_t *m)
     set_text(s_panel.title, m->title ? m->title : "");
     s_panel.focus = m->focus;
     s_panel.editing = m->editing;
-    s_panel.has_power = m->has_toggle;
-    s_panel.has_action = m->action != NULL;
-    if (m->action) {
-        set_text(s_panel.action, m->action);
+    s_panel.has_value = m->primary == NULL;
+    if (m->primary) {
+        set_text(s_panel.primary, m->primary);
+        lv_obj_add_flag(s_panel.value, LV_OBJ_FLAG_HIDDEN);
+        s_panel.cv.opa = 0;
+    } else {
+        lv_obj_add_flag(s_panel.primary, LV_OBJ_FLAG_HIDDEN);
+        s_panel.cpr.opa = 0;
     }
-    if (!s_panel.has_power) {
-        lv_obj_add_flag(s_panel.power, LV_OBJ_FLAG_HIDDEN);
-        s_panel.cpw.opa = 0;
+    s_panel.word_count = m->word_count > MAO_UI_DEVICE_WORDS ? MAO_UI_DEVICE_WORDS : m->word_count;
+    for (int i = 0; i < MAO_UI_DEVICE_WORDS; i++) {
+        if (i < s_panel.word_count && m->words[i]) {
+            set_text(s_panel.word[i], m->words[i]);
+        } else {
+            lv_obj_add_flag(s_panel.word[i], LV_OBJ_FLAG_HIDDEN);
+            s_panel.cw[i].opa = 0;
+        }
     }
-    if (!s_panel.has_action) {
-        lv_obj_add_flag(s_panel.action, LV_OBJ_FLAG_HIDDEN);
-        s_panel.cac.opa = 0;
+    s_panel.has_facts = m->status_l != NULL || m->status_r != NULL;
+    if (s_panel.has_facts) {
+        set_text(s_panel.fact_l, m->status_l ? m->status_l : "");
+        set_text(s_panel.fact_r, m->status_r ? m->status_r : "");
+        lv_obj_add_flag(s_panel.status, LV_OBJ_FLAG_HIDDEN);
+        s_panel.cst.opa = 0;
+    } else {
+        lv_obj_add_flag(s_panel.fact_l, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_panel.fact_r, LV_OBJ_FLAG_HIDDEN);
+        s_panel.cfl.opa = 0;
+        s_panel.cfr.opa = 0;
     }
 
     char big[12];
@@ -348,10 +381,16 @@ void mao_devices_ui_create(lv_obj_t *scr)
     s_panel.value = mao_ui_make_text(scr, &lv_font_montserrat_48, MAO_COL_FG, 2, "");
     s_panel.status = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, MAO_TRACK_SMALL, "");
     s_panel.connect = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, 6, "CONNECT");
-    s_panel.power = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, MAO_TRACK_SMALL, "POWER");
-    s_panel.action = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, MAO_TRACK_SMALL, "");
-    mao_ui_text_cache_reset(&s_panel.cpw);
-    mao_ui_text_cache_reset(&s_panel.cac);
+    s_panel.primary = mao_ui_make_text(scr, MAO_FONT_LARGE, MAO_COL_FG, MAO_TRACK_LARGE, "");
+    for (int i = 0; i < MAO_UI_DEVICE_WORDS; i++) {
+        s_panel.word[i] = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, MAO_TRACK_SMALL, "");
+        mao_ui_text_cache_reset(&s_panel.cw[i]);
+    }
+    s_panel.fact_l = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, MAO_TRACK_SMALL, "");
+    s_panel.fact_r = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, MAO_TRACK_SMALL, "");
+    mao_ui_text_cache_reset(&s_panel.cpr);
+    mao_ui_text_cache_reset(&s_panel.cfl);
+    mao_ui_text_cache_reset(&s_panel.cfr);
     mao_ui_text_cache_reset(&s_panel.ct);
     mao_ui_text_cache_reset(&s_panel.cv);
     mao_ui_text_cache_reset(&s_panel.cst);
