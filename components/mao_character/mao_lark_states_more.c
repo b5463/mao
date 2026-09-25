@@ -126,10 +126,11 @@ static const lark_track_t proud[] = { TRACK(CH_FACE_Y, pr_fy), TRACK(CH_NARROW, 
                                       TRACK(CH_GAZE_Y, pr_gy), TRACK(CH_SHINE, pr_sh), TRACK(CH_TILT, pr_tilt) };
 
 /* crosseyed (one-shot): a silly thought - the eyes cross, then snap back. */
-static const lark_key_t ce_x[] = { K(0, 0, LINEAR), K(300, 9.0f, IN_OUT), K(1300, 9.0f, LINEAR), K(1450, 0, OUT) };
+static const lark_key_t ce_x[] = { K(0, 0, LINEAR), K(300, 22.0f, IN_OUT), K(1300, 22.0f, LINEAR), K(1450, 0, OUT) };
 static const lark_key_t ce_gy[] = { K(0, 0, LINEAR), K(300, 3.0f, IN_OUT), K(1300, 3.0f, LINEAR), K(1450, 0, OUT) };
 static const lark_key_t ce_blink[] = { K(0, 0, LINEAR), K(1450, 0, LINEAR), K(1550, 0.9f, OUT), K(1750, 0, IN_OUT) };
-static const lark_track_t crosseyed[] = { TRACK(CH_CROSS, ce_x), TRACK(CH_GAZE_Y, ce_gy),
+static const lark_key_t ce_pu[] = { K(0, 0, LINEAR), K(300, -0.55f, IN_OUT), K(1300, -0.55f, LINEAR), K(1450, 0, OUT) };
+static const lark_track_t crosseyed[] = { TRACK(CH_CROSS, ce_x), TRACK(CH_PUPIL, ce_pu), TRACK(CH_GAZE_Y, ce_gy),
                                           TRACK(CH_CLOSE, ce_blink) };
 
 /* blinkflurry (one-shot): disbelief - a rapid run of blinks. */

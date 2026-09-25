@@ -69,6 +69,7 @@ typedef struct {
 #define MAO_LID_DEADZONE     0.08f   /* lid values below this show no lid */
 #define MAO_LID_RADIUS       10      /* rounded corners of the flat lid edge */
 #define MAO_TINT_PUPIL_MAX   0.90f   /* pupils go cobalt / yellow / red almost fully */
+#define MAO_TINT_GOLD_COLOR  0xFFB000   /* her poison-greed gold: saturated, on the iris */
 #define MAO_TINT_RED_COLOR   0xE5484D   /* red: mad / failure, as an event only */
 /* Covers: round background-coloured lids that come down over each eye and
  * leave a thin lower crescent when closed (STARBOY's blink / happy / sleep). */

@@ -247,7 +247,7 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     /* Eyes keep their colour; colour events land on the pupils. */
     out->color = L->eye_color;
     uint32_t pc = mix(L->pupil_color, MAO_TINT_MOVE_COLOR, MAO_TINT_PUPIL_MAX * tm);
-    pc = mix(pc, MAO_TINT_WARM_COLOR, MAO_TINT_PUPIL_MAX * tw);
+    pc = mix(pc, MAO_TINT_GOLD_COLOR, clampf(tw, 0.0f, 1.0f));
     pc = mix(pc, MAO_TINT_RED_COLOR, MAO_TINT_PUPIL_MAX * clampf(v[CH_TINT_RED], 0.0f, 1.0f));
     const float dark = clampf(v[CH_DARK], 0.0f, 1.0f);
     out->pupil_color = mix(pc, L->core_color ? L->core_color : 0x101014, 0.85f * dark);

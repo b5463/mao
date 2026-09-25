@@ -260,7 +260,7 @@ void lark_gen_happy(lark_gen_t *g)
         h *= lark_rand(0.5f, 0.75f);
     }
     const uint32_t len = t + u32r(700, 1300);
-    hold(g, CH_SMILE, 0, len - 450, lark_rand(0.85f, 1.0f), 160, 450);   /* ^ ^ */
+    hold(g, CH_SMILE, 0, len, lark_rand(0.85f, 1.0f), 160, 0);   /* ^ ^, held into purr */
     hold(g, CH_SHINE, 0, len - 450, lark_rand(0.3f, 0.7f), 160, 450);
     if (lark_chance(0.6f)) {
         hold(g, CH_TILT, u32r(100, 300), len - 500, lark_rand(2.0f, 4.5f) * sgn(), 250, 450);
