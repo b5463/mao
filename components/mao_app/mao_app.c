@@ -38,22 +38,35 @@ static int64_t s_last_bump_us;
 /* Device views: models are built here from the registry + capabilities.  */
 /* ---------------------------------------------------------------------- */
 
+static uint64_t s_sel_dev;   /* the selected device's identity (not its row) */
+
 static void refresh_devices_list(void)
 {
     static mao_device_t devs[MAO_DEVICES_MAX];   /* dispatcher task only */
+    uint64_t ids[MAO_UI_DEVICES_MAX] = { 0 };
     mao_ui_devices_t model = { 0 };
     for (int i = 0; i < MAO_DEVICES_MAX && model.count < MAO_UI_DEVICES_MAX; i++) {
         if (mao_devices_get(i, &devs[model.count])) {
             model.name[model.count] = devs[model.count].info.name;
             model.online[model.count] = devs[model.count].online;
+            ids[model.count] = devs[model.count].info.id;
             model.count++;
         }
     }
-    int sel = mao_state()->devices_index;
-    if (sel >= model.count) {
-        sel = model.count > 0 ? model.count - 1 : 0;
-        mao_state_set_devices_index(sel);
+    /* Selection sticks to the device, whatever announcements or state
+     * refreshes do to the list around it. */
+    int sel = -1;
+    for (int i = 0; i < model.count; i++) {
+        if (ids[i] == s_sel_dev) {
+            sel = i;
+        }
     }
+    if (sel < 0) {
+        sel = mao_state()->devices_index;
+        sel = sel >= model.count ? (model.count > 0 ? model.count - 1 : 0) : (sel < 0 ? 0 : sel);
+        s_sel_dev = model.count > 0 ? ids[sel] : 0;
+    }
+    mao_state_set_devices_index(sel);
     model.selected = sel;
     mao_ui_devices_update(&model);
 }
@@ -303,6 +316,9 @@ static void on_devices(const mao_event_t *ev, int64_t now)
         idx = idx < 0 ? 0 : (idx > count - 1 ? count - 1 : idx);
         if (count > 0 && idx != st->devices_index) {
             mao_state_set_devices_index(idx);
+            mao_device_t dev;
+            const int slot = list_row_to_slot(idx);
+            s_sel_dev = (slot >= 0 && mao_devices_get(slot, &dev)) ? dev.info.id : 0;
             refresh_devices_list();
             dial_tick(&m);
         } else if (now - s_last_bump_us >= MENU_BUMP_GAP_US) {

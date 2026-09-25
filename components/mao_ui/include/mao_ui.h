@@ -84,6 +84,8 @@ void mao_ui_menu_bump(int direction);
 void mao_ui_devices_update(const mao_ui_devices_t *model);
 void mao_ui_devices_bump(int direction);
 void mao_ui_device_update(const mao_ui_device_t *model);
+/* CONNECT word emphasis 0..1 (arming / starting; typography only). */
+void mao_ui_device_connect_hot(float v);
 
 /* Away (transfer): MAO is conceptually on another device. The screen goes
  * sparse near-black with only a very dim, slowly pulsing seam at the edge it

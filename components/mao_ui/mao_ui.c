@@ -309,6 +309,10 @@ void mao_ui_show(mao_view_t view, int menu_index)
         mao_overlay_menu_show(false, menu_index, 0);
         mao_devlist_show(true, from == MAO_VIEW_DEVICE ? 0 : DEVICES_ENTER_DELAY);
     } else if (view == MAO_VIEW_DEVICE) {
+        /* Composition note (tested on hardware): compact "peek" eyes on this
+         * page collide with the large value on 240x240 - the eyes stay out
+         * (mao_character_peek exists and lost the comparison). They return
+         * for what matters: transfer, failure, device events. */
         mao_devpanel_show(true, DEVICES_ENTER_DELAY);
     } else if (view == MAO_VIEW_MENU) {
         if (from == MAO_VIEW_HOME) {

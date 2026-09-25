@@ -188,6 +188,15 @@ typedef struct {
 #define MAO_W_INSPECT         6    /* Maomao: lean to the rim with one eye narrowed */
 #define MAO_IDLE_AMP          1.4f /* scales idle glance/shift amplitudes */
 
+/* Peek: compact presence on the DEVICE page (small eyes low on the screen,
+ * watching the page's content; motion damped, no orbit). */
+#define MAO_PEEK_SHRINK_W    -0.34f
+#define MAO_PEEK_SHRINK_H    -0.40f
+#define MAO_PEEK_DROP        62.0f   /* px below the resting face position */
+#define MAO_PEEK_GAZE_UP     -4.0f   /* attention rests on the page above */
+#define MAO_PEEK_DIAL_GAIN   0.35f   /* damped physical response to the dial */
+#define MAO_PEEK_LAYER_GAIN  0.55f   /* expressions and the mind, reduced */
+
 /* Sleepy: a slow global "sleep" level scales everything down. */
 #define MAO_SLEEP_OPEN_LOSS  0.68f   /* openness lost at sleep 1 */
 #define MAO_SLEEP_DROP       8.0f

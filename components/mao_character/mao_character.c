@@ -38,7 +38,7 @@ typedef enum { PRIO_IDLE = 0, PRIO_SYSTEM, PRIO_DIAL, PRIO_PRESS, PRIO_NAV } pri
 
 typedef enum {
     CMD_DIAL, CMD_PRESS, CMD_REACT, CMD_APPEAR, CMD_SLEEPY, CMD_LEAVE, CMD_RETURN,
-    CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION, CMD_TRANSFER, CMD_MIND,
+    CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION, CMD_TRANSFER, CMD_MIND, CMD_PEEK,
 } cmd_type_t;
 
 typedef struct {
@@ -70,6 +70,7 @@ static volatile uint8_t s_detents_per_rev = (uint8_t)MAO_DETENTS_PER_REV;
 
 static bool s_visible;          /* has appeared */
 static bool s_present = true;   /* false while away (menu) */
+static bool s_peek;             /* compact presence on the DEVICE page */
 static bool s_sleepy;
 static bool s_pressed;
 static mao_mouth_t s_mouth;
@@ -393,7 +394,11 @@ static void leave(uint32_t now)
 static void come_back(uint32_t now)
 {
     s_present = true;
+    s_peek = false;
     s_mouth = MAO_MOUTH_NONE;
+    mao_motion_set(&s_m, CH_EYE_W, 0.0f);
+    mao_motion_set(&s_m, CH_EYE_H, 0.0f);
+    mao_motion_set(&s_m, CH_FACE_Y, s_idle.base_y);
     s_leave_drop_at = 0;
     mao_motion_set(&s_m, CH_AWAY, 0.0f);
     mao_motion_set(&s_m, CH_CLOSE, 0.0f);
@@ -403,6 +408,42 @@ static void come_back(uint32_t now)
     s_away_until = now + 350;
     mao_idle_schedule(&s_idle, now, s_sleepy, true);
     mao_lark_event(&s_lark, LARK_EV_RETURN, now);
+}
+
+/* Compact presence for the DEVICE page: small eyes low on the screen,
+ * watching the page rather than owning it. */
+static void peek_set(bool on, uint32_t now)
+{
+    if (on == s_peek) {
+        return;
+    }
+    s_peek = on;
+    if (on) {
+        s_present = true;
+        s_mouth = MAO_MOUTH_NONE;
+        s_leave_drop_at = 0;
+        mao_motion_set(&s_m, CH_AWAY, 0.0f);
+        mao_motion_set(&s_m, CH_CLOSE, 0.0f);
+        mao_motion_set(&s_m, CH_OPEN, 1.0f);
+        mao_motion_set(&s_m, CH_SQUASH, 0.0f);
+        mao_motion_set(&s_m, CH_SPREAD, 0.0f);
+        mao_motion_set(&s_m, CH_EYE_W, MAO_PEEK_SHRINK_W);
+        mao_motion_set(&s_m, CH_EYE_H, MAO_PEEK_SHRINK_H);
+        mao_motion_set(&s_m, CH_FACE_Y, s_idle.base_y + MAO_PEEK_DROP);
+        mao_motion_set(&s_m, CH_GAZE_X, 0.0f);
+        mao_motion_set(&s_m, CH_GAZE_Y, MAO_PEEK_GAZE_UP);   /* attention on the page */
+        s_away_until = now + 250;
+        mao_idle_schedule(&s_idle, now, s_sleepy, true);
+    } else {
+        /* Back below the screen (the list view owns the stage again). */
+        s_present = false;
+        mao_motion_set(&s_m, CH_EYE_W, 0.0f);
+        mao_motion_set(&s_m, CH_EYE_H, 0.0f);
+        mao_motion_set(&s_m, CH_AWAY, MAO_LEAVE_Y);
+        mao_motion_set(&s_m, CH_OPEN, MAO_LEAVE_OPEN);
+        mao_motion_set(&s_m, CH_CLOSE, 1.0f);
+        mao_motion_set(&s_m, CH_FACE_Y, s_idle.base_y);
+    }
 }
 
 static void set_sleepy(bool sleepy, uint32_t now)
@@ -454,12 +495,13 @@ static void dial_update(float dt, uint32_t now)
         return;
     }
     if (engaged) {
-        const float s = smoothstep(0.0f, MAO_LATERAL_RAMP, i);
-        const float o = smoothstep(MAO_ORBIT_START, MAO_ORBIT_FULL, i);
+        const float pk = s_peek ? MAO_PEEK_DIAL_GAIN : 1.0f;
+        const float s = smoothstep(0.0f, MAO_LATERAL_RAMP, i) * pk;
+        const float o = s_peek ? 0.0f : smoothstep(MAO_ORBIT_START, MAO_ORBIT_FULL, i);
         const float lat = 1.0f - o;
         mao_motion_set(&s_m, CH_GAZE_X, dir * (MAO_GAZE_MIN + (MAO_GAZE_MAX - MAO_GAZE_MIN) * s) * lat
                                         + dir * MAO_GAZE_LAG_ORBIT * o);
-        mao_motion_set(&s_m, CH_GAZE_Y, 0.0f);
+        mao_motion_set(&s_m, CH_GAZE_Y, s_peek ? MAO_PEEK_GAZE_UP : 0.0f);
         mao_motion_set(&s_m, CH_FACE_X, s_idle.base_x + dir * (MAO_FACE_MIN + (MAO_FACE_MAX - MAO_FACE_MIN) * s) * lat);
         const float lean = clampf(s_accel * MAO_LEAN_GAIN, -MAO_LEAN_MAX, MAO_LEAN_MAX);
         mao_motion_set(&s_m, CH_TILT, dir * (MAO_TILT_MAX * s * lat + lean));
@@ -552,6 +594,7 @@ static void apply(const cmd_t *c, uint32_t now)
         }
         break;
     }
+    case CMD_PEEK:       peek_set(c->flag, now); break;
     case CMD_MIND:
         if (c->arg == 0) {
             mao_life_debug_interest(&s_life, (uint8_t)c->value);
@@ -653,13 +696,17 @@ static void tick_cb(lv_timer_t *t)
                                         [PRIO_PRESS] = 0.45f, [PRIO_NAV] = 0.0f };
     const prio_t prio = current_prio(now);
     const bool feedback = s_fb_hold || before(now, s_fb_until);
-    mao_lark_update(&s_lark, now, s_visible && prio == PRIO_IDLE, s_sleepy,
-                    feedback ? 1.0f : kLayerGain[prio], s_m.layer);
+    float gain = feedback ? 1.0f : kLayerGain[prio];
+    if (s_peek) {
+        gain *= MAO_PEEK_LAYER_GAIN;   /* the page is in charge; MAO observes */
+    }
+    mao_lark_update(&s_lark, now, s_visible && prio == PRIO_IDLE, s_sleepy, gain, s_m.layer);
     float life[CH_COUNT] = { 0 };
     mao_life_update(&s_life, &s_lark, &s_m, now, s_visible && prio == PRIO_IDLE, s_sleepy, life);
     if (prio != PRIO_NAV) {
+        const float lg = s_peek ? MAO_PEEK_LAYER_GAIN : 1.0f;
         for (int i = 0; i < CH_COUNT; i++) {
-            s_m.layer[i] += life[i];
+            s_m.layer[i] += life[i] * lg;
         }
     }
 
@@ -760,6 +807,7 @@ void mao_character_appear(int direction)        { post((cmd_t){ .type = CMD_APPE
 void mao_character_set_sleepy(bool sleepy)      { post((cmd_t){ .type = CMD_SLEEPY, .flag = sleepy }); }
 void mao_character_leave(void)                  { post((cmd_t){ .type = CMD_LEAVE }); }
 void mao_character_return(void)                 { post((cmd_t){ .type = CMD_RETURN }); }
+void mao_character_peek(bool on)                { post((cmd_t){ .type = CMD_PEEK, .flag = on }); }
 
 void mao_character_debug_preview(mao_character_preview_t p)
 {

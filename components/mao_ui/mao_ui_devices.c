@@ -25,9 +25,10 @@
 #define LIST_BUMP_V       2.6f
 #define LIST_TITLE_Y      -88.0f
 #define LIST_STATUS_Y     86.0f
-#define PANEL_TITLE_Y     -62.0f
-#define PANEL_VALUE_Y     -4.0f
-#define PANEL_STATUS_Y    46.0f
+#define PANEL_TITLE_Y     -70.0f
+#define PANEL_VALUE_Y     -8.0f
+#define PANEL_STATUS_Y    40.0f
+#define PANEL_CONNECT_Y   72.0f
 #define OFFLINE_SCALE     0.45f
 
 #define LIST_POS_PROFILE  ((mao_spring_profile_t){ .k = 260.0f, .zeta = 0.78f })
@@ -44,6 +45,7 @@ typedef struct {
     uint32_t show_at;
     float show_target;
     uint32_t shown_at_ms;
+    float sel_y;                /* selected row's current y (page hand-off) */
     mao_ui_devices_t model;
     char names[MAO_UI_DEVICES_MAX][20];
 } devlist_t;
@@ -52,8 +54,11 @@ typedef struct {
     lv_obj_t *title;
     lv_obj_t *value;
     lv_obj_t *status;
-    mao_text_cache_t ct, cv, cst;
+    lv_obj_t *connect;          /* "CONNECT": typography, never a button */
+    mao_text_cache_t ct, cv, cst, cc;
     mao_spring_t presence;
+    mao_spring_t ty;            /* title travels from its list row position */
+    mao_spring_t hot;           /* CONNECT emphasis while arming / starting */
     uint32_t show_at;
     float show_target;
     float value_opa;
@@ -135,6 +140,9 @@ static void list_layout(uint32_t now)
         }
         mao_ui_text_place(s_list.large[i], x, y, large, &s_list.cl[i]);
         mao_ui_text_place(s_list.small[i], x, y, small, &s_list.cs[i]);
+        if (i == s_list.model.selected) {
+            s_list.sel_y = y;   /* where the name lives; the page picks it up here */
+        }
     }
     set_text(s_list.status, list_status(now));
     mao_ui_text_place(s_list.title, 0.0f, LIST_TITLE_Y - (1.0f - p) * 6.0f, 120.0f * p, &s_list.ct);
@@ -190,15 +198,40 @@ void mao_ui_devices_bump(int direction)
 static void panel_layout(void)
 {
     const float p = clampf(s_panel.presence.x, 0.0f, 1.0f);
-    mao_ui_text_place(s_panel.title, 0.0f, PANEL_TITLE_Y - (1.0f - p) * 8.0f, 150.0f * p, &s_panel.ct);
+    const float hot = clampf(s_panel.hot.x, 0.0f, 1.0f);
+    /* The name IS the selected list row, moved deeper: it travels from its
+     * list position up to the heading, and back again on the way out. */
+    mao_ui_text_place(s_panel.title, 0.0f, s_panel.ty.x, 150.0f * p, &s_panel.ct);
     mao_ui_text_place(s_panel.value, 0.0f, PANEL_VALUE_Y + (1.0f - p) * 14.0f, s_panel.value_opa * p, &s_panel.cv);
     mao_ui_text_place(s_panel.status, 0.0f, PANEL_STATUS_Y + (1.0f - p) * 8.0f,
                       MAO_OPA_SECONDARY * smooth01((p - 0.4f) / 0.6f), &s_panel.cst);
+    /* CONNECT is a quiet word until the user reaches for it. */
+    mao_ui_text_place(s_panel.connect, 0.0f, PANEL_CONNECT_Y + (1.0f - p) * 6.0f - hot * 2.0f,
+                      (100.0f + 155.0f * hot) * smooth01((p - 0.5f) / 0.5f), &s_panel.cc);
 }
 
 void mao_devpanel_show(bool show, uint32_t delay_ms)
 {
+    if (show) {
+        /* Arrive from the selected row's place in the list. */
+        s_panel.ty.x = s_list.sel_y;
+        s_panel.ty.v = 0.0f;
+        s_panel.ty.target = PANEL_TITLE_Y;
+        s_panel.hot.x = 0.0f;
+        s_panel.hot.target = 0.0f;
+    } else {
+        s_panel.ty.target = 0.0f;   /* back towards the row's resting spot */
+    }
     presence_request(&s_panel.presence, &s_panel.show_at, &s_panel.show_target, show, delay_ms);
+}
+
+void mao_ui_device_connect_hot(float v)
+{
+    if (mao_display_lock(0)) {
+        s_panel.hot.target = clampf(v, 0.0f, 1.0f);
+        mao_ui_wake();
+        mao_display_unlock();
+    }
 }
 
 void mao_ui_device_update(const mao_ui_device_t *m)
@@ -245,6 +278,8 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     mao_spring_step(&s_list.pos, dt);
     mao_spring_step(&s_list.presence, dt);
     mao_spring_step(&s_panel.presence, dt);
+    mao_spring_step(&s_panel.ty, dt);
+    mao_spring_step(&s_panel.hot, dt);
     list_layout(now);
     panel_layout();
 
@@ -253,7 +288,8 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
                          (now - s_list.shown_at_ms) < LOOKING_MS + 100;
     return waiting || s_list.show_at != 0 || s_panel.show_at != 0 ||
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
-           !mao_spring_settled(&s_panel.presence, 0.002f);
+           !mao_spring_settled(&s_panel.presence, 0.002f) || !mao_spring_settled(&s_panel.ty, 0.05f) ||
+           !mao_spring_settled(&s_panel.hot, 0.005f);
 }
 
 void mao_devices_ui_create(lv_obj_t *scr)
@@ -274,9 +310,13 @@ void mao_devices_ui_create(lv_obj_t *scr)
     s_panel.title = mao_ui_make_text(scr, MAO_FONT_NORMAL, MAO_COL_FG, MAO_TRACK_NORMAL, "");
     s_panel.value = mao_ui_make_text(scr, &lv_font_montserrat_48, MAO_COL_FG, 2, "");
     s_panel.status = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, MAO_TRACK_SMALL, "");
+    s_panel.connect = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, 6, "CONNECT");
     mao_ui_text_cache_reset(&s_panel.ct);
     mao_ui_text_cache_reset(&s_panel.cv);
     mao_ui_text_cache_reset(&s_panel.cst);
+    mao_ui_text_cache_reset(&s_panel.cc);
     mao_spring_init(&s_panel.presence, 0.0f, MAO_SPRING_HEAVY);
+    mao_spring_init(&s_panel.ty, PANEL_TITLE_Y, MAO_SPRING_HEAVY);
+    mao_spring_init(&s_panel.hot, 0.0f, MAO_SPRING_SNAP);
     s_panel.value_opa = 255.0f;
 }

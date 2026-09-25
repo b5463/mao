@@ -103,6 +103,11 @@ void mao_character_set_sleepy(bool sleepy);
 void mao_character_leave(void);
 void mao_character_return(void);
 
+/* Compact presence for the DEVICE page: small eyes low on the screen,
+ * attention on the page's content, motion damped, no orbiting. The mind
+ * keeps running (blinks, interest, evaluation) at reduced strength. */
+void mao_character_peek(bool on);
+
 mao_character_state_t mao_character_get_state(void);
 const char *mao_character_state_name(mao_character_state_t state);
 
