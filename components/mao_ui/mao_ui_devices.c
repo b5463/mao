@@ -66,6 +66,9 @@ typedef struct {
     int8_t word_count;
     bool editing;
     bool has_value, has_facts;
+    bool fact_l_on, fact_r_on, fact_r_emph;
+    mao_spring_t cdy, cdx;      /* centre word tool-feedback offsets, px */
+    mao_spring_t fdy;           /* storage number change: a small settle, px */
     mao_spring_t presence;
     mao_spring_t ty;            /* title travels from its list row position */
     mao_spring_t hot;           /* CONNECT emphasis while arming / starting */
@@ -216,11 +219,11 @@ static void panel_layout(void)
      * The centre is the level value or the primary action word; editing
      * lifts the value a pixel at full presence. */
     const float cf = s_panel.focus == 0 ? (s_panel.editing ? 1.0f : 0.9f) : 0.62f;
-    const float cy = PANEL_VALUE_Y + (1.0f - p) * 14.0f - (s_panel.editing ? 2.0f : 0.0f);
+    const float cy = PANEL_VALUE_Y + (1.0f - p) * 14.0f - (s_panel.editing ? 2.0f : 0.0f) + s_panel.cdy.x;
     if (s_panel.has_value) {
-        mao_ui_text_place(s_panel.value, 0.0f, cy, s_panel.value_opa * cf * p, &s_panel.cv);
+        mao_ui_text_place(s_panel.value, s_panel.cdx.x, cy, s_panel.value_opa * cf * p, &s_panel.cv);
     } else {
-        mao_ui_text_place(s_panel.primary, 0.0f, cy, 255.0f * cf * p, &s_panel.cpr);
+        mao_ui_text_place(s_panel.primary, s_panel.cdx.x, cy, 255.0f * cf * p, &s_panel.cpr);
     }
     const float row = smooth01((p - 0.4f) / 0.6f);
     const float wy = (s_panel.has_facts ? PANEL_CTRL_LOW_Y : PANEL_CTRL_Y) + (1.0f - p) * 6.0f;
@@ -233,19 +236,64 @@ static void panel_layout(void)
                           (s_panel.focus == i + 1 ? 255.0f : (float)MAO_OPA_CONTEXT) * row, &s_panel.cw[i]);
     }
     if (s_panel.has_facts) {
-        /* Facts are quiet: never focusable, never boxed. */
-        mao_ui_text_place(s_panel.fact_l, -58.0f, PANEL_FACTS_Y + (1.0f - p) * 6.0f,
-                          MAO_OPA_SECONDARY * row, &s_panel.cfl);
-        mao_ui_text_place(s_panel.fact_r, 50.0f, PANEL_FACTS_Y + (1.0f - p) * 6.0f,
-                          MAO_OPA_SECONDARY * row, &s_panel.cfr);
+        /* Facts are quiet: never focusable, never boxed. A lone fact sits
+         * centred; exceptions (storage running low) gain presence. */
+        const bool both = s_panel.fact_l_on && s_panel.fact_r_on;
+        const float fy = PANEL_FACTS_Y + (1.0f - p) * 6.0f;
+        if (s_panel.fact_l_on) {
+            mao_ui_text_place(s_panel.fact_l, both ? -58.0f : 0.0f, fy, MAO_OPA_SECONDARY * row, &s_panel.cfl);
+        } else {
+            mao_ui_text_place(s_panel.fact_l, 0.0f, fy, 0.0f, &s_panel.cfl);
+        }
+        if (s_panel.fact_r_on) {
+            const float fo = s_panel.fact_r_emph ? 235.0f : (float)MAO_OPA_SECONDARY;
+            mao_ui_text_place(s_panel.fact_r, both ? 50.0f : 0.0f, fy + s_panel.fdy.x, fo * row, &s_panel.cfr);
+        } else {
+            mao_ui_text_place(s_panel.fact_r, 0.0f, fy, 0.0f, &s_panel.cfr);
+        }
     }
     if (!s_panel.has_facts) {
         mao_ui_text_place(s_panel.status, 0.0f, PANEL_STATUS_Y + (1.0f - p) * 8.0f,
                           MAO_OPA_SECONDARY * smooth01((p - 0.4f) / 0.6f), &s_panel.cst);
     }
-    /* CONNECT is a quiet word until the user reaches for it. */
+    /* CONNECT is a focusable word like any other: quiet until focused. */
+    const bool cfocus = s_panel.focus == s_panel.word_count + 1;
+    const float ch = cfocus ? 1.0f : hot;
     mao_ui_text_place(s_panel.connect, 0.0f, PANEL_CONNECT_Y + (1.0f - p) * 6.0f - hot * 2.0f,
-                      (100.0f + 155.0f * hot) * smooth01((p - 0.5f) / 0.5f), &s_panel.cc);
+                      (100.0f + 155.0f * ch) * smooth01((p - 0.5f) / 0.5f), &s_panel.cc);
+}
+
+void mao_ui_device_feedback(mao_ui_fb_t fb)
+{
+    if (!mao_display_lock(0)) {
+        return;
+    }
+    switch (fb) {
+    case MAO_UI_FB_PRESS:
+        s_panel.cdy.target = 3.0f;              /* connected to the button */
+        break;
+    case MAO_UI_FB_PENDING:
+        s_panel.cdy.target = 1.5f;              /* held, weighted - and still */
+        break;
+    case MAO_UI_FB_DONE:
+        s_panel.cdy.target = 0.0f;
+        s_panel.cdy.v -= 70.0f;                 /* released tension: a tiny overshoot */
+        break;
+    case MAO_UI_FB_BUSY:
+        s_panel.cdy.target = 0.0f;
+        s_panel.cdy.v += 45.0f;                 /* it could not move: barely yields */
+        break;
+    case MAO_UI_FB_FAILED:
+        s_panel.cdy.target = 0.0f;
+        s_panel.cdx.v += 90.0f;                 /* a small misalignment that settles */
+        break;
+    case MAO_UI_FB_REST:
+    default:
+        s_panel.cdy.target = 0.0f;
+        break;
+    }
+    mao_ui_wake();
+    mao_display_unlock();
 }
 
 void mao_devpanel_show(bool show, uint32_t delay_ms)
@@ -299,6 +347,14 @@ void mao_ui_device_update(const mao_ui_device_t *m)
         }
     }
     s_panel.has_facts = m->status_l != NULL || m->status_r != NULL;
+    s_panel.fact_l_on = m->status_l != NULL;
+    s_panel.fact_r_on = m->status_r != NULL;
+    s_panel.fact_r_emph = m->status_r_emph;
+    if (m->status_r && strcmp(lv_label_get_text(s_panel.fact_r), m->status_r) != 0 &&
+        lv_label_get_text(s_panel.fact_r)[0] != '\0') {
+        s_panel.fdy.x = -3.0f;                  /* the old value steps aside; the new settles */
+        s_panel.fdy.v = 0.0f;
+    }
     if (s_panel.has_facts) {
         set_text(s_panel.fact_l, m->status_l ? m->status_l : "");
         set_text(s_panel.fact_r, m->status_r ? m->status_r : "");
@@ -350,6 +406,9 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     mao_spring_step(&s_panel.presence, dt);
     mao_spring_step(&s_panel.ty, dt);
     mao_spring_step(&s_panel.hot, dt);
+    mao_spring_step(&s_panel.cdy, dt);
+    mao_spring_step(&s_panel.cdx, dt);
+    mao_spring_step(&s_panel.fdy, dt);
     list_layout(now);
     panel_layout();
 
@@ -359,7 +418,8 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     return waiting || s_list.show_at != 0 || s_panel.show_at != 0 ||
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
            !mao_spring_settled(&s_panel.presence, 0.002f) || !mao_spring_settled(&s_panel.ty, 0.05f) ||
-           !mao_spring_settled(&s_panel.hot, 0.005f);
+           !mao_spring_settled(&s_panel.hot, 0.005f) || !mao_spring_settled(&s_panel.cdy, 0.05f) ||
+           !mao_spring_settled(&s_panel.cdx, 0.05f) || !mao_spring_settled(&s_panel.fdy, 0.05f);
 }
 
 void mao_devices_ui_create(lv_obj_t *scr)
@@ -398,5 +458,9 @@ void mao_devices_ui_create(lv_obj_t *scr)
     mao_spring_init(&s_panel.presence, 0.0f, MAO_SPRING_HEAVY);
     mao_spring_init(&s_panel.ty, PANEL_TITLE_Y, MAO_SPRING_HEAVY);
     mao_spring_init(&s_panel.hot, 0.0f, MAO_SPRING_SNAP);
+    /* Tool feedback: quick and physical, ~120-200 ms to settle. */
+    mao_spring_init(&s_panel.cdy, 0.0f, (mao_spring_profile_t){ .k = 700.0f, .zeta = 0.55f });
+    mao_spring_init(&s_panel.cdx, 0.0f, (mao_spring_profile_t){ .k = 600.0f, .zeta = 0.45f });
+    mao_spring_init(&s_panel.fdy, 0.0f, (mao_spring_profile_t){ .k = 420.0f, .zeta = 0.9f });
     s_panel.value_opa = 255.0f;
 }

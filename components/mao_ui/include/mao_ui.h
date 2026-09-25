@@ -67,11 +67,24 @@ typedef struct {
     const char *primary; /* centre word when there is no level value (else NULL) */
     const char *words[MAO_UI_DEVICE_WORDS];   /* other controls, left to right */
     int8_t word_count;
-    const char *status_l;    /* read-only facts line (NULL = none) */
+    const char *status_l;    /* read-only facts line (NULL = none); a lone fact is centred */
     const char *status_r;
-    int8_t focus;
+    bool status_r_emph;      /* the fact deserves more presence (e.g. storage running low) */
+    int8_t focus;            /* 0 centre, 1..word_count words, word_count + 1 = CONNECT */
     bool editing;        /* LEVEL edit: the dial changes the value */
 } mao_ui_device_t;
+
+/* Tool feedback on the centre word: the word itself answers the physical
+ * button, before and regardless of the character (no network latency). */
+typedef enum {
+    MAO_UI_FB_REST = 0,      /* stable */
+    MAO_UI_FB_PRESS,         /* button down: the word compresses a few px */
+    MAO_UI_FB_PENDING,       /* sent: held slightly low, motionless */
+    MAO_UI_FB_DONE,          /* released: tiny overshoot, settle */
+    MAO_UI_FB_BUSY,          /* could not move: barely yields, springs back */
+    MAO_UI_FB_FAILED,        /* small lateral misalignment, settles */
+} mao_ui_fb_t;
+void mao_ui_device_feedback(mao_ui_fb_t fb);
 
 /* Build all views with initial_view visible (INTRO or HOME). Call before
  * mao_display_start() so the panel's first frame is already correct. */
