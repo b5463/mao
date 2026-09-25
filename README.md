@@ -44,12 +44,12 @@ Data flow: input driver → event bus → `mao_app` (state) → `mao_ui` / `mao_
 | `components/mao_system` | Boot banner, event bus + dispatcher, idle timer, settings (NVS `mao`), dev console |
 | `components/mao_app` | Application behaviour and the authoritative app state (`mao_state.c`) |
 | `components/mao_ui` | Views: HOME, menu shell, placeholder pages, first encounter; transitions |
-| `components/mao_character` | Procedural character: reaction states, idle behaviour, spring motion |
+| `components/mao_character` | Procedural character: reaction states, idle behaviour, spring motion ([architecture](docs/character_architecture.md)) |
 | `components/mao_radio` | Wi-Fi STA (never associated) + ESP-NOW transport |
 | `components/odd_bus` | ODD BUS v1: shared, product-agnostic protocol (also used by device firmware) |
 | `components/mao_devices` | ODD BUS controller: registry, discovery, liveness, confirmed value control |
 | `devices/lamp_01_test` | LAMP 01: minimal ODD BUS test light (POWER, LEVEL) for a second ESP32-C3 |
-| `assets/`, `tools/`, `tests/` | Assets (unused so far), helper scripts, future tests |
+| `assets/`, `tools/`, `tests/` | Assets (unused so far), helper scripts, tests (`tests/character_harness/check.sh`: character regression hashes) |
 
 ## Development tools
 
