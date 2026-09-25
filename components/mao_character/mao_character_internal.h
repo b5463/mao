@@ -109,10 +109,19 @@ bool mao_char_dial_engaged(mao_char_t *mc, uint32_t now);
 void mao_char_on_dial(mao_char_t *mc, int32_t n, uint32_t now);
 void mao_char_dial_update(mao_char_t *mc, float dt, uint32_t now);
 
-/* Priority and wake (mao_character_react.c) */
-prio_t mao_char_current_prio(mao_char_t *mc, uint32_t now);
-void mao_char_wake(mao_char_t *mc, uint32_t now);
-
 /* Attention (mao_character_attention.c) */
 void mao_char_feedback(mao_char_t *mc, mao_character_reaction_t r, uint32_t now);
 void mao_char_attention_update(mao_char_t *mc, uint32_t now);
+
+/* Reactions and state (mao_character_react.c) */
+prio_t mao_char_current_prio(mao_char_t *mc, uint32_t now);
+void mao_char_update_state(mao_char_t *mc, uint32_t now);
+void mao_char_wake(mao_char_t *mc, uint32_t now);
+void mao_char_on_press(mao_char_t *mc, bool down, uint32_t now);
+void mao_char_react(mao_char_t *mc, mao_character_reaction_t r, uint32_t now);
+void mao_char_appear(mao_char_t *mc, int dir, uint32_t now);
+void mao_char_leave(mao_char_t *mc, uint32_t now);
+void mao_char_come_back(mao_char_t *mc, uint32_t now);
+void mao_char_peek_set(mao_char_t *mc, bool on, uint32_t now);
+void mao_char_set_sleepy(mao_char_t *mc, bool sleepy, uint32_t now);
+void mao_char_timed_reactions(mao_char_t *mc, uint32_t now);
