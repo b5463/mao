@@ -262,29 +262,6 @@ float mao_lark_freshness(const mao_lark_t *l, int state)
     return 1.0f;
 }
 
-/* Weighted choice, shaped by mood (see lark_mood_t) and by what just played. */
-static int pick(const mao_lark_t *l)
-{
-    float total = 0.0f;
-    float w[96];
-    const int n = mao_lark_state_count() < 96 ? mao_lark_state_count() : 96;
-    for (int i = 0; i < n; i++) {
-        const lark_state_t *st = mao_lark_state(i);
-        const float x = (st->flags & LARK_NO_PICK) ? 0.0f
-                      : st->mood.base + st->mood.bored * l->boredom + st->mood.agit * l->agitation +
-                        st->mood.aff * l->affection;
-        w[i] = (x > 0.0f ? x : 0.0f) * mao_lark_freshness(l, i);
-        total += w[i];
-    }
-    float r = total * frand01();
-    for (int i = 0; i < n; i++) {
-        if ((r -= w[i]) < 0.0f) {
-            return i;
-        }
-    }
-    return 0;
-}
-
 void mao_lark_update(mao_lark_t *l, uint32_t now, bool idle, bool sleepy, float gain, float out[CH_COUNT])
 {
     const float dt = (float)(now - l->last_ms) / 1000.0f;
@@ -308,14 +285,9 @@ void mao_lark_update(mao_lark_t *l, uint32_t now, bool idle, bool sleepy, float 
     } else if ((cs->flags & LARK_ONESHOT) && now - l->cur_t0 >= play_ms(&cur_view, &l->cur_v)) {
         const int nx = cs->next ? mao_lark_find(cs->next) : 0;
         mao_lark_switch(l, nx >= 0 ? nx : 0, now);
-    } else if (idle && (int32_t)(now - l->next_pick_ms) >= 0) {
-        const int s = pick(l);
-        if (s == l->cur) {
-            l->next_pick_ms = now + 4000;          /* keep going a little longer */
-        } else {
-            mao_lark_switch(l, s, now);
-        }
     }
+    /* No timed state rotation: states change only when something causes it
+     * (events, the mind in mao_life.c, one-shot follow-ups). */
 
     l->gain.target = gain;
     mao_spring_step(&l->gain, dt < 0.05f ? dt : 0.05f);

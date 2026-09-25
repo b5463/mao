@@ -233,6 +233,7 @@ static void on_dial(int32_t n, uint32_t now)
     s_last_sign = sign;
     s_last_detent_ms = now;
     s_tick_detents += n;
+    mao_life_dial(&s_life, n, now);
 }
 
 static void on_press(bool down, uint32_t now)
@@ -551,7 +552,7 @@ static void tick_cb(lv_timer_t *t)
     dial_update(dt, now);
     timed_reactions(now);
     if (s_visible && current_prio(now) == PRIO_IDLE) {
-        mao_idle_update(&s_idle, &s_m, now, s_sleepy);
+        /* Idle behaviour now comes from the mind (mao_life.c). */
     } else if (current_prio(now) != PRIO_IDLE) {
         /* Something more important is happening: push idle back. */
         mao_idle_schedule(&s_idle, now, s_sleepy, true);
