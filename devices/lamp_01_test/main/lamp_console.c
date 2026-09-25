@@ -63,6 +63,14 @@ static void run(char *line)
         lamp_post_command(LAMP_CMD_FLOOD, hz | (secs << 8) | (mode << 24));
     } else if (!strcmp(cmd, "reboot")) {
         lamp_post_command(LAMP_CMD_REBOOT, 0);
+    } else if (!strcmp(cmd, "session")) {
+        lamp_post_command(LAMP_CMD_SESSION, 0);
+    } else if (!strcmp(cmd, "drop_session")) {
+        lamp_post_command(LAMP_CMD_DROP_SESSION, 0);
+    } else if (!strcmp(cmd, "inject_prev") && arg) {
+        /* inject_prev <cap> <value> */
+        const char *a2 = strchr(arg, ' ');
+        lamp_post_command(LAMP_CMD_INJECT_PREV, v * 1000 + (a2 ? atoi(a2 + 1) : 0));
     } else {
         ESP_LOGW(TAG, "unknown command '%s'", cmd);
     }

@@ -24,6 +24,9 @@ typedef enum {
     LAMP_CMD_DELAY_ACK,     /* send every ACK arg ms late (0 = off) */
     LAMP_CMD_FLOOD,         /* arg = hz | seconds << 8 | mode << 24: real traffic towards MAO */
     LAMP_CMD_REBOOT,
+    LAMP_CMD_SESSION,       /* log per-controller session state */
+    LAMP_CMD_DROP_SESSION,  /* forget all sessions (simulated device reboot) */
+    LAMP_CMD_INJECT_PREV,   /* loop in a SET from the PREVIOUS incarnation; arg = cap*1000+value */
 } lamp_cmd_t;
 
 /* LAMP_CMD_FLOOD modes. */

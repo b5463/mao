@@ -41,14 +41,20 @@ typedef struct {
     uint8_t data[ODD_MAX_FRAME];
 } item_t;
 
-/* Per controller and capability: last applied SET sequence (duplicate and
- * out-of-order detection must be per capability, since one controller
- * interleaves commands for several capabilities). */
+/* Per controller: the active session (current incarnation), the immediately
+ * previous one (a delayed old SESSION_OPEN or command must never reclaim or
+ * execute), and per-capability sequence history WITH the result each applied
+ * command produced - a duplicate is answered with the original result, never
+ * re-executed (the contract future one-shot ACTIONs will rely on). */
 typedef struct {
     bool used;
     uint64_t id;
+    uint64_t cur_inc;            /* active incarnation (0 = no session) */
+    uint64_t prev_inc;           /* the one before it (refused, not forgotten) */
     bool seq_valid[3];
     uint16_t last_seq[3];
+    uint8_t last_status[3];      /* result cache for duplicate re-ACKs */
+    int32_t last_value[3];
 } source_t;
 
 static QueueHandle_t s_inbox;
@@ -60,6 +66,7 @@ static bool s_have_controller;
 static uint8_t s_ctrl_mac[6];
 static uint64_t s_ctrl_id;
 static uint32_t s_applied, s_duplicates, s_stale;
+static uint32_t s_no_session, s_stale_session, s_sessions;
 
 /* Test controls: lost / late ACKs and traffic floods. */
 typedef struct {
@@ -67,6 +74,7 @@ typedef struct {
     int64_t due_us;
     uint8_t mac[6];
     uint64_t id;
+    uint64_t inc;        /* echo the command's incarnation (0 = legacy) */
     odd_message_t ack;
 } late_ack_t;
 #define LATE_MAX 8
@@ -191,53 +199,8 @@ static void remember_controller(const odd_message_t *m)
 /* ODD BUS handling (lamp task)                                           */
 /* ---------------------------------------------------------------------- */
 
-static void handle_set(const odd_message_t *m)
+static void send_ack(const odd_message_t *m, odd_message_t *ack)
 {
-    odd_message_t ack = { 0 };
-    ack.u.ack.acked_seq = m->hdr.seq;
-    ack.u.ack.applied.cap_id = m->u.set.cap_id;
-    const uint8_t cap = m->u.set.cap_id;
-
-    if (cap != LAMP_CAP_POWER && cap != LAMP_CAP_LEVEL) {
-        ack.u.ack.status = ODD_ACK_UNKNOWN_CAP;
-    } else {
-        source_t *src = source_for(m->hdr.src_id);
-        /* A sequence far behind the last one is not "stale": the controller
-         * rebooted and its counter restarted (found in real two-board
-         * testing: every SET after a MAO reflash was refused). Genuine
-         * out-of-order commands are at most a handful apart. */
-        const bool restarted = src->seq_valid[cap] && !odd_seq_newer(m->hdr.seq, src->last_seq[cap]) &&
-                               (uint16_t)(src->last_seq[cap] - m->hdr.seq) > 4096;
-        if (src->seq_valid[cap] && m->hdr.seq == src->last_seq[cap]) {
-            s_duplicates++;                   /* retry of an applied command: re-ACK only */
-            ack.u.ack.status = ODD_ACK_OK;
-        } else if (src->seq_valid[cap] && !restarted && !odd_seq_newer(m->hdr.seq, src->last_seq[cap])) {
-            s_stale++;                        /* arrived after a newer one: ignore */
-            ack.u.ack.status = ODD_ACK_STALE;
-        } else {
-            if (restarted) {
-                ESP_LOGW(TAG, "controller %016llx sequence restarted (%u -> %u): accepting",
-                         (unsigned long long)m->hdr.src_id, src->last_seq[cap], m->hdr.seq);
-            }
-            src->seq_valid[cap] = true;
-            src->last_seq[cap] = m->hdr.seq;
-            int32_t v = m->u.set.value;
-            const odd_capability_t *c = &kCaps[cap - 1];
-            const int32_t req = v;
-            v = v < c->min ? c->min : (v > c->max ? c->max : v);
-            ack.u.ack.status = v == req ? ODD_ACK_OK : ODD_ACK_CLAMPED;
-            if (cap == LAMP_CAP_POWER) {
-                s_power = v != 0;
-            } else {
-                s_level = v;
-            }
-            s_applied++;
-            char why[40];
-            snprintf(why, sizeof(why), "SET seq %u", m->hdr.seq);
-            show(why);
-        }
-    }
-    ack.u.ack.applied.value = value_of(cap);
     if (s_drop_acks) {
         s_drop_acks--;
         s_acks_dropped++;
@@ -248,14 +211,144 @@ static void handle_set(const odd_message_t *m)
         for (int i = 0; i < LATE_MAX; i++) {
             if (!s_late[i].used) {
                 s_late[i] = (late_ack_t) { .used = true, .due_us = esp_timer_get_time() + s_delay_ack_ms * 1000LL,
-                                           .id = m->hdr.src_id, .ack = ack };
+                                           .id = m->hdr.src_id, .inc = m->incarnation, .ack = *ack };
                 memcpy(s_late[i].mac, m->src_mac, 6);
                 return;
             }
         }
         ESP_LOGW(TAG, "test: late-ACK slots full, sending now");
     }
-    odd_bus_send(m->src_mac, m->hdr.src_id, ODD_MSG_ACK, &ack, NULL);
+    if (m->incarnation) {
+        odd_bus_send_session(m->src_mac, m->hdr.src_id, ODD_MSG_ACK, ack, m->incarnation, NULL);
+    } else {
+        odd_bus_send(m->src_mac, m->hdr.src_id, ODD_MSG_ACK, ack, NULL);
+    }
+}
+
+/* Apply a validated SET and remember its result for duplicate re-ACKs. */
+static uint8_t apply_set(source_t *src, uint8_t cap, int32_t req, uint16_t seq)
+{
+    const odd_capability_t *c = &kCaps[cap - 1];
+    int32_t v = req < c->min ? c->min : (req > c->max ? c->max : req);
+    if (cap == LAMP_CAP_POWER) {
+        s_power = v != 0;
+    } else {
+        s_level = v;
+    }
+    s_applied++;
+    src->seq_valid[cap] = true;
+    src->last_seq[cap] = seq;
+    src->last_status[cap] = v == req ? ODD_ACK_OK : ODD_ACK_CLAMPED;
+    src->last_value[cap] = value_of(cap);
+    char why[40];
+    snprintf(why, sizeof(why), "SET seq %u", seq);
+    show(why);
+    return src->last_status[cap];
+}
+
+static void handle_set(const odd_message_t *m)
+{
+    odd_message_t ack = { 0 };
+    ack.u.ack.acked_seq = m->hdr.seq;
+    ack.u.ack.applied.cap_id = m->u.set.cap_id;
+    const uint8_t cap = m->u.set.cap_id;
+
+    if (cap != LAMP_CAP_POWER && cap != LAMP_CAP_LEVEL) {
+        ack.u.ack.status = ODD_ACK_UNKNOWN_CAP;
+        ack.u.ack.applied.value = value_of(cap);
+        send_ack(m, &ack);
+        return;
+    }
+    source_t *src = source_for(m->hdr.src_id);
+
+    if (m->incarnation) {
+        /* Session-aware command. INVARIANT: a command from a non-current
+         * incarnation must never execute. No sequence-distance heuristics. */
+        if (src->cur_inc == 0 || m->incarnation != src->cur_inc) {
+            const bool prev = src->prev_inc && m->incarnation == src->prev_inc;
+            ack.u.ack.status = prev ? ODD_ACK_STALE_SESSION : ODD_ACK_NO_SESSION;
+            if (prev) {
+                s_stale_session++;
+                ESP_LOGW(TAG, "stale incarnation %016llx from %016llx: NOT executed",
+                         (unsigned long long)m->incarnation, (unsigned long long)m->hdr.src_id);
+            } else {
+                s_no_session++;
+            }
+        } else if (src->seq_valid[cap] && m->hdr.seq == src->last_seq[cap]) {
+            s_duplicates++;                   /* retry: re-answer, never re-execute */
+            ack.u.ack.status = src->last_status[cap];
+            ack.u.ack.applied.value = src->last_value[cap];
+            send_ack(m, &ack);
+            return;
+        } else if (src->seq_valid[cap] && !odd_seq_newer(m->hdr.seq, src->last_seq[cap])) {
+            s_stale++;                        /* arrived after a newer one: ignore */
+            ack.u.ack.status = ODD_ACK_STALE;
+        } else {
+            ack.u.ack.status = apply_set(src, cap, m->u.set.value, m->hdr.seq);
+            ack.u.ack.applied.value = src->last_value[cap];
+            send_ack(m, &ack);
+            return;
+        }
+        ack.u.ack.applied.value = value_of(cap);
+        send_ack(m, &ack);
+        return;
+    }
+
+    /* LEGACY controller (no incarnation on the wire). The old backward-jump
+     * heuristic survives ONLY here: it cannot influence session-aware
+     * commands and must never be the basis for one-shot actions. */
+    const bool restarted = src->seq_valid[cap] && !odd_seq_newer(m->hdr.seq, src->last_seq[cap]) &&
+                           (uint16_t)(src->last_seq[cap] - m->hdr.seq) > 4096;
+    if (src->seq_valid[cap] && m->hdr.seq == src->last_seq[cap]) {
+        s_duplicates++;
+        ack.u.ack.status = src->last_status[cap];
+        ack.u.ack.applied.value = src->last_value[cap];
+        send_ack(m, &ack);
+        return;
+    }
+    if (src->seq_valid[cap] && !restarted && !odd_seq_newer(m->hdr.seq, src->last_seq[cap])) {
+        s_stale++;
+        ack.u.ack.status = ODD_ACK_STALE;
+        ack.u.ack.applied.value = value_of(cap);
+        send_ack(m, &ack);
+        return;
+    }
+    if (restarted) {
+        ESP_LOGW(TAG, "LEGACY controller %016llx sequence restarted (%u -> %u): accepting",
+                 (unsigned long long)m->hdr.src_id, src->last_seq[cap], m->hdr.seq);
+    }
+    ack.u.ack.status = apply_set(src, cap, m->u.set.value, m->hdr.seq);
+    ack.u.ack.applied.value = src->last_value[cap];
+    send_ack(m, &ack);
+}
+
+static void handle_session_open(const odd_message_t *m)
+{
+    source_t *src = source_for(m->hdr.src_id);
+    odd_message_t ack = { 0 };
+    ack.u.ack.acked_seq = m->hdr.seq;
+    ack.u.ack.applied = (odd_value_t) { 0, 0 };
+
+    if (src->cur_inc && m->incarnation == src->cur_inc) {
+        /* Idempotent reopen (a lost ACK): same epoch, history preserved. */
+        ack.u.ack.status = ODD_ACK_OK;
+    } else if (src->prev_inc && m->incarnation == src->prev_inc) {
+        /* A delayed old SESSION_OPEN can never reclaim the session. */
+        ack.u.ack.status = ODD_ACK_STALE_SESSION;
+        s_stale_session++;
+        ESP_LOGW(TAG, "stale SESSION_OPEN %016llx from %016llx refused",
+                 (unsigned long long)m->incarnation, (unsigned long long)m->hdr.src_id);
+    } else {
+        ESP_LOGI(TAG, "controller %016llx incarnation: %016llx -> %016llx (sequence history reset)",
+                 (unsigned long long)m->hdr.src_id, (unsigned long long)src->cur_inc,
+                 (unsigned long long)m->incarnation);
+        src->prev_inc = src->cur_inc;
+        src->cur_inc = m->incarnation;
+        memset(src->seq_valid, 0, sizeof(src->seq_valid));   /* new epoch, fresh history */
+        s_sessions++;
+        ack.u.ack.status = ODD_ACK_OK;
+    }
+    odd_bus_send_session(m->src_mac, m->hdr.src_id, ODD_MSG_ACK, &ack, m->incarnation, NULL);
 }
 
 /* Due late ACKs and flood traffic. Returns ms until the next timed work. */
@@ -269,7 +362,12 @@ static uint32_t service_tests(void)
         }
         if (now >= s_late[i].due_us) {
             s_late[i].used = false;
-            odd_bus_send(s_late[i].mac, s_late[i].id, ODD_MSG_ACK, &s_late[i].ack, NULL);
+            if (s_late[i].inc) {
+                odd_bus_send_session(s_late[i].mac, s_late[i].id, ODD_MSG_ACK, &s_late[i].ack,
+                                     s_late[i].inc, NULL);
+            } else {
+                odd_bus_send(s_late[i].mac, s_late[i].id, ODD_MSG_ACK, &s_late[i].ack, NULL);
+            }
             ESP_LOGI(TAG, "test: late ACK for seq %u sent", s_late[i].ack.u.ack.acked_seq);
         } else if (s_late[i].due_us < next) {
             next = s_late[i].due_us;
@@ -332,6 +430,10 @@ static void on_message(const odd_message_t *m, void *ctx)
         remember_controller(m);
         handle_set(m);
         break;
+    case ODD_MSG_SESSION_OPEN:
+        remember_controller(m);
+        handle_session_open(m);
+        break;
     default:
         break;
     }
@@ -366,10 +468,11 @@ static void handle_command(lamp_cmd_t cmd, int32_t arg)
         odd_bus_get_stats(&st);
         ESP_LOGI(TAG, "status: %s power=%s level=%" PRId32 " applied=%" PRIu32 " dup=%" PRIu32 " stale=%" PRIu32
                  " odd_rx=%" PRIu32 " odd_tx=%" PRIu32 " set_rx=%" PRIu32 " discover_rx=%" PRIu32
-                 " acks_dropped=%" PRIu32 " drop_pending=%" PRIu32 " ack_delay=%" PRIu32 "ms",
+                 " acks_dropped=%" PRIu32 " drop_pending=%" PRIu32 " ack_delay=%" PRIu32 "ms"
+                 " sessions=%" PRIu32 " no_session=%" PRIu32 " stale_session=%" PRIu32,
                  s_offline ? "OFFLINE" : "ONLINE", s_power ? "ON" : "OFF", s_level, s_applied, s_duplicates,
                  s_stale, st.rx, st.tx, st.per_type_rx[ODD_MSG_SET_VALUE], st.per_type_rx[ODD_MSG_DISCOVER],
-                 s_acks_dropped, s_drop_acks, s_delay_ack_ms);
+                 s_acks_dropped, s_drop_acks, s_delay_ack_ms, s_sessions, s_no_session, s_stale_session);
         break;
     }
     case LAMP_CMD_OFFLINE:
@@ -417,6 +520,51 @@ static void handle_command(lamp_cmd_t cmd, int32_t arg)
         ESP_LOGW(TAG, "test: flood %" PRIu32 " Hz %s for %" PRIu32 " s%s", s_flood_hz,
                  s_flood_mode == LAMP_FLOOD_ANNOUNCE ? "ANNOUNCE" : "STATE", secs,
                  (s_flood_mode == LAMP_FLOOD_STATE && !s_have_controller) ? " (no controller yet: nothing sent)" : "");
+        break;
+    }
+    case LAMP_CMD_SESSION:
+        for (int i = 0; i < MAX_SOURCES; i++) {
+            if (s_src[i].used) {
+                ESP_LOGI(TAG, "session: controller %016llx cur=%016llx prev=%016llx",
+                         (unsigned long long)s_src[i].id, (unsigned long long)s_src[i].cur_inc,
+                         (unsigned long long)s_src[i].prev_inc);
+            }
+        }
+        break;
+    case LAMP_CMD_DROP_SESSION:
+        /* Simulates this device rebooting (sessions are never persisted). */
+        memset(s_src, 0, sizeof(s_src));
+        ESP_LOGW(TAG, "test: all controller sessions forgotten");
+        break;
+    case LAMP_CMD_INJECT_PREV: {
+        /* The milestone's safety test: loop a well-formed SET carrying the
+         * PREVIOUS incarnation into our own input path, as if a delayed old
+         * packet arrived. It must be refused and must not change state. */
+        source_t *src = NULL;
+        for (int i = 0; i < MAX_SOURCES; i++) {
+            if (s_src[i].used && s_src[i].prev_inc) {
+                src = &s_src[i];
+            }
+        }
+        if (!src) {
+            ESP_LOGW(TAG, "test: no previous incarnation known; reboot MAO first");
+            break;
+        }
+        odd_message_t body = { 0 };
+        body.u.set.cap_id = (uint8_t)(arg / 1000);
+        body.u.set.value = arg % 1000;
+        body.incarnation = src->prev_inc;
+        const odd_header_t hdr = {
+            .type = ODD_MSG_SET_VALUE, .seq = (uint16_t)(esp_random() & 0x7FFF),
+            .flags = ODD_FRAME_F_INCARNATION, .src_id = src->id, .dst_id = odd_bus_self()->id,
+        };
+        uint8_t frame[ODD_MAX_FRAME];
+        const size_t n = odd_encode(&hdr, &body, frame, sizeof(frame));
+        ESP_LOGW(TAG, "test: injecting delayed SET from PREVIOUS incarnation %016llx (cap %u value %ld)",
+                 (unsigned long long)src->prev_inc, body.u.set.cap_id, (long)body.u.set.value);
+        if (n) {
+            odd_bus_input(s_ctrl_mac, frame, n, 0);
+        }
         break;
     }
     case LAMP_CMD_REBOOT:
