@@ -5,10 +5,23 @@
 #include <stdint.h>
 #include "esp_err.h"
 
+#include "sdkconfig.h"
+
+#if CONFIG_LAMP_PROFILE_CAMERA
+/* CAMERA 01: a camera-shaped ODD device (protocol emulator, not KINO). */
+#define LAMP_CAP_CAPTURE   1   /* ODD_CAP_ACTION, semantic CAPTURE */
+#define LAMP_CAP_IDENTIFY  2   /* ODD_CAP_ACTION, semantic IDENTIFY */
+#define LAMP_CAP_SYNC      3   /* ODD_CAP_ACTION, semantic SYNC_TEST */
+#define LAMP_CAP_READY     4   /* ODD_CAP_READY (read-only fact) */
+#define LAMP_CAP_STORAGE   5   /* ODD_CAP_STORAGE (read-only percent) */
+#define LAMP_CAP_TOP       5
+#else
+/* LAMP 01: the original LIGHT. */
 #define LAMP_CAP_POWER     1
 #define LAMP_CAP_LEVEL     2
 #define LAMP_CAP_IDENTIFY  3   /* ODD_CAP_ACTION, semantic IDENTIFY */
 #define LAMP_CAP_TOP       3   /* highest capability id (array sizing) */
+#endif
 
 /* Output (lamp_output.c): LED and/or log. */
 esp_err_t lamp_output_init(void);
@@ -36,6 +49,9 @@ typedef enum {
     LAMP_CMD_ACT_DROP_RESULT, /* drop the next arg ACTION_RESULTs */
     LAMP_CMD_ACT_DUP_RESULT,  /* send the last result again */
     LAMP_CMD_ACT_STATUS,    /* action counters and current job */
+    LAMP_CMD_SET_READY,     /* camera: force the READY flag (notifies) */
+    LAMP_CMD_SET_STORAGE,   /* camera: set storage percent (notifies) */
+    LAMP_CMD_CAPTURE_DELAY, /* camera: capture completion delay, ms */
 } lamp_cmd_t;
 
 /* LAMP_CMD_FLOOD modes. */

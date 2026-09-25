@@ -1,0 +1,2 @@
+# CAMERA 01 profile overlay: layer over sdkconfig.defaults.
+CONFIG_LAMP_PROFILE_CAMERA=y

@@ -27,10 +27,15 @@ typedef struct {
 static void run(char *line)
 {
     char *cmd = strstr(line, "lamp ");
-    if (!cmd) {
-        return;
+    if (cmd) {
+        cmd += 5;
+    } else {
+        cmd = strstr(line, "cam ");
+        if (!cmd) {
+            return;
+        }
+        cmd += 4;
     }
-    cmd += 5;
     char *arg = strchr(cmd, ' ');
     if (arg) {
         *arg++ = '\0';
@@ -63,6 +68,12 @@ static void run(char *line)
         lamp_post_command(LAMP_CMD_FLOOD, hz | (secs << 8) | (mode << 24));
     } else if (!strcmp(cmd, "reboot")) {
         lamp_post_command(LAMP_CMD_REBOOT, 0);
+    } else if (!strcmp(cmd, "ready") && arg) {
+        lamp_post_command(LAMP_CMD_SET_READY, v);
+    } else if (!strcmp(cmd, "storage") && arg) {
+        lamp_post_command(LAMP_CMD_SET_STORAGE, v);
+    } else if (!strcmp(cmd, "capture_delay") && arg) {
+        lamp_post_command(LAMP_CMD_CAPTURE_DELAY, v);
     } else if (!strcmp(cmd, "identify")) {
         lamp_post_command(LAMP_CMD_IDENTIFY, 0);
     } else if (!strcmp(cmd, "action") && arg) {

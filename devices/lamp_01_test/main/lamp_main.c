@@ -23,9 +23,15 @@
 #include "odd_bus.h"
 #include "lamp.h"
 
+#if CONFIG_LAMP_PROFILE_CAMERA
+static const char *TAG = "CAM01";
+#define LAMP_NAME       "CAMERA 01"
+#define LAMP_DEV_TYPE   ODD_DEVICE_CAMERA
+#else
 static const char *TAG = "LAMP01";
-
 #define LAMP_NAME       "LAMP 01"
+#define LAMP_DEV_TYPE   ODD_DEVICE_LIGHT
+#endif
 #define INBOX_LEN       12
 #define MAX_SOURCES     4
 
@@ -86,6 +92,13 @@ static uint32_t s_act_delay_ms = 450;    /* genuinely asynchronous by default */
 static bool s_act_busy_mode, s_act_fail_mode;
 static uint32_t s_drop_results;
 static uint32_t s_identify_count, s_act_accepted, s_act_busy_refused, s_results_sent, s_results_dropped;
+#if CONFIG_LAMP_PROFILE_CAMERA
+/* Camera facts. READY is derived: the flag, storage left, and no job. */
+static bool s_ready_flag = true;
+static int32_t s_storage = 84;
+static uint32_t s_capture_execs, s_sync_execs;
+static uint32_t s_capture_delay_ms = 700;
+#endif
 static struct {
     bool valid;
     uint8_t cap;
@@ -115,6 +128,18 @@ static uint32_t s_flood_hz, s_flood_mode, s_flood_sent;
 static int64_t s_flood_until_us, s_flood_next_us;
 
 static const odd_capability_t kCaps[] = {
+#if CONFIG_LAMP_PROFILE_CAMERA
+    { .id = LAMP_CAP_CAPTURE, .type = ODD_CAP_ACTION, .flags = ODD_CAP_F_WRITE,
+      .min = ODD_ACTION_CAPTURE, .max = ODD_ACTION_CAPTURE, .step = 1 },
+    { .id = LAMP_CAP_IDENTIFY, .type = ODD_CAP_ACTION, .flags = ODD_CAP_F_WRITE,
+      .min = ODD_ACTION_IDENTIFY, .max = ODD_ACTION_IDENTIFY, .step = 1 },
+    { .id = LAMP_CAP_SYNC, .type = ODD_CAP_ACTION, .flags = ODD_CAP_F_WRITE,
+      .min = ODD_ACTION_SYNC_TEST, .max = ODD_ACTION_SYNC_TEST, .step = 1 },
+    { .id = LAMP_CAP_READY, .type = ODD_CAP_READY, .flags = ODD_CAP_F_READ | ODD_CAP_F_NOTIFY,
+      .min = 0, .max = 1, .step = 1 },
+    { .id = LAMP_CAP_STORAGE, .type = ODD_CAP_STORAGE, .flags = ODD_CAP_F_READ | ODD_CAP_F_NOTIFY,
+      .min = 0, .max = 100, .step = 1 },
+#else
     { .id = LAMP_CAP_POWER, .type = ODD_CAP_POWER, .flags = ODD_CAP_F_READ | ODD_CAP_F_WRITE | ODD_CAP_F_NOTIFY,
       .min = 0, .max = 1, .step = 1 },
     { .id = LAMP_CAP_LEVEL, .type = ODD_CAP_LEVEL, .flags = ODD_CAP_F_READ | ODD_CAP_F_WRITE | ODD_CAP_F_NOTIFY,
@@ -122,6 +147,7 @@ static const odd_capability_t kCaps[] = {
     /* Generic discrete operation (ODD_CAP_ACTION): min = max = semantic. */
     { .id = LAMP_CAP_IDENTIFY, .type = ODD_CAP_ACTION, .flags = ODD_CAP_F_WRITE,
       .min = ODD_ACTION_IDENTIFY, .max = ODD_ACTION_IDENTIFY, .step = 1 },
+#endif
 };
 #define CAP_COUNT ((uint8_t)(sizeof(kCaps) / sizeof(kCaps[0])))
 
@@ -181,16 +207,49 @@ static void radio_init(void)
 /* State                                                                  */
 /* ---------------------------------------------------------------------- */
 
+#if CONFIG_LAMP_PROFILE_CAMERA
+static bool effective_ready(void);
+#endif
+
 static void show(const char *why)
 {
+#if CONFIG_LAMP_PROFILE_CAMERA
+    ESP_LOGI(TAG, "CAMERA 01 ready=%d storage=%" PRId32 " captures=%" PRIu32 " (%s)",
+             effective_ready() ? 1 : 0, s_storage, s_capture_execs, why);
+#else
     lamp_output_apply(s_power, s_level);
     ESP_LOGI(TAG, "LAMP 01 power=%s level=%" PRId32 " (%s)", s_power ? "ON" : "OFF", s_level, why);
+#endif
+}
+
+static void fill_state(odd_message_t *body, uint16_t in_reply_to);
+
+/* Unsolicited STATE to the controller (READY / STORAGE / POWER / LEVEL). */
+static void notify_state(void)
+{
+    if (s_have_controller && !s_offline) {
+        odd_message_t body = { 0 };
+        fill_state(&body, 0);
+        odd_bus_send(s_ctrl_mac, s_ctrl_id, ODD_MSG_STATE, &body, NULL);
+    }
+}
+
+#if CONFIG_LAMP_PROFILE_CAMERA
+static bool effective_ready(void)
+{
+    return s_ready_flag && s_storage > 0 && !s_job.active;
 }
 
 static int32_t value_of(uint8_t cap)
 {
+    return cap == LAMP_CAP_READY ? (effective_ready() ? 1 : 0) : s_storage;
+}
+#else
+static int32_t value_of(uint8_t cap)
+{
     return cap == LAMP_CAP_POWER ? (s_power ? 1 : 0) : s_level;
 }
+#endif
 
 static void fill_state(odd_message_t *body, uint16_t in_reply_to)
 {
@@ -265,11 +324,15 @@ static uint8_t apply_set(source_t *src, uint8_t cap, int32_t req, uint16_t seq)
 {
     const odd_capability_t *c = &kCaps[cap - 1];
     int32_t v = req < c->min ? c->min : (req > c->max ? c->max : req);
+#if CONFIG_LAMP_PROFILE_CAMERA
+    (void)v;   /* unreachable: a camera has no writable value capability */
+#else
     if (cap == LAMP_CAP_POWER) {
         s_power = v != 0;
     } else {
         s_level = v;
     }
+#endif
     s_applied++;
     src->seq_valid[cap] = true;
     src->last_seq[cap] = seq;
@@ -288,12 +351,22 @@ static void handle_set(const odd_message_t *m)
     ack.u.ack.applied.cap_id = m->u.set.cap_id;
     const uint8_t cap = m->u.set.cap_id;
 
+#if CONFIG_LAMP_PROFILE_CAMERA
+    /* Nothing on a camera is writable through SET: facts are read-only and
+     * operations are ACTIONs. */
+    ack.u.ack.status = (cap == LAMP_CAP_READY || cap == LAMP_CAP_STORAGE) ? ODD_ACK_READ_ONLY
+                                                                          : ODD_ACK_UNKNOWN_CAP;
+    ack.u.ack.applied.value = 0;
+    send_ack(m, &ack);
+    return;
+#else
     if (cap != LAMP_CAP_POWER && cap != LAMP_CAP_LEVEL) {
         ack.u.ack.status = ODD_ACK_UNKNOWN_CAP;
         ack.u.ack.applied.value = value_of(cap);
         send_ack(m, &ack);
         return;
     }
+#endif
     source_t *src = source_for(m->hdr.src_id);
 
     if (m->incarnation) {
@@ -381,6 +454,30 @@ static void send_result(const uint8_t *mac, uint64_t src_id, uint64_t inc, uint8
     s_results_sent++;
 }
 
+#if CONFIG_LAMP_PROFILE_CAMERA
+static bool action_cap_valid(uint8_t cap)
+{
+    return cap == LAMP_CAP_CAPTURE || cap == LAMP_CAP_IDENTIFY || cap == LAMP_CAP_SYNC;
+}
+static uint32_t action_delay(uint8_t cap)
+{
+    if (cap == LAMP_CAP_CAPTURE) {
+        return s_capture_delay_ms;
+    }
+    return cap == LAMP_CAP_SYNC ? 250 : s_act_delay_ms;
+}
+#else
+static bool action_cap_valid(uint8_t cap)
+{
+    return cap == LAMP_CAP_IDENTIFY;
+}
+static uint32_t action_delay(uint8_t cap)
+{
+    (void)cap;
+    return s_act_delay_ms;
+}
+#endif
+
 /* The generic ACTION handler. INVARIANTS (see docs/odd_bus_identity.md):
  * a duplicate (source, incarnation, action, seq) never executes twice; a
  * non-current incarnation never executes; a BUSY refusal stays a refusal on
@@ -407,7 +504,7 @@ static void handle_action(const odd_message_t *m)
         send_ack(m, &ack);
         return;
     }
-    if (cap != LAMP_CAP_IDENTIFY) {
+    if (!action_cap_valid(cap)) {
         ack.u.ack.status = ODD_ACK_UNKNOWN_CAP;
         send_ack(m, &ack);
         return;
@@ -432,6 +529,18 @@ static void handle_action(const odd_message_t *m)
     src->seq_valid[cap] = true;
     src->last_seq[cap] = m->hdr.seq;
     src->act_result[cap] = 0;
+#if CONFIG_LAMP_PROFILE_CAMERA
+    /* CAPTURE needs READY (storage left, not mid-job, not forced unready).
+     * The refusal is this identity's outcome - the M2.3 rule, unchanged. */
+    if (cap == LAMP_CAP_CAPTURE && !s_act_busy_mode && !s_job.active && !effective_ready()) {
+        src->last_status[cap] = ODD_ACK_BUSY;
+        s_act_busy_refused++;
+        ESP_LOGW(TAG, "CAPTURE refused: not ready (storage %" PRId32 ", flag %d)", s_storage, s_ready_flag);
+        ack.u.ack.status = ODD_ACK_BUSY;
+        send_ack(m, &ack);
+        return;
+    }
+#endif
     if (s_act_busy_mode || s_job.active) {
         /* Refused. The refusal IS this identity's outcome: a later retry of
          * the same seq replays BUSY even if the busy condition has cleared. */
@@ -444,11 +553,16 @@ static void handle_action(const odd_message_t *m)
     src->last_status[cap] = ODD_ACK_ACCEPTED;
     s_act_accepted++;
     s_job = (action_job_t) { .active = true, .cap = cap, .seq = m->hdr.seq, .src_id = m->hdr.src_id,
-                             .inc = m->incarnation, .due_us = esp_timer_get_time() + s_act_delay_ms * 1000LL,
+                             .inc = m->incarnation, .due_us = esp_timer_get_time() + action_delay(cap) * 1000LL,
                              .fail = s_act_fail_mode };
     memcpy(s_job.mac, m->src_mac, 6);
     ack.u.ack.status = ODD_ACK_ACCEPTED;
     send_ack(m, &ack);
+#if CONFIG_LAMP_PROFILE_CAMERA
+    if (cap == LAMP_CAP_CAPTURE) {
+        notify_state();   /* READY drops while the capture runs */
+    }
+#endif
 }
 
 static void handle_session_open(const odd_message_t *m)
@@ -491,12 +605,25 @@ static uint32_t service_tests(void)
             /* Execute exactly once, cache the outcome, report it. */
             s_job.active = false;
             const uint8_t result = s_job.fail ? ODD_ACTION_R_FAILED : ODD_ACTION_R_DONE;
-            if (!s_job.fail) {
+            if (s_job.fail) {
+                ESP_LOGW(TAG, "action cap %u: executing as FAILED (test mode, seq %u)", s_job.cap, s_job.seq);
+            }
+#if CONFIG_LAMP_PROFILE_CAMERA
+            else if (s_job.cap == LAMP_CAP_CAPTURE) {
+                /* Execute exactly once: count, consume storage, recover READY. */
+                s_capture_execs++;
+                s_storage = s_storage > 0 ? s_storage - 1 : 0;
+                ESP_LOGI(TAG, "CAPTURE: *** frame taken *** (execution #%" PRIu32 ", seq %u, storage %" PRId32 ")",
+                         s_capture_execs, s_job.seq, s_storage);
+            } else if (s_job.cap == LAMP_CAP_SYNC) {
+                s_sync_execs++;
+                ESP_LOGI(TAG, "SYNC_TEST: done (execution #%" PRIu32 ", seq %u)", s_sync_execs, s_job.seq);
+            }
+#endif
+            else {
                 s_identify_count++;
-                ESP_LOGI(TAG, "IDENTIFY: *** LAMP 01 here *** (execution #%" PRIu32 ", seq %u)",
-                         s_identify_count, s_job.seq);
-            } else {
-                ESP_LOGW(TAG, "IDENTIFY: executing as FAILED (test mode, seq %u)", s_job.seq);
+                ESP_LOGI(TAG, "IDENTIFY: *** %s here *** (execution #%" PRIu32 ", seq %u)",
+                         LAMP_NAME, s_identify_count, s_job.seq);
             }
             for (int i = 0; i < MAX_SOURCES; i++) {
                 if (s_src[i].used && s_src[i].id == s_job.src_id) {
@@ -504,6 +631,9 @@ static uint32_t service_tests(void)
                 }
             }
             send_result(s_job.mac, s_job.src_id, s_job.inc, s_job.cap, s_job.seq, result);
+#if CONFIG_LAMP_PROFILE_CAMERA
+            notify_state();   /* READY back (or storage-empty), STORAGE updated */
+#endif
         } else if (s_job.due_us < next) {
             next = s_job.due_us;
         }
@@ -648,11 +778,7 @@ static void handle_command(lamp_cmd_t cmd, int32_t arg)
             s_level = arg < 0 ? 0 : (arg > 100 ? 100 : arg);
         }
         show("local");
-        if (s_have_controller && !s_offline) {
-            odd_message_t body = { 0 };
-            fill_state(&body, 0);   /* notification */
-            odd_bus_send(s_ctrl_mac, s_ctrl_id, ODD_MSG_STATE, &body, NULL);
-        }
+        notify_state();
         break;
     }
     case LAMP_CMD_JUNK:
@@ -754,6 +880,22 @@ static void handle_command(lamp_cmd_t cmd, int32_t arg)
                                  s_last_result.inc, NULL);
         }
         break;
+#if CONFIG_LAMP_PROFILE_CAMERA
+    case LAMP_CMD_SET_READY:
+        s_ready_flag = arg != 0;
+        show("local ready");
+        notify_state();
+        break;
+    case LAMP_CMD_SET_STORAGE:
+        s_storage = arg < 0 ? 0 : (arg > 100 ? 100 : arg);
+        show("local storage");
+        notify_state();
+        break;
+    case LAMP_CMD_CAPTURE_DELAY:
+        s_capture_delay_ms = arg < 0 ? 0 : (uint32_t)arg;
+        ESP_LOGW(TAG, "test: capture completion delay %" PRIu32 " ms", s_capture_delay_ms);
+        break;
+#endif
     case LAMP_CMD_ACT_STATUS:
         ESP_LOGI(TAG, "action: identify=%" PRIu32 " accepted=%" PRIu32 " busy_refused=%" PRIu32
                  " results_sent=%" PRIu32 " results_dropped=%" PRIu32 " job=%s delay=%" PRIu32
@@ -761,12 +903,20 @@ static void handle_command(lamp_cmd_t cmd, int32_t arg)
                  s_identify_count, s_act_accepted, s_act_busy_refused, s_results_sent, s_results_dropped,
                  s_job.active ? "RUNNING" : "idle", s_act_delay_ms, s_act_busy_mode, s_act_fail_mode,
                  s_drop_results);
+#if CONFIG_LAMP_PROFILE_CAMERA
+        ESP_LOGI(TAG, "camera: captures=%" PRIu32 " syncs=%" PRIu32 " ready=%d(flag %d) storage=%" PRId32
+                 " capture_delay=%" PRIu32 "ms",
+                 s_capture_execs, s_sync_execs, effective_ready() ? 1 : 0, s_ready_flag, s_storage,
+                 s_capture_delay_ms);
+#endif
         break;
     case LAMP_CMD_REBOOT:
         ESP_LOGW(TAG, "test: rebooting");
         vTaskDelay(pdMS_TO_TICKS(50));
         esp_restart();
         break;
+    default:
+        break;   /* profile-specific commands of the other profile */
     }
 }
 
@@ -813,15 +963,15 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
     odd_device_info_t self = {
         .id = odd_id_from_mac(mac),
-        .device_type = ODD_DEVICE_LIGHT,
+        .device_type = LAMP_DEV_TYPE,
         .cap_count = CAP_COUNT,
     };
     strncpy(self.name, LAMP_NAME, sizeof(self.name) - 1);
     ESP_ERROR_CHECK(odd_bus_init(&self, odd_send, NULL, on_message, NULL));
 
     show("boot");
-    ESP_LOGI(TAG, "LAMP 01 ready on channel %d, mac " MACSTR ", caps: POWER, LEVEL 0-100",
-             ODD_BUS_DEV_CHANNEL, MAC2STR(mac));
+    ESP_LOGI(TAG, "%s ready on channel %d, mac " MACSTR " (%d capabilities)",
+             LAMP_NAME, ODD_BUS_DEV_CHANNEL, MAC2STR(mac), (int)CAP_COUNT);
     xTaskCreate(lamp_task, "lamp", 4096, NULL, 5, NULL);
     lamp_console_start();
 }

@@ -1,5 +1,15 @@
 menu "LAMP 01 test device"
 
+    config LAMP_PROFILE_CAMERA
+        bool "Build the CAMERA 01 profile instead of LAMP 01 (LIGHT)"
+        default n
+        help
+            The same bench firmware emulates either a LIGHT (POWER, LEVEL,
+            IDENTIFY) or a camera-shaped device (CAPTURE, IDENTIFY,
+            SYNC_TEST, READY, STORAGE). Protocol simulator only - no real
+            camera exists here.
+
+
     choice LAMP_OUTPUT
         prompt "How LEVEL is shown"
         default LAMP_OUTPUT_LOG
