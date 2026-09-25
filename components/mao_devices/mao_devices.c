@@ -232,6 +232,18 @@ static void on_announce(const odd_message_t *m, uint32_t now)
         ESP_LOGI(TAG, "'%s' is back online", m->u.info.name);
     }
     entry_t *e = &s_dev[idx];
+    /* Same identity, different shape: the device's capability set changed
+     * (a reflash or an update). Drop everything we thought we knew. */
+    const bool reshaped = e->pub.cap_count > 0 &&
+                          (e->pub.info.cap_count != m->u.info.cap_count ||
+                           e->pub.info.device_type != m->u.info.device_type);
+    if (reshaped) {
+        e->pub.cap_count = 0;
+        e->pub.described = false;
+        for (int c = 0; c < ODD_MAX_CAPS; c++) {
+            e->cmd[c] = (cmd_t) { 0 };
+        }
+    }
     e->pub.info = m->u.info;
     memcpy(e->pub.mac, m->src_mac, 6);
     e->pub.online = true;
@@ -239,6 +251,12 @@ static void on_announce(const odd_message_t *m, uint32_t now)
     e->pub.last_seen_ms = now;
     count_online_locked();
     unlock();
+    if (reshaped) {
+        ESP_LOGI(TAG, "'%s' capability set changed: re-describing", e->pub.info.name);
+        e->describe_req_ms = now;
+        request(e, ODD_MSG_GET_CAPS);
+        post(MAO_EVENT_DEVICE_CHANGED, idx);
+    }
 
     if (found) {
         /* Refresh the description: capabilities if unknown, state always. */

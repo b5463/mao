@@ -44,14 +44,22 @@ typedef struct {
     mao_device_cap_t caps[ODD_MAX_CAPS];
 } mao_device_t;
 
-/* Generic control model derived from capabilities (mao_device_view.c):
- * the dial drives one bounded LEVEL-like value, a press toggles one
- * POWER-like value. Either may be absent. */
+/* Generic control model derived from capabilities (mao_device_view.c).
+ * Everything here is capability-driven: the dial drives one LEVEL-like
+ * value, a press toggles one POWER-like value, actions are discrete
+ * operations, and read-only facts (READY, STORAGE) are displayed, never
+ * offered as controls. The PRIMARY action is chosen by a semantic priority
+ * (CAPTURE today), not by device type or name. */
+#define MAO_CONTROLS_MAX_ACTIONS 4
 typedef struct {
     int level_idx;          /* index into caps[], -1 if none */
     int toggle_idx;         /* index into caps[], -1 if none */
-    int action_idx;         /* first writable ACTION capability, -1 if none */
-    int32_t action_semantic;   /* odd_action_semantic_t of that action (0 if none) */
+    int action_idx[MAO_CONTROLS_MAX_ACTIONS];
+    int32_t action_sem[MAO_CONTROLS_MAX_ACTIONS];   /* odd_action_semantic_t */
+    int action_count;
+    int primary_action;     /* index into action_idx[] (semantic priority), -1 */
+    int ready_idx;          /* ODD_CAP_READY fact, -1 */
+    int storage_idx;        /* ODD_CAP_STORAGE fact, -1 */
 } mao_device_controls_t;
 
 typedef struct {
