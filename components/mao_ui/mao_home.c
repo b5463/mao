@@ -1,58 +1,69 @@
 /*
- * HOME: the screen is the object. At rest it contains only the character;
- * the "MAO" wordmark is shown for a moment at boot and then gives way.
+ * HOME: the screen is the object; at rest it contains only the character.
+ *
+ * Boot: the spaced "MAO" wordmark holds for a moment, then its letters draw
+ * together into the centre (tracking collapses) and fade, while the eyes
+ * open in the same place: one visual thought, not a logo screen followed by
+ * another screen.
  */
-#include "mao_ui_priv.h"
+#include <math.h>
 #include "mao_character.h"
+#include "mao_ui_priv.h"
 
-#define WORDMARK_HOLD_MS   650
-#define WORDMARK_FADE_MS   200
+#define WORDMARK_HOLD_MS    520
+#define WORDMARK_TRACK_REST 8
+#define WORDMARK_TRACK_GONE (-10)
+#define EYES_AT             0.55f    /* wordmark progress at which the eyes open */
 
-static lv_obj_t *s_wordmark;
+static lv_obj_t *s_word;
+static mao_text_cache_t s_cache;
+static mao_spring_t s_presence;      /* 1 = wordmark, 0 = gone */
+static uint32_t s_start_at;
+static bool s_eyes_opened;
+static int32_t s_last_track = INT32_MIN;
 
-void mao_home_create(lv_obj_t *scr, bool wordmark_visible)
+void mao_home_create(lv_obj_t *scr, bool visible)
 {
-    s_wordmark = lv_label_create(scr);
-    lv_label_set_text(s_wordmark, "MAO");
-    lv_obj_set_style_text_font(s_wordmark, &lv_font_montserrat_28, 0);
-    lv_obj_set_style_text_color(s_wordmark, lv_color_hex(MAO_UI_FG), 0);
-    lv_obj_set_style_text_letter_space(s_wordmark, 6, 0);
-    lv_obj_align(s_wordmark, LV_ALIGN_CENTER, 3, 0);   /* +3 compensates trailing letter space */
-    if (!wordmark_visible) {
-        lv_obj_add_flag(s_wordmark, LV_OBJ_FLAG_HIDDEN);
+    s_word = mao_ui_make_text(scr, MAO_FONT_LARGE, MAO_COL_FG, WORDMARK_TRACK_REST, "MAO");
+    mao_ui_text_cache_reset(&s_cache);
+    mao_spring_init(&s_presence, visible ? 1.0f : 0.0f, MAO_SPRING_HEAVY);
+    s_eyes_opened = !visible;
+}
+
+void mao_home_boot(uint32_t now_ms)
+{
+    s_start_at = now_ms + WORDMARK_HOLD_MS;
+}
+
+void mao_home_replay(uint32_t now_ms)
+{
+    /* Development: show the wordmark again and rerun the boot hand-over. */
+    mao_spring_init(&s_presence, 1.0f, MAO_SPRING_HEAVY);
+    s_eyes_opened = false;
+    mao_home_boot(now_ms);
+}
+
+bool mao_home_tick(float dt, uint32_t now_ms)
+{
+    if (s_start_at && (int32_t)(now_ms - s_start_at) >= 0) {
+        s_start_at = 0;
+        s_presence.target = 0.0f;
     }
-}
+    mao_spring_step(&s_presence, dt);
+    const float p = s_presence.x < 0.0f ? 0.0f : (s_presence.x > 1.0f ? 1.0f : s_presence.x);
 
-static void wordmark_opa_exec(void *obj, int32_t v)
-{
-    lv_obj_set_style_text_opa((lv_obj_t *)obj, (lv_opa_t)v, 0);
-}
-
-static void wordmark_done(lv_anim_t *a)
-{
-    lv_obj_add_flag((lv_obj_t *)a->var, LV_OBJ_FLAG_HIDDEN);
-}
-
-static void wake_character(lv_timer_t *t)
-{
-    (void)t;
-    mao_character_react(MAO_CHAR_REACT_WAKE);
-}
-
-void mao_home_boot(void)
-{
-    /* Wordmark holds briefly, then fades while the eyes open in its place. */
-    lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, s_wordmark);
-    lv_anim_set_exec_cb(&a, wordmark_opa_exec);
-    lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
-    lv_anim_set_duration(&a, WORDMARK_FADE_MS);
-    lv_anim_set_delay(&a, WORDMARK_HOLD_MS);
-    lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
-    lv_anim_set_completed_cb(&a, wordmark_done);
-    lv_anim_start(&a);
-
-    lv_timer_t *t = lv_timer_create(wake_character, WORDMARK_HOLD_MS + WORDMARK_FADE_MS / 2, NULL);
-    lv_timer_set_repeat_count(t, 1);
+    if (!s_eyes_opened && s_presence.target == 0.0f && p < EYES_AT) {
+        s_eyes_opened = true;
+        mao_character_appear(0);
+    }
+    /* Letters converge: tracking collapses from wide to overlapping. */
+    const int32_t track = (int32_t)lrintf(WORDMARK_TRACK_GONE + (WORDMARK_TRACK_REST - WORDMARK_TRACK_GONE) * p);
+    if (track != s_last_track) {
+        s_last_track = track;
+        lv_obj_set_style_text_letter_space(s_word, track, 0);
+    }
+    /* Fade out faster than the contraction so it never reads as a smear. */
+    const float fade = p < 0.35f ? 0.0f : (p - 0.35f) / 0.65f;
+    mao_ui_text_place(s_word, (float)track * 0.5f, -2.0f, 255.0f * fade, &s_cache);
+    return s_start_at != 0 || !mao_spring_settled(&s_presence, 0.002f);
 }

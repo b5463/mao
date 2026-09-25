@@ -3,8 +3,10 @@ menu "MAO application"
     config MAO_SLEEPY_TIMEOUT_S
         int "Seconds without input before MAO becomes sleepy"
         range 10 3600
-        default 45
+        default 600
         help
             Purely visual/application idle state; the chip does not sleep.
+            Before this, the character's own energy drive already makes it
+            yawn, drowse and doze on its own.
 
 endmenu

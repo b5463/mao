@@ -1,6 +1,7 @@
 #include "mao_display.h"
 
 #include <inttypes.h>
+#include <stdio.h>
 #include "sdkconfig.h"
 #include "esp_check.h"
 #include "esp_lcd_panel_ops.h"
@@ -113,6 +114,111 @@ static void perf_attach(lv_display_t *disp)
 #endif /* CONFIG_MAO_PERF_PROBE */
 
 /* ------------------------------------------------------------------------ */
+/* Development snapshot. Needs no extra RAM: a capture request invalidates   */
+/* the whole screen, and every band LVGL flushes during the next refresh is  */
+/* streamed from the existing partial draw buffer (before the byte swap) as  */
+/* run-length-encoded RGB565 in base64. The dump runs in the LVGL task.      */
+/* Wire: MAO_SNAP_BEGIN w h / A x1 y1 x2 y2 / S<base64 RLE>... / MAO_SNAP_END */
+/* ------------------------------------------------------------------------ */
+#if CONFIG_MAO_DEV_CONSOLE
+
+static volatile bool s_snap_requested;
+static bool s_snap_active;
+
+static void b64_line(const uint8_t *src, size_t n, char *out)
+{
+    static const char kB64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    size_t o = 0;
+    for (size_t i = 0; i < n; i += 3) {
+        const uint32_t v = ((uint32_t)src[i] << 16) | ((i + 1 < n ? src[i + 1] : 0) << 8) | (i + 2 < n ? src[i + 2] : 0);
+        out[o++] = kB64[(v >> 18) & 63];
+        out[o++] = kB64[(v >> 12) & 63];
+        out[o++] = i + 1 < n ? kB64[(v >> 6) & 63] : '=';
+        out[o++] = i + 2 < n ? kB64[v & 63] : '=';
+    }
+    out[o] = '\0';
+}
+
+/* Stream one flushed area: runs of (u16 count, u16 pixel). */
+static void snap_area(const lv_area_t *a, const lv_draw_buf_t *buf)
+{
+    const int32_t w = lv_area_get_width(a), h = lv_area_get_height(a);
+    const uint32_t stride = buf->header.stride;
+    printf("A %" PRId32 " %" PRId32 " %" PRId32 " %" PRId32 "\n", a->x1, a->y1, a->x2, a->y2);
+    uint8_t pack[96];
+    size_t fill = 0;
+    char line[4 * 32 + 1];
+    uint16_t run_px = 0;
+    uint32_t run_len = 0;
+    const uint32_t total = (uint32_t)(w * h);
+    for (uint32_t i = 0; i <= total; i++) {
+        const bool done = i == total;
+        const uint16_t px = done ? 0 : *(const uint16_t *)(buf->data + (i / w) * stride + (i % w) * 2);
+        if (!done && run_len && px == run_px && run_len < 0xFFFF) {
+            run_len++;
+            continue;
+        }
+        if (run_len) {
+            pack[fill++] = (uint8_t)run_len;
+            pack[fill++] = (uint8_t)(run_len >> 8);
+            pack[fill++] = (uint8_t)run_px;
+            pack[fill++] = (uint8_t)(run_px >> 8);
+        }
+        if (fill && (fill == sizeof(pack) || done)) {
+            b64_line(pack, fill, line);
+            printf("S%s\n", line);
+            fill = 0;
+        }
+        run_px = px;
+        run_len = 1;
+    }
+}
+
+static void snap_event_cb(lv_event_t *e)
+{
+    lv_display_t *disp = lv_event_get_target(e);
+    const lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_REFR_START && s_snap_requested) {
+        s_snap_requested = false;
+        s_snap_active = true;
+        lv_obj_invalidate(lv_screen_active());
+        printf("\nMAO_SNAP_BEGIN %" PRId32 " %" PRId32 " rle565-areas\n",
+               lv_display_get_horizontal_resolution(disp), lv_display_get_vertical_resolution(disp));
+    } else if (code == LV_EVENT_FLUSH_START && s_snap_active) {
+        snap_area((const lv_area_t *)lv_event_get_param(e), lv_display_get_buf_active(disp));
+    } else if (code == LV_EVENT_REFR_READY && s_snap_active) {
+        s_snap_active = false;
+        printf("MAO_SNAP_END\n");
+        fflush(stdout);
+    }
+}
+
+esp_err_t mao_display_snapshot_dump(void)
+{
+    ESP_RETURN_ON_FALSE(lvgl_port_lock(0), ESP_ERR_TIMEOUT, TAG, "lvgl lock");
+    s_snap_requested = true;
+    lv_obj_invalidate(lv_screen_active());   /* guarantee a refresh happens */
+    lvgl_port_unlock();
+    return ESP_OK;
+}
+
+static void snap_attach(lv_display_t *disp)
+{
+    lv_display_add_event_cb(disp, snap_event_cb, LV_EVENT_REFR_START, NULL);
+    lv_display_add_event_cb(disp, snap_event_cb, LV_EVENT_FLUSH_START, NULL);
+    lv_display_add_event_cb(disp, snap_event_cb, LV_EVENT_REFR_READY, NULL);
+}
+
+#else
+
+esp_err_t mao_display_snapshot_dump(void)
+{
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+#endif
+
+/* ------------------------------------------------------------------------ */
 
 esp_err_t mao_display_init(void)
 {
@@ -125,6 +231,9 @@ esp_err_t mao_display_init(void)
     lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 #if CONFIG_MAO_PERF_PROBE
     perf_attach(s_lvgl.disp);
+#endif
+#if CONFIG_MAO_DEV_CONSOLE
+    snap_attach(s_lvgl.disp);
 #endif
     lvgl_port_unlock();
 
@@ -162,4 +271,9 @@ void mao_display_unlock(void)
 esp_err_t mao_display_set_brightness(uint8_t percent)
 {
     return mao_board_backlight_set(percent);
+}
+
+esp_err_t mao_display_fade_brightness(uint8_t percent, uint32_t fade_ms)
+{
+    return mao_board_backlight_fade(percent, fade_ms);
 }

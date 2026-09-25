@@ -15,7 +15,7 @@
 
 static const char *TAG = "MAO_SYSTEM";
 
-#define MAO_DISPATCH_TASK_STACK   4096
+#define MAO_DISPATCH_TASK_STACK   5120   /* dev snapshot streams from here */
 #define MAO_DISPATCH_TASK_PRIO    4
 #define MAO_HEALTH_PERIOD_US      (60 * 1000 * 1000)
 

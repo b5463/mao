@@ -3,8 +3,17 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "mao_character.h"
 #include "mao_ui.h"
+
+/* Dial speed classes: used by the app for sound thinning and logs. The
+ * character estimates speed continuously on its own. */
+typedef enum {
+    MAO_DIAL_STILL = 0,
+    MAO_DIAL_SLOW,
+    MAO_DIAL_NORMAL,
+    MAO_DIAL_FAST,
+    MAO_DIAL_VERY_FAST,
+} mao_dial_speed_t;
 
 typedef struct {
     mao_view_t view;

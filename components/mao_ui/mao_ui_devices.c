@@ -1,9 +1,11 @@
 /*
  * DEVICES list and the generic device view. Pure presentation of models the
  * app builds from the registry; no knowledge of ODD BUS or device kinds.
+ * Same language as the menu: words only, springs only, on the shared UI tick.
  *
- * DEVICES: small "DEVICES" title, device names as a typographic list (offline
- * rows dimmed), one status word below: LOOKING... / NONE / ONLINE / OFFLINE.
+ * DEVICES: small "DEVICES" title, device names on the menu's gentle arc (the
+ * selected name large, neighbours small, offline names dimmed), one status
+ * word below: LOOKING / NONE / ONLINE / OFFLINE.
  * DEVICE: name above, one large value (the dial's LEVEL, or ON/OFF when the
  * device only toggles), a quiet status word: OFF / OFFLINE / NO REPLY.
  */
@@ -14,16 +16,33 @@
 #include "mao_ui_priv.h"
 #include "mao_ui.h"
 
-#define TICK_MS          33
-#define LOOKING_MS       6000     /* then "NONE" (discovery continues) */
+#define LOOKING_MS        6000     /* then "NONE" (discovery continues) */
+#define LIST_SPACING      46.0f
+#define LIST_ARC          -14.0f
+#define LIST_ARC_REF      92.0f
+#define LIST_EDGE_R       78.0f    /* names fade before the title / status rows */
+#define LIST_EDGE_FADE    26.0f
+#define LIST_BUMP_V       2.6f
+#define LIST_TITLE_Y      -88.0f
+#define LIST_STATUS_Y     86.0f
+#define PANEL_TITLE_Y     -62.0f
+#define PANEL_VALUE_Y     -4.0f
+#define PANEL_STATUS_Y    46.0f
+#define OFFLINE_SCALE     0.45f
+
+#define LIST_POS_PROFILE  ((mao_spring_profile_t){ .k = 260.0f, .zeta = 0.78f })
 
 typedef struct {
-    mao_ui_list_t list;
+    lv_obj_t *small[MAO_UI_DEVICES_MAX];
+    lv_obj_t *large[MAO_UI_DEVICES_MAX];
+    mao_text_cache_t cs[MAO_UI_DEVICES_MAX], cl[MAO_UI_DEVICES_MAX];
     lv_obj_t *title;
     lv_obj_t *status;
-    mao_ui_text_cache_t cache[2];
-    float presence;
-    lv_timer_t *timer;
+    mao_text_cache_t ct, cst;
+    mao_spring_t pos;
+    mao_spring_t presence;
+    uint32_t show_at;
+    float show_target;
     uint32_t shown_at_ms;
     mao_ui_devices_t model;
     char names[MAO_UI_DEVICES_MAX][20];
@@ -33,53 +52,106 @@ typedef struct {
     lv_obj_t *title;
     lv_obj_t *value;
     lv_obj_t *status;
-    mao_ui_text_cache_t cache[3];
-    float presence;
-    lv_timer_t *timer;
-    lv_opa_t value_opa;
+    mao_text_cache_t ct, cv, cst;
+    mao_spring_t presence;
+    uint32_t show_at;
+    float show_target;
+    float value_opa;
 } panel_t;
 
 static devlist_t s_list;
 static panel_t s_panel;
 
+static float clampf(float v, float lo, float hi)
+{
+    return v < lo ? lo : (v > hi ? hi : v);
+}
+
+static float smooth01(float t)
+{
+    t = clampf(t, 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+static void set_text(lv_obj_t *o, const char *s)
+{
+    if (strcmp(lv_label_get_text(o), s) != 0) {
+        lv_label_set_text(o, s);
+    }
+}
+
+/* Delayed show/hide of a presence spring (show enters HEAVY, hide leaves SNAP). */
+static void presence_request(mao_spring_t *p, uint32_t *show_at, float *show_target, bool show, uint32_t delay_ms)
+{
+    *show_target = show ? 1.0f : 0.0f;
+    p->p = show ? MAO_SPRING_HEAVY : MAO_SPRING_SNAP;
+    if (delay_ms) {
+        *show_at = lv_tick_get() + delay_ms;
+    } else {
+        *show_at = 0;
+        p->target = *show_target;
+    }
+}
+
+static void presence_due(mao_spring_t *p, uint32_t *show_at, float show_target, uint32_t now)
+{
+    if (*show_at && (int32_t)(now - *show_at) >= 0) {
+        *show_at = 0;
+        p->target = show_target;
+    }
+}
+
 /* ---------------------------------------------------------------------- */
 /* DEVICES list                                                           */
 /* ---------------------------------------------------------------------- */
 
-static const char *list_status(void)
+static const char *list_status(uint32_t now)
 {
     const mao_ui_devices_t *m = &s_list.model;
     if (m->count == 0) {
-        return (lv_tick_get() - s_list.shown_at_ms) < LOOKING_MS ? "LOOKING..." : "NONE";
+        return (now - s_list.shown_at_ms) < LOOKING_MS ? "LOOKING" : "NONE";
     }
     return m->online[m->selected] ? "ONLINE" : "OFFLINE";
 }
 
-static void list_tick(lv_timer_t *t)
+static void list_layout(uint32_t now)
 {
-    const float p = s_list.presence;
-    const char *st = list_status();
-    if (strcmp(lv_label_get_text(s_list.status), st) != 0) {
-        lv_label_set_text(s_list.status, st);
+    const float p = clampf(s_list.presence.x, 0.0f, 1.0f);
+    const float spread = 0.40f + 0.60f * p;
+    const float enter = (1.0f - p) * 10.0f;
+    const int count = s_list.model.count;
+    for (int i = 0; i < MAO_UI_DEVICES_MAX; i++) {
+        float large = 0.0f, small = 0.0f, x = 0.0f, y = 0.0f;
+        if (i < count) {
+            const float d = (float)i - s_list.pos.x;
+            const float ad = fabsf(d);
+            const float sel = 1.0f - smooth01(ad / 0.8f);
+            y = d * LIST_SPACING * spread + enter;
+            x = LIST_ARC * (y / LIST_ARC_REF) * (y / LIST_ARC_REF);
+            const float edge = clampf((LIST_EDGE_R - fabsf(y)) / LIST_EDGE_FADE, 0.0f, 1.0f);
+            const float row = s_list.model.online[i] ? 1.0f : OFFLINE_SCALE;
+            large = 255.0f * sel * edge * p * row;
+            small = MAO_OPA_CONTEXT * (1.0f - sel) * edge * p * row;
+        }
+        mao_ui_text_place(s_list.large[i], x, y, large, &s_list.cl[i]);
+        mao_ui_text_place(s_list.small[i], x, y, small, &s_list.cs[i]);
     }
-    mao_ui_text_state(s_list.title, (int16_t)lrintf(-86.0f - (1.0f - p) * 6.0f), (lv_opa_t)(120.0f * p),
-                      &s_list.cache[0]);
-    mao_ui_text_state(s_list.status, (int16_t)lrintf(84.0f + (1.0f - p) * 6.0f), (lv_opa_t)(140.0f * p),
-                      &s_list.cache[1]);
-    /* Keep ticking while empty so LOOKING... can turn into NONE. */
-    if (!mao_ui_anim_running(&s_list.presence) && (p < 0.01f || s_list.model.count > 0)) {
-        lv_timer_pause(t);
-    }
+    set_text(s_list.status, list_status(now));
+    mao_ui_text_place(s_list.title, 0.0f, LIST_TITLE_Y - (1.0f - p) * 6.0f, 120.0f * p, &s_list.ct);
+    mao_ui_text_place(s_list.status, 0.0f, LIST_STATUS_Y + (1.0f - p) * 6.0f, MAO_OPA_SECONDARY * p, &s_list.cst);
 }
 
 void mao_devlist_show(bool show, uint32_t delay_ms)
 {
     if (show) {
         s_list.shown_at_ms = lv_tick_get();
+        s_list.pos.target = (float)s_list.model.selected;
+        if (s_list.presence.x < 0.01f) {
+            s_list.pos.x = s_list.pos.target;
+            s_list.pos.v = 0.0f;
+        }
     }
-    mao_ui_list_show(&s_list.list, show, s_list.model.selected, delay_ms);
-    mao_ui_anim_float(&s_list.presence, show ? 1.0f : 0.0f,
-                      show ? MAO_UI_T_ENTER : MAO_UI_T_LEAVE, delay_ms, show, s_list.timer);
+    presence_request(&s_list.presence, &s_list.show_at, &s_list.show_target, show, delay_ms);
 }
 
 void mao_ui_devices_update(const mao_ui_devices_t *m)
@@ -88,24 +160,25 @@ void mao_ui_devices_update(const mao_ui_devices_t *m)
         return;
     }
     s_list.model = *m;
-    const char *texts[MAO_UI_DEVICES_MAX];
-    float scale[MAO_UI_DEVICES_MAX];
-    for (int i = 0; i < m->count && i < MAO_UI_DEVICES_MAX; i++) {
+    if (s_list.model.count > MAO_UI_DEVICES_MAX) {
+        s_list.model.count = MAO_UI_DEVICES_MAX;
+    }
+    for (int i = 0; i < s_list.model.count; i++) {
         snprintf(s_list.names[i], sizeof(s_list.names[i]), "%s", m->name[i] ? m->name[i] : "?");
         s_list.model.name[i] = s_list.names[i];
-        texts[i] = s_list.names[i];
-        scale[i] = m->online[i] ? 1.0f : 0.45f;
+        set_text(s_list.small[i], s_list.names[i]);
+        set_text(s_list.large[i], s_list.names[i]);
     }
-    mao_ui_list_set_items(&s_list.list, texts, scale, m->count);
-    mao_ui_list_select(&s_list.list, m->selected);
-    lv_timer_resume(s_list.timer);
+    s_list.pos.target = (float)s_list.model.selected;
+    mao_ui_wake();
     mao_display_unlock();
 }
 
 void mao_ui_devices_bump(int direction)
 {
     if (mao_display_lock(0)) {
-        mao_ui_list_bump(&s_list.list, direction);
+        s_list.pos.v += direction > 0 ? LIST_BUMP_V : -LIST_BUMP_V;
+        mao_ui_wake();
         mao_display_unlock();
     }
 }
@@ -114,31 +187,18 @@ void mao_ui_devices_bump(int direction)
 /* Device view                                                            */
 /* ---------------------------------------------------------------------- */
 
-static void panel_tick(lv_timer_t *t)
+static void panel_layout(void)
 {
-    const float p = s_panel.presence;
-    mao_ui_text_state(s_panel.title, (int16_t)lrintf(-62.0f - (1.0f - p) * 8.0f), (lv_opa_t)(150.0f * p),
-                      &s_panel.cache[0]);
-    mao_ui_text_state(s_panel.value, (int16_t)lrintf(-4.0f + (1.0f - p) * 14.0f),
-                      (lv_opa_t)((float)s_panel.value_opa * p), &s_panel.cache[1]);
-    mao_ui_text_state(s_panel.status, (int16_t)lrintf(46.0f + (1.0f - p) * 8.0f), (lv_opa_t)(150.0f * p),
-                      &s_panel.cache[2]);
-    if (!mao_ui_anim_running(&s_panel.presence)) {
-        lv_timer_pause(t);
-    }
+    const float p = clampf(s_panel.presence.x, 0.0f, 1.0f);
+    mao_ui_text_place(s_panel.title, 0.0f, PANEL_TITLE_Y - (1.0f - p) * 8.0f, 150.0f * p, &s_panel.ct);
+    mao_ui_text_place(s_panel.value, 0.0f, PANEL_VALUE_Y + (1.0f - p) * 14.0f, s_panel.value_opa * p, &s_panel.cv);
+    mao_ui_text_place(s_panel.status, 0.0f, PANEL_STATUS_Y + (1.0f - p) * 8.0f,
+                      MAO_OPA_SECONDARY * smooth01((p - 0.4f) / 0.6f), &s_panel.cst);
 }
 
 void mao_devpanel_show(bool show, uint32_t delay_ms)
 {
-    mao_ui_anim_float(&s_panel.presence, show ? 1.0f : 0.0f,
-                      show ? MAO_UI_T_ENTER : MAO_UI_T_LEAVE, delay_ms, show, s_panel.timer);
-}
-
-static void set_text(lv_obj_t *o, const char *s)
-{
-    if (strcmp(lv_label_get_text(o), s) != 0) {
-        lv_label_set_text(o, s);
-    }
+    presence_request(&s_panel.presence, &s_panel.show_at, &s_panel.show_target, show, delay_ms);
 }
 
 void mao_ui_device_update(const mao_ui_device_t *m)
@@ -171,32 +231,52 @@ void mao_ui_device_update(const mao_ui_device_t *m)
     set_text(s_panel.status, status);
 
     /* The number dims when the device is off or unreachable. */
-    s_panel.value_opa = !m->online ? 70 : ((m->has_toggle && !m->on) ? 100 : 255);
-    s_panel.cache[1].opa = 1;   /* force re-apply of the value opacity */
-    lv_timer_resume(s_panel.timer);
+    s_panel.value_opa = !m->online ? 70.0f : ((m->has_toggle && !m->on) ? 100.0f : 255.0f);
+    mao_ui_wake();
     mao_display_unlock();
 }
 
 /* ---------------------------------------------------------------------- */
 
+bool mao_devices_ui_tick(float dt, uint32_t now)
+{
+    presence_due(&s_list.presence, &s_list.show_at, s_list.show_target, now);
+    presence_due(&s_panel.presence, &s_panel.show_at, s_panel.show_target, now);
+    mao_spring_step(&s_list.pos, dt);
+    mao_spring_step(&s_list.presence, dt);
+    mao_spring_step(&s_panel.presence, dt);
+    list_layout(now);
+    panel_layout();
+
+    /* Keep ticking while the list is visible and empty so LOOKING can become NONE. */
+    const bool waiting = s_list.presence.target > 0.5f && s_list.model.count == 0 &&
+                         (now - s_list.shown_at_ms) < LOOKING_MS + 100;
+    return waiting || s_list.show_at != 0 || s_panel.show_at != 0 ||
+           !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
+           !mao_spring_settled(&s_panel.presence, 0.002f);
+}
+
 void mao_devices_ui_create(lv_obj_t *scr)
 {
-    mao_ui_list_create(&s_list.list, scr, &lv_font_montserrat_20, MAO_UI_DEVICES_MAX, 40.0f, 0);
-    s_list.title = mao_ui_make_text(scr, &lv_font_montserrat_14, MAO_UI_FG, 4);
-    lv_label_set_text(s_list.title, "DEVICES");
-    s_list.status = mao_ui_make_text(scr, &lv_font_montserrat_14, MAO_UI_DIM, 4);
-    lv_label_set_text(s_list.status, "LOOKING...");
-    s_list.cache[0].y = s_list.cache[1].y = INT16_MIN;
-    s_list.timer = lv_timer_create(list_tick, TICK_MS, NULL);
-    lv_timer_pause(s_list.timer);
-
-    s_panel.title = mao_ui_make_text(scr, &lv_font_montserrat_20, MAO_UI_FG, 3);
-    s_panel.value = mao_ui_make_text(scr, &lv_font_montserrat_48, MAO_UI_FG, 2);
-    s_panel.status = mao_ui_make_text(scr, &lv_font_montserrat_14, MAO_UI_DIM, 4);
-    for (int i = 0; i < 3; i++) {
-        s_panel.cache[i].y = INT16_MIN;
+    for (int i = 0; i < MAO_UI_DEVICES_MAX; i++) {
+        s_list.small[i] = mao_ui_make_text(scr, MAO_FONT_NORMAL, MAO_COL_FG, MAO_TRACK_NORMAL, "");
+        s_list.large[i] = mao_ui_make_text(scr, MAO_FONT_LARGE, MAO_COL_FG, MAO_TRACK_LARGE, "");
+        mao_ui_text_cache_reset(&s_list.cs[i]);
+        mao_ui_text_cache_reset(&s_list.cl[i]);
     }
-    s_panel.value_opa = 255;
-    s_panel.timer = lv_timer_create(panel_tick, TICK_MS, NULL);
-    lv_timer_pause(s_panel.timer);
+    s_list.title = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, MAO_TRACK_SMALL, "DEVICES");
+    s_list.status = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, MAO_TRACK_SMALL, "LOOKING");
+    mao_ui_text_cache_reset(&s_list.ct);
+    mao_ui_text_cache_reset(&s_list.cst);
+    mao_spring_init(&s_list.pos, 0.0f, LIST_POS_PROFILE);
+    mao_spring_init(&s_list.presence, 0.0f, MAO_SPRING_HEAVY);
+
+    s_panel.title = mao_ui_make_text(scr, MAO_FONT_NORMAL, MAO_COL_FG, MAO_TRACK_NORMAL, "");
+    s_panel.value = mao_ui_make_text(scr, &lv_font_montserrat_48, MAO_COL_FG, 2, "");
+    s_panel.status = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, MAO_TRACK_SMALL, "");
+    mao_ui_text_cache_reset(&s_panel.ct);
+    mao_ui_text_cache_reset(&s_panel.cv);
+    mao_ui_text_cache_reset(&s_panel.cst);
+    mao_spring_init(&s_panel.presence, 0.0f, MAO_SPRING_HEAVY);
+    s_panel.value_opa = 255.0f;
 }

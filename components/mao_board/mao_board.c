@@ -17,7 +17,10 @@ static const char *TAG = "MAO_BOARD";
 #define BACKLIGHT_LEDC_TIMER     LEDC_TIMER_0
 #define BACKLIGHT_LEDC_CHANNEL   LEDC_CHANNEL_0
 #define BACKLIGHT_LEDC_RES       LEDC_TIMER_10_BIT
-#define BACKLIGHT_LEDC_FREQ_HZ   5000
+/* Above hearing: at 5 kHz the backlight's switching current rode the shared
+ * supply into the always-on NS4150 (no enable pin on the C3 board) as an
+ * audible whine. 30 kHz x 10 bit needs 30.7 MHz, from the 80 MHz APB. */
+#define BACKLIGHT_LEDC_FREQ_HZ   30000
 
 static bool s_backlight_ready;
 
@@ -42,7 +45,7 @@ static esp_err_t backlight_init(void)
         .duty_resolution = BACKLIGHT_LEDC_RES,
         .timer_num = BACKLIGHT_LEDC_TIMER,
         .freq_hz = BACKLIGHT_LEDC_FREQ_HZ,
-        .clk_cfg = LEDC_AUTO_CLK,
+        .clk_cfg = LEDC_USE_APB_CLK,
     };
     ESP_RETURN_ON_ERROR(ledc_timer_config(&timer), TAG, "backlight timer");
 
@@ -55,6 +58,7 @@ static esp_err_t backlight_init(void)
         .hpoint = 0,
     };
     ESP_RETURN_ON_ERROR(ledc_channel_config(&channel), TAG, "backlight channel");
+    ESP_RETURN_ON_ERROR(ledc_fade_func_install(0), TAG, "backlight fade");
     s_backlight_ready = true;
     return ESP_OK;
 }
@@ -142,6 +146,21 @@ esp_err_t mao_board_display_init(size_t max_transfer_bytes, mao_board_display_t 
     return ESP_OK;
 }
 
+esp_err_t mao_board_backlight_fade(uint8_t percent, uint32_t fade_ms)
+{
+    ESP_RETURN_ON_FALSE(s_backlight_ready, ESP_ERR_INVALID_STATE, TAG, "backlight not initialised");
+    if (fade_ms == 0) {
+        return mao_board_backlight_set(percent);
+    }
+    if (percent > 100) {
+        percent = 100;
+    }
+    const uint32_t duty = (((1u << BACKLIGHT_LEDC_RES) - 1) * percent) / 100;
+    /* Hardware fade: no CPU involvement, retargets if a fade is running. */
+    return ledc_set_fade_time_and_start(LEDC_LOW_SPEED_MODE, BACKLIGHT_LEDC_CHANNEL, duty, fade_ms,
+                                        LEDC_FADE_NO_WAIT);
+}
+
 /* ------------------------------------------------------------------------ */
 /* Input                                                                    */
 /* ------------------------------------------------------------------------ */
@@ -183,8 +202,9 @@ esp_err_t mao_board_audio_init(uint32_t sample_rate_hz, i2s_chan_handle_t *out)
 
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     /* Small DMA ring: 3 x 10 ms at 16 kHz keeps latency low and RAM tiny.
-     * auto_clear makes the DMA emit silence whenever no data is queued, so
-     * the channel can stay enabled permanently (no pops from start/stop). */
+     * The channel stays enabled permanently and mao_audio keeps it fed (it
+     * idles at a low floor, see mao_audio.c); auto_clear only covers an
+     * unexpected underrun. */
     chan_cfg.dma_desc_num = 3;
     chan_cfg.dma_frame_num = sample_rate_hz / 100;
     chan_cfg.auto_clear = true;
@@ -192,7 +212,7 @@ esp_err_t mao_board_audio_init(uint32_t sample_rate_hz, i2s_chan_handle_t *out)
     i2s_chan_handle_t tx = NULL;
     ESP_RETURN_ON_ERROR(i2s_new_channel(&chan_cfg, &tx, NULL), TAG, "i2s channel");
 
-    const i2s_pdm_tx_config_t pdm_cfg = {
+    i2s_pdm_tx_config_t pdm_cfg = {
         .clk_cfg = I2S_PDM_TX_CLK_DEFAULT_CONFIG(sample_rate_hz),
         .slot_cfg = I2S_PDM_TX_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
         .gpio_cfg = {
@@ -201,6 +221,13 @@ esp_err_t mao_board_audio_init(uint32_t sample_rate_hz, i2s_chan_handle_t *out)
             .invert_flags = { .clk_inv = false },
         },
     };
+    /* The audio engine idles at the bottom of the range (see mao_audio.c);
+     * the PDM high-pass would drag that back to mid scale. */
+    pdm_cfg.slot_cfg.hp_en = false;
+    /* No modulator dither either: with it the floor is never truly static
+     * and the idle line rings. */
+    pdm_cfg.slot_cfg.sd_dither = 0;
+    pdm_cfg.slot_cfg.sd_dither2 = 0;
     esp_err_t err = i2s_channel_init_pdm_tx_mode(tx, &pdm_cfg);
     if (err != ESP_OK) {
         i2s_del_channel(tx);

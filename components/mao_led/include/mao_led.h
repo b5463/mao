@@ -15,9 +15,12 @@ typedef enum {
     MAO_LED_STATE_BOOTING,     /* dim blue until the UI is up */
 } mao_led_state_t;
 
+/* The LED is subordinate to the screen: off at rest, and only these three
+ * short, dim events. It never mirrors the character's state. */
 typedef enum {
-    MAO_LED_PULSE_INTERACTION = 0,   /* tiny warm pulse */
-    MAO_LED_PULSE_NOTICE,            /* tiny cool pulse */
+    MAO_LED_PULSE_NOTICE = 0,   /* cool: something was noticed */
+    MAO_LED_PULSE_CONFIRM,      /* warm: an action completed / acknowledged */
+    MAO_LED_PULSE_ERROR,        /* red: an actual failure */
 } mao_led_pulse_t;
 
 /* Initialise the LED and show MAO_LED_STATE_BOOTING. */

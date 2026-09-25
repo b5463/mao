@@ -52,8 +52,9 @@ static void run_command(char *line)
     }
 
     if (strcmp(cmd, "help") == 0) {
-        ESP_LOGI(TAG, "dev commands: help | status | odd-reset | odd-selftest | odd-flood <s> | reset-first-boot | reboot | stress <seconds> | "
-                 "key <cw|ccw|press|release|click|double|long> [count]");
+        ESP_LOGI(TAG, "dev commands: help | status | snap | anim <name> | view <home|menu|page> | "
+                 "dial <dps> [s] | look <n> | state [n] | react [n] | stress <s> | key <cw|ccw|press|release|click|double|long> [n] | "
+                 "odd-reset | odd-selftest | odd-flood <s> | reset-first-boot | reboot");
     } else if (strcmp(cmd, "key") == 0 && arg) {
         /* Inject a synthetic input event: indistinguishable from the knob for
          * everything above the input driver (scripted UI tests). */
@@ -98,6 +99,51 @@ static void run_command(char *line)
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_ODD_RESET);
     } else if (strcmp(cmd, "status") == 0) {
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_STATUS);
+    } else if (strcmp(cmd, "replay-boot") == 0) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_REPLAY_BOOT);
+    } else if (strcmp(cmd, "snap") == 0) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_SNAP);
+    } else if (strcmp(cmd, "anim") == 0 && arg) {
+        /* Order matches mao_character_preview_t. */
+        static const char *const kAnims[] = {
+            "idle", "blink", "follow", "fast", "vfast", "dizzy", "press", "happy", "sleepy", "leave", "hide",
+        };
+        int found = -1;
+        for (int i = 0; i < (int)(sizeof(kAnims) / sizeof(kAnims[0])); i++) {
+            if (strcmp(arg, kAnims[i]) == 0) {
+                found = i;
+            }
+        }
+        if (found < 0) {
+            ESP_LOGW(TAG, "dev: anim idle|blink|follow|fast|vfast|dizzy|press|happy|sleepy|leave");
+        } else {
+            mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_ANIM_BASE + found);
+        }
+    } else if (strcmp(cmd, "view") == 0 && arg) {
+        /* Order matches mao_view_t (INTRO is not reachable this way). */
+        const int v = !strcmp(arg, "home") ? 1 : !strcmp(arg, "menu") ? 2 : !strcmp(arg, "page") ? 3 : -1;
+        if (v < 0) {
+            ESP_LOGW(TAG, "dev: view home|menu|page");
+        } else {
+            mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_VIEW_BASE + v);
+        }
+    } else if (strcmp(cmd, "react") == 0) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_REACT_BASE + (arg ? atoi(arg) : 999));
+    } else if (strcmp(cmd, "state") == 0) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_EXPR_BASE + (arg ? atoi(arg) : 999));
+    } else if (strcmp(cmd, "look") == 0 && arg) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_LOOK_BASE + atoi(arg));
+    } else if (strcmp(cmd, "dial") == 0 && arg) {
+        char *sec_s = strchr(arg, ' ');
+        int seconds = 3;
+        if (sec_s) {
+            *sec_s++ = '\0';
+            seconds = atoi(sec_s);
+        }
+        int dps = atoi(arg);
+        dps = dps < -400 ? -400 : (dps > 400 ? 400 : dps);
+        seconds = seconds < 1 ? 1 : (seconds > 120 ? 120 : seconds);
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_DIAL_BASE + (dps + 500) * 1000 + seconds);
     } else if (strcmp(cmd, "stress") == 0) {
         int seconds = arg ? atoi(arg) : 10;
         if (seconds < 1) {
