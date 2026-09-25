@@ -138,9 +138,14 @@ esp_err_t mao_display_start(uint8_t brightness_percent)
      * uninitialised is ever visible, then light it up. */
     ESP_RETURN_ON_FALSE(lvgl_port_lock(0), ESP_ERR_TIMEOUT, TAG, "lvgl lock");
     lv_refr_now(s_lvgl.disp);
+    /* Switch the panel on while still holding the LVGL lock: the esp_lcd SPI
+     * panel IO must not be used by two tasks at once. If the LVGL task was
+     * free to flush an animating view (e.g. the pulsing first-encounter
+     * prompt) while this task sent the display-on command, both would wait on
+     * each other's SPI transactions and deadlock. */
+    const esp_err_t on = esp_lcd_panel_disp_on_off(s_lvgl.panel, true);
     lvgl_port_unlock();
-
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(s_lvgl.panel, true), TAG, "display on");
+    ESP_RETURN_ON_ERROR(on, TAG, "display on");
     return mao_display_set_brightness(brightness_percent);
 }
 
