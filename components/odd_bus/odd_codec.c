@@ -60,6 +60,8 @@ static uint64_t r64(rd_t *r) { uint64_t lo = r32(r); return lo | ((uint64_t)r32(
 static void encode_payload(wr_t *w, uint8_t type, const odd_message_t *b)
 {
     switch (type) {
+    case ODD_MSG_SESSION_OPEN:
+        break;   /* the incarnation prefix IS the payload */
     case ODD_MSG_DISCOVER:
     case ODD_MSG_ANNOUNCE: {
         const size_t n = strnlen(b->u.info.name, ODD_NAME_MAX);
@@ -106,11 +108,25 @@ static void encode_payload(wr_t *w, uint8_t type, const odd_message_t *b)
     }
 }
 
+/* Only controller-identity messages may carry the incarnation prefix. */
+static bool flag_allowed(uint8_t type)
+{
+    return type == ODD_MSG_SET_VALUE || type == ODD_MSG_ACK || type == ODD_MSG_SESSION_OPEN;
+}
+
 size_t odd_encode(const odd_header_t *hdr, const odd_message_t *body, uint8_t *out, size_t out_size)
 {
     if (!hdr || !out || out_size < ODD_HEADER_LEN + ODD_CRC_LEN ||
-        hdr->type == 0 || hdr->type > ODD_MSG_TYPE_MAX) {
+        hdr->type == 0 || hdr->type > ODD_MSG_TYPE_MAX ||
+        (hdr->flags & (uint8_t)~ODD_FRAME_FLAGS_KNOWN) != 0) {
         return 0;
+    }
+    const bool inc = (hdr->flags & ODD_FRAME_F_INCARNATION) != 0;
+    if (inc && (!flag_allowed(hdr->type) || !body || body->incarnation == 0)) {
+        return 0;
+    }
+    if (hdr->type == ODD_MSG_SESSION_OPEN && !inc) {
+        return 0;   /* a session open without an incarnation says nothing */
     }
     const bool needs_body = hdr->type != ODD_MSG_GET_CAPS && hdr->type != ODD_MSG_GET_STATE;
     if (needs_body && !body) {
@@ -119,6 +135,9 @@ size_t odd_encode(const odd_header_t *hdr, const odd_message_t *body, uint8_t *o
 
     /* Payload first, after the header, so its length is known. */
     wr_t w = { .p = out + ODD_HEADER_LEN, .left = out_size - ODD_HEADER_LEN - ODD_CRC_LEN, .ok = true };
+    if (inc) {
+        w64(&w, body->incarnation);   /* prefix, little-endian like everything */
+    }
     if (needs_body) {
         encode_payload(&w, hdr->type, body);
     }
@@ -132,7 +151,7 @@ size_t odd_encode(const odd_header_t *hdr, const odd_message_t *body, uint8_t *o
     w8(&h, ODD_BUS_PROTOCOL_VERSION);
     w8(&h, hdr->type);
     w16(&h, hdr->seq);
-    w8(&h, 0);
+    w8(&h, hdr->flags);
     w8(&h, (uint8_t)payload_len);
     w64(&h, hdr->src_id);
     w64(&h, hdr->dst_id);
@@ -148,7 +167,19 @@ size_t odd_encode(const odd_header_t *hdr, const odd_message_t *body, uint8_t *o
 
 static bool decode_payload(rd_t *r, uint8_t type, odd_message_t *m)
 {
+    if (m->hdr.flags & ODD_FRAME_F_INCARNATION) {
+        if (!flag_allowed(type)) {
+            return false;
+        }
+        m->incarnation = r64(r);
+        if (!r->ok || m->incarnation == 0) {
+            return false;
+        }
+    }
     switch (type) {
+    case ODD_MSG_SESSION_OPEN:
+        /* Nothing besides the prefix, and the prefix is mandatory. */
+        return (m->hdr.flags & ODD_FRAME_F_INCARNATION) != 0 && r->left == 0;
     case ODD_MSG_DISCOVER:
     case ODD_MSG_ANNOUNCE: {
         m->u.info.id = m->hdr.src_id;
@@ -245,7 +276,8 @@ odd_decode_result_t odd_decode(const uint8_t *frame, size_t len, odd_message_t *
     out->hdr.payload_len = r8(&r);
     out->hdr.src_id = r64(&r);
     out->hdr.dst_id = r64(&r);
-    if (out->hdr.type == 0 || out->hdr.type > ODD_MSG_TYPE_MAX || out->hdr.src_id == 0) {
+    if (out->hdr.type == 0 || out->hdr.type > ODD_MSG_TYPE_MAX || out->hdr.src_id == 0 ||
+        (out->hdr.flags & (uint8_t)~ODD_FRAME_FLAGS_KNOWN) != 0) {
         return ODD_DECODE_MALFORMED;
     }
 
@@ -257,6 +289,7 @@ const char *odd_msg_type_name(uint8_t type)
 {
     static const char *const names[] = {
         "?", "DISCOVER", "ANNOUNCE", "GET_CAPS", "CAPABILITIES", "GET_STATE", "STATE", "SET_VALUE", "ACK",
+        "SESSION_OPEN",
     };
     return type <= ODD_MSG_TYPE_MAX ? names[type] : "?";
 }

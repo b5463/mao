@@ -112,6 +112,54 @@ esp_err_t odd_bus_send(const uint8_t *dst_mac, uint64_t dst_id, odd_msg_type_t t
     return odd_bus_send_seq(dst_mac, dst_id, type, body, seq);
 }
 
+esp_err_t odd_bus_send_session_seq(const uint8_t *dst_mac, uint64_t dst_id, odd_msg_type_t type,
+                                   const odd_message_t *body, uint64_t incarnation, uint16_t seq)
+{
+    odd_message_t m = { 0 };
+    if (body) {
+        m = *body;
+    }
+    m.incarnation = incarnation;
+    const odd_header_t hdr = {
+        .version = ODD_BUS_PROTOCOL_VERSION,
+        .type = (uint8_t)type,
+        .seq = seq,
+        .flags = ODD_FRAME_F_INCARNATION,
+        .src_id = s_self.id,
+        .dst_id = dst_id,
+    };
+    uint8_t frame[ODD_MAX_FRAME];
+    const size_t len = odd_encode(&hdr, &m, frame, sizeof(frame));
+    if (len == 0) {
+        s_stats.tx_errors++;
+        return ESP_ERR_INVALID_ARG;
+    }
+    const esp_err_t err = s_send(dst_mac, frame, len, s_send_ctx);
+    if (err == ESP_OK) {
+        s_stats.tx++;
+        s_stats.per_type_tx[type]++;
+    } else {
+        s_stats.tx_errors++;
+    }
+    return err;
+}
+
+esp_err_t odd_bus_send_session(const uint8_t *dst_mac, uint64_t dst_id, odd_msg_type_t type,
+                               const odd_message_t *body, uint64_t incarnation, uint16_t *seq_out)
+{
+    const uint16_t seq = ++s_seq;
+    if (seq_out) {
+        *seq_out = seq;
+    }
+    return odd_bus_send_session_seq(dst_mac, dst_id, type, body, incarnation, seq);
+}
+
+void odd_bus_debug_set_seq(uint16_t seq)
+{
+    s_seq = seq;
+    ESP_LOGW(TAG, "dev: sequence forced to %u", seq);
+}
+
 static esp_err_t send_identity(odd_msg_type_t type, const uint8_t *dst_mac, uint64_t dst_id)
 {
     odd_message_t body = { 0 };

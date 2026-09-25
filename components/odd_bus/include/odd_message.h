@@ -8,7 +8,7 @@
  *     2    1  version      1
  *     3    1  type         odd_msg_type_t
  *     4    2  seq          sender's sequence number (wraps)
- *     6    1  flags        reserved, 0
+ *     6    1  flags        odd_frame_flags_t (bits outside it: reject)
  *     7    1  payload_len  bytes of payload
  *     8    8  src_id       sender's device id
  *    16    8  dst_id       target device id, 0 = any
@@ -17,6 +17,25 @@
  *
  * Header 24 B + CRC 2 B; largest v1 message (CAPABILITIES with 8 caps) is
  * 147 B, comfortably under ESP-NOW's 250 B.
+ *
+ * IDENTITY MODEL (see docs/odd_bus_identity.md). Four separate concepts:
+ *   device_id       stable hardware identity (0x0DD0 + MAC), never changes
+ *   incarnation_id  random 64-bit value a CONTROLLER generates once per
+ *                   boot: "this particular running instance". Never stored.
+ *   seq             command ordering within one incarnation (wraps)
+ *   transfer_id     one visual connect interaction (MAO-internal, not wire)
+ *
+ * ODD_FRAME_F_INCARNATION marks a frame whose payload begins with the
+ * sender's 64-bit incarnation (little-endian), before the message's normal
+ * payload. Only SESSION_OPEN, SET_VALUE and ACK may carry it. A device
+ * tracks per controller the CURRENT and PREVIOUS incarnation: SESSION_OPEN
+ * establishes a new current (previous is refused - a delayed old open can
+ * never reclaim the session), and state-changing commands execute only when
+ * their incarnation IS the current one. Safety invariants:
+ *
+ *   A state-changing command is uniquely identified by (source device_id,
+ *   incarnation_id, command semantic, seq).
+ *   A command from a non-current incarnation must never execute.
  */
 #pragma once
 
@@ -46,16 +65,25 @@ typedef enum {
     ODD_MSG_GET_STATE    = 0x05,  /* empty */
     ODD_MSG_STATE        = 0x06,  /* current values (reply or change notification) */
     ODD_MSG_SET_VALUE    = 0x07,  /* one value */
-    ODD_MSG_ACK          = 0x08,  /* result of a SET_VALUE */
-    ODD_MSG_TYPE_MAX     = ODD_MSG_ACK,
+    ODD_MSG_ACK          = 0x08,  /* result of a SET_VALUE / SESSION_OPEN */
+    ODD_MSG_SESSION_OPEN = 0x09,  /* controller establishes its incarnation (flag required) */
+    ODD_MSG_TYPE_MAX     = ODD_MSG_SESSION_OPEN,
 } odd_msg_type_t;
 
+/* Frame flags (header byte 6). Unknown bits are rejected as malformed. */
 typedef enum {
-    ODD_ACK_OK          = 0,
-    ODD_ACK_CLAMPED     = 1,   /* applied, value adjusted to limits/step */
-    ODD_ACK_STALE       = 2,   /* older than an already applied command: ignored */
-    ODD_ACK_UNKNOWN_CAP = 3,
-    ODD_ACK_READ_ONLY   = 4,
+    ODD_FRAME_F_INCARNATION = 0x01,   /* payload starts with u64 incarnation */
+} odd_frame_flags_t;
+#define ODD_FRAME_FLAGS_KNOWN  ODD_FRAME_F_INCARNATION
+
+typedef enum {
+    ODD_ACK_OK            = 0,
+    ODD_ACK_CLAMPED       = 1,   /* applied, value adjusted to limits/step */
+    ODD_ACK_STALE         = 2,   /* older than an already applied command: ignored */
+    ODD_ACK_UNKNOWN_CAP   = 3,
+    ODD_ACK_READ_ONLY     = 4,
+    ODD_ACK_NO_SESSION    = 5,   /* not executed: open a session first (device rebooted?) */
+    ODD_ACK_STALE_SESSION = 6,   /* not executed: incarnation is a previous one */
 } odd_ack_status_t;
 
 typedef struct {
@@ -90,6 +118,7 @@ typedef struct {
     odd_header_t hdr;
     uint8_t src_mac[6];
     int8_t rssi;
+    uint64_t incarnation;          /* != 0 iff ODD_FRAME_F_INCARNATION was set */
     union {
         odd_device_info_t info;    /* DISCOVER, ANNOUNCE */
         odd_caps_msg_t caps;       /* CAPABILITIES */

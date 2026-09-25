@@ -61,6 +61,17 @@ esp_err_t odd_bus_send(const uint8_t *dst_mac, uint64_t dst_id, odd_msg_type_t t
 
 /* Re-send with an explicit sequence number (retries reuse the original seq so
  * the receiver can recognise duplicates). */
+/* Incarnation-aware send: sets ODD_FRAME_F_INCARNATION and prefixes the
+ * payload with `incarnation` (SESSION_OPEN / SET_VALUE / ACK only). */
+esp_err_t odd_bus_send_session(const uint8_t *dst_mac, uint64_t dst_id, odd_msg_type_t type,
+                               const odd_message_t *body, uint64_t incarnation, uint16_t *seq_out);
+esp_err_t odd_bus_send_session_seq(const uint8_t *dst_mac, uint64_t dst_id, odd_msg_type_t type,
+                                   const odd_message_t *body, uint64_t incarnation, uint16_t seq);
+
+/* Development only: force the next sequence number (tests sequence shapes
+ * and wrap against a real peer). */
+void odd_bus_debug_set_seq(uint16_t seq);
+
 esp_err_t odd_bus_send_seq(const uint8_t *dst_mac, uint64_t dst_id, odd_msg_type_t type,
                            const odd_message_t *body, uint16_t seq);
 

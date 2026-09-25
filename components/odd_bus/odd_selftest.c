@@ -146,6 +146,78 @@ int odd_bus_selftest(void)
     b.u.caps.count = ODD_MAX_CAPS + 1;
     CHECK(make(ODD_MSG_CAPABILITIES, &b, f) == 0, "encoder refuses 9 caps");
 
+    /* --- Incarnation extension ---------------------------------------- */
+    const uint64_t INC = 0x1122334455667788ULL;
+
+    /* Incarnation-aware SET_VALUE: exact size and round trip. */
+    memset(&b, 0, sizeof(b));
+    b.u.set = (odd_value_t) { 2, 42 };
+    b.incarnation = INC;
+    {
+        const odd_header_t hh = { .type = ODD_MSG_SET_VALUE, .seq = 500, .flags = ODD_FRAME_F_INCARNATION,
+                                  .src_id = 0x0DD0112233445566ULL, .dst_id = 0x0DD0AABBCCDDEEFFULL };
+        n = odd_encode(&hh, &b, f, sizeof(f));
+    }
+    CHECK(n == ODD_HEADER_LEN + 8 + 5 + ODD_CRC_LEN, "flagged SET is 39 B");
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.incarnation == INC &&
+          d.hdr.flags == ODD_FRAME_F_INCARNATION && d.u.set.cap_id == 2 && d.u.set.value == 42,
+          "flagged SET round trip");
+    /* The prefix is little-endian: first payload byte is the low byte. */
+    CHECK(f[ODD_HEADER_LEN] == 0x88 && f[ODD_HEADER_LEN + 7] == 0x11, "incarnation little-endian");
+
+    /* Incarnation-aware ACK: exact size and round trip. */
+    memset(&b, 0, sizeof(b));
+    b.u.ack.acked_seq = 500;
+    b.u.ack.status = ODD_ACK_OK;
+    b.u.ack.applied = (odd_value_t) { 2, 42 };
+    b.incarnation = INC;
+    {
+        const odd_header_t hh = { .type = ODD_MSG_ACK, .seq = 7, .flags = ODD_FRAME_F_INCARNATION,
+                                  .src_id = 0x0DD0AABBCCDDEEFFULL, .dst_id = 0x0DD0112233445566ULL };
+        n = odd_encode(&hh, &b, f, sizeof(f));
+    }
+    CHECK(n == ODD_HEADER_LEN + 8 + 8 + ODD_CRC_LEN, "flagged ACK is 42 B");
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.incarnation == INC &&
+          d.u.ack.acked_seq == 500 && d.u.ack.status == ODD_ACK_OK, "flagged ACK round trip");
+
+    /* SESSION_OPEN: prefix only, exact size, and it requires the flag. */
+    memset(&b, 0, sizeof(b));
+    b.incarnation = INC;
+    {
+        const odd_header_t hh = { .type = ODD_MSG_SESSION_OPEN, .seq = 1, .flags = ODD_FRAME_F_INCARNATION,
+                                  .src_id = 0x0DD0112233445566ULL, .dst_id = 0x0DD0AABBCCDDEEFFULL };
+        n = odd_encode(&hh, &b, f, sizeof(f));
+    }
+    CHECK(n == ODD_HEADER_LEN + 8 + ODD_CRC_LEN, "SESSION_OPEN is 34 B");
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.incarnation == INC &&
+          d.hdr.type == ODD_MSG_SESSION_OPEN, "SESSION_OPEN round trip");
+    {
+        const odd_header_t hh = { .type = ODD_MSG_SESSION_OPEN, .seq = 1,
+                                  .src_id = 0x0DD0112233445566ULL, .dst_id = 0 };
+        CHECK(odd_encode(&hh, &b, g, sizeof(g)) == 0, "SESSION_OPEN without flag refused");
+    }
+    memcpy(g, f, n); g[6] = 0;                                /* clear the flag, keep the bytes */
+    CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "unflagged SESSION_OPEN rejected");
+    memcpy(g, f, n); g[6] = 0x02;                             /* an unknown flag bit */
+    CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "unknown flag bit rejected");
+    memcpy(g, f, n); memset(g + ODD_HEADER_LEN, 0, 8);        /* zero incarnation */
+    CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "zero incarnation rejected");
+    memcpy(g, f, n); g[7] = 4;                                /* truncated prefix */
+    CHECK(odd_decode(g, ODD_HEADER_LEN + 4 + ODD_CRC_LEN, &d) != ODD_DECODE_OK, "truncated incarnation rejected");
+    {
+        const odd_header_t hh = { .type = ODD_MSG_GET_STATE, .seq = 1, .flags = ODD_FRAME_F_INCARNATION,
+                                  .src_id = 0x0DD0112233445566ULL, .dst_id = 0 };
+        b.incarnation = INC;
+        CHECK(odd_encode(&hh, &b, g, sizeof(g)) == 0, "flag on GET_STATE refused");
+    }
+    /* Legacy SET is untouched: same 31 B, flags 0, no incarnation. */
+    memset(&b, 0, sizeof(b));
+    b.u.set = (odd_value_t) { 2, 42 };
+    n = make(ODD_MSG_SET_VALUE, &b, f);
+    CHECK(n == ODD_HEADER_LEN + 5 + ODD_CRC_LEN, "legacy SET stays 31 B");
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.hdr.flags == 0 && d.incarnation == 0,
+          "legacy SET decodes with no incarnation");
+
     /* Sequence arithmetic across wrap-around. */
     CHECK(odd_seq_newer(1, 0) && odd_seq_newer(0, 65535) && odd_seq_newer(10, 65530), "seq newer across wrap");
     CHECK(!odd_seq_newer(65530, 10) && !odd_seq_newer(5, 5), "seq older/equal");
