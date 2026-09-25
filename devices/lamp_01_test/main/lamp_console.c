@@ -63,6 +63,31 @@ static void run(char *line)
         lamp_post_command(LAMP_CMD_FLOOD, hz | (secs << 8) | (mode << 24));
     } else if (!strcmp(cmd, "reboot")) {
         lamp_post_command(LAMP_CMD_REBOOT, 0);
+    } else if (!strcmp(cmd, "identify")) {
+        lamp_post_command(LAMP_CMD_IDENTIFY, 0);
+    } else if (!strcmp(cmd, "action") && arg) {
+        /* action status | delay <ms> | busy on|off | fail on|off |
+         * drop_result <n> | duplicate_result */
+        char *a2 = strchr(arg, ' ');
+        if (a2) {
+            *a2++ = '\0';
+        }
+        const int av = a2 ? (strstr(a2, "on") ? 1 : atoi(a2)) : 0;
+        if (!strcmp(arg, "status")) {
+            lamp_post_command(LAMP_CMD_ACT_STATUS, 0);
+        } else if (!strcmp(arg, "delay")) {
+            lamp_post_command(LAMP_CMD_ACT_DELAY, av);
+        } else if (!strcmp(arg, "busy")) {
+            lamp_post_command(LAMP_CMD_ACT_BUSY, av);
+        } else if (!strcmp(arg, "fail")) {
+            lamp_post_command(LAMP_CMD_ACT_FAIL, av);
+        } else if (!strcmp(arg, "drop_result")) {
+            lamp_post_command(LAMP_CMD_ACT_DROP_RESULT, av);
+        } else if (!strcmp(arg, "duplicate_result")) {
+            lamp_post_command(LAMP_CMD_ACT_DUP_RESULT, 0);
+        } else {
+            ESP_LOGW(TAG, "action status|delay <ms>|busy on/off|fail on/off|drop_result <n>|duplicate_result");
+        }
     } else if (!strcmp(cmd, "session")) {
         lamp_post_command(LAMP_CMD_SESSION, 0);
     } else if (!strcmp(cmd, "drop_session")) {
