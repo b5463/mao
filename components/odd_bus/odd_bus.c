@@ -38,6 +38,7 @@ const char *odd_device_type_name(uint16_t type)
     case ODD_DEVICE_DISPLAY:    return "DISPLAY";
     case ODD_DEVICE_CLOCK:      return "CLOCK";
     case ODD_DEVICE_SPEAKER:    return "SPEAKER";
+    case ODD_DEVICE_CAMERA:     return "CAMERA";
     default:                    return "UNKNOWN";
     }
 }
@@ -48,6 +49,8 @@ const char *odd_cap_type_name(uint8_t type)
     case ODD_CAP_POWER:  return "POWER";
     case ODD_CAP_LEVEL:  return "LEVEL";
     case ODD_CAP_ACTION: return "ACTION";
+    case ODD_CAP_READY:  return "READY";
+    case ODD_CAP_STORAGE: return "STORAGE";
     default:             return "?";
     }
 }
@@ -55,7 +58,9 @@ const char *odd_cap_type_name(uint8_t type)
 const char *odd_action_semantic_name(int32_t semantic)
 {
     switch (semantic) {
-    case ODD_ACTION_IDENTIFY: return "IDENTIFY";
+    case ODD_ACTION_IDENTIFY:  return "IDENTIFY";
+    case ODD_ACTION_CAPTURE:   return "CAPTURE";
+    case ODD_ACTION_SYNC_TEST: return "SYNC TEST";
     default:                  return "?";
     }
 }

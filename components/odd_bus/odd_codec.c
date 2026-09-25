@@ -244,6 +244,16 @@ static bool decode_payload(rd_t *r, uint8_t type, odd_message_t *m)
             if (c->type == ODD_CAP_ACTION && (c->min != c->max || c->min <= 0 || c->step != 1)) {
                 return false;
             }
+            /* State facts are read-only and carry their canonical ranges. */
+            if (odd_cap_is_status(c->type) && (c->flags & ODD_CAP_F_WRITE)) {
+                return false;
+            }
+            if (c->type == ODD_CAP_READY && (c->min != 0 || c->max != 1 || c->step != 1)) {
+                return false;
+            }
+            if (c->type == ODD_CAP_STORAGE && (c->min != 0 || c->max != 100 || c->step != 1)) {
+                return false;
+            }
         }
         return r->ok;
     }

@@ -22,11 +22,27 @@ typedef enum {
     ODD_CAP_ACTION = 3,  /* a discrete operation performed exactly once; no stored value.
                           * Canonical encoding: min = max = semantic, step = 1 (fits the
                           * v1 record and its validation untouched). */
+    /* Read-only state facts. As with POWER and LEVEL, the TYPE is the
+     * semantic (the record has no spare field for a separate semantic id
+     * without breaking the v1 layout). States are readable, never writable,
+     * and carry canonical ranges enforced by the codec. */
+    ODD_CAP_READY   = 4, /* boolean fact: able to perform its primary operation now.
+                          * Canonical: min 0, max 1, step 1, READ (never WRITE). */
+    ODD_CAP_STORAGE = 5, /* remaining logical capacity, percent.
+                          * Canonical: min 0, max 100, step 1, READ (never WRITE). */
 } odd_cap_type_t;
+
+/* Status categories: displayed as facts, never offered as controls. */
+static inline bool odd_cap_is_status(uint8_t type)
+{
+    return type == ODD_CAP_READY || type == ODD_CAP_STORAGE;
+}
 
 /* What an ACTION does, generically - never product-specific. 0 is invalid. */
 typedef enum {
-    ODD_ACTION_IDENTIFY = 1,   /* "make this physical device briefly identify itself" */
+    ODD_ACTION_IDENTIFY  = 1,  /* "make this physical device briefly identify itself" */
+    ODD_ACTION_CAPTURE   = 2,  /* "perform your primary image capture operation once" */
+    ODD_ACTION_SYNC_TEST = 3,  /* "perform your synchronization test operation" */
 } odd_action_semantic_t;
 
 

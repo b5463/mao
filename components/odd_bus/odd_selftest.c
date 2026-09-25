@@ -282,6 +282,54 @@ int odd_bus_selftest(void)
     memcpy(g, f, n); g[6] = 0;
     CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "unflagged ACTION_RESULT rejected");
 
+    /* --- Camera-profile capabilities (state facts + new semantics) ----- */
+
+    memset(&b, 0, sizeof(b));
+    b.u.caps.count = 5;
+    b.u.caps.cap[0] = (odd_capability_t) { 1, ODD_CAP_ACTION, ODD_CAP_F_WRITE,
+                                           ODD_ACTION_CAPTURE, ODD_ACTION_CAPTURE, 1 };
+    b.u.caps.cap[1] = (odd_capability_t) { 2, ODD_CAP_ACTION, ODD_CAP_F_WRITE,
+                                           ODD_ACTION_IDENTIFY, ODD_ACTION_IDENTIFY, 1 };
+    b.u.caps.cap[2] = (odd_capability_t) { 3, ODD_CAP_ACTION, ODD_CAP_F_WRITE,
+                                           ODD_ACTION_SYNC_TEST, ODD_ACTION_SYNC_TEST, 1 };
+    b.u.caps.cap[3] = (odd_capability_t) { 4, ODD_CAP_READY, ODD_CAP_F_READ | ODD_CAP_F_NOTIFY, 0, 1, 1 };
+    b.u.caps.cap[4] = (odd_capability_t) { 5, ODD_CAP_STORAGE, ODD_CAP_F_READ | ODD_CAP_F_NOTIFY, 0, 100, 1 };
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(n == ODD_HEADER_LEN + 1 + 5 * 15 + ODD_CRC_LEN, "5-cap camera frame is 102 B");
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK &&
+          odd_action_semantic_of(&d.u.caps.cap[0]) == ODD_ACTION_CAPTURE &&
+          odd_action_semantic_of(&d.u.caps.cap[2]) == ODD_ACTION_SYNC_TEST &&
+          d.u.caps.cap[3].type == ODD_CAP_READY && d.u.caps.cap[4].type == ODD_CAP_STORAGE,
+          "camera capability table round trip");
+    CHECK(odd_cap_is_status(ODD_CAP_READY) && odd_cap_is_status(ODD_CAP_STORAGE) &&
+          !odd_cap_is_status(ODD_CAP_LEVEL) && !odd_cap_is_status(ODD_CAP_ACTION), "status category");
+
+    b.u.caps.cap[3].flags |= ODD_CAP_F_WRITE;                 /* a writable fact is a lie */
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_MALFORMED, "writable READY rejected");
+    b.u.caps.cap[3].flags = ODD_CAP_F_READ;
+    b.u.caps.cap[3].max = 2;                                  /* READY is 0..1 */
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_MALFORMED, "READY range 0..2 rejected");
+    b.u.caps.cap[3].max = 1;
+    b.u.caps.cap[4].max = 99;                                 /* STORAGE is 0..100 */
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_MALFORMED, "STORAGE range 0..99 rejected");
+    b.u.caps.cap[4].max = 100;
+    b.u.caps.cap[4].flags = ODD_CAP_F_WRITE | ODD_CAP_F_READ;
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_MALFORMED, "writable STORAGE rejected");
+
+    /* STATE carrying the camera facts (READY true, STORAGE 84). */
+    memset(&b, 0, sizeof(b));
+    b.u.state.in_reply_to = 0;
+    b.u.state.count = 2;
+    b.u.state.value[0] = (odd_value_t) { 4, 1 };
+    b.u.state.value[1] = (odd_value_t) { 5, 84 };
+    n = make(ODD_MSG_STATE, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.u.state.value[0].value == 1 &&
+          d.u.state.value[1].value == 84, "camera state notification round trip");
+
     /* Sequence arithmetic across wrap-around. */
     CHECK(odd_seq_newer(1, 0) && odd_seq_newer(0, 65535) && odd_seq_newer(10, 65530), "seq newer across wrap");
     CHECK(!odd_seq_newer(65530, 10) && !odd_seq_newer(5, 5), "seq older/equal");

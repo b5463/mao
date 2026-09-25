@@ -20,6 +20,7 @@ typedef enum {
     ODD_DEVICE_DISPLAY    = 3,   /* KINO D4 (future) */
     ODD_DEVICE_CLOCK      = 4,   /* CLOCK 01 (future) */
     ODD_DEVICE_SPEAKER    = 5,   /* SPEAKER 01 (future) */
+    ODD_DEVICE_CAMERA     = 6,   /* CAMERA 01 emulator today; KINO D4 later */
 } odd_device_type_t;
 
 /*
