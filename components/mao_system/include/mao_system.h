@@ -22,6 +22,7 @@ typedef enum {
     MAO_DEVCMD_ANIM_BASE = 3000,     /* + mao_character_preview_t */
     MAO_DEVCMD_VIEW_BASE = 4000,     /* + mao_view_t */
     MAO_DEVCMD_LOOK_BASE = 5000,     /* + look preset index */
+    MAO_DEVCMD_REACT_BASE = 7000,    /* + mao_character_reaction_t; base + 999 = list */
     MAO_DEVCMD_EXPR_BASE = 6000,     /* + expression state index; base + 999 = list */
     MAO_DEVCMD_DIAL_BASE = 100000,   /* + (dps + 500) * 1000 + seconds */
 } mao_devcmd_t;

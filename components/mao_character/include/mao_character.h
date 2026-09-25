@@ -43,6 +43,17 @@ typedef enum {
     MAO_CHAR_REACT_ATTEND,       /* something appeared: glance to the rim */
     MAO_CHAR_REACT_WARM,         /* long press: soft narrowing, lift, brief yellow */
     MAO_CHAR_REACT_WAKE,         /* restore full presence immediately */
+    /* Controller feedback: MAO's face reports what the controller does.
+     * Played at full strength, even while the dial is in use. */
+    MAO_CHAR_REACT_ACK,          /* a command was taken: quick nod */
+    MAO_CHAR_REACT_BUSY,         /* work in progress: held until DONE / FAIL / IDLE */
+    MAO_CHAR_REACT_DONE,         /* it worked */
+    MAO_CHAR_REACT_FAIL,         /* it failed: wince, red glint, head shake */
+    MAO_CHAR_REACT_BACK,         /* stepped back a level */
+    MAO_CHAR_REACT_DEVICE_ON,    /* a device appeared / connected */
+    MAO_CHAR_REACT_DEVICE_OFF,   /* a device went away */
+    MAO_CHAR_REACT_IDLE,         /* end a held feedback (busy) with no result */
+    MAO_CHAR_REACT_COUNT,
 } mao_character_reaction_t;
 
 /* Dev-only previews ("mao anim <name>"). */
@@ -101,6 +112,7 @@ int mao_character_look_count(void);
 bool mao_character_debug_expression(int index);
 int mao_character_expression_count(void);
 const char *mao_character_expression_name(int index);
+const char *mao_character_reaction_name(mao_character_reaction_t reaction);
 
 #ifdef __cplusplus
 }

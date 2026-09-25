@@ -56,3 +56,5 @@ extern const lark_state_t kLarkCat[];
 extern const int kLarkCatCount;
 extern const lark_state_t kLarkMore[];
 extern const int kLarkMoreCount;
+extern const lark_state_t kLarkCtrl[];
+extern const int kLarkCtrlCount;

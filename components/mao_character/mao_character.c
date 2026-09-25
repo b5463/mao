@@ -58,6 +58,9 @@ static mao_char_draw_t s_draw;
 static mao_idle_t s_idle;
 static mao_lark_t s_lark;
 static mao_life_t s_life;
+static int s_fb_pending = -1;       /* controller feedback state waiting to play */
+static uint32_t s_fb_until;         /* feedback playing: full layer gain */
+static bool s_fb_hold;              /* a held feedback (busy) is on */
 static bool s_dizzy_noted;
 static uint32_t s_last_tick_ms;
 static volatile mao_character_state_t s_state = MAO_CHAR_IDLE;
@@ -268,6 +271,20 @@ static void react(mao_character_reaction_t r, uint32_t now)
 {
     if (r == MAO_CHAR_REACT_WAKE) {
         wake(now);
+        return;
+    }
+    if (r >= MAO_CHAR_REACT_ACK && r < MAO_CHAR_REACT_COUNT) {
+        /* Controller feedback: queued, and played as soon as MAO is on
+         * screen - even mid-dial, at full strength. */
+        static const char *const kFb[] = {
+            [MAO_CHAR_REACT_ACK] = "ack", [MAO_CHAR_REACT_BUSY] = "busy", [MAO_CHAR_REACT_DONE] = "done",
+            [MAO_CHAR_REACT_FAIL] = "fail", [MAO_CHAR_REACT_BACK] = "back",
+            [MAO_CHAR_REACT_DEVICE_ON] = "device_on", [MAO_CHAR_REACT_DEVICE_OFF] = "device_off",
+            [MAO_CHAR_REACT_IDLE] = "neutral",
+        };
+        wake(now);
+        s_fb_pending = mao_lark_find(kFb[r]);
+        s_fb_hold = r == MAO_CHAR_REACT_BUSY;
         return;
     }
     if (!s_visible || !s_present) {
@@ -560,10 +577,23 @@ static void tick_cb(lv_timer_t *t)
     update_state(now);
 
     /* Expression layer: full in idle, faint while the user is in charge. */
+    if (s_fb_pending >= 0 && s_visible && s_present && !before(now, s_away_until)) {
+        const int st = s_fb_pending;
+        s_fb_pending = -1;
+        s_lark.pending = -1;           /* controller feedback wins over a queued mood */
+        mao_lark_switch(&s_lark, st, now);
+        const lark_state_t *ls = mao_lark_state(st);
+        s_fb_until = now + ((ls->flags & LARK_ONESHOT) ? (uint32_t)ls->length_ms + 300u : 0u);
+    }
+    if (s_fb_hold && s_lark.cur != mao_lark_find("busy")) {
+        s_fb_hold = false;             /* busy ended (done / fail / idle / input) */
+    }
     static const float kLayerGain[] = { [PRIO_IDLE] = 1.0f, [PRIO_SYSTEM] = 0.5f, [PRIO_DIAL] = 0.25f,
                                         [PRIO_PRESS] = 0.45f, [PRIO_NAV] = 0.0f };
     const prio_t prio = current_prio(now);
-    mao_lark_update(&s_lark, now, s_visible && prio == PRIO_IDLE, s_sleepy, kLayerGain[prio], s_m.layer);
+    const bool feedback = s_fb_hold || before(now, s_fb_until);
+    mao_lark_update(&s_lark, now, s_visible && prio == PRIO_IDLE, s_sleepy,
+                    feedback ? 1.0f : kLayerGain[prio], s_m.layer);
     float life[CH_COUNT] = { 0 };
     mao_life_update(&s_life, &s_lark, &s_m, now, s_visible && prio == PRIO_IDLE, s_sleepy, life);
     if (prio != PRIO_NAV) {
@@ -706,4 +736,12 @@ int mao_character_expression_count(void)
 const char *mao_character_expression_name(int index)
 {
     return index >= 0 && index < mao_lark_state_count() ? mao_lark_state(index)->name : "?";
+}
+
+const char *mao_character_reaction_name(mao_character_reaction_t r)
+{
+    static const char *const kNames[MAO_CHAR_REACT_COUNT] = {
+        "notice", "attend", "warm", "wake", "ack", "busy", "done", "fail", "back", "device_on", "device_off", "idle",
+    };
+    return r < MAO_CHAR_REACT_COUNT ? kNames[r] : "?";
 }

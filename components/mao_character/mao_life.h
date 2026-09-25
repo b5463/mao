@@ -15,8 +15,8 @@
  *                that side for a while (anticipation), then lets it go.
  *                Gaze moves in saccades between long fixations.
  *   DRIVES       energy (drains awake, refills asleep), boredom (grows
- *                without stimuli), irritation (spinning, pestering, being
- *                woken), affection (gentle touch, long press). They shape
+ *                without stimuli), irritation (never from controller use),
+ *                affection (gentle touch, long press). They shape
  *                the resting expression and, when one crosses a threshold,
  *                trigger a behaviour (yawn, doze, sigh, sulk, watch the knob,
  *                a quiet pleased look) - each with its own refractory time.

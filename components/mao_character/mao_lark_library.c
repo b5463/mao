@@ -15,6 +15,7 @@ static const part_t kParts[] = {
     { kLarkLife, &kLarkLifeCount },
     { kLarkCat, &kLarkCatCount },
     { kLarkMore, &kLarkMoreCount },
+    { kLarkCtrl, &kLarkCtrlCount },
 };
 
 const lark_state_t *mao_lark_state(int i)

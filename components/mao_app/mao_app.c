@@ -179,6 +179,7 @@ static void on_menu(const mao_event_t *ev, int64_t now)
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_audio_back();
         go_view(MAO_VIEW_HOME);
+        mao_character_react(MAO_CHAR_REACT_BACK);
         break;
     default:
         break;
@@ -195,6 +196,7 @@ static void on_placeholder(const mao_event_t *ev)
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_audio_back();
         go_view(MAO_VIEW_HOME);
+        mao_character_react(MAO_CHAR_REACT_BACK);
         break;
     default:
         break;
@@ -248,6 +250,18 @@ static void on_dev_command(int32_t value, int64_t now)
         go_view(MAO_VIEW_HOME);
         mao_character_debug_dial(dps, seconds * 1000);
         mao_system_idle_kick(seconds * 1000 + SLEEPY_TIMEOUT_MS);
+    } else if (value >= MAO_DEVCMD_REACT_BASE) {
+        const int r = value - MAO_DEVCMD_REACT_BASE;
+        if (r < MAO_CHAR_REACT_COUNT) {
+            wake();
+            go_view(MAO_VIEW_HOME);
+            ESP_LOGI(TAG, "dev: react %s", mao_character_reaction_name((mao_character_reaction_t)r));
+            mao_character_react((mao_character_reaction_t)r);
+        } else {
+            for (int i = 0; i < MAO_CHAR_REACT_COUNT; i++) {
+                ESP_LOGI(TAG, "dev: react %d = %s", i, mao_character_reaction_name((mao_character_reaction_t)i));
+            }
+        }
     } else if (value >= MAO_DEVCMD_EXPR_BASE) {
         const int idx = value - MAO_DEVCMD_EXPR_BASE;
         wake();

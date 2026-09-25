@@ -53,7 +53,7 @@ static void run_command(char *line)
 
     if (strcmp(cmd, "help") == 0) {
         ESP_LOGI(TAG, "dev commands: help | status | snap | anim <name> | view <home|menu|page> | "
-                 "dial <dps> [s] | look <n> | state [n] | stress <s> | key <cw|ccw|press|release|click|double|long> [n] | "
+                 "dial <dps> [s] | look <n> | state [n] | react [n] | stress <s> | key <cw|ccw|press|release|click|double|long> [n] | "
                  "reset-first-boot | reboot");
     } else if (strcmp(cmd, "key") == 0 && arg) {
         /* Inject a synthetic input event: indistinguishable from the knob for
@@ -119,6 +119,8 @@ static void run_command(char *line)
         } else {
             mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_VIEW_BASE + v);
         }
+    } else if (strcmp(cmd, "react") == 0) {
+        mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_REACT_BASE + (arg ? atoi(arg) : 999));
     } else if (strcmp(cmd, "state") == 0) {
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_EXPR_BASE + (arg ? atoi(arg) : 999));
     } else if (strcmp(cmd, "look") == 0 && arg) {

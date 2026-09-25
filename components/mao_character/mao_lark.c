@@ -223,24 +223,17 @@ void mao_lark_event(mao_lark_t *l, lark_event_t ev, uint32_t now)
         l->last_input_ms = now;
         l->boredom = 0.0f;
         break;
+    /* MAO is a controller: turning it fast, reversing and pressing
+     * repeatedly are normal use, never an annoyance. Spinning back and
+     * forth may make it dizzy for a moment - it shakes it off, no grudge. */
     case LARK_EV_REVERSAL:
-        l->agitation = clamp01(l->agitation + 0.12f);
+    case LARK_EV_FAST:
         break;
     case LARK_EV_DIZZY:
-        l->agitation = clamp01(l->agitation + 0.30f);
-        request(l, l->agitation > 0.6f ? "dizzy_mad" : "dizzy");
-        break;
-    case LARK_EV_FAST:
-        l->agitation = clamp01(l->agitation + 0.004f);
+        request(l, "dizzy");
         break;
     case LARK_EV_PRESS:
-        l->affection = clamp01(l->affection + 0.08f);
-        /* Pestered: four presses within two seconds earn a look. */
-        l->press_ms[l->press_i++ & 3] = now;
-        if (l->press_ms[l->press_i & 3] && now - l->press_ms[l->press_i & 3] < 2000) {
-            l->agitation = clamp01(l->agitation + 0.2f);
-            request(l, l->agitation > 0.5f ? "contempt" : "tsk");
-        }
+        l->affection = clamp01(l->affection + 0.04f);
         break;
     case LARK_EV_WARM:
         l->affection = clamp01(l->affection + 0.45f);

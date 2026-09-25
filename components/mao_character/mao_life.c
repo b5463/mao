@@ -142,8 +142,6 @@ void mao_life_event(mao_life_t *l, mao_lark_t *lark, life_event_t ev, uint32_t n
         const float away = (float)(now - l->last_input_ms) / 1000.0f;
         if (away > ABSENT_S) {
             play(l, lark, "greet", now, "first touch after a long absence");
-        } else if (l->arousal < 0.15f && l->energy < 0.4f) {
-            play(l, lark, "startled", now, "touched while half asleep");
         } else if (l->boredom > 0.4f) {
             play(l, lark, "keen", now, "touched while bored: finally something");
         }
@@ -152,9 +150,7 @@ void mao_life_event(mao_life_t *l, mao_lark_t *lark, life_event_t ev, uint32_t n
     case LIFE_EV_TOUCH: {
         const float sal = stimulus(l, 0.5f, l->habit_press, 0, now);
         l->habit_press = clamp01(l->habit_press + 0.15f);
-        if (l->irritation > 0.55f) {
-            play(l, lark, "hmph", now, "touched while irritated");
-        } else if (l->affection > 0.35f && sal > 0.3f && lark->cur == 0) {
+        if (l->affection > 0.35f && sal > 0.3f && lark->cur == 0) {
             play(l, lark, "pleased", now, "touched by someone she likes");
         }
         if (l->irritation < 0.5f) {
@@ -170,12 +166,11 @@ void mao_life_event(mao_life_t *l, mao_lark_t *lark, life_event_t ev, uint32_t n
             l->holding = -1;
         }
         break;
+    /* Controller use is never held against the user (see mao_lark.c). */
     case LIFE_EV_REVERSAL:
-        l->irritation = clamp01(l->irritation + 0.06f);
         l->arousal = clamp01(l->arousal + 0.1f);
         break;
     case LIFE_EV_DIZZY:
-        l->irritation = clamp01(l->irritation + 0.25f);
         break;
     case LIFE_EV_WARM:
         l->affection = clamp01(l->affection + 0.5f);
@@ -188,10 +183,10 @@ void mao_life_event(mao_life_t *l, mao_lark_t *lark, life_event_t ev, uint32_t n
         }
         break;
     case LIFE_EV_WOKEN:
-        l->irritation = clamp01(l->irritation + 0.25f);
+        /* Reaching for the controller: it wakes up ready, never grumpy. */
         l->energy = clamp01(l->energy + 0.1f);
         l->arousal = clamp01(l->arousal + 0.5f);
-        play(l, lark, (l->irritation > 0.5f || l->energy < 0.3f) ? "grumpywake" : "wakeup", now, "woken up");
+        play(l, lark, "wakeup", now, "picked up");
         break;
     }
 }
@@ -219,8 +214,9 @@ static void behave(mao_life_t *l, mao_lark_t *lark, uint32_t now)
              "still annoyed about it");
         l->irritation *= 0.7f;
         refract(l, LIFE_B_GRUMBLE, now, 30.0f);
-    } else if (l->boredom > 0.85f && ready(l, LIFE_B_SULK, now)) {
-        hold(l, lark, l->affection > 0.3f ? "lonely" : "sulky", now, "ignored for a long time");
+    } else if (l->boredom > 0.85f && l->energy < 0.7f && ready(l, LIFE_B_SULK, now)) {
+        /* Standby: nothing to control for a long time - it dozes off. */
+        hold(l, lark, "doze", now, "standby: nothing to do for a long while");
         refract(l, LIFE_B_SULK, now, 90.0f);
     } else if (l->boredom > 0.55f && ready(l, LIFE_B_SIGH, now)) {
         play(l, lark, "sigh", now, "bored");
