@@ -16,6 +16,7 @@
 #include "esp_mac.h"
 #include "esp_now.h"
 #include "esp_random.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "nvs_flash.h"
@@ -59,6 +60,23 @@ static bool s_have_controller;
 static uint8_t s_ctrl_mac[6];
 static uint64_t s_ctrl_id;
 static uint32_t s_applied, s_duplicates, s_stale;
+
+/* Test controls: lost / late ACKs and traffic floods. */
+typedef struct {
+    bool used;
+    int64_t due_us;
+    uint8_t mac[6];
+    uint64_t id;
+    odd_message_t ack;
+} late_ack_t;
+#define LATE_MAX 8
+
+static uint32_t s_drop_acks;        /* ACKs still to drop */
+static uint32_t s_acks_dropped;
+static uint32_t s_delay_ack_ms;
+static late_ack_t s_late[LATE_MAX];
+static uint32_t s_flood_hz, s_flood_mode, s_flood_sent;
+static int64_t s_flood_until_us, s_flood_next_us;
 
 static const odd_capability_t kCaps[] = {
     { .id = LAMP_CAP_POWER, .type = ODD_CAP_POWER, .flags = ODD_CAP_F_READ | ODD_CAP_F_WRITE | ODD_CAP_F_NOTIFY,
@@ -111,6 +129,10 @@ static void radio_init(void)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+    /* LOLIN C3 Mini: the board's RF matching is poor and nothing it sends
+     * arrives at full TX power (the classic symptom: it hears everything,
+     * nobody hears it). The documented fix is capping TX at ~8.5 dBm. */
+    ESP_ERROR_CHECK(esp_wifi_set_max_tx_power(34));   /* units of 0.25 dBm */
     ESP_ERROR_CHECK(esp_wifi_set_channel(ODD_BUS_DEV_CHANNEL, WIFI_SECOND_CHAN_NONE));
     ESP_ERROR_CHECK(esp_now_init());
     ESP_ERROR_CHECK(esp_now_register_recv_cb(on_recv));
@@ -206,7 +228,70 @@ static void handle_set(const odd_message_t *m)
         }
     }
     ack.u.ack.applied.value = value_of(cap);
+    if (s_drop_acks) {
+        s_drop_acks--;
+        s_acks_dropped++;
+        ESP_LOGW(TAG, "test: dropped ACK for seq %u (%" PRIu32 " more to drop)", m->hdr.seq, s_drop_acks);
+        return;
+    }
+    if (s_delay_ack_ms) {
+        for (int i = 0; i < LATE_MAX; i++) {
+            if (!s_late[i].used) {
+                s_late[i] = (late_ack_t) { .used = true, .due_us = esp_timer_get_time() + s_delay_ack_ms * 1000LL,
+                                           .id = m->hdr.src_id, .ack = ack };
+                memcpy(s_late[i].mac, m->src_mac, 6);
+                return;
+            }
+        }
+        ESP_LOGW(TAG, "test: late-ACK slots full, sending now");
+    }
     odd_bus_send(m->src_mac, m->hdr.src_id, ODD_MSG_ACK, &ack, NULL);
+}
+
+/* Due late ACKs and flood traffic. Returns ms until the next timed work. */
+static uint32_t service_tests(void)
+{
+    const int64_t now = esp_timer_get_time();
+    int64_t next = now + 1000 * 1000;
+    for (int i = 0; i < LATE_MAX; i++) {
+        if (!s_late[i].used) {
+            continue;
+        }
+        if (now >= s_late[i].due_us) {
+            s_late[i].used = false;
+            odd_bus_send(s_late[i].mac, s_late[i].id, ODD_MSG_ACK, &s_late[i].ack, NULL);
+            ESP_LOGI(TAG, "test: late ACK for seq %u sent", s_late[i].ack.u.ack.acked_seq);
+        } else if (s_late[i].due_us < next) {
+            next = s_late[i].due_us;
+        }
+    }
+    if (s_flood_hz) {
+        if (now >= s_flood_until_us) {
+            ESP_LOGW(TAG, "test: flood done, %" PRIu32 " frames", s_flood_sent);
+            s_flood_hz = 0;
+        } else {
+            if (now >= s_flood_next_us) {
+                if (!s_offline && s_flood_mode == LAMP_FLOOD_ANNOUNCE) {
+                    odd_bus_announce(NULL, ODD_ID_ANY);
+                    s_flood_sent++;
+                } else if (!s_offline && s_have_controller) {
+                    odd_message_t body = { 0 };
+                    fill_state(&body, 0);
+                    odd_bus_send(s_ctrl_mac, s_ctrl_id, ODD_MSG_STATE, &body, NULL);
+                    s_flood_sent++;
+                }
+                s_flood_next_us += 1000000 / s_flood_hz;
+                if (s_flood_next_us < now) {
+                    s_flood_next_us = now + 1000000 / s_flood_hz;
+                }
+            }
+            if (s_flood_next_us < next) {
+                next = s_flood_next_us;
+            }
+        }
+    }
+    const int64_t ms = (next - now + 999) / 1000;
+    return ms < 1 ? 1 : (uint32_t)ms;
 }
 
 static void on_message(const odd_message_t *m, void *ctx)
@@ -270,9 +355,11 @@ static void handle_command(lamp_cmd_t cmd, int32_t arg)
         odd_bus_stats_t st;
         odd_bus_get_stats(&st);
         ESP_LOGI(TAG, "status: %s power=%s level=%" PRId32 " applied=%" PRIu32 " dup=%" PRIu32 " stale=%" PRIu32
-                 " odd_rx=%" PRIu32 " odd_tx=%" PRIu32 " set_rx=%" PRIu32 " discover_rx=%" PRIu32,
+                 " odd_rx=%" PRIu32 " odd_tx=%" PRIu32 " set_rx=%" PRIu32 " discover_rx=%" PRIu32
+                 " acks_dropped=%" PRIu32 " drop_pending=%" PRIu32 " ack_delay=%" PRIu32 "ms",
                  s_offline ? "OFFLINE" : "ONLINE", s_power ? "ON" : "OFF", s_level, s_applied, s_duplicates,
-                 s_stale, st.rx, st.tx, st.per_type_rx[ODD_MSG_SET_VALUE], st.per_type_rx[ODD_MSG_DISCOVER]);
+                 s_stale, st.rx, st.tx, st.per_type_rx[ODD_MSG_SET_VALUE], st.per_type_rx[ODD_MSG_DISCOVER],
+                 s_acks_dropped, s_drop_acks, s_delay_ack_ms);
         break;
     }
     case LAMP_CMD_OFFLINE:
@@ -302,6 +389,31 @@ static void handle_command(lamp_cmd_t cmd, int32_t arg)
     case LAMP_CMD_JUNK:
         send_junk();
         break;
+    case LAMP_CMD_DROP_ACK:
+        s_drop_acks = arg < 0 ? 0 : (uint32_t)arg;
+        ESP_LOGW(TAG, "test: dropping the next %" PRIu32 " ACKs (commands are still applied)", s_drop_acks);
+        break;
+    case LAMP_CMD_DELAY_ACK:
+        s_delay_ack_ms = arg < 0 ? 0 : (uint32_t)arg;
+        ESP_LOGW(TAG, "test: ACK delay %" PRIu32 " ms", s_delay_ack_ms);
+        break;
+    case LAMP_CMD_FLOOD: {
+        s_flood_hz = (uint32_t)(arg & 0xFF);
+        s_flood_mode = (uint32_t)((arg >> 24) & 0xFF);
+        const uint32_t secs = (uint32_t)((arg >> 8) & 0xFF);
+        s_flood_until_us = esp_timer_get_time() + secs * 1000000LL;
+        s_flood_next_us = esp_timer_get_time();
+        s_flood_sent = 0;
+        ESP_LOGW(TAG, "test: flood %" PRIu32 " Hz %s for %" PRIu32 " s%s", s_flood_hz,
+                 s_flood_mode == LAMP_FLOOD_ANNOUNCE ? "ANNOUNCE" : "STATE", secs,
+                 (s_flood_mode == LAMP_FLOOD_STATE && !s_have_controller) ? " (no controller yet: nothing sent)" : "");
+        break;
+    }
+    case LAMP_CMD_REBOOT:
+        ESP_LOGW(TAG, "test: rebooting");
+        vTaskDelay(pdMS_TO_TICKS(50));
+        esp_restart();
+        break;
     }
 }
 
@@ -319,7 +431,8 @@ static void lamp_task(void *arg)
     odd_bus_announce(NULL, ODD_ID_ANY);
     for (;;) {
         item_t it;
-        if (xQueueReceive(s_inbox, &it, portMAX_DELAY) != pdTRUE) {
+        const uint32_t wait_ms = service_tests();
+        if (xQueueReceive(s_inbox, &it, pdMS_TO_TICKS(wait_ms)) != pdTRUE) {
             continue;
         }
         if (it.kind == ITEM_RX) {

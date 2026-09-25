@@ -4,6 +4,9 @@
  *
  *   lamp status | lamp offline | lamp online | lamp power <0|1> |
  *   lamp level <0-100> | lamp junk
+ *
+ * Test controls (laboratory only):
+ *   lamp drop_ack <n> | lamp delay_ack <ms> | lamp flood <hz> <s> [state|announce] | lamp reboot
  */
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +48,21 @@ static void run(char *line)
         lamp_post_command(LAMP_CMD_SET_LEVEL, v);
     } else if (!strcmp(cmd, "junk")) {
         lamp_post_command(LAMP_CMD_JUNK, 0);
+    } else if (!strcmp(cmd, "drop_ack")) {
+        lamp_post_command(LAMP_CMD_DROP_ACK, v);
+    } else if (!strcmp(cmd, "delay_ack")) {
+        lamp_post_command(LAMP_CMD_DELAY_ACK, v);
+    } else if (!strcmp(cmd, "flood") && arg) {
+        /* flood <hz> <seconds> [state|announce] */
+        const char *a2 = strchr(arg, ' ');
+        int secs = a2 ? atoi(a2 + 1) : 10;
+        const char *a3 = a2 ? strchr(a2 + 1, ' ') : NULL;
+        const int mode = (a3 && strstr(a3, "announce")) ? LAMP_FLOOD_ANNOUNCE : LAMP_FLOOD_STATE;
+        const int hz = v < 1 ? 1 : (v > 100 ? 100 : v);
+        secs = secs < 1 ? 1 : (secs > 255 ? 255 : secs);
+        lamp_post_command(LAMP_CMD_FLOOD, hz | (secs << 8) | (mode << 24));
+    } else if (!strcmp(cmd, "reboot")) {
+        lamp_post_command(LAMP_CMD_REBOOT, 0);
     } else {
         ESP_LOGW(TAG, "unknown command '%s'", cmd);
     }

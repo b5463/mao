@@ -20,7 +20,15 @@ typedef enum {
     LAMP_CMD_SET_POWER,     /* local change, arg = value */
     LAMP_CMD_SET_LEVEL,
     LAMP_CMD_JUNK,          /* broadcast invalid frames (validation test) */
+    LAMP_CMD_DROP_ACK,      /* apply, but do not send the next arg ACKs (retry / dedupe test) */
+    LAMP_CMD_DELAY_ACK,     /* send every ACK arg ms late (0 = off) */
+    LAMP_CMD_FLOOD,         /* arg = hz | seconds << 8 | mode << 24: real traffic towards MAO */
+    LAMP_CMD_REBOOT,
 } lamp_cmd_t;
+
+/* LAMP_CMD_FLOOD modes. */
+#define LAMP_FLOOD_STATE     0   /* STATE notifications to the controller */
+#define LAMP_FLOOD_ANNOUNCE  1   /* broadcast ANNOUNCE beacons */
 
 void lamp_console_start(void);
 void lamp_post_command(lamp_cmd_t cmd, int32_t arg);
