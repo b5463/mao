@@ -25,6 +25,7 @@ static const mao_spring_profile_t kProfile[CH_COUNT] = {
     [CH_WINK] = MAO_P_CLOSE,      [CH_SMILE] = MAO_P_CLOSE,
     [CH_SLIT] = MAO_P_SHAPE,      [CH_EYE_W] = MAO_P_SHAPE,     [CH_EYE_H] = MAO_P_SHAPE,
     [CH_STAR] = MAO_P_SHAPE,      [CH_DARK] = MAO_P_TINT,       [CH_CROSS] = MAO_P_GAZE,
+    [CH_HEAD_YAW] = MAO_P_HEAD,   [CH_HEAD_PITCH] = MAO_P_HEAD,  [CH_LID_ANGLE] = MAO_P_NARROW,
 };
 
 void mao_motion_init(mao_motion_t *m, const mao_look_t *look)
@@ -36,6 +37,8 @@ void mao_motion_init(mao_motion_t *m, const mao_look_t *look)
     }
     /* Eyes start closed; the owner opens them (appear / wake). */
     mao_spring_init(&m->ch[CH_NARROW], MAO_REST_NARROW, kProfile[CH_NARROW]);
+    mao_spring_init(&m->head_yaw, 0.0f, MAO_P_HEAD);
+    mao_spring_init(&m->head_pitch, 0.0f, MAO_P_HEAD);
 }
 
 void mao_motion_profile(mao_motion_t *m, mao_channel_t c, mao_spring_profile_t p)
@@ -59,6 +62,12 @@ void mao_motion_step(mao_motion_t *m, float dt, uint32_t now_ms)
     for (int i = 0; i < CH_COUNT; i++) {
         mao_spring_step(&m->ch[i], dt);
     }
+    /* The head follows wherever the eyes look - from any source (dial,
+     * expressions, the mind) - on a slower spring. */
+    m->head_yaw.target = MAO_HEAD_YAW_GAIN * (m->ch[CH_GAZE_X].x + m->layer[CH_GAZE_X]);
+    m->head_pitch.target = MAO_HEAD_PITCH_GAIN * (m->ch[CH_GAZE_Y].x + m->layer[CH_GAZE_Y]);
+    mao_spring_step(&m->head_yaw, dt);
+    mao_spring_step(&m->head_pitch, dt);
     /* Two independent wobble phases: the eyes drift apart, not in sync. */
     m->wobble_phase_l = fmodf(m->wobble_phase_l + dt * TWO_PI * 1.35f, TWO_PI);
     m->wobble_phase_r = fmodf(m->wobble_phase_r + dt * TWO_PI * 1.95f, TWO_PI);
@@ -152,6 +161,8 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     const float shape_h = orb ? clampf(1.0f + v[CH_EYE_H], 0.5f, 1.3f) : 1.0f;
     const float w = L->eye_w * shape_w * widen * (1.0f + MAO_SQUASH_WIDEN * squash);
     float h = L->eye_h * shape_h * open * (1.0f - MAO_SQUASH_FLATTEN * squash);
+    const float blink = orb ? 1.0f - env : 0.0f;
+    h *= 1.0f - MAO_BLINK_SQUASH * blink;
     if (!orb) {
         h *= 1.0f - MAO_NARROW_MAX * narrow;
     }
@@ -161,7 +172,7 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     const float a = v[CH_ORBIT_A];
     float fx = (v[CH_FACE_X] + r * sinf(a)) * ms;
     float fy = L->rest_y + (v[CH_FACE_Y] - r * cosf(a)) * ms + v[CH_AWAY] + v[CH_PRESS]
-             + MAO_SLEEP_DROP * sleep + MAO_SLEEP_BREATH * sleep * sinf(m->breath_phase);
+             + MAO_SLEEP_DROP * sleep + MAO_SLEEP_BREATH * sleep * sinf(m->breath_phase) + MAO_BLINK_DIP * blink;
 
     /* Lost coordination: each eye drifts on its own phase. */
     const float wob = clampf(v[CH_WOBBLE], 0.0f, MAO_REV_WOBBLE_MAX);
@@ -189,6 +200,37 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     }
     if (out->lh < MAO_EYE_MIN_H) out->lh = MAO_EYE_MIN_H;
     if (out->rh < MAO_EYE_MIN_H) out->rh = MAO_EYE_MIN_H;
+
+    /* Pseudo-3D head: place both eyes on a sphere turned by yaw / pitch. */
+    out->fore[0] = out->fore[1] = 1.0f;
+    out->front = 0;
+    if (orb) {
+        const float yaw = clampf(m->head_yaw.x + v[CH_HEAD_YAW], -1.3f, 1.3f);
+        const float pitch = clampf(m->head_pitch.x + v[CH_HEAD_PITCH], -0.7f, 0.7f);
+        const float a0 = asinf(clampf(half / MAO_HEAD_R, 0.0f, 0.95f));
+        const float cp = cosf(pitch);
+        const float dy = MAO_HEAD_R * sinf(pitch) * MAO_HEAD_PITCH_SHIFT;
+        float th[2];
+        for (int e = 0; e < 2; e++) {
+            const float side = e ? 1.0f : -1.0f;
+            th[e] = side * a0 + yaw;
+            const float c = cosf(th[e]);
+            const float shift = MAO_HEAD_TRAVEL_R * (sinf(th[e]) - side * sinf(a0));
+            float *x = e ? &out->rx : &out->lx, *y = e ? &out->ry : &out->ly;
+            float *ww = e ? &out->rw : &out->lw, *hh = e ? &out->rh : &out->lh;
+            *x += shift;
+            *y += dy * c;
+            out->fore[e] = c < MAO_HEAD_MIN_FORE ? 0.0f : c;
+            *ww *= out->fore[e];
+            /* Keep the turned eye inside the circle, as STARBOY's do. */
+            const float edge = fabsf(*x) + *ww * 0.5f;
+            if (edge > MAO_HEAD_EDGE) {
+                *x -= copysignf(edge - MAO_HEAD_EDGE, *x);
+            }
+            *hh *= 0.85f + 0.15f * cp;
+        }
+        out->front = fabsf(th[1]) < fabsf(th[0]) ? 1 : 0;
+    }
 
     out->mouth = mouth;
     out->mx = fx + gx * 0.5f * follow;
@@ -224,10 +266,12 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     const float wx[2] = { wlx, wrx }, wy[2] = { wly, wry };
     float ox[2], oy[2], ph[2];
     for (int e = 0; e < 2; e++) {
+        const float f = out->fore[e];
         ph[e] = L->pupil_h * constrict * (eh[e] / L->eye_h < 1.0f ? eh[e] / L->eye_h : 1.0f);
         ox[e] = px0 + wx[e] * MAO_PUPIL_WOBBLE + (e ? -v[CH_CROSS] : v[CH_CROSS]);
         oy[e] = py0 + wy[e] * MAO_PUPIL_WOBBLE;
         clamp_ellipse(&ox[e], &oy[e], rngx, (eh[e] - ph[e]) * 0.5f - MAO_PUPIL_MARGIN);
+        ox[e] *= f;   /* on a turned eye the iris is foreshortened too */
     }
     out->pw = pw;
     out->plx = out->lx + ox[0];
@@ -244,8 +288,13 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     const float dz = MAO_LID_DEADZONE;
     const float dl = clampf((base + MAO_LID_SQUINT * (sq > 0.0f ? sq : 0.0f) - dz) / (1.0f - dz), 0.0f, MAO_LID_MAX);
     const float dr = clampf((base + MAO_LID_SQUINT * (sq < 0.0f ? -sq : 0.0f) - dz) / (1.0f - dz), 0.0f, MAO_LID_MAX);
-    out->lid_l = out->ly - out->lh * 0.5f + dl * out->lh;
-    out->lid_r = out->ry - out->rh * 0.5f + dr * out->rh;
+    /* Smiling raises the upper lid: the cheeks push up, the brow lifts. */
+    const float lift_lid = 1.0f - clampf(v[CH_SMILE], 0.0f, 1.0f);
+    out->lid_l = out->ly - out->lh * 0.5f + dl * lift_lid * out->lh;
+    out->lid_r = out->ry - out->rh * 0.5f + dr * lift_lid * out->rh;
+    const float ang = clampf(v[CH_LID_ANGLE], -1.0f, 1.0f);
+    out->lid_tilt[0] = ang * lift_lid * MAO_LID_ANGLE_PX * out->lw;
+    out->lid_tilt[1] = ang * lift_lid * MAO_LID_ANGLE_PX * out->rw;
 
     /* Covers: a round lid descends over each eye; fully closed leaves a thin
      * lower crescent. Blinks and sleep use it too. */
@@ -275,8 +324,8 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     /* Blank dark irises lose their highlights. */
     const float shine = L->shine * clampf(1.0f + v[CH_SHINE], 0.0f, 2.5f) * (1.0f - dark);
     out->ss = shine > 0.0f ? pw * MAO_SHINE_SIZE * shine : 0.0f;
-    out->sx[0] = out->plx + pw * 0.20f;
+    out->sx[0] = out->plx + pw * 0.20f * out->fore[0];
     out->sy[0] = out->ply - out->plh * 0.20f;
-    out->sx[1] = out->prx + pw * 0.20f;
+    out->sx[1] = out->prx + pw * 0.20f * out->fore[1];
     out->sy[1] = out->pry - out->prh * 0.20f;
 }

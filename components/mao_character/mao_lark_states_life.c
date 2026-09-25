@@ -52,7 +52,8 @@ static const lark_key_t hm_cl[] = { K(0, 0, LINEAR), K(250, 0.8f, OUT), K(1200, 
                                     K(1800, 0, IN_OUT) };
 static const lark_key_t hm_fy[] = { K(0, 0, LINEAR), K(250, -8.0f, OUT), K(1400, -8.0f, LINEAR), K(1800, 0, IN_OUT) };
 static const lark_key_t hm_tilt[] = { K(0, 0, LINEAR), K(250, -3.0f, OUT), K(1400, -3.0f, LINEAR), K(1800, 0, IN_OUT) };
-static const lark_track_t hmph[] = { TRACK(CH_GAZE_X, hm_gx), TRACK(CH_FACE_X, hm_fx), TRACK(CH_CLOSE, hm_cl),
+static const lark_key_t hmph_la[] = { K(0, 0.30f, LINEAR) };
+static const lark_track_t hmph[] = { TRACK(CH_LID_ANGLE, hmph_la), TRACK(CH_GAZE_X, hm_gx), TRACK(CH_FACE_X, hm_fx), TRACK(CH_CLOSE, hm_cl),
                                      TRACK(CH_FACE_Y, hm_fy), TRACK(CH_TILT, hm_tilt) };
 
 /* greet (event): you're back - a wide-eyed double take, then her rare
@@ -89,7 +90,8 @@ static const lark_key_t lo_gx[] = { K(0, -5.0f, LINEAR), K(2800, -5.0f, LINEAR),
                                     K(4200, -5.0f, IN_OUT), K(4500, -5.0f, LINEAR) };
 static const lark_key_t lo_fy[] = { K(0, 12.0f, LINEAR), K(2250, 15.0f, IN_OUT), K(4500, 12.0f, IN_OUT) };
 static const lark_key_t lo_pu[] = { K(0, 0.35f, LINEAR) };
-static const lark_track_t lonely[] = { TRACK(CH_NARROW, lo_lid), TRACK(CH_GAZE_Y, lo_gy), TRACK(CH_GAZE_X, lo_gx),
+static const lark_key_t lonely_la[] = { K(0, -0.50f, LINEAR) };
+static const lark_track_t lonely[] = { TRACK(CH_LID_ANGLE, lonely_la), TRACK(CH_NARROW, lo_lid), TRACK(CH_GAZE_Y, lo_gy), TRACK(CH_GAZE_X, lo_gx),
                                        TRACK(CH_FACE_Y, lo_fy), TRACK(CH_PUPIL, lo_pu) };
 
 /* peek (one-shot): sinks out of sight below the circle, then slowly rises
@@ -122,7 +124,8 @@ static const lark_key_t po_gy[] = { K(0, 5.0f, LINEAR) };
 static const lark_key_t po_sq[] = { K(0, 0.12f, LINEAR) };
 static const lark_key_t po_fx[] = { K(0, -12.0f, LINEAR) };
 static const lark_key_t po_ew[] = { K(0, 0.06f, LINEAR) };
-static const lark_track_t pout[] = { TRACK(CH_NARROW, po_lid), TRACK(CH_GAZE_X, po_gx), TRACK(CH_GAZE_Y, po_gy),
+static const lark_key_t pout_la[] = { K(0, 0.30f, LINEAR) };
+static const lark_track_t pout[] = { TRACK(CH_LID_ANGLE, pout_la), TRACK(CH_NARROW, po_lid), TRACK(CH_GAZE_X, po_gx), TRACK(CH_GAZE_Y, po_gy),
                                      TRACK(CH_SQUASH, po_sq), TRACK(CH_FACE_X, po_fx), TRACK(CH_EYE_W, po_ew) };
 
 const lark_state_t kLarkLife[] = {

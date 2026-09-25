@@ -38,7 +38,8 @@ static const lark_key_t db_sq[] = { K(0, 0, LINEAR), K(250, 0.7f, OUT), K(1600, 
 static const lark_key_t db_ew[] = { K(0, 0, LINEAR), K(250, 0.05f, OUT), K(1600, 0.05f, LINEAR), K(2000, 0, IN_OUT) };
 static const lark_key_t db_tilt[] = { K(0, 0, LINEAR), K(300, 3.5f, OUT), K(1600, 3.5f, LINEAR), K(2000, 0, IN_OUT) };
 static const lark_key_t db_gx[] = { K(0, 0, LINEAR), K(300, -4.0f, OUT), K(1600, -4.0f, LINEAR), K(2000, 0, IN_OUT) };
-static const lark_track_t doubt[] = { TRACK(CH_SQUINT, db_sq), TRACK(CH_EYE_W, db_ew), TRACK(CH_TILT, db_tilt),
+static const lark_key_t doubt_la[] = { K(0, 0.20f, LINEAR) };
+static const lark_track_t doubt[] = { TRACK(CH_LID_ANGLE, doubt_la), TRACK(CH_SQUINT, db_sq), TRACK(CH_EYE_W, db_ew), TRACK(CH_TILT, db_tilt),
                                       TRACK(CH_GAZE_X, db_gx) };
 
 /* listen: eavesdropping - eyes still, off to the side, lids a touch low,
@@ -61,7 +62,8 @@ static const lark_key_t ca_gy[] = { K(0, -8.0f, LINEAR), K(180, -10.0f, OUT), K(
                                     K(1440, -8.0f, OUT) };
 static const lark_key_t ca_lid[] = { K(0, 0.22f, LINEAR) };
 static const lark_key_t ca_pu[] = { K(0, -0.2f, LINEAR) };
-static const lark_track_t calculate[] = { TRACK(CH_GAZE_X, ca_gx), TRACK(CH_GAZE_Y, ca_gy), TRACK(CH_NARROW, ca_lid),
+static const lark_key_t calculate_la[] = { K(0, 0.15f, LINEAR) };
+static const lark_track_t calculate[] = { TRACK(CH_LID_ANGLE, calculate_la), TRACK(CH_GAZE_X, ca_gx), TRACK(CH_GAZE_Y, ca_gy), TRACK(CH_NARROW, ca_lid),
                                           TRACK(CH_PUPIL, ca_pu) };
 
 /* zoned: gone - a fixed stare into nothing, no micro-movements, the
@@ -109,7 +111,8 @@ static const lark_key_t sy_gy[] = { K(0, 4.0f, LINEAR), K(400, 0, OUT), K(900, 0
                                     K(2200, 6.0f, LINEAR), K(2600, 0, IN_OUT) };
 static const lark_key_t sy_sm[] = { K(0, 0, LINEAR), K(1000, 0.35f, OUT), K(2200, 0.35f, LINEAR), K(2600, 0, IN_OUT) };
 static const lark_key_t sy_fy[] = { K(0, 0, LINEAR), K(1000, 6.0f, OUT), K(2200, 6.0f, LINEAR), K(2600, 0, IN_OUT) };
-static const lark_track_t shy[] = { TRACK(CH_GAZE_X, sy_gx), TRACK(CH_GAZE_Y, sy_gy), TRACK(CH_SMILE, sy_sm),
+static const lark_key_t shy_la[] = { K(0, -0.25f, LINEAR) };
+static const lark_track_t shy[] = { TRACK(CH_LID_ANGLE, shy_la), TRACK(CH_GAZE_X, sy_gx), TRACK(CH_GAZE_Y, sy_gy), TRACK(CH_SMILE, sy_sm),
                                     TRACK(CH_FACE_Y, sy_fy) };
 
 /* proud: she got it right - chin up, lids content, a smile. */
@@ -143,7 +146,8 @@ static const lark_key_t ju_gy[] = { K(0, -6.0f, LINEAR), K(900, 11.0f, IN_OUT), 
 static const lark_key_t ju_lid[] = { K(0, 0.3f, LINEAR), K(2100, 0.3f, LINEAR), K(2600, 0, IN_OUT) };
 static const lark_key_t ju_fy[] = { K(0, -6.0f, LINEAR), K(2600, 0, IN_OUT) };
 static const lark_key_t ju_pu[] = { K(0, -0.2f, LINEAR) };
-static const lark_track_t judge[] = { TRACK(CH_GAZE_Y, ju_gy), TRACK(CH_NARROW, ju_lid), TRACK(CH_FACE_Y, ju_fy),
+static const lark_key_t judge_la[] = { K(0, 0.25f, LINEAR) };
+static const lark_track_t judge[] = { TRACK(CH_LID_ANGLE, judge_la), TRACK(CH_GAZE_Y, ju_gy), TRACK(CH_NARROW, ju_lid), TRACK(CH_FACE_Y, ju_fy),
                                       TRACK(CH_PUPIL, ju_pu) };
 
 /* relief (one-shot): the tension goes - lids drop in a long exhale, then
@@ -151,7 +155,8 @@ static const lark_track_t judge[] = { TRACK(CH_GAZE_Y, ju_gy), TRACK(CH_NARROW, 
 static const lark_key_t rl_cl[] = { K(0, 0, LINEAR), K(500, 0.6f, IN_OUT), K(1200, 0.6f, LINEAR), K(1700, 0, IN_OUT) };
 static const lark_key_t rl_fy[] = { K(0, 0, LINEAR), K(300, -6.0f, IN_OUT), K(1000, 12.0f, IN_OUT), K(2200, 0, IN_OUT) };
 static const lark_key_t rl_sm[] = { K(0, 0, LINEAR), K(1200, 0, LINEAR), K(1600, 0.3f, OUT), K(2200, 0, IN_OUT) };
-static const lark_track_t relief[] = { TRACK(CH_CLOSE, rl_cl), TRACK(CH_FACE_Y, rl_fy), TRACK(CH_SMILE, rl_sm) };
+static const lark_key_t relief_la[] = { K(0, -0.20f, LINEAR) };
+static const lark_track_t relief[] = { TRACK(CH_LID_ANGLE, relief_la), TRACK(CH_CLOSE, rl_cl), TRACK(CH_FACE_Y, rl_fy), TRACK(CH_SMILE, rl_sm) };
 
 /* worry: small darting looks, wide pupils, lids up, a slight tremble. */
 static const lark_key_t wo_gx[] = { K(0, -5.0f, LINEAR), K(400, -5.0f, LINEAR), K(480, 6.0f, OUT), K(1000, 6.0f, LINEAR),
@@ -160,7 +165,8 @@ static const lark_key_t wo_pu[] = { K(0, 0.45f, LINEAR) };
 static const lark_key_t wo_lid[] = { K(0, -0.18f, LINEAR) };
 static const lark_key_t wo_fx[] = { K(0, 0, LINEAR), K(70, 1.2f, LINEAR), K(140, -1.2f, LINEAR), K(210, 0, LINEAR) };
 static const lark_key_t wo_cl[] = { K(0, 0.15f, LINEAR) };
-static const lark_track_t worry[] = { TRACK(CH_GAZE_X, wo_gx), TRACK(CH_PUPIL, wo_pu), TRACK(CH_NARROW, wo_lid),
+static const lark_key_t worry_la[] = { K(0, -0.60f, LINEAR) };
+static const lark_track_t worry[] = { TRACK(CH_LID_ANGLE, worry_la), TRACK(CH_GAZE_X, wo_gx), TRACK(CH_PUPIL, wo_pu), TRACK(CH_NARROW, wo_lid),
                                       TRACK(CH_FACE_X, wo_fx), TRACK(CH_CLOSE, wo_cl) };
 
 /* glint (one-shot): a flicker of gold - she has an idea she likes. */
@@ -187,7 +193,8 @@ static const lark_track_t wakeup[] = { TRACK(CH_CLOSE, wu_cl), TRACK(CH_OPEN, wu
 static const lark_key_t sl_gx[] = { K(0, 0, LINEAR), K(700, 12.0f, IN_OUT), K(3000, 12.0f, LINEAR), K(4200, 0, IN_OUT) };
 static const lark_key_t sl_lid[] = { K(0, 0.18f, LINEAR), K(3000, 0.28f, IN_OUT), K(4200, 0.1f, IN_OUT) };
 static const lark_key_t sl_fx[] = { K(0, 0, LINEAR), K(4200, -6.0f, IN_OUT) };
-static const lark_track_t sidelong[] = { TRACK(CH_GAZE_X, sl_gx), TRACK(CH_NARROW, sl_lid), TRACK(CH_FACE_X, sl_fx) };
+static const lark_key_t sidelong_la[] = { K(0, 0.15f, LINEAR) };
+static const lark_track_t sidelong[] = { TRACK(CH_LID_ANGLE, sidelong_la), TRACK(CH_GAZE_X, sl_gx), TRACK(CH_NARROW, sl_lid), TRACK(CH_FACE_X, sl_fx) };
 
 /* focus: squinting hard at something small, leaning in. */
 static const lark_key_t fo_lid[] = { K(0, 0.28f, LINEAR) };
@@ -196,7 +203,8 @@ static const lark_key_t fo_fy[] = { K(0, 0, LINEAR), K(800, 14.0f, IN_OUT), K(30
 static const lark_key_t fo_gy[] = { K(0, 5.0f, LINEAR) };
 static const lark_key_t fo_pu[] = { K(0, -0.3f, LINEAR) };
 static const lark_key_t fo_gx[] = { K(0, 0, LINEAR), K(1200, 2.0f, IN_OUT), K(2000, -2.0f, IN_OUT), K(3000, 1.0f, IN_OUT) };
-static const lark_track_t focus[] = { TRACK(CH_NARROW, fo_lid), TRACK(CH_SMILE, fo_sm), TRACK(CH_FACE_Y, fo_fy),
+static const lark_key_t focus_la[] = { K(0, 0.20f, LINEAR) };
+static const lark_track_t focus[] = { TRACK(CH_LID_ANGLE, focus_la), TRACK(CH_NARROW, fo_lid), TRACK(CH_SMILE, fo_sm), TRACK(CH_FACE_Y, fo_fy),
                                       TRACK(CH_GAZE_Y, fo_gy), TRACK(CH_PUPIL, fo_pu), TRACK(CH_GAZE_X, fo_gx) };
 
 /* smallsurprise (one-shot): "oh" - a quick widening, then back. */
@@ -219,7 +227,8 @@ static const lark_key_t gw_lid[] = { K(0, 0.45f, LINEAR), K(1800, 0.32f, IN_OUT)
 static const lark_key_t gw_cl[] = { K(0, 0, LINEAR), K(700, 0.9f, IN_OUT), K(1100, 0, IN_OUT) };
 static const lark_key_t gw_pu[] = { K(0, -0.3f, LINEAR), K(2600, 0, IN_OUT) };
 static const lark_key_t gw_fy[] = { K(0, 8.0f, LINEAR), K(2600, 0, IN_OUT) };
-static const lark_track_t grumpywake[] = { TRACK(CH_NARROW, gw_lid), TRACK(CH_CLOSE, gw_cl), TRACK(CH_PUPIL, gw_pu),
+static const lark_key_t grumpywake_la[] = { K(0, 0.40f, LINEAR) };
+static const lark_track_t grumpywake[] = { TRACK(CH_LID_ANGLE, grumpywake_la), TRACK(CH_NARROW, gw_lid), TRACK(CH_CLOSE, gw_cl), TRACK(CH_PUPIL, gw_pu),
                                            TRACK(CH_FACE_Y, gw_fy) };
 
 /* giggle (one-shot): smiling eyes that shake a little. */
@@ -233,7 +242,8 @@ static const lark_track_t giggle[] = { TRACK(CH_SMILE, gi_sm), TRACK(CH_FACE_Y, 
 static const lark_key_t st_lid[] = { K(0, 0.24f, LINEAR) };
 static const lark_key_t st_pu[] = { K(0, -0.15f, LINEAR) };
 static const lark_key_t st_fy[] = { K(0, 0, LINEAR), K(3000, 6.0f, IN_OUT), K(6000, 0, IN_OUT) };
-static const lark_track_t stare[] = { TRACK(CH_NARROW, st_lid), TRACK(CH_PUPIL, st_pu), TRACK(CH_FACE_Y, st_fy) };
+static const lark_key_t stare_la[] = { K(0, 0.10f, LINEAR) };
+static const lark_track_t stare[] = { TRACK(CH_LID_ANGLE, stare_la), TRACK(CH_NARROW, st_lid), TRACK(CH_PUPIL, st_pu), TRACK(CH_FACE_Y, st_fy) };
 
 const lark_state_t kLarkMore[] = {
     /*     name             length  in  curve   flags  base bored agit aff  next    tracks */

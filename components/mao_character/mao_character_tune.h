@@ -40,8 +40,23 @@ typedef struct {
 /* Pupil looks (pupil_w > 0). Gaze moves the pupils; the eyeballs follow a
  * little; the lids are background-coloured with a flat lower edge. */
 #define MAO_LID_COLOR        0x08080A   /* = the UI background */
-#define MAO_PUPIL_GAIN       1.9f    /* pupil px per gaze px */
-#define MAO_SCLERA_FOLLOW    0.30f   /* eyeball px per gaze px */
+#define MAO_PUPIL_GAIN       1.2f    /* pupil px per gaze px (the head turns too) */
+#define MAO_SCLERA_FOLLOW    0.0f    /* eyeball px per gaze px (the head carries them now) */
+/* Pseudo-3D head (after STARBOY / Lark): the eyes sit on a sphere, so a look
+ * is a head turn - the eyes slide, the one nearer the edge foreshortens and,
+ * turned far enough, tucks behind the near one. The head follows the gaze
+ * on a slower spring: the pupils lead, the head follows. */
+#define MAO_HEAD_R           118.0f  /* sphere radius, px (sets the eyes' angles) */
+#define MAO_HEAD_TRAVEL_R    80.0f   /* radius for sideways travel: turns stay inside the screen */
+#define MAO_HEAD_EDGE        112.0f  /* an eye's outer edge never goes past this */
+#define MAO_HEAD_YAW_GAIN    0.042f  /* rad of head turn per gaze px */
+#define MAO_HEAD_PITCH_GAIN  0.030f
+#define MAO_HEAD_PITCH_SHIFT 0.70f   /* vertical travel per unit of sin(pitch) x R */
+#define MAO_HEAD_MIN_FORE    0.10f   /* an eye this foreshortened is behind the limb */
+#define MAO_P_HEAD           ((mao_spring_profile_t){ .k = 120.0f, .zeta = 0.82f })   /* ~350 ms turns */
+#define MAO_LID_ANGLE_PX     0.55f   /* lid slope px per px of eye width at angle 1 */
+#define MAO_BLINK_DIP        3.0f    /* px the eyes sink as they close */
+#define MAO_BLINK_SQUASH     0.10f   /* height lost at a full blink */
 #define MAO_PUPIL_MARGIN     3.0f    /* pupil keeps this far inside the eyeball */
 #define MAO_PUPIL_ORBIT      1.10f   /* pupils roll around the eyeball while orbiting */
 #define MAO_PUPIL_WOBBLE     2.6f    /* pupils drift apart when dizzy, x wobble */
@@ -198,6 +213,6 @@ typedef struct {
 #define MAO_SLIT_MIN         0.18f   /* core width left at a full slit */
 #define MAO_STAR_COLOR       0xF5D24A   /* the greedy gold star */
 #define MAO_SLIT_MIN         0.18f   /* core width left at a full slit */
-#define MAO_SMILE_MAX        0.55f   /* how far the lower lids can rise, x eye height */
+#define MAO_SMILE_MAX        0.92f   /* how far the lower lids can rise, x eye height */
 #define MAO_P_SHAPE          ((mao_spring_profile_t){ .k = 160.0f, .zeta = 0.75f })
 #define MAO_P_CLOSE          ((mao_spring_profile_t){ .k = 420.0f, .zeta = 0.85f })   /* lids: quick, no bounce */

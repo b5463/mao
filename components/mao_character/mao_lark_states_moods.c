@@ -9,8 +9,8 @@
 #include "mao_lark_author.h"
 
 /* purr: content, eyes squeezed into smiling slits, a tiny vibration. */
-static const lark_key_t pu_sm[] = { K(0, 0.55f, LINEAR) };
-static const lark_key_t pu_cl[] = { K(0, 0.45f, LINEAR), K(1600, 0.52f, IN_OUT), K(3200, 0.45f, IN_OUT) };
+static const lark_key_t pu_sm[] = { K(0, 0.86f, LINEAR), K(1600, 0.92f, IN_OUT), K(3200, 0.86f, IN_OUT) };
+static const lark_key_t pu_cl[] = { K(0, 0.0f, LINEAR) };
 static const lark_key_t pu_fx[] = { K(0, 0, LINEAR), K(45, 1.6f, LINEAR), K(90, -1.6f, LINEAR), K(135, 0, LINEAR) };
 static const lark_key_t pu_fy[] = { K(0, 2.0f, LINEAR) };
 static const lark_track_t purr[] = { TRACK(CH_SMILE, pu_sm), TRACK(CH_CLOSE, pu_cl), TRACK(CH_FACE_X, pu_fx),
@@ -53,7 +53,8 @@ static const lark_key_t ti_fy[] = { K(0, 4.0f, LINEAR), K(800, 8.0f, IN_OUT), K(
                                     K(3200, 4.0f, IN_OUT) };
 static const lark_key_t ti_wob[] = { K(0, 2.5f, LINEAR) };
 static const lark_key_t ti_gy[] = { K(0, 3.0f, LINEAR) };
-static const lark_track_t tipsy[] = { TRACK(CH_NARROW, ti_lid), TRACK(CH_SMILE, ti_sm), TRACK(CH_TILT, ti_tilt),
+static const lark_key_t tipsy_la[] = { K(0, -0.25f, LINEAR) };
+static const lark_track_t tipsy[] = { TRACK(CH_LID_ANGLE, tipsy_la), TRACK(CH_NARROW, ti_lid), TRACK(CH_SMILE, ti_sm), TRACK(CH_TILT, ti_tilt),
                                       TRACK(CH_FACE_X, ti_fx), TRACK(CH_FACE_Y, ti_fy), TRACK(CH_WOBBLE, ti_wob),
                                       TRACK(CH_GAZE_Y, ti_gy) };
 
@@ -64,7 +65,8 @@ static const lark_key_t sa_sh[] = { K(0, 0.6f, LINEAR) };
 static const lark_key_t sa_gy[] = { K(0, 8.0f, LINEAR), K(2000, 9.0f, IN_OUT), K(4000, 8.0f, IN_OUT) };
 static const lark_key_t sa_fy[] = { K(0, 14.0f, LINEAR), K(2000, 17.0f, IN_OUT), K(4000, 14.0f, IN_OUT) };
 static const lark_key_t sa_tilt[] = { K(0, 2.0f, LINEAR) };
-static const lark_track_t sad[] = { TRACK(CH_NARROW, sa_lid), TRACK(CH_PUPIL, sa_pu), TRACK(CH_SHINE, sa_sh),
+static const lark_key_t sad_la[] = { K(0, -0.70f, LINEAR) };
+static const lark_track_t sad[] = { TRACK(CH_LID_ANGLE, sad_la), TRACK(CH_NARROW, sa_lid), TRACK(CH_PUPIL, sa_pu), TRACK(CH_SHINE, sa_sh),
                                     TRACK(CH_GAZE_Y, sa_gy), TRACK(CH_FACE_Y, sa_fy), TRACK(CH_TILT, sa_tilt) };
 
 /* ======================================================================== */

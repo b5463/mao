@@ -71,7 +71,8 @@ static const lark_key_t ca_slit[] = { K(0, 0.25f, LINEAR) };
 static const lark_key_t ca_lid[] = { K(0, 0.22f, LINEAR) };
 static const lark_key_t ca_pu[] = { K(0, -0.25f, LINEAR) };
 static const lark_key_t ca_eh[] = { K(0, -0.08f, LINEAR) };
-static const lark_track_t cat_annoyed[] = { TRACK(CH_SLIT, ca_slit), TRACK(CH_NARROW, ca_lid), TRACK(CH_PUPIL, ca_pu),
+static const lark_key_t cat_annoyed_la[] = { K(0, 0.50f, LINEAR) };
+static const lark_track_t cat_annoyed[] = { TRACK(CH_LID_ANGLE, cat_annoyed_la), TRACK(CH_SLIT, ca_slit), TRACK(CH_NARROW, ca_lid), TRACK(CH_PUPIL, ca_pu),
                                             TRACK(CH_EYE_H, ca_eh) };
 
 /* cat_startle (one-shot): ears flat, huge round pupils, a jump. */
@@ -100,8 +101,8 @@ static const lark_key_t cb_sm[] = { K(0, 0, LINEAR), K(500, 0.3f, IN_OUT), K(110
 static const lark_track_t cat_slowblink[] = { TRACK(CH_CLOSE, cb_cl), TRACK(CH_SMILE, cb_sm) };
 
 /* cat_purr: smiling slits, ears soft, a fine vibration. */
-static const lark_key_t cr_sm[] = { K(0, 0.5f, LINEAR) };
-static const lark_key_t cr_cl[] = { K(0, 0.5f, LINEAR), K(1600, 0.58f, IN_OUT), K(3200, 0.5f, IN_OUT) };
+static const lark_key_t cr_sm[] = { K(0, 0.88f, LINEAR) };
+static const lark_key_t cr_cl[] = { K(0, 0.0f, LINEAR) };
 static const lark_key_t cr_fx[] = { K(0, 0, LINEAR), K(45, 1.6f, LINEAR), K(90, -1.6f, LINEAR), K(135, 0, LINEAR) };
 static const lark_track_t cat_purr[] = { TRACK(CH_SMILE, cr_sm), TRACK(CH_CLOSE, cr_cl),
                                          TRACK(CH_FACE_X, cr_fx) };
@@ -154,7 +155,8 @@ static const lark_key_t cgl_slit[] = { K(0, 0.25f, LINEAR) };
 static const lark_key_t cgl_pu[] = { K(0, -0.25f, LINEAR) };
 static const lark_key_t cgl_fy[] = { K(0, 18.0f, LINEAR) };
 static const lark_key_t cgl_sm[] = { K(0, 0.2f, LINEAR) };
-static const lark_track_t cat_glare[] = { TRACK(CH_NARROW, cgl_lid), TRACK(CH_SLIT, cgl_slit),
+static const lark_key_t cat_glare_la[] = { K(0, 0.50f, LINEAR) };
+static const lark_track_t cat_glare[] = { TRACK(CH_LID_ANGLE, cat_glare_la), TRACK(CH_NARROW, cgl_lid), TRACK(CH_SLIT, cgl_slit),
                                           TRACK(CH_PUPIL, cgl_pu), TRACK(CH_FACE_Y, cgl_fy), TRACK(CH_SMILE, cgl_sm) };
 
 /* cat_eat (one-shot): something tasty - eyes closed in soft curves, a

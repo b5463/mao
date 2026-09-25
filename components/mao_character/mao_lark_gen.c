@@ -260,14 +260,12 @@ void lark_gen_happy(lark_gen_t *g)
         h *= lark_rand(0.5f, 0.75f);
     }
     const uint32_t len = t + u32r(700, 1300);
-    hold(g, CH_SMILE, 0, len - 450, lark_rand(0.55f, 0.8f), 160, 450);
+    hold(g, CH_SMILE, 0, len - 450, lark_rand(0.85f, 1.0f), 160, 450);   /* ^ ^ */
     hold(g, CH_SHINE, 0, len - 450, lark_rand(0.3f, 0.7f), 160, 450);
     if (lark_chance(0.6f)) {
         hold(g, CH_TILT, u32r(100, 300), len - 500, lark_rand(2.0f, 4.5f) * sgn(), 250, 450);
     }
-    if (lark_chance(0.35f)) {
-        hold(g, CH_CLOSE, 0, len - 500, lark_rand(0.2f, 0.4f), 160, 400);   /* squeezed with it */
-    }
+
     lark_gen_end(g, len);
 }
 
@@ -302,6 +300,7 @@ void lark_gen_tsk(lark_gen_t *g)
     const uint32_t t0 = u32r(0, 120);
     const uint32_t end = shake(g, fx, t0, (int)u32r(2, 4), lark_rand(10.0f, 16.0f), lark_rand(0.55f, 0.8f), u32r(200, 280));
     hold(g, CH_NARROW, 0, end + u32r(100, 400), lark_rand(0.2f, 0.36f), 150, 250);
+    hold(g, CH_LID_ANGLE, 0, end, lark_rand(0.2f, 0.45f), 150, 300);
     hold(g, CH_GAZE_Y, 0, end, lark_rand(1.0f, 4.0f), 150, 250);
     if (lark_chance(0.4f)) {
         hold(g, CH_SQUINT, 0, end, lark_rand(0.3f, 0.6f) * sgn(), 150, 250);
@@ -318,6 +317,7 @@ void lark_gen_mad(lark_gen_t *g)
     hold(g, CH_NARROW, 0, glare, lark_rand(0.18f, 0.3f), 100, 500);
     hold(g, CH_PUPIL, 0, glare, -lark_rand(0.25f, 0.45f), 100, 500);
     hold(g, CH_TINT_RED, 0, glare - 300, lark_rand(0.5f, 0.85f), 150, 600);
+    hold(g, CH_LID_ANGLE, 0, glare, lark_rand(0.55f, 0.85f), 120, 500);
     hold(g, CH_GAZE_Y, 0, glare, lark_rand(2.0f, 5.0f), 200, 400);
     hold(g, CH_FACE_Y, end, glare, -lark_rand(4.0f, 8.0f), 250, 400);
     if (lark_chance(0.5f)) {
@@ -484,6 +484,7 @@ void lark_gen_flustered(lark_gen_t *g)
     constant(g, CH_OPEN, 0.14f);
     constant(g, CH_NARROW, -0.26f);
     constant(g, CH_PUPIL, -0.45f);
+    constant(g, CH_LID_ANGLE, -0.45f);
     tremble(g, len, lark_rand(1.5f, 3.0f), u32r(100, 140));
     lark_gen_end(g, len);
 }
@@ -495,6 +496,7 @@ void lark_gen_anxious(lark_gen_t *g)
     constant(g, CH_CLOSE, lark_rand(0.3f, 0.45f));
     constant(g, CH_SMILE, 0.25f);
     constant(g, CH_PUPIL, -0.55f);
+    constant(g, CH_LID_ANGLE, -0.5f);
     tremble(g, len, lark_rand(1.5f, 2.8f), u32r(90, 130));
     lark_gen_end(g, len);
 }

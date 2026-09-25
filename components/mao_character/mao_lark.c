@@ -122,7 +122,7 @@ static uint32_t play_ms(const view_t *vw, const lark_variant_t *v)
 /* Channels a mirrored variant flips, and channels its amplitude scales. */
 static bool mirrored_ch(int ch)
 {
-    return ch == CH_GAZE_X || ch == CH_FACE_X || ch == CH_TILT || ch == CH_SQUINT || ch == CH_WINK;
+    return ch == CH_GAZE_X || ch == CH_FACE_X || ch == CH_TILT || ch == CH_SQUINT || ch == CH_WINK || ch == CH_HEAD_YAW;
 }
 
 static bool amp_ch(int ch)

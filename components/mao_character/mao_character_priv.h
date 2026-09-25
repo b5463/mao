@@ -40,6 +40,9 @@ typedef enum {
     CH_STAR,         /* 0..1 a gold four-point star in each iris (greed) */
     CH_DARK,         /* 0..1 irises go dark and blank (shock, horror) */
     CH_CROSS,        /* px the pupils converge (cross-eyed), - diverge */
+    CH_HEAD_YAW,     /* rad, added head turn (+ = towards screen right) */
+    CH_LID_ANGLE,    /* upper lid slope: + inner corners down (cross), - outer down (sad) */
+    CH_HEAD_PITCH,   /* rad, added head nod (+ = looking down) */
     CH_COUNT,
 } mao_channel_t;
 
@@ -60,6 +63,7 @@ typedef struct {
     float wobble_phase_l, wobble_phase_r;
     float breath_phase;
     float layer[CH_COUNT];   /* additive expression layer (mao_lark.c) */
+    mao_spring_t head_yaw, head_pitch;   /* the head follows the gaze, slower */
 } mao_motion_t;
 
 typedef struct {
@@ -82,6 +86,9 @@ typedef struct {
     bool cover_on;
     float sx[2], sy[2], ss;      /* catchlight centres and diameter (0 = none) */
     uint32_t pupil_color;
+    float fore[2];               /* per-eye horizontal foreshortening (1 = facing) */
+    float lid_tilt[2];           /* px the lid's inner end sits below its outer end */
+    uint8_t front;               /* eye drawn on top (the nearer one) */
 } mao_pose_t;
 
 void mao_motion_init(mao_motion_t *m, const mao_look_t *look);
@@ -125,6 +132,8 @@ typedef struct {
     lv_obj_t *lid[2];
     lv_obj_t *cover[2];
     lv_obj_t *lower[2];
+    lv_point_precise_t lid_pts[2][4];
+    lv_point_precise_t low_pts[2][14];
     lv_obj_t *core[2];
     lv_obj_t *shine[4];          /* big + small catchlight per eye */
     lv_obj_t *mouth;
@@ -142,6 +151,7 @@ typedef struct {
     mao_mouth_t last_mouth_kind;
     uint32_t last_color;
     uint32_t last_pupil_color;
+    uint8_t front;
 } mao_char_draw_t;
 
 esp_err_t mao_char_draw_create(mao_char_draw_t *d, lv_obj_t *parent);

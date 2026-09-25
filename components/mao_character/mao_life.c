@@ -343,6 +343,7 @@ void mao_life_update(mao_life_t *l, mao_lark_t *lark, mao_motion_t *m, uint32_t 
                           - 0.26f * powf(l->arousal, 0.7f);
         add[CH_PUPIL] += 0.40f * l->arousal - 0.15f * l->irritation - 0.08f * calm;
         add[CH_SMILE] += 0.26f * l->affection * (1.0f - l->irritation) * calm;
+        add[CH_LID_ANGLE] += 0.40f * l->irritation - 0.25f * l->boredom * (1.0f - l->irritation);
     }
 
     /* Cat mode: slit pupils and almond eyes. */
