@@ -261,7 +261,7 @@ static void on_menu(const mao_event_t *ev, int64_t now)
         ESP_LOGI(TAG, "open %s", mao_ui_menu_label(st->menu_index));
         mao_audio_confirm();
         mao_led_pulse(MAO_LED_PULSE_CONFIRM);
-        go_view(st->menu_index == MAO_MENU_DEVICES ? MAO_VIEW_DEVICES : MAO_VIEW_PLACEHOLDER);
+        go_view(mao_ui_menu_id(st->menu_index) == MAO_MENU_ID_DEVICES ? MAO_VIEW_DEVICES : MAO_VIEW_PLACEHOLDER);
         break;
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_audio_back();

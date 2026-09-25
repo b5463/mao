@@ -26,7 +26,18 @@ static const char *TAG = "MAO_UI";
 #define HOME_RETURN_DELAY 150    /* MAO rises only once the words have collapsed */
 #define DEVICES_ENTER_DELAY 120  /* a new text layer opens once the previous one has cleared */
 
-static const char *const kMenuItems[] = { "DEVICES", "ACTIONS", "TOOLS", "SETUP" };
+/* Display order lives here alone; each entry carries its identity, so
+ * reordering this table cannot break navigation. */
+typedef struct {
+    const char *label;
+    mao_menu_id_t id;
+} menu_entry_t;
+static const menu_entry_t kMenuItems[] = {
+    { "DEVICES", MAO_MENU_ID_DEVICES },
+    { "ACTIONS", MAO_MENU_ID_ACTIONS },
+    { "TOOLS",   MAO_MENU_ID_TOOLS },
+    { "SETUP",   MAO_MENU_ID_SETUP },
+};
 #define MENU_COUNT ((int)(sizeof(kMenuItems) / sizeof(kMenuItems[0])))
 
 static mao_view_t s_shown = MAO_VIEW_HOME;   /* rendering bookkeeping only */
@@ -200,7 +211,12 @@ int mao_ui_menu_count(void)
 
 const char *mao_ui_menu_label(int index)
 {
-    return (index >= 0 && index < MENU_COUNT) ? kMenuItems[index] : "";
+    return (index >= 0 && index < MENU_COUNT) ? kMenuItems[index].label : "";
+}
+
+mao_menu_id_t mao_ui_menu_id(int index)
+{
+    return (index >= 0 && index < MENU_COUNT) ? kMenuItems[index].id : MAO_MENU_ID_SETUP;
 }
 
 esp_err_t mao_ui_init(mao_view_t initial_view)

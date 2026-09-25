@@ -26,8 +26,17 @@ typedef enum {
     MAO_VIEW_DEVICE,         /* generic control view for one device */
 } mao_view_t;
 
-/* Menu entries (index into the shell). */
-#define MAO_MENU_DEVICES 0
+/* Semantic menu entry identities. Navigation decisions use these, never a
+ * positional index: the menu can be reordered without breaking anything. */
+typedef enum {
+    MAO_MENU_ID_DEVICES = 0,
+    MAO_MENU_ID_ACTIONS,
+    MAO_MENU_ID_TOOLS,
+    MAO_MENU_ID_SETUP,
+} mao_menu_id_t;
+
+/* The semantic id of the menu entry at a display position. */
+mao_menu_id_t mao_ui_menu_id(int index);
 
 #define MAO_UI_DEVICES_MAX 8
 
