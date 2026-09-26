@@ -75,7 +75,22 @@ typedef struct {
     bool editing;        /* LEVEL edit: the dial changes the value */
     bool connect_hidden;     /* no CONNECT on this page (a device not yet part of the setup) */
     bool no_centre;          /* no live control to show: the status word takes the centre */
+    const char *rel_word;    /* quiet relationship word below CONNECT (NULL = none);
+                              * focus word_count + 2 */
 } mao_ui_device_t;
+
+/* A sheet over the device page: the page recedes, a question or a detail
+ * appears with at most two words. Plain typography, near-black, no card. */
+typedef struct {
+    bool on;
+    bool hide_title;         /* a question replaces the page heading */
+    const char *line1;       /* small, quiet */
+    const char *line2;       /* the subject */
+    const char *words[2];
+    int8_t word_count;
+    int8_t focus;            /* index into words */
+} mao_ui_sheet_t;
+void mao_ui_device_sheet(const mao_ui_sheet_t *sheet);
 
 /* Tool feedback on the centre word: the word itself answers the physical
  * button, before and regardless of the character (no network latency). */

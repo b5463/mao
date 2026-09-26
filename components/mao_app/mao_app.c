@@ -67,11 +67,12 @@ static int64_t s_last_bump_us;
  * (level value, or the primary action), then the words row (POWER, then the
  * remaining actions). Focus is an index into this list. */
 typedef struct {
-    uint8_t kind;   /* 0 centre-level, 1 centre-action, 2 toggle word, 3 action word, 4 CONNECT */
+    uint8_t kind;   /* 0 centre-level, 1 centre-action, 2 toggle word, 3 action word, 4 CONNECT,
+                     * 6 relationship word (INFO / FORGET) */
     int idx;        /* caps[] index (levels/toggles) or action list index (actions) */
 } devctl_t;
 
-#define DEVCTL_MAX (3 + MAO_CONTROLS_MAX_ACTIONS)
+#define DEVCTL_MAX (4 + MAO_CONTROLS_MAX_ACTIONS)
 
 static int build_controls(const mao_device_controls_t *ctl, devctl_t out[DEVCTL_MAX])
 {
@@ -92,7 +93,39 @@ static int build_controls(const mao_device_controls_t *ctl, devctl_t out[DEVCTL_
     /* CONNECT is MAO's own relationship action: always last, selectable like
      * any word (single press), so no gesture ever overloads the shutter. */
     out[n++] = (devctl_t) { .kind = 4, .idx = -1 };
+    /* Relationship management: one step deeper, never next to the shutter. */
+    out[n++] = (devctl_t) { .kind = 6, .idx = -1 };
     return n;
+}
+
+/* Control-list index -> the UI's focus numbering (0 centre, 1.. words,
+ * words + 1 CONNECT, words + 2 relationship word). */
+static int8_t ui_focus(const devctl_t *list, int n, int focus)
+{
+    int words = 0;
+    for (int i = 0; i < n; i++) {
+        words += list[i].kind == 2 || list[i].kind == 3;
+    }
+    words = words > MAO_UI_DEVICE_WORDS ? MAO_UI_DEVICE_WORDS : words;
+    if (focus < 0 || focus >= n) {
+        return 0;
+    }
+    switch (list[focus].kind) {
+    case 0:
+    case 1:
+        return 0;
+    case 4:
+        return (int8_t)(words + 1);
+    case 6:
+        return (int8_t)(words + 2);
+    default: {
+        int w = 0;
+        for (int i = 0; i < focus; i++) {
+            w += list[i].kind == 2 || list[i].kind == 3;
+        }
+        return (int8_t)(w + 1);
+    }
+    }
 }
 
 /* The device says whether its primary operation is possible right now. */
@@ -193,6 +226,7 @@ static void refresh_device_panel(void)
         s_dev_edit = false;
         mao_rel_page_reset();
     }
+    mao_rel_sheet_draw(&w);
     if (kind != MAO_DEVPAGE_CONTROL) {
         mao_rel_page_draw(kind, &w);
         return;
@@ -217,15 +251,16 @@ static void refresh_device_panel(void)
         .online = dev.online,
         .problem = dev.link_problem,
         .described = dev.described,
-        .focus = s_dev_focus,
+        .focus = ui_focus(list, n, s_dev_focus),
         .editing = s_dev_edit,
+        .rel_word = mao_rel_word(),
     };
     /* Everything below is derived from capabilities and generic semantic
      * names - no product knowledge anywhere. */
     static char storage_txt[16];
     for (int i = 0; i < n; i++) {
-        if (list[i].kind == 4) {
-            continue;   /* CONNECT has its own place at the bottom */
+        if (list[i].kind == 4 || list[i].kind == 6) {
+            continue;   /* CONNECT and the relationship word have their own places */
         }
         const char *label =
             list[i].kind == 2 ? "POWER" : odd_action_semantic_name(ctl.action_sem[list[i].idx]);
@@ -529,6 +564,10 @@ static void on_device(const mao_event_t *ev, int64_t now)
 {
     mao_world_entry_t w;
     const mao_devpage_t kind = mao_devpage(mao_state()->device_id, &w);
+    if (mao_rel_sheet_open() && kind != MAO_DEVPAGE_NONE) {
+        mao_rel_sheet_input(&w, ev);     /* a question is open: it owns the knob */
+        return;
+    }
     if (kind != MAO_DEVPAGE_CONTROL) {
         /* Not part of the setup (or gone): only relationship words exist. */
         mao_rel_page_input(kind, &w, ev,
@@ -641,6 +680,8 @@ static void on_device(const mao_event_t *ev, int64_t now)
                     mao_ui_device_feedback(MAO_UI_FB_BUSY);
                 }
             }
+        } else if (c->kind == 6) {
+            mao_rel_word_activate(&w);
         } else if (c->kind == 4) {
             /* CONNECT: MAO visits the device. Works offline too - the attempt
              * fails honestly (the failed escape), which is the answer. */
@@ -1098,6 +1139,7 @@ esp_err_t mao_app_init(void)
     mao_audio_set_volume(cfg->volume);
     mao_character_set_detents_per_rev(mao_input_detents_per_rev());
     ESP_RETURN_ON_ERROR(mao_ui_init(first_view), TAG, "ui");
+    mao_rel_init_dev();
     ESP_RETURN_ON_ERROR(mao_event_subscribe(on_event, NULL), TAG, "subscribe");
     ESP_RETURN_ON_ERROR(mao_display_start(cfg->brightness), TAG, "display start");
     ESP_LOGI(TAG, "app ready: view %s, sleepy after %d s", mao_ui_view_name(first_view),

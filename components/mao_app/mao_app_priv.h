@@ -94,6 +94,16 @@ void mao_rel_page_draw(mao_devpage_t kind, const mao_world_entry_t *w);
  * the page-entry guard. */
 bool mao_rel_page_input(mao_devpage_t kind, const mao_world_entry_t *w, const mao_event_t *ev, bool guarded);
 
+/* Relationship management on a KNOWN device page. Layout A: a quiet FORGET
+ * word after CONNECT opens the confirmation directly. Layout B (default):
+ * a quiet INFO word opens a details sheet; FORGET lives there. */
+const char *mao_rel_word(void);
+void mao_rel_word_activate(const mao_world_entry_t *w);
+bool mao_rel_sheet_open(void);
+void mao_rel_sheet_input(const mao_world_entry_t *w, const mao_event_t *ev);
+void mao_rel_sheet_draw(const mao_world_entry_t *w);
+void mao_rel_init_dev(void);
+
 /* Defined in mao_app.c for mao_app_rel.c. */
 void mao_app_dev_refresh(void);
 void mao_app_go_devices(void);

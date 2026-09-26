@@ -33,6 +33,11 @@
 #define PANEL_CTRL_LOW_Y  60.0f    /* control words row when facts exist */
 #define PANEL_STATUS_Y    62.0f
 #define PANEL_CONNECT_Y   86.0f
+#define PANEL_REL_Y       107.0f   /* the relationship word, one step quieter than CONNECT */
+#define SHEET_L1_Y        -36.0f
+#define SHEET_L2_Y        -8.0f
+#define SHEET_WORDS_Y     44.0f
+#define SHEET_WORD_DX     46.0f
 #define OFFLINE_SCALE     0.45f
 #define NEW_SCALE         0.70f    /* nearby but not yet known: present, not yet at home */
 
@@ -63,6 +68,11 @@ typedef struct {
     lv_obj_t *primary;          /* the centre word (a device's primary action) */
     lv_obj_t *word[MAO_UI_DEVICE_WORDS];      /* the other control words */
     lv_obj_t *fact_l, *fact_r;  /* read-only facts line */
+    lv_obj_t *rel;              /* relationship word (INFO / FORGET) */
+    lv_obj_t *sh_l1, *sh_l2, *sh_w[2];
+    mao_text_cache_t crel, csl1, csl2, csw[2];
+    mao_ui_sheet_t sheet;
+    mao_spring_t sh;            /* sheet presence 0..1 */
     mao_text_cache_t ct, cv, cst, cc, cpr, cw[MAO_UI_DEVICE_WORDS], cfl, cfr;
     int8_t focus;
     int8_t word_count;
@@ -71,6 +81,7 @@ typedef struct {
     bool fact_l_on, fact_r_on, fact_r_emph;
     bool connect_hidden;
     bool no_centre;
+    bool has_rel;
     mao_spring_t cdy, cdx;      /* centre word tool-feedback offsets, px */
     mao_spring_t fdy;           /* storage number change: a small settle, px */
     mao_spring_t presence;
@@ -216,13 +227,31 @@ void mao_ui_devices_bump(int direction)
 /* Device view                                                            */
 /* ---------------------------------------------------------------------- */
 
+static void sheet_layout(float p0, float s)
+{
+    const float a = p0 * s;
+    const float rise = (1.0f - s) * 8.0f;
+    mao_ui_text_place(s_panel.sh_l1, 0.0f, SHEET_L1_Y + rise, MAO_OPA_SECONDARY * a, &s_panel.csl1);
+    mao_ui_text_place(s_panel.sh_l2, 0.0f, SHEET_L2_Y + rise, 235.0f * a, &s_panel.csl2);
+    const int n = s_panel.sheet.word_count;
+    for (int i = 0; i < 2; i++) {
+        const float x = n == 2 ? (i == 0 ? -SHEET_WORD_DX : SHEET_WORD_DX) : 0.0f;
+        const float o = i < n ? (s_panel.sheet.focus == i ? 255.0f : (float)MAO_OPA_CONTEXT) : 0.0f;
+        mao_ui_text_place(s_panel.sh_w[i], x, SHEET_WORDS_Y + rise, o * a, &s_panel.csw[i]);
+    }
+}
+
 static void panel_layout(void)
 {
-    const float p = clampf(s_panel.presence.x, 0.0f, 1.0f);
+    const float p0 = clampf(s_panel.presence.x, 0.0f, 1.0f);
+    const float s = clampf(s_panel.sh.x, 0.0f, 1.0f);
+    const float p = p0 * (1.0f - s);          /* the page recedes under a sheet */
     const float hot = clampf(s_panel.hot.x, 0.0f, 1.0f);
     /* The name IS the selected list row, moved deeper: it travels from its
      * list position up to the heading, and back again on the way out. */
-    mao_ui_text_place(s_panel.title, 0.0f, s_panel.ty.x, 150.0f * p, &s_panel.ct);
+    mao_ui_text_place(s_panel.title, 0.0f, s_panel.ty.x,
+                      150.0f * p0 * (s_panel.sheet.hide_title ? 1.0f - s : 1.0f), &s_panel.ct);
+    sheet_layout(p0, s);
     /* Focus is typography: the focused control is bright, the others recede.
      * The centre is the level value or the primary action word; editing
      * lifts the value a pixel at full presence. */
@@ -275,6 +304,33 @@ static void panel_layout(void)
     mao_ui_text_place(s_panel.connect, 0.0f, PANEL_CONNECT_Y + (1.0f - p) * 6.0f - hot * 2.0f,
                       s_panel.connect_hidden ? 0.0f : (100.0f + 155.0f * ch) * smooth01((p - 0.5f) / 0.5f),
                       &s_panel.cc);
+    /* Relationship management lives one step below the controls, quieter
+     * still: it must never compete with CAPTURE. */
+    const bool rfocus = s_panel.focus == s_panel.word_count + 2;
+    mao_ui_text_place(s_panel.rel, 0.0f, PANEL_REL_Y + (1.0f - p) * 6.0f,
+                      s_panel.has_rel ? (rfocus ? 255.0f : 70.0f) * smooth01((p - 0.5f) / 0.5f) : 0.0f,
+                      &s_panel.crel);
+}
+
+void mao_ui_device_sheet(const mao_ui_sheet_t *sheet)
+{
+    if (!mao_display_lock(0)) {
+        return;
+    }
+    if (sheet->on) {
+        s_panel.sheet = *sheet;
+        set_text(s_panel.sh_l1, sheet->line1 ? sheet->line1 : "");
+        set_text(s_panel.sh_l2, sheet->line2 ? sheet->line2 : "");
+        for (int i = 0; i < 2; i++) {
+            set_text(s_panel.sh_w[i], i < sheet->word_count && sheet->words[i] ? sheet->words[i] : "");
+        }
+        /* the text lives in the labels; keep no pointers to the caller's strings */
+        s_panel.sheet.line1 = s_panel.sheet.line2 = NULL;
+        s_panel.sheet.words[0] = s_panel.sheet.words[1] = NULL;
+    }
+    s_panel.sh.target = sheet->on ? 1.0f : 0.0f;
+    mao_ui_wake();
+    mao_display_unlock();
 }
 
 void mao_ui_device_feedback(mao_ui_fb_t fb)
@@ -344,6 +400,10 @@ void mao_ui_device_update(const mao_ui_device_t *m)
     s_panel.editing = m->editing;
     s_panel.connect_hidden = m->connect_hidden;
     s_panel.no_centre = m->no_centre;
+    s_panel.has_rel = m->rel_word != NULL;
+    if (m->rel_word) {
+        set_text(s_panel.rel, m->rel_word);
+    }
     s_panel.has_value = m->primary == NULL;
     if (m->no_centre) {
         lv_obj_add_flag(s_panel.value, LV_OBJ_FLAG_HIDDEN);
@@ -430,6 +490,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     mao_spring_step(&s_panel.cdy, dt);
     mao_spring_step(&s_panel.cdx, dt);
     mao_spring_step(&s_panel.fdy, dt);
+    mao_spring_step(&s_panel.sh, dt);
     list_layout(now);
     panel_layout();
 
@@ -440,7 +501,8 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
            !mao_spring_settled(&s_panel.presence, 0.002f) || !mao_spring_settled(&s_panel.ty, 0.05f) ||
            !mao_spring_settled(&s_panel.hot, 0.005f) || !mao_spring_settled(&s_panel.cdy, 0.05f) ||
-           !mao_spring_settled(&s_panel.cdx, 0.05f) || !mao_spring_settled(&s_panel.fdy, 0.05f);
+           !mao_spring_settled(&s_panel.cdx, 0.05f) || !mao_spring_settled(&s_panel.fdy, 0.05f) ||
+           !mao_spring_settled(&s_panel.sh, 0.002f);
 }
 
 void mao_devices_ui_create(lv_obj_t *scr)
@@ -469,6 +531,17 @@ void mao_devices_ui_create(lv_obj_t *scr)
     }
     s_panel.fact_l = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, 2, "");
     s_panel.fact_r = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_DIM, 2, "");
+    s_panel.rel = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, 4, "");
+    s_panel.sh_l1 = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, MAO_TRACK_SMALL, "");
+    s_panel.sh_l2 = mao_ui_make_text(scr, MAO_FONT_NORMAL, MAO_COL_FG, MAO_TRACK_NORMAL, "");
+    for (int i = 0; i < 2; i++) {
+        s_panel.sh_w[i] = mao_ui_make_text(scr, MAO_FONT_NORMAL, MAO_COL_FG, MAO_TRACK_NORMAL, "");
+        mao_ui_text_cache_reset(&s_panel.csw[i]);
+    }
+    mao_ui_text_cache_reset(&s_panel.crel);
+    mao_ui_text_cache_reset(&s_panel.csl1);
+    mao_ui_text_cache_reset(&s_panel.csl2);
+    mao_spring_init(&s_panel.sh, 0.0f, (mao_spring_profile_t){ .k = 320.0f, .zeta = 0.95f });
     mao_ui_text_cache_reset(&s_panel.cpr);
     mao_ui_text_cache_reset(&s_panel.cfl);
     mao_ui_text_cache_reset(&s_panel.cfr);
