@@ -182,3 +182,14 @@ Out of scope, as the brief states: jamming and DoS, physical flash
 extraction (NVS is not encrypted, so keys are readable with physical
 access), compromised firmware, secure boot, flash encryption, eFuse
 provisioning, cloud and account identity.
+
+## Decision (after review)
+
+**A+**, as the full M3.1 brief (§142, §148, §163) specifies: native CCMP
+with a **fresh LMK per link session** (closes G2), plus an **authenticated
+envelope on every operational frame** (session id, counter, HMAC tag),
+verified by the application (closes G1 without relying on undocumented
+driver behaviour). The encrypted-peer limit is raised (G3); an ODD-wide
+documented PMK constant is used (G4); every credential binds the radio MAC
+and the check uses the receive metadata (G5). The design is in
+[link_security.md](link_security.md).
