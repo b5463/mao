@@ -78,6 +78,9 @@ esp_err_t odd_bus_send_seq(const uint8_t *dst_mac, uint64_t dst_id, odd_msg_type
 /* Convenience: our identity as DISCOVER / ANNOUNCE. */
 esp_err_t odd_bus_discover(void);
 esp_err_t odd_bus_announce(const uint8_t *dst_mac, uint64_t dst_id);
+/* DISCOVER addressed to one device (a controller's direct identity query).
+ * Same message and wire format as the broadcast DISCOVER. */
+esp_err_t odd_bus_discover_to(const uint8_t *dst_mac, uint64_t dst_id);
 
 void odd_bus_get_stats(odd_bus_stats_t *out);
 

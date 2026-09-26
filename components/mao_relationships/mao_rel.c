@@ -18,6 +18,8 @@
 #include "esp_timer.h"
 #include "nvs.h"
 #include "mao_devices.h"
+#include "mao_link.h"
+#include "odd_link.h"
 #include "mao_events.h"
 #include "mao_system.h"
 
@@ -26,6 +28,7 @@ static const char *TAG = "MAO_REL";
 #define NVS_NS "mao_rel"
 
 _Static_assert(MAO_REL_MAX_KNOWN == MAO_REL_MAX, "one relationship budget");
+_Static_assert(128 > MAO_REL_BLOB_LEN, "the load buffer must exceed every known schema");
 
 static mao_rel_table_t s_t;
 static SemaphoreHandle_t s_lock;
@@ -117,7 +120,8 @@ bool mao_rel_get(uint64_t id, mao_rel_info_t *out)
     const int slot = mao_rel_table_find(&s_t, id);
     if (slot >= 0 && out) {
         const mao_rel_record_t *r = &s_t.rec[slot];
-        *out = (mao_rel_info_t) { .id = r->id, .device_type = r->device_type, .order = r->order };
+        *out = (mao_rel_info_t) { .id = r->id, .device_type = r->device_type, .order = r->order,
+                                  .has_cred = r->has_cred };
         memcpy(out->name, r->name, sizeof(out->name));
     }
     unlock();
@@ -139,9 +143,11 @@ int mao_rel_list(mao_rel_info_t out[MAO_REL_MAX_KNOWN])
     const int n = mao_rel_table_list(&s_t, recs);
     unlock();
     for (int i = 0; i < n; i++) {
-        out[i] = (mao_rel_info_t) { .id = recs[i].id, .device_type = recs[i].device_type, .order = recs[i].order };
+        out[i] = (mao_rel_info_t) { .id = recs[i].id, .device_type = recs[i].device_type, .order = recs[i].order,
+                                    .has_cred = recs[i].has_cred };
         memcpy(out[i].name, recs[i].name, sizeof(out[i].name));
     }
+    memset(recs, 0, sizeof(recs));           /* the copies held keys */
     return n;
 }
 
@@ -172,7 +178,8 @@ esp_err_t mao_rel_forget(uint64_t id)
     const esp_err_t err = mao_rel_table_forget(&s_t, id);
     unlock();
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "forgot: %016" PRIx64, id);
+        mao_link_clear(id);                  /* no hidden key survives a FORGET */
+        ESP_LOGI(TAG, "forgot: %016" PRIx64 " (relationship, credential and secure session)", id);
         changed();
     } else if (err != ESP_ERR_NOT_FOUND) {
         ESP_LOGW(TAG, "forget: %016" PRIx64 " NOT removed (%s): stays known", id, esp_err_to_name(err));
@@ -191,6 +198,7 @@ void mao_rel_note_live(uint64_t id, const char *name, uint16_t type)
     }
     const esp_err_t err = slot >= 0 ? mao_rel_table_note(&s_t, id, name, type, &ch) : ESP_ERR_NOT_FOUND;
     unlock();
+    memset(before.k_link, 0, sizeof(before.k_link));
     if (ch) {
         ESP_LOGI(TAG, "metadata updated: %016" PRIx64 " \"%s\" (%s) -> \"%s\" (%s)", id, before.name,
                  odd_device_type_name(before.device_type), name, odd_device_type_name(type));
@@ -198,6 +206,63 @@ void mao_rel_note_live(uint64_t id, const char *name, uint16_t type)
     } else if (err != ESP_OK && err != ESP_ERR_NOT_FOUND) {
         ESP_LOGW(TAG, "metadata for %016" PRIx64 " not saved (%s)", id, esp_err_to_name(err));
     }
+}
+
+/* The pairing ceremony's commit point on MAO (registered with mao_link):
+ * relationship + credential in one committed write, then the link layer. */
+static bool persist_credential(uint64_t id, const char *name, uint16_t type, const uint8_t mac[6],
+                               const uint8_t key[32])
+{
+    bool created = false;
+    const int64_t t0 = esp_timer_get_time();
+    lock();
+    const esp_err_t err = mao_rel_table_set_cred(&s_t, id, name, type, mac, key, &created);
+    unlock();
+    const long us = (long)(esp_timer_get_time() - t0);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "credential for %016" PRIx64 " NOT saved (%s): not paired", id, esp_err_to_name(err));
+        return false;
+    }
+    mao_link_set_credential(id, mac, key);
+    ESP_LOGI(TAG, "%s: %016" PRIx64 " \"%s\" authenticated (key fp %08" PRIx32 ", committed in %ld us)",
+             created ? "paired" : "credential replaced", id, name ? name : "", odl_fingerprint(key), us);
+    changed();
+    return true;
+}
+
+esp_err_t mao_rel_debug_drop_key(uint64_t id)
+{
+    lock();
+    const esp_err_t err = mao_rel_table_clear_cred(&s_t, id);
+    unlock();
+    if (err == ESP_OK) {
+        mao_link_clear(id);
+        ESP_LOGW(TAG, "dev: credential of %016" PRIx64 " dropped (relationship kept, unverified)", id);
+        changed();
+    }
+    return err;
+}
+
+esp_err_t mao_rel_debug_corrupt_key(uint64_t id)
+{
+    lock();
+    const int slot = mao_rel_table_find(&s_t, id);
+    esp_err_t err = ESP_ERR_NOT_FOUND;
+    uint8_t key[32], mac[6];
+    if (slot >= 0 && s_t.rec[slot].has_cred) {
+        memcpy(key, s_t.rec[slot].k_link, 32);
+        memcpy(mac, s_t.rec[slot].peer_mac, 6);
+        key[0] ^= 0x5A;
+        key[31] ^= 0xA5;
+        err = mao_rel_table_set_cred(&s_t, id, NULL, 0, mac, key, NULL);
+    }
+    unlock();
+    if (err == ESP_OK) {
+        mao_link_set_credential(id, mac, key);
+        ESP_LOGW(TAG, "dev: stored key of %016" PRIx64 " corrupted (fp now %08" PRIx32 ")", id, odl_fingerprint(key));
+    }
+    memset(key, 0, sizeof(key));
+    return err;
 }
 
 uint32_t mao_rel_write_count(void)
@@ -228,8 +293,9 @@ static void dev_list(void)
         const int slot = mao_devices_find(l[i].id);
         mao_device_t d;
         const bool online = slot >= 0 && mao_devices_get(slot, &d) && d.online;
-        ESP_LOGI(TAG, "  [%d] %016" PRIx64 " \"%s\" %s order %" PRIu32 " %s", i, l[i].id, l[i].name,
-                 odd_device_type_name(l[i].device_type), l[i].order, online ? "ONLINE" : "OFFLINE");
+        ESP_LOGI(TAG, "  [%d] %016" PRIx64 " \"%s\" %s order %" PRIu32 " %s %s link %s", i, l[i].id, l[i].name,
+                 odd_device_type_name(l[i].device_type), l[i].order, online ? "ONLINE" : "OFFLINE",
+                 l[i].has_cred ? "PAIRED" : "UNVERIFIED", mao_link_state_name(mao_link_state(l[i].id)));
     }
 }
 
@@ -305,13 +371,35 @@ static void dev_command(char *arg)
             }
         }
         ESP_LOGI(TAG, "rel: removed %d synthetic test records (real relationships untouched)", removed);
+    } else if (strcmp(sub, "spair") == 0 && rest) {
+        /* dev: the secure ceremony from the registry (the UI's PAIR / VERIFY does the same) */
+        mao_device_t d;
+        if (mao_devices_get(atoi(rest), &d)) {
+            mao_link_pair_start(d.info.id, d.mac, d.info.name, d.info.device_type);
+        } else {
+            ESP_LOGW(TAG, "rel spair <registry slot>: no such device");
+        }
+    } else if (strcmp(sub, "sconfirm") == 0) {
+        mao_link_pair_confirm();
+    } else if (strcmp(sub, "scancel") == 0) {
+        mao_link_pair_cancel();
+    } else if (strcmp(sub, "dropkey") == 0 && rest) {
+        const uint64_t id = dev_resolve(rest);
+        if (!id || mao_rel_debug_drop_key(id) != ESP_OK) {
+            ESP_LOGW(TAG, "rel dropkey <index|id>: no credential");
+        }
+    } else if (strcmp(sub, "corrupt") == 0 && rest) {
+        const uint64_t id = dev_resolve(rest);
+        if (!id || mao_rel_debug_corrupt_key(id) != ESP_OK) {
+            ESP_LOGW(TAG, "rel corrupt <index|id>: no credential");
+        }
     } else if (strcmp(sub, "failnext") == 0 && rest) {
         s_fail_write = strcmp(rest, "write") == 0;
         s_fail_erase = strcmp(rest, "erase") == 0;
         ESP_LOGW(TAG, "rel: next %s will fail", s_fail_write ? "write" : (s_fail_erase ? "erase" : "(nothing)"));
     } else {
         ESP_LOGW(TAG, "rel list | dump | pair <slot> | forget <index|id> | inject <hex> <type> <name> | "
-                 "clear-test | failnext <write|erase>");
+                 "clear-test | failnext <write|erase> | dropkey <i> | corrupt <i>");
     }
 }
 
@@ -323,6 +411,7 @@ esp_err_t mao_rel_init(void)
 {
     s_lock = xSemaphoreCreateMutexStatic(&s_lock_buf);
     mao_rel_table_init(&s_t, &s_backend);
+    mao_link_set_persist(persist_credential);
 #if CONFIG_MAO_DEV_CONSOLE
     mao_devcmd_register("rel", dev_command);
 #endif
@@ -338,7 +427,7 @@ esp_err_t mao_rel_init(void)
     for (int slot = 0; slot < MAO_REL_MAX; slot++) {
         char key[4];
         slot_key(slot, key);
-        uint8_t blob[64];
+        uint8_t blob[128];              /* > every schema this firmware knows (v2: 73 B) */
         size_t len = 0;
         err = nvs_get_blob(s_nvs, key, NULL, &len);
         if (err == ESP_ERR_NVS_NOT_FOUND) {
@@ -359,11 +448,18 @@ esp_err_t mao_rel_init(void)
             skipped++;
             continue;
         }
+        const uint8_t schema = blob[0];
         const mao_rel_load_t res = mao_rel_table_load_slot(&s_t, slot, blob, len);
+        memset(blob, 0, sizeof(blob));
         if (res == MAO_REL_LOAD_OK) {
             const mao_rel_record_t *r = &s_t.rec[slot];
-            ESP_LOGI(TAG, "relationship loaded: %016" PRIx64 " \"%s\" (%s)", r->id, r->name,
-                     odd_device_type_name(r->device_type));
+            ESP_LOGI(TAG, "relationship loaded: %016" PRIx64 " \"%s\" (%s) %s%s", r->id, r->name,
+                     odd_device_type_name(r->device_type),
+                     r->has_cred ? "PAIRED" : (schema == MAO_REL_SCHEMA_V1 ? "UNVERIFIED (M3.0 record)" : "UNVERIFIED"),
+                     r->cred_dropped ? " - stored credential malformed, ignored" : "");
+            if (r->has_cred) {
+                mao_link_set_credential(r->id, r->peer_mac, r->k_link);
+            }
             loaded++;
         } else {
             ESP_LOGW(TAG, "relationship %s skipped: %s", key, mao_rel_load_name(res));

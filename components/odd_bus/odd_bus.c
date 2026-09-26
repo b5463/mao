@@ -191,6 +191,11 @@ esp_err_t odd_bus_announce(const uint8_t *dst_mac, uint64_t dst_id)
     return send_identity(ODD_MSG_ANNOUNCE, dst_mac, dst_id);
 }
 
+esp_err_t odd_bus_discover_to(const uint8_t *dst_mac, uint64_t dst_id)
+{
+    return send_identity(ODD_MSG_DISCOVER, dst_mac, dst_id);
+}
+
 void odd_bus_input(const uint8_t src_mac[6], const uint8_t *frame, size_t len, int8_t rssi)
 {
     odd_message_t msg;

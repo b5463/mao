@@ -17,9 +17,10 @@ extern "C" {
 
 #define MAO_RADIO_MAX_PAYLOAD 250   /* ESP-NOW v1 frame limit */
 
-/* Called from the Wi-Fi task. Copy the data and return quickly. */
+/* Called from the Wi-Fi task. Copy the data and return quickly. bcast: the
+ * frame was sent to the broadcast address (never encrypted). */
 typedef void (*mao_radio_rx_handler_t)(const uint8_t src_mac[6], const uint8_t *data, size_t len,
-                                       int8_t rssi, void *ctx);
+                                       int8_t rssi, bool bcast, void *ctx);
 
 typedef struct {
     uint32_t tx_frames;        /* esp_now_send accepted */
@@ -38,8 +39,15 @@ void mao_radio_set_rx_handler(mao_radio_rx_handler_t handler, void *ctx);
 /* For the handler: count a frame it had no room for. */
 void mao_radio_count_rx_drop(void);
 
-/* Send one frame. dst_mac NULL = broadcast. Unicast peers are added on demand. */
+/* Send one frame. dst_mac NULL = broadcast. Unicast goes only to a peer
+ * installed with mao_radio_set_peer_key (the link layer's secure sessions). */
 esp_err_t mao_radio_send(const uint8_t *dst_mac, const void *data, size_t len);
+
+/* Install / re-key (lmk = 16 bytes) or remove (lmk NULL) an encrypted
+ * ESP-NOW peer. The link layer calls this once per secure session. */
+esp_err_t mao_radio_set_peer_key(const uint8_t mac[6], const uint8_t *lmk);
+/* Development: the peer's entry as plaintext (tests of the app-level gate). */
+esp_err_t mao_radio_debug_peer_plain(const uint8_t mac[6], bool plain);
 
 void mao_radio_get_mac(uint8_t mac[6]);
 void mao_radio_get_stats(mao_radio_stats_t *out);

@@ -26,6 +26,7 @@
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "mao_events.h"
+#include "mao_link.h"
 #include "mao_radio.h"
 #include "odd_bus.h"
 
@@ -54,6 +55,7 @@ typedef struct {
     uint8_t mac[6];
     int8_t rssi;
     uint8_t len;
+    uint8_t bcast;           /* sent to the broadcast address */
     uint8_t data[ODD_MAX_FRAME];
 } inbox_item_t;
 
@@ -97,6 +99,11 @@ static volatile bool s_active;
 static volatile bool s_active_changed;
 static uint32_t s_grace_until_ms;
 static uint64_t s_incarnation;   /* this boot's identity; generated once, never stored */
+/* The ODD frame being processed came out of a valid link envelope from
+ * s_rx_peer (M3.1). Plaintext from a paired id is only a presence hint. */
+static bool s_rx_auth;
+static uint64_t s_rx_peer;
+static uint32_t s_plain_hints, s_plain_ignored, s_auth_mismatch;
 
 /* The one in-flight action transaction. */
 #define ACTION_RECOVER_US   (800 * 1000)        /* status-recovery cadence after ACCEPTED */
@@ -138,13 +145,15 @@ static void wake_task(void)
 /* Radio glue (Wi-Fi task context: copy only)                             */
 /* ---------------------------------------------------------------------- */
 
-static void radio_rx(const uint8_t mac[6], const uint8_t *data, size_t len, int8_t rssi, void *ctx)
+static void radio_rx(const uint8_t mac[6], const uint8_t *data, size_t len, int8_t rssi, bool bcast, void *ctx)
 {
     (void)ctx;
-    if (len < ODD_HEADER_LEN + ODD_CRC_LEN || len > ODD_MAX_FRAME || data[0] != ODD_MAGIC0) {
-        return;   /* not ODD BUS: cheapest possible rejection */
+    const bool odd = len >= ODD_HEADER_LEN + ODD_CRC_LEN && data[0] == ODD_MAGIC0;
+    const bool link = len >= 4 && data[0] == 'L';
+    if (len > ODD_MAX_FRAME || (!odd && !link)) {
+        return;   /* neither ODD BUS nor its link layer: cheapest possible rejection */
     }
-    inbox_item_t item = { .kind = ITEM_RX, .rssi = rssi, .len = (uint8_t)len };
+    inbox_item_t item = { .kind = ITEM_RX, .rssi = rssi, .len = (uint8_t)len, .bcast = bcast };
     memcpy(item.mac, mac, 6);
     memcpy(item.data, data, len);
     if (xQueueSend(s_inbox, &item, 0) != pdTRUE) {
@@ -153,10 +162,13 @@ static void radio_rx(const uint8_t mac[6], const uint8_t *data, size_t len, int8
     }
 }
 
+/* Every ODD frame leaves through the link layer: enveloped inside a secure
+ * session, plaintext broadcast for strangers, refused for a paired device
+ * that has not proven itself (mao_link.c). */
 static esp_err_t odd_send(const uint8_t *dst_mac, const uint8_t *frame, size_t len, void *ctx)
 {
     (void)ctx;
-    return mao_radio_send(dst_mac, frame, len);
+    return mao_link_tx(dst_mac, frame, len);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -477,6 +489,22 @@ static void on_message(const odd_message_t *m, void *ctx)
 {
     (void)ctx;
     const uint32_t now = now_ms();
+    if (s_rx_auth && m->hdr.src_id != s_rx_peer) {
+        s_auth_mismatch++;
+        return;   /* an envelope proves its sender: the ODD frame must claim the same id */
+    }
+    if (!s_rx_auth && mao_link_requires_auth(m->hdr.src_id)) {
+        /* A paired device: plaintext is at most "something claiming that
+         * identity is nearby". It never touches the registry (no online, no
+         * metadata, no capabilities) - the link layer asks for proof. */
+        if (m->hdr.type == ODD_MSG_ANNOUNCE) {
+            s_plain_hints++;
+            mao_link_hint(m->hdr.src_id, m->src_mac);
+        } else {
+            s_plain_ignored++;
+        }
+        return;
+    }
     if (m->hdr.type == ODD_MSG_ANNOUNCE) {
         on_announce(m, now);
         return;
@@ -785,6 +813,27 @@ static void service_liveness(uint32_t now)
     }
 }
 
+static void secure_probe(uint64_t id, const uint8_t mac[6])
+{
+    odd_bus_discover_to(mac, id);
+}
+
+/* A fresh secure session: whatever MAO learned about this id before it was
+ * proven is re-learned over the secure path (task context: called from
+ * mao_link_rx on this task). */
+static void on_secure(uint64_t id, const uint8_t mac[6])
+{
+    lock();
+    const int idx = find_locked(id);
+    if (idx >= 0) {
+        s_dev[idx].pub.cap_count = 0;
+        s_dev[idx].pub.described = false;
+        s_dev[idx].describe_req_ms = 0;
+    }
+    unlock();
+    odd_bus_discover_to(mac, id);
+}
+
 static void devices_task(void *arg)
 {
     (void)arg;
@@ -792,7 +841,16 @@ static void devices_task(void *arg)
     for (;;) {
         inbox_item_t item;
         if (xQueueReceive(s_inbox, &item, wait) == pdTRUE && item.kind == ITEM_RX) {
-            odd_bus_input(item.mac, item.data, item.len, item.rssi);
+            const uint8_t *odd = NULL;
+            size_t odd_len = 0;
+            uint64_t peer = 0;
+            const mao_link_rx_t r = mao_link_rx(item.mac, item.data, item.len, item.bcast, &odd, &odd_len, &peer);
+            if (r == MAO_LINK_RX_ODD_AUTH || r == MAO_LINK_RX_ODD_PLAIN) {
+                s_rx_auth = r == MAO_LINK_RX_ODD_AUTH;
+                s_rx_peer = peer;
+                odd_bus_input(item.mac, odd, odd_len, item.rssi);
+                s_rx_auth = false;
+            }
         }
         const uint32_t now = now_ms();
         if (s_active_changed) {
@@ -813,8 +871,14 @@ static void devices_task(void *arg)
         service_action(esp_timer_get_time());
         const bool busy = service_commands(esp_timer_get_time()) ||
                           s_act.req || s_act.state == MAO_ACTION_SENDING || s_act.state == MAO_ACTION_ACCEPTED;
+        const uint32_t sent_before = s_discovery.sent;
         const uint32_t until_discovery = odd_discovery_poll(&s_discovery, now);
         s_stats.discoveries_sent = s_discovery.sent;
+        if (s_discovery.sent != sent_before) {
+            /* Liveness of paired devices comes only from authenticated
+             * answers: one enveloped identity query per secure peer. */
+            mao_link_foreach_secure(secure_probe);
+        }
         service_liveness(now);
 
         uint32_t wait_ms = until_discovery < 500 ? until_discovery : 500;
@@ -918,6 +982,8 @@ esp_err_t mao_devices_init(void)
 
     odd_discovery_init(&s_discovery, DISCOVERY_IDLE_MS);
     mao_radio_set_rx_handler(radio_rx, NULL);
+    mao_link_set_secure_cb(on_secure);
+    mao_link_set_probe_cb(secure_probe);
     if (xTaskCreate(devices_task, "mao_devices", TASK_STACK, NULL, TASK_PRIO, &s_task) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }

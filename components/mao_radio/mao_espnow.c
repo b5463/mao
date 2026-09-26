@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "mao_radio.h"
 #include "mao_radio_priv.h"
+#include "odd_link.h"
 
 static const char *TAG = "MAO_RADIO";
 
@@ -30,7 +31,8 @@ static void on_recv(const esp_now_recv_info_t *info, const uint8_t *data, int le
     portEXIT_CRITICAL(&s_lock);
     if (s_rx_handler) {
         const int8_t rssi = info->rx_ctrl ? (int8_t)info->rx_ctrl->rssi : 0;
-        s_rx_handler(info->src_addr, data, (size_t)len, rssi, s_rx_ctx);
+        const bool bcast = info->des_addr && info->des_addr[0] == 0xFF;
+        s_rx_handler(info->src_addr, data, (size_t)len, rssi, bcast, s_rx_ctx);
     }
 }
 
@@ -44,18 +46,38 @@ static void on_sent(const esp_now_send_info_t *tx_info, esp_now_send_status_t st
     }
 }
 
-static esp_err_t ensure_peer(const uint8_t mac[6])
+static esp_err_t ensure_broadcast_peer(void)
 {
-    if (esp_now_is_peer_exist(mac)) {
+    if (esp_now_is_peer_exist(kBroadcast)) {
         return ESP_OK;
     }
-    esp_now_peer_info_t peer = {
-        .channel = 0,             /* current channel */
-        .ifidx = WIFI_IF_STA,
-        .encrypt = false,         /* development network: see README */
-    };
-    memcpy(peer.peer_addr, mac, 6);
+    esp_now_peer_info_t peer = { .channel = 0, .ifidx = WIFI_IF_STA, .encrypt = false };
+    memcpy(peer.peer_addr, kBroadcast, 6);
     return esp_now_add_peer(&peer);
+}
+
+esp_err_t mao_radio_set_peer_key(const uint8_t mac[6], const uint8_t *lmk)
+{
+    if (!lmk) {
+        return esp_now_is_peer_exist(mac) ? esp_now_del_peer(mac) : ESP_OK;
+    }
+    esp_now_peer_info_t peer = { .channel = 0, .ifidx = WIFI_IF_STA, .encrypt = true };
+    memcpy(peer.peer_addr, mac, 6);
+    memcpy(peer.lmk, lmk, ESP_NOW_KEY_LEN);
+    const esp_err_t err = esp_now_is_peer_exist(mac) ? esp_now_mod_peer(&peer) : esp_now_add_peer(&peer);
+    memset(peer.lmk, 0, sizeof(peer.lmk));
+    return err;
+}
+
+esp_err_t mao_radio_debug_peer_plain(const uint8_t mac[6], bool plain)
+{
+    esp_now_peer_info_t peer;
+    esp_err_t err = esp_now_get_peer(mac, &peer);
+    if (err == ESP_OK) {
+        peer.encrypt = !plain;
+        err = esp_now_mod_peer(&peer);
+    }
+    return err;
 }
 
 esp_err_t mao_espnow_init(void)
@@ -63,7 +85,12 @@ esp_err_t mao_espnow_init(void)
     ESP_RETURN_ON_ERROR(esp_now_init(), TAG, "esp_now_init");
     ESP_RETURN_ON_ERROR(esp_now_register_recv_cb(on_recv), TAG, "recv cb");
     ESP_RETURN_ON_ERROR(esp_now_register_send_cb(on_sent), TAG, "send cb");
-    ESP_RETURN_ON_ERROR(ensure_peer(kBroadcast), TAG, "broadcast peer");
+    /* The documented ODD PMK (odd_link.h), not the IDF default: both sides of
+     * an encrypted peer must use the same one. Security rests on the fresh
+     * per-session LMKs, not on this constant. */
+    static const uint8_t pmk[ESP_NOW_KEY_LEN] = ODL_ESPNOW_PMK;
+    ESP_RETURN_ON_ERROR(esp_now_set_pmk(pmk), TAG, "pmk");
+    ESP_RETURN_ON_ERROR(ensure_broadcast_peer(), TAG, "broadcast peer");
     return ESP_OK;
 }
 
@@ -83,7 +110,7 @@ void mao_radio_count_rx_drop(void)
 esp_err_t mao_radio_send(const uint8_t *dst_mac, const void *data, size_t len)
 {
     const uint8_t *dst = dst_mac ? dst_mac : kBroadcast;
-    esp_err_t err = ensure_peer(dst);
+    esp_err_t err = dst_mac && !esp_now_is_peer_exist(dst) ? ESP_ERR_ESPNOW_NOT_FOUND : ESP_OK;
     if (err == ESP_OK) {
         err = esp_now_send(dst, data, len);
     }
