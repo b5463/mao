@@ -42,6 +42,7 @@ typedef enum {
     LAMP_CMD_SESSION,       /* log per-controller session state */
     LAMP_CMD_DROP_SESSION,  /* forget all sessions (simulated device reboot) */
     LAMP_CMD_INJECT_PREV,   /* loop in a SET from the PREVIOUS incarnation; arg = cap*1000+value */
+    LAMP_CMD_LINK,          /* link security console command: arg = sub | value << 8 (lamp_link.h) */
     LAMP_CMD_IDENTIFY,      /* run IDENTIFY locally (manual test) */
     LAMP_CMD_ACT_DELAY,     /* completion delay, ms */
     LAMP_CMD_ACT_BUSY,      /* arg 0/1: refuse actions with BUSY */

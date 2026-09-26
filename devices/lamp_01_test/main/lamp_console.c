@@ -16,6 +16,7 @@
 #include "esp_log.h"
 #include "hal/usb_serial_jtag_ll.h"
 #include "lamp.h"
+#include "lamp_link.h"
 
 static const char *TAG = "LAMP01";
 
@@ -41,7 +42,23 @@ static void run(char *line)
         *arg++ = '\0';
     }
     const int32_t v = arg ? atoi(arg) : 0;
-    if (!strcmp(cmd, "status")) {
+    if (!strcmp(cmd, "pairmode")) {
+        lamp_post_command(LAMP_CMD_LINK, LINK_CMD_PAIRMODE | ((arg ? v : 60) << 8));
+    } else if (!strcmp(cmd, "pair") && arg) {
+        const int sub = !strcmp(arg, "accept") ? LINK_CMD_ACCEPT : !strcmp(arg, "reject") ? LINK_CMD_REJECT
+                        : LINK_CMD_STATUS;
+        lamp_post_command(LAMP_CMD_LINK, sub);
+    } else if (!strcmp(cmd, "sec") && arg) {
+        char *a2 = strchr(arg, ' ');
+        if (a2) {
+            *a2++ = '\0';
+        }
+        const int on = a2 && !strcmp(a2, "on");
+        const int sub = !strcmp(arg, "reset") ? LINK_CMD_RESET : !strcmp(arg, "corrupt") ? LINK_CMD_CORRUPT
+                        : !strcmp(arg, "forcesas") ? LINK_CMD_FORCESAS : !strcmp(arg, "peerplain") ? LINK_CMD_PEERPLAIN
+                        : !strcmp(arg, "selftest") ? LINK_CMD_SELFTEST : LINK_CMD_STATUS;
+        lamp_post_command(LAMP_CMD_LINK, sub | (on << 8));
+    } else if (!strcmp(cmd, "status")) {
         lamp_post_command(LAMP_CMD_STATUS, 0);
     } else if (!strcmp(cmd, "offline")) {
         lamp_post_command(LAMP_CMD_OFFLINE, 0);

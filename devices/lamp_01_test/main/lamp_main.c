@@ -16,6 +16,7 @@
 #include "esp_mac.h"
 #include "esp_now.h"
 #include "esp_random.h"
+#include "lamp_link.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -43,6 +44,7 @@ typedef struct {
     uint8_t mac[6];
     int8_t rssi;
     uint8_t len;
+    uint8_t bcast;      /* ITEM_RX: sent to the broadcast address */
     int32_t arg;
     uint8_t data[ODD_MAX_FRAME];
 } item_t;
@@ -160,29 +162,19 @@ static void on_recv(const esp_now_recv_info_t *info, const uint8_t *data, int le
     if (!info || len < ODD_HEADER_LEN + ODD_CRC_LEN || len > ODD_MAX_FRAME) {
         return;
     }
-    item_t it = { .kind = ITEM_RX, .len = (uint8_t)len, .rssi = info->rx_ctrl ? info->rx_ctrl->rssi : 0 };
+    item_t it = { .kind = ITEM_RX, .len = (uint8_t)len, .rssi = info->rx_ctrl ? info->rx_ctrl->rssi : 0,
+                  .bcast = info->des_addr && info->des_addr[0] == 0xFF };
     memcpy(it.mac, info->src_addr, 6);
     memcpy(it.data, data, len);
     xQueueSend(s_inbox, &it, 0);
 }
 
-static esp_err_t ensure_peer(const uint8_t *mac)
-{
-    if (esp_now_is_peer_exist(mac)) {
-        return ESP_OK;
-    }
-    esp_now_peer_info_t p = { .channel = 0, .ifidx = WIFI_IF_STA, .encrypt = false };
-    memcpy(p.peer_addr, mac, 6);
-    return esp_now_add_peer(&p);
-}
-
+/* Every ODD frame leaves through the link layer: enveloped to the secure
+ * session's controller, or plaintext broadcast (lamp_link.c). */
 static esp_err_t odd_send(const uint8_t *dst, const uint8_t *frame, size_t len, void *ctx)
 {
-    static const uint8_t bcast[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
     (void)ctx;
-    const uint8_t *to = dst ? dst : bcast;
-    esp_err_t err = ensure_peer(to);
-    return err == ESP_OK ? esp_now_send(to, frame, len) : err;
+    return lamp_link_tx(dst, frame, len);
 }
 
 static void radio_init(void)
@@ -284,6 +276,9 @@ static source_t *source_for(uint64_t id)
 
 static void remember_controller(const odd_message_t *m)
 {
+    if (!lamp_link_rx_trusted()) {
+        return;     /* an authorized device learns its controller only from authenticated frames */
+    }
     memcpy(s_ctrl_mac, m->src_mac, 6);
     s_ctrl_id = m->hdr.src_id;
     s_have_controller = true;
@@ -934,12 +929,16 @@ static void lamp_task(void *arg)
     odd_bus_announce(NULL, ODD_ID_ANY);
     for (;;) {
         item_t it;
-        const uint32_t wait_ms = service_tests();
+        uint32_t wait_ms = service_tests();
+        const uint32_t link_ms = lamp_link_tick();
+        wait_ms = link_ms < wait_ms ? link_ms : wait_ms;
         if (xQueueReceive(s_inbox, &it, pdMS_TO_TICKS(wait_ms)) != pdTRUE) {
             continue;
         }
         if (it.kind == ITEM_RX) {
-            odd_bus_input(it.mac, it.data, it.len, it.rssi);
+            lamp_link_rx(it.mac, it.data, it.len, it.rssi, it.bcast);
+        } else if (it.cmd == LAMP_CMD_LINK) {
+            lamp_link_command(it.arg & 0xFF, it.arg >> 8);
         } else {
             handle_command((lamp_cmd_t)it.cmd, it.arg);
         }
@@ -967,11 +966,13 @@ void app_main(void)
         .cap_count = CAP_COUNT,
     };
     strncpy(self.name, LAMP_NAME, sizeof(self.name) - 1);
+    lamp_link_init(self.id, mac);            /* before any ODD traffic: the gate must be in place */
     ESP_ERROR_CHECK(odd_bus_init(&self, odd_send, NULL, on_message, NULL));
 
     show("boot");
     ESP_LOGI(TAG, "%s ready on channel %d, mac " MACSTR " (%d capabilities)",
              LAMP_NAME, ODD_BUS_DEV_CHANNEL, MAC2STR(mac), (int)CAP_COUNT);
-    xTaskCreate(lamp_task, "lamp", 4096, NULL, 5, NULL);
+    /* X25519 runs on this task during pairing (several KB of stack). */
+    xTaskCreate(lamp_task, "lamp", 8192, NULL, 5, NULL);
     lamp_console_start();
 }

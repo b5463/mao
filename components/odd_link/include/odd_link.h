@@ -36,6 +36,14 @@ extern "C" {
 #define ODL_MAX_INNER       (ODL_MAX_FRAME - ODL_ENV_OVERHEAD)
 #define ODL_REPLAY_WINDOW   32
 
+/* The ESP-NOW PMK shared by every ODD device. It feeds CCMP's effective key
+ * together with the per-peer LMK, so both sides must agree on it (audit
+ * §7); it is NOT a secret and NOT the root of any security: that is the
+ * fresh per-session LMK and the envelope keys. Derivation (documented, not
+ * the undocumented IDF default): SHA-256("ODD-ESPNOW-PMK-v1")[0:16]. */
+#define ODL_ESPNOW_PMK { 0xbf, 0xfc, 0x5d, 0x6d, 0xa6, 0xd5, 0x10, 0x7e, \
+                         0x0d, 0xa6, 0xc0, 0xa9, 0xa8, 0x3e, 0xff, 0x89 }
+
 typedef enum {
     ODL_PAIR_START   = 0x01,
     ODL_PAIR_COMMIT  = 0x02,
