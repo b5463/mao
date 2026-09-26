@@ -19,6 +19,7 @@
 #include "mao_settings.h"
 #include "mao_system.h"
 #include "mao_ui.h"
+#include "mao_rel.h"
 #include "mao_world.h"
 
 static const char *TAG = "MAO_APP";
@@ -102,6 +103,11 @@ static bool device_ready(const mao_device_t *dev, const mao_device_controls_t *c
 
 static esp_err_t invoke_action_checked(const mao_device_t *dev, const mao_device_controls_t *ctl, int list_idx)
 {
+    if (!mao_rel_is_known(dev->info.id)) {
+        /* Belt and braces: the NEW page offers no controls at all. */
+        ESP_LOGW(TAG, "refused: '%s' is not part of MAO's setup", dev->info.name);
+        return ESP_ERR_INVALID_STATE;
+    }
     /* Known-not-ready: answer locally, send nothing (§43); the remote stays
      * authoritative for races - a BUSY ACK resolves those. */
     if (ctl->action_sem[list_idx] == ODD_ACTION_CAPTURE && !device_ready(dev, ctl)) {
@@ -119,6 +125,7 @@ static esp_err_t invoke_action_checked(const mao_device_t *dev, const mao_device
 }
 
 static uint64_t s_sel_dev;   /* the selected device's identity (not its row) */
+static mao_devpage_t s_page_kind;   /* the open page's kind, to settle focus when it changes */
 
 static void refresh_devices_list(void)
 {
@@ -176,6 +183,19 @@ static bool open_device(mao_device_t *dev, mao_device_controls_t *ctl)
 
 static void refresh_device_panel(void)
 {
+    mao_world_entry_t w;
+    const mao_devpage_t kind = mao_devpage(mao_state()->device_id, &w);
+    if (kind != s_page_kind) {
+        /* PAIR / FORGET / reachability changed the page under the user:
+         * focus settles on its first control (CAPTURE, LEVEL or PAIR). */
+        s_page_kind = kind;
+        s_dev_focus = 0;
+        s_dev_edit = false;
+    }
+    if (kind != MAO_DEVPAGE_CONTROL) {
+        mao_rel_page_draw(kind, &w);
+        return;
+    }
     mao_device_t dev;
     mao_device_controls_t ctl;
     if (!open_device(&dev, &ctl)) {
@@ -465,6 +485,8 @@ static void on_devices(const mao_event_t *ev, int64_t now)
             mao_state_set_device(dev.id);
             s_dev_focus = 0;   /* the centre: the value, or the primary action */
             s_dev_edit = false;
+            s_page_kind = mao_devpage(dev.id, &dev);
+            mao_rel_page_opened();
             s_dev_opened_us = now;
             s_cap_streak = 0;
             mao_audio_confirm();
@@ -504,6 +526,14 @@ static bool centre_is_action(const mao_device_controls_t *ctl)
 
 static void on_device(const mao_event_t *ev, int64_t now)
 {
+    mao_world_entry_t w;
+    const mao_devpage_t kind = mao_devpage(mao_state()->device_id, &w);
+    if (kind != MAO_DEVPAGE_CONTROL) {
+        /* Not part of the setup (or gone): only relationship words exist. */
+        mao_rel_page_input(kind, &w, ev,
+                           ev->type == MAO_EVENT_INPUT_CLICK && now - s_dev_opened_us < ENTRY_GUARD_US);
+        return;
+    }
     mao_device_t dev;
     mao_device_controls_t ctl;
     const bool ok = open_device(&dev, &ctl);
@@ -1034,6 +1064,17 @@ static void on_ui_settle(void)
         mao_character_peek(false);                  /* the typography returns */
         s_feedback_up = false;
     }
+}
+
+void mao_app_dev_refresh(void)
+{
+    refresh_device_views();
+}
+
+void mao_app_go_devices(void)
+{
+    mao_audio_back();
+    go_view(MAO_VIEW_DEVICES);
 }
 
 void mao_app_go_home(void)

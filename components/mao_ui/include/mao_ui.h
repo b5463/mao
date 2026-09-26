@@ -73,6 +73,7 @@ typedef struct {
     bool status_r_emph;      /* the fact deserves more presence (e.g. storage running low) */
     int8_t focus;            /* 0 centre, 1..word_count words, word_count + 1 = CONNECT */
     bool editing;        /* LEVEL edit: the dial changes the value */
+    bool connect_hidden;     /* no CONNECT on this page (a device not yet part of the setup) */
 } mao_ui_device_t;
 
 /* Tool feedback on the centre word: the word itself answers the physical

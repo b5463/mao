@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "mao_events.h"
 #include "mao_ui.h"
+#include "mao_world.h"
 
 /* Dial speed classes: used by the app for sound thinning and logs. The
  * character estimates speed continuously on its own. */
@@ -72,3 +73,25 @@ void mao_transfer_device_lost(uint64_t id);
 
 /* Defined in mao_app.c for the transfer module: wake and show HOME. */
 void mao_app_go_home(void);
+
+/* ---------------------------------------------------------------------- */
+/* Device relationships on the DEVICE page (mao_app_rel.c).               */
+/* ---------------------------------------------------------------------- */
+
+typedef enum {
+    MAO_DEVPAGE_NONE = 0,    /* neither known nor heard (e.g. just forgotten while away) */
+    MAO_DEVPAGE_CONTROL,     /* KNOWN and online: the normal device page */
+    MAO_DEVPAGE_NEW,         /* DISCOVERED only: name, NEW, PAIR - no remote control */
+} mao_devpage_t;
+
+mao_devpage_t mao_devpage(uint64_t id, mao_world_entry_t *w);
+void mao_rel_page_opened(void);
+/* Draw a relationship page (no-op for CONTROL). */
+void mao_rel_page_draw(mao_devpage_t kind, const mao_world_entry_t *w);
+/* Input on a relationship page; true when consumed. guarded: a click inside
+ * the page-entry guard. */
+bool mao_rel_page_input(mao_devpage_t kind, const mao_world_entry_t *w, const mao_event_t *ev, bool guarded);
+
+/* Defined in mao_app.c for mao_app_rel.c. */
+void mao_app_dev_refresh(void);
+void mao_app_go_devices(void);

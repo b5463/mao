@@ -69,6 +69,7 @@ typedef struct {
     bool editing;
     bool has_value, has_facts;
     bool fact_l_on, fact_r_on, fact_r_emph;
+    bool connect_hidden;
     mao_spring_t cdy, cdx;      /* centre word tool-feedback offsets, px */
     mao_spring_t fdy;           /* storage number change: a small settle, px */
     mao_spring_t presence;
@@ -266,7 +267,8 @@ static void panel_layout(void)
     const bool cfocus = s_panel.focus == s_panel.word_count + 1;
     const float ch = cfocus ? 1.0f : hot;
     mao_ui_text_place(s_panel.connect, 0.0f, PANEL_CONNECT_Y + (1.0f - p) * 6.0f - hot * 2.0f,
-                      (100.0f + 155.0f * ch) * smooth01((p - 0.5f) / 0.5f), &s_panel.cc);
+                      s_panel.connect_hidden ? 0.0f : (100.0f + 155.0f * ch) * smooth01((p - 0.5f) / 0.5f),
+                      &s_panel.cc);
 }
 
 void mao_ui_device_feedback(mao_ui_fb_t fb)
@@ -334,6 +336,7 @@ void mao_ui_device_update(const mao_ui_device_t *m)
     set_text(s_panel.title, m->title ? m->title : "");
     s_panel.focus = m->focus;
     s_panel.editing = m->editing;
+    s_panel.connect_hidden = m->connect_hidden;
     s_panel.has_value = m->primary == NULL;
     if (m->primary) {
         set_text(s_panel.primary, m->primary);
