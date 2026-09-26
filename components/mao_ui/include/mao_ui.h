@@ -45,6 +45,7 @@ typedef struct {
     int count;
     const char *name[MAO_UI_DEVICES_MAX];
     bool online[MAO_UI_DEVICES_MAX];
+    bool known[MAO_UI_DEVICES_MAX];     /* part of MAO's setup (else merely nearby: NEW) */
     int selected;
 } mao_ui_devices_t;
 

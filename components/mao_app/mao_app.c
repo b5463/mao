@@ -19,6 +19,7 @@
 #include "mao_settings.h"
 #include "mao_system.h"
 #include "mao_ui.h"
+#include "mao_world.h"
 
 static const char *TAG = "MAO_APP";
 
@@ -121,16 +122,18 @@ static uint64_t s_sel_dev;   /* the selected device's identity (not its row) */
 
 static void refresh_devices_list(void)
 {
-    static mao_device_t devs[MAO_DEVICES_MAX];   /* dispatcher task only */
+    static mao_world_entry_t devs[MAO_WORLD_MAX];   /* dispatcher task only */
     uint64_t ids[MAO_UI_DEVICES_MAX] = { 0 };
     mao_ui_devices_t model = { 0 };
-    for (int i = 0; i < MAO_DEVICES_MAX && model.count < MAO_UI_DEVICES_MAX; i++) {
-        if (mao_devices_get(i, &devs[model.count])) {
-            model.name[model.count] = devs[model.count].info.name;
-            model.online[model.count] = devs[model.count].online;
-            ids[model.count] = devs[model.count].info.id;
-            model.count++;
-        }
+    /* One list: KNOWN devices (stable pair order, offline ones stay), then
+     * nearby DISCOVERED ones (first-seen order). */
+    const int n = mao_world_list(devs);
+    for (int i = 0; i < n && model.count < MAO_UI_DEVICES_MAX; i++) {
+        model.name[model.count] = devs[i].name;
+        model.online[model.count] = devs[i].online;
+        model.known[model.count] = devs[i].known;
+        ids[model.count] = devs[i].id;
+        model.count++;
     }
     /* Selection sticks to the device, whatever announcements or state
      * refreshes do to the list around it. */
@@ -150,20 +153,15 @@ static void refresh_devices_list(void)
     mao_ui_devices_update(&model);
 }
 
-/* List row -> registry slot (the list shows used slots in order). */
-static int list_row_to_slot(int row)
+/* List row -> the device it shows (0 = none). */
+static uint64_t list_row_id(int row, int *count)
 {
-    int n = 0;
-    for (int i = 0; i < MAO_DEVICES_MAX; i++) {
-        mao_device_t d;
-        if (mao_devices_get(i, &d)) {
-            if (n == row) {
-                return i;
-            }
-            n++;
-        }
+    mao_world_entry_t devs[MAO_WORLD_MAX];
+    const int n = mao_world_list(devs);
+    if (count) {
+        *count = n;
     }
-    return -1;
+    return row >= 0 && row < n ? devs[row].id : 0;
 }
 
 static bool open_device(mao_device_t *dev, mao_device_controls_t *ctl)
@@ -445,14 +443,13 @@ static void on_devices(const mao_event_t *ev, int64_t now)
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
         const mao_dial_motion_t m = dial_motion(d, now);
-        const int count = mao_devices_count();
+        int count = 0;
+        list_row_id(0, &count);
         int idx = st->devices_index + (int)d;
         idx = idx < 0 ? 0 : (idx > count - 1 ? count - 1 : idx);
         if (count > 0 && idx != st->devices_index) {
             mao_state_set_devices_index(idx);
-            mao_device_t dev;
-            const int slot = list_row_to_slot(idx);
-            s_sel_dev = (slot >= 0 && mao_devices_get(slot, &dev)) ? dev.info.id : 0;
+            s_sel_dev = list_row_id(idx, NULL);
             refresh_devices_list();
             dial_tick(&m);
         } else if (now - s_last_bump_us >= MENU_BUMP_GAP_US) {
@@ -462,11 +459,10 @@ static void on_devices(const mao_event_t *ev, int64_t now)
         break;
     }
     case MAO_EVENT_INPUT_CLICK: {
-        const int slot = list_row_to_slot(st->devices_index);
-        mao_device_t dev;
-        if (slot >= 0 && mao_devices_get(slot, &dev)) {
-            ESP_LOGI(TAG, "open device '%s'", dev.info.name);
-            mao_state_set_device(dev.info.id);
+        mao_world_entry_t dev;
+        if (mao_world_get(list_row_id(st->devices_index, NULL), &dev) && dev.slot >= 0) {
+            ESP_LOGI(TAG, "open device '%s' (%s)", dev.name, dev.known ? "known" : "new");
+            mao_state_set_device(dev.id);
             s_dev_focus = 0;   /* the centre: the value, or the primary action */
             s_dev_edit = false;
             s_dev_opened_us = now;

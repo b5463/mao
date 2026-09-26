@@ -5,7 +5,8 @@
  *
  * DEVICES: small "DEVICES" title, device names on the menu's gentle arc (the
  * selected name large, neighbours small, offline names dimmed), one status
- * word below: LOOKING / NONE / ONLINE / OFFLINE.
+ * word below: LOOKING / NONE / ONLINE / OFFLINE / NEW (nearby, not yet part of
+ * MAO's setup: present, but a little quieter than the devices MAO knows).
  * DEVICE: name above, one large value (the dial's LEVEL, or ON/OFF when the
  * device only toggles), a quiet status word: OFF / OFFLINE / NO REPLY.
  */
@@ -33,6 +34,7 @@
 #define PANEL_STATUS_Y    62.0f
 #define PANEL_CONNECT_Y   86.0f
 #define OFFLINE_SCALE     0.45f
+#define NEW_SCALE         0.70f    /* nearby but not yet known: present, not yet at home */
 
 #define LIST_POS_PROFILE  ((mao_spring_profile_t){ .k = 260.0f, .zeta = 0.78f })
 
@@ -129,6 +131,9 @@ static const char *list_status(uint32_t now)
     if (m->count == 0) {
         return (now - s_list.shown_at_ms) < LOOKING_MS ? "LOOKING" : "NONE";
     }
+    if (!m->known[m->selected]) {
+        return "NEW";
+    }
     return m->online[m->selected] ? "ONLINE" : "OFFLINE";
 }
 
@@ -147,7 +152,8 @@ static void list_layout(uint32_t now)
             y = d * LIST_SPACING * spread + enter;
             x = LIST_ARC * (y / LIST_ARC_REF) * (y / LIST_ARC_REF);
             const float edge = clampf((LIST_EDGE_R - fabsf(y)) / LIST_EDGE_FADE, 0.0f, 1.0f);
-            const float row = s_list.model.online[i] ? 1.0f : OFFLINE_SCALE;
+            const float row = !s_list.model.online[i] ? OFFLINE_SCALE
+                              : (s_list.model.known[i] ? 1.0f : NEW_SCALE);
             large = 255.0f * sel * edge * p * row;
             small = MAO_OPA_CONTEXT * (1.0f - sel) * edge * p * row;
         }
