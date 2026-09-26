@@ -5,6 +5,9 @@
  *   NEW      heard nearby, not part of MAO's setup: name, NEW, PAIR.
  *            No remote control is offered until PAIR (MAO product policy,
  *            not network security: the transport is not authenticated).
+ *   OFFLINE  KNOWN but not reachable: name, OFFLINE, CONNECT. Relationship
+ *            memory is not connectivity: no stale CAPTURE / LEVEL controls.
+ *            CONNECT stays a deliberate attempt (it may fail honestly).
  *   CONTROL  KNOWN and online: the normal generic device page (mao_app.c).
  *
  * PAIR is one deliberate press. The device becomes KNOWN only after the
@@ -19,6 +22,7 @@
 #include "mao_audio.h"
 #include "mao_led.h"
 #include "mao_rel.h"
+#include "mao_ui.h"
 
 static const char *TAG = "MAO_APP";
 
@@ -30,16 +34,35 @@ mao_devpage_t mao_devpage(uint64_t id, mao_world_entry_t *w)
     if (!id || !mao_world_get(id, w)) {
         return MAO_DEVPAGE_NONE;
     }
-    return w->known ? MAO_DEVPAGE_CONTROL : MAO_DEVPAGE_NEW;
+    if (!w->known) {
+        return MAO_DEVPAGE_NEW;
+    }
+    return w->online ? MAO_DEVPAGE_CONTROL : MAO_DEVPAGE_OFFLINE;
 }
 
-void mao_rel_page_opened(void)
+void mao_rel_page_reset(void)
 {
     s_note = NULL;
 }
 
+static void draw_offline(const mao_world_entry_t *w)
+{
+    mao_ui_device_t m = {
+        .title = w->name,
+        .online = false,              /* the status word reads OFFLINE */
+        .described = true,
+        .no_centre = true,
+        .focus = 1,                   /* CONNECT (no words on this page) */
+    };
+    mao_ui_device_update(&m);
+}
+
 void mao_rel_page_draw(mao_devpage_t kind, const mao_world_entry_t *w)
 {
+    if (kind == MAO_DEVPAGE_OFFLINE) {
+        draw_offline(w);
+        return;
+    }
     if (kind != MAO_DEVPAGE_NEW) {
         return;
     }
@@ -80,6 +103,16 @@ bool mao_rel_page_input(mao_devpage_t kind, const mao_world_entry_t *w, const ma
 {
     if (ev->type == MAO_EVENT_INPUT_LONG_PRESS) {
         mao_app_go_devices();                    /* BACK, as on every device page */
+        return true;
+    }
+    if (kind == MAO_DEVPAGE_OFFLINE) {
+        if (ev->type == MAO_EVENT_INPUT_CLICK && !guarded) {
+            /* The user's own intent: try to reach it (MAO's visit). */
+            ESP_LOGI(TAG, "connect requested: '%s' (known, offline)", w->name);
+            mao_ui_device_connect_hot(1.0f);
+            mao_audio_confirm();
+            mao_transfer_connect();
+        }
         return true;
     }
     if (kind != MAO_DEVPAGE_NEW) {

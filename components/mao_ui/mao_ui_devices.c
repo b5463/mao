@@ -70,6 +70,7 @@ typedef struct {
     bool has_value, has_facts;
     bool fact_l_on, fact_r_on, fact_r_emph;
     bool connect_hidden;
+    bool no_centre;
     mao_spring_t cdy, cdx;      /* centre word tool-feedback offsets, px */
     mao_spring_t fdy;           /* storage number change: a small settle, px */
     mao_spring_t presence;
@@ -227,7 +228,12 @@ static void panel_layout(void)
      * lifts the value a pixel at full presence. */
     const float cf = s_panel.focus == 0 ? (s_panel.editing ? 1.0f : 0.9f) : 0.62f;
     const float cy = PANEL_VALUE_Y + (1.0f - p) * 14.0f - (s_panel.editing ? 2.0f : 0.0f) + s_panel.cdy.x;
-    if (s_panel.has_value) {
+    if (s_panel.no_centre) {
+        /* Nothing live to operate (a known device that is away): the quiet
+         * status word sits where the control would be. */
+        mao_ui_text_place(s_panel.status, 0.0f, PANEL_VALUE_Y + 4.0f + (1.0f - p) * 8.0f,
+                          MAO_OPA_SECONDARY * p, &s_panel.cst);
+    } else if (s_panel.has_value) {
         mao_ui_text_place(s_panel.value, s_panel.cdx.x, cy, s_panel.value_opa * cf * p, &s_panel.cv);
     } else {
         mao_ui_text_place(s_panel.primary, s_panel.cdx.x, cy, 255.0f * cf * p, &s_panel.cpr);
@@ -259,7 +265,7 @@ static void panel_layout(void)
             mao_ui_text_place(s_panel.fact_r, 0.0f, fy, 0.0f, &s_panel.cfr);
         }
     }
-    if (!s_panel.has_facts) {
+    if (!s_panel.has_facts && !s_panel.no_centre) {
         mao_ui_text_place(s_panel.status, 0.0f, PANEL_STATUS_Y + (1.0f - p) * 8.0f,
                           MAO_OPA_SECONDARY * smooth01((p - 0.4f) / 0.6f), &s_panel.cst);
     }
@@ -337,8 +343,14 @@ void mao_ui_device_update(const mao_ui_device_t *m)
     s_panel.focus = m->focus;
     s_panel.editing = m->editing;
     s_panel.connect_hidden = m->connect_hidden;
+    s_panel.no_centre = m->no_centre;
     s_panel.has_value = m->primary == NULL;
-    if (m->primary) {
+    if (m->no_centre) {
+        lv_obj_add_flag(s_panel.value, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_panel.primary, LV_OBJ_FLAG_HIDDEN);
+        s_panel.cv.opa = 0;
+        s_panel.cpr.opa = 0;
+    } else if (m->primary) {
         set_text(s_panel.primary, m->primary);
         lv_obj_add_flag(s_panel.value, LV_OBJ_FLAG_HIDDEN);
         s_panel.cv.opa = 0;

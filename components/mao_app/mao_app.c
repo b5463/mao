@@ -191,6 +191,7 @@ static void refresh_device_panel(void)
         s_page_kind = kind;
         s_dev_focus = 0;
         s_dev_edit = false;
+        mao_rel_page_reset();
     }
     if (kind != MAO_DEVPAGE_CONTROL) {
         mao_rel_page_draw(kind, &w);
@@ -480,13 +481,13 @@ static void on_devices(const mao_event_t *ev, int64_t now)
     }
     case MAO_EVENT_INPUT_CLICK: {
         mao_world_entry_t dev;
-        if (mao_world_get(list_row_id(st->devices_index, NULL), &dev) && dev.slot >= 0) {
+        if (mao_world_get(list_row_id(st->devices_index, NULL), &dev)) {
             ESP_LOGI(TAG, "open device '%s' (%s)", dev.name, dev.known ? "known" : "new");
             mao_state_set_device(dev.id);
             s_dev_focus = 0;   /* the centre: the value, or the primary action */
             s_dev_edit = false;
             s_page_kind = mao_devpage(dev.id, &dev);
-            mao_rel_page_opened();
+            mao_rel_page_reset();
             s_dev_opened_us = now;
             s_cap_streak = 0;
             mao_audio_confirm();

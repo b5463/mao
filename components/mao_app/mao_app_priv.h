@@ -82,10 +82,12 @@ typedef enum {
     MAO_DEVPAGE_NONE = 0,    /* neither known nor heard (e.g. just forgotten while away) */
     MAO_DEVPAGE_CONTROL,     /* KNOWN and online: the normal device page */
     MAO_DEVPAGE_NEW,         /* DISCOVERED only: name, NEW, PAIR - no remote control */
+    MAO_DEVPAGE_OFFLINE,     /* KNOWN but not reachable: name, OFFLINE, CONNECT - no stale controls */
 } mao_devpage_t;
 
 mao_devpage_t mao_devpage(uint64_t id, mao_world_entry_t *w);
-void mao_rel_page_opened(void);
+/* The page opened, or its kind changed under the user: focus settles. */
+void mao_rel_page_reset(void);
 /* Draw a relationship page (no-op for CONTROL). */
 void mao_rel_page_draw(mao_devpage_t kind, const mao_world_entry_t *w);
 /* Input on a relationship page; true when consumed. guarded: a click inside
