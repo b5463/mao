@@ -169,3 +169,12 @@ The old "backward sequence jump > 4096 means restart" heuristic survives only
 in the device's **legacy** (unflagged) path for old controllers, clearly
 labelled; it cannot influence session-aware commands and must never carry
 one-shot semantics.
+
+## Relationship is not session (M3.0)
+
+MAO's KNOWN-device relationship ("PAIR") lives entirely on MAO
+(docs/device_relationships.md) and changes nothing on the wire: no pairing
+message exists, and the ODD self-test count is unchanged (64/64). A session
+is a runtime command epoch that re-opens on its own after either side reboots;
+a relationship is a persisted user choice that survives both. Neither is
+authentication.
