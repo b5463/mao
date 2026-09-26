@@ -94,6 +94,7 @@ const char *mao_event_name(mao_event_type_t type)
     case MAO_EVENT_DEVICE_FOUND:       return "DEVICE_FOUND";
     case MAO_EVENT_DEVICE_LOST:        return "DEVICE_LOST";
     case MAO_EVENT_DEVICE_CHANGED:     return "DEVICE_CHANGED";
+    case MAO_EVENT_REL_CHANGED:        return "REL_CHANGED";
     default:                           break;
     }
     ESP_LOGD(TAG, "unknown event %d", (int)type);

@@ -35,7 +35,36 @@ static const char *TAG = "MAO_SYSTEM";
 #define DEVCMD_TASK_STACK  3072
 #define DEVCMD_TASK_PRIO   1
 #define DEVCMD_POLL_MS     50
-#define DEVCMD_LINE_MAX    48
+#define DEVCMD_LINE_MAX    64
+#define DEVCMD_HOOKS_MAX   4
+
+static struct {
+    const char *name;
+    mao_devcmd_handler_t fn;
+} s_hooks[DEVCMD_HOOKS_MAX];
+
+esp_err_t mao_devcmd_register(const char *name, mao_devcmd_handler_t fn)
+{
+    for (int i = 0; i < DEVCMD_HOOKS_MAX; i++) {
+        if (!s_hooks[i].name) {
+            s_hooks[i].name = name;
+            s_hooks[i].fn = fn;
+            return ESP_OK;
+        }
+    }
+    return ESP_ERR_NO_MEM;
+}
+
+static bool run_hook(const char *cmd, char *arg)
+{
+    for (int i = 0; i < DEVCMD_HOOKS_MAX; i++) {
+        if (s_hooks[i].name && strcmp(cmd, s_hooks[i].name) == 0) {
+            s_hooks[i].fn(arg);
+            return true;
+        }
+    }
+    return false;
+}
 
 static void run_command(char *line)
 {
@@ -55,7 +84,7 @@ static void run_command(char *line)
         ESP_LOGI(TAG, "dev commands: help | status | snap | anim <name> | view <home|menu|page> | "
                  "dial <dps> [s] | look <n> | state [n] | react [n] | stress <s> | key <cw|ccw|press|release|click|double|long> [n] | "
                  "transfer <left|right|up|down|success|fail|return|abort> | interest <0-100> | novelty <0-100> | "
-                 "odd-reset | odd-selftest | odd-flood <s> | reset-first-boot | reboot");
+                 "odd-reset | odd-selftest | odd-flood <s> | rel <list|dump|...> | reset-first-boot | reboot");
     } else if (strcmp(cmd, "key") == 0 && arg) {
         /* Inject a synthetic input event: indistinguishable from the knob for
          * everything above the input driver (scripted UI tests). */
@@ -190,6 +219,8 @@ static void run_command(char *line)
             seconds = 600;
         }
         mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_STRESS_BASE + seconds);
+    } else if (run_hook(cmd, arg)) {
+        /* handled by the component that owns it */
     } else if (cmd[0] != '\0') {
         ESP_LOGW(TAG, "dev: unknown command '%s' (try 'mao help')", cmd);
     }
@@ -241,6 +272,13 @@ esp_err_t mao_devcmd_start(void)
 
 esp_err_t mao_devcmd_start(void)
 {
+    return ESP_OK;
+}
+
+esp_err_t mao_devcmd_register(const char *name, mao_devcmd_handler_t fn)
+{
+    (void)name;
+    (void)fn;
     return ESP_OK;
 }
 

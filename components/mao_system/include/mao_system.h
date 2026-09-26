@@ -60,6 +60,12 @@ esp_err_t mao_system_init(void);
  * Called by mao_system_start(). */
 esp_err_t mao_devcmd_start(void);
 
+/* Let a component own a development command: "mao <name> <arg>" calls fn
+ * with the argument text (NULL if none) on the console task. No-op unless
+ * CONFIG_MAO_DEV_CONSOLE. Register during init, before mao_system_start(). */
+typedef void (*mao_devcmd_handler_t)(char *arg);
+esp_err_t mao_devcmd_register(const char *name, mao_devcmd_handler_t fn);
+
 /* Arm / re-arm the idle timer: MAO_EVENT_IDLE_TIMEOUT is posted after
  * timeout_ms without another call. 0 disarms. */
 void mao_system_idle_kick(uint32_t timeout_ms);

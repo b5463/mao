@@ -918,6 +918,9 @@ static void on_event(const mao_event_t *ev, void *ctx)
     case MAO_EVENT_UI_SETTLE:
         on_ui_settle();
         break;
+    case MAO_EVENT_REL_CHANGED:
+        refresh_device_views();
+        break;
     default:
         break;
     }

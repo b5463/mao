@@ -1,6 +1,7 @@
 idf_component_register(
-    SRCS "mao_rel_table.c"
+    SRCS "mao_rel_table.c" "mao_rel.c"
     INCLUDE_DIRS "include"
     PRIV_INCLUDE_DIRS "."
     REQUIRES odd_bus
+    PRIV_REQUIRES mao_devices mao_system nvs_flash esp_timer
 )
