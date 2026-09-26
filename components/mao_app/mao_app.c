@@ -739,6 +739,16 @@ static void on_device_event(const mao_event_t *ev, int64_t now_us)
     const uint32_t now = (uint32_t)(now_us / 1000);
     mao_device_t dev;
     const bool have = mao_devices_get((int)ev->value, &dev);
+    if (have && ev->type != MAO_EVENT_DEVICE_LOST) {
+        /* Live ANNOUNCE is authoritative: a KNOWN device that was renamed or
+         * reflashed as another profile keeps its relationship (device_id),
+         * and its fallback name/type follow (written only when they change). */
+        mao_rel_note_live(dev.info.id, dev.info.name, dev.info.device_type);
+    }
+    if (have && ev->type != MAO_EVENT_DEVICE_CHANGED && mao_rel_is_known(dev.info.id)) {
+        ESP_LOGI(TAG, "known device %s: '%s'", ev->type == MAO_EVENT_DEVICE_FOUND ? "online" : "offline",
+                 dev.info.name);
+    }
     if (ev->type == MAO_EVENT_DEVICE_FOUND && have) {
         bool known = false;
         for (int i = 0; i < MAO_DEVICES_MAX; i++) {
