@@ -126,7 +126,7 @@ static void dispatch_task(void *arg)
 /* Tasks whose unused stack (high-water mark, bytes) is reported by health_cb. */
 static const char *const kWatchedTasks[] = {
     "mao_dispatch", "mao_input", "mao_audio", "taskLVGL", "esp_timer", "mao_devcmd",
-    "mao_devices", "wifi", "sys_evt",
+    "mao_devices", "wifi", "sys_evt", "mao_link",
 };
 
 static void health_cb(void *arg)

@@ -40,6 +40,10 @@ static const char *TAG = "MAO_LINK";
 #define PROBE_WAIT_MS     800       /* an unanswered secure probe: the device lost the session, re-key */
 #define REVOKE_RETRY_MS   400
 #define REVOKE_TRIES      4
+#define HELLO_BUF         72        /* a HELLO frame is 52 B */
+#define JOB_BUF           96        /* the largest pairing frame (COMMIT) is 92 B */
+_Static_assert(HELLO_BUF >= ODL_HEAD_LEN + 16 + ODL_NONCE_LEN + ODL_TAG_LEN, "HELLO buffer");
+_Static_assert(JOB_BUF >= ODL_HEAD_LEN + ODL_TXID_LEN + 16 + ODL_PUB_LEN + ODL_HASH_LEN, "pairing job buffer");
 
 typedef struct {
     bool used;
@@ -49,7 +53,7 @@ typedef struct {
     mao_link_state_t st;
     odl_session_t sess;
     uint8_t nonce_c[ODL_NONCE_LEN];
-    uint8_t hello[ODL_MAX_FRAME];
+    uint8_t hello[HELLO_BUF];
     size_t hello_len;
     uint32_t hello_last_ms;
     uint8_t tries;
@@ -66,7 +70,7 @@ typedef struct {
     uint8_t type;
     uint8_t mac[6];
     uint8_t len;
-    uint8_t data[ODL_MAX_FRAME];
+    uint8_t data[JOB_BUF];
 } job_t;
 
 static QueueHandle_t s_jobs;
@@ -98,9 +102,13 @@ static struct {
 #if CONFIG_MAO_DEV_CONSOLE
 /* Development only: copies of frames already sent, for replay tests. */
 static struct {
+    uint8_t f[JOB_BUF];
+    uint8_t n;
+} s_rec_hello, s_rec_pair[6];
+static struct {
     uint8_t f[ODL_MAX_FRAME];
     uint8_t n;
-} s_rec_hello, s_rec_data, s_rec_pair[8];
+} s_rec_data;
 static uint8_t s_rec_pair_n;
 #define DEV_KEEP(slot, frame, len) do { memcpy((slot).f, (frame), (len)); (slot).n = (uint8_t)(len); } while (0)
 #else
@@ -289,8 +297,13 @@ static void start_hello_locked(peer_t *p, uint32_t now)
     odl_credential_t c = cred;
     memcpy(c.peer_mac, p->mac, 6);
     memcpy(c.k_link, p->key, ODL_KEY_LEN);
-    p->hello_len = odl_hello_build(&c, self_id, self_mac, p->nonce_c, p->hello);
+    uint8_t f[ODL_MAX_FRAME];
+    const size_t n = odl_hello_build(&c, self_id, self_mac, p->nonce_c, f);
     olc_wipe(&c, sizeof(c));
+    p->hello_len = n <= sizeof(p->hello) ? n : 0;
+    if (p->hello_len) {
+        memcpy(p->hello, f, n);
+    }
     if (!p->hello_len) {
         return;
     }
@@ -478,7 +491,7 @@ mao_link_rx_t mao_link_rx(const uint8_t mac[6], const uint8_t *f, size_t len, bo
     }
     if (m.type == ODL_HELLO_ACK) {
         on_hello_ack(&m, mac);
-    } else if (m.type >= ODL_PAIR_START && m.type <= ODL_PAIR_ABORT && len <= ODL_MAX_FRAME) {
+    } else if (m.type >= ODL_PAIR_START && m.type <= ODL_PAIR_ABORT && len <= JOB_BUF) {
         job_t j = { .type = JOB_PAIR_FRAME, .len = (uint8_t)len };
         memcpy(j.mac, mac, 6);
         memcpy(j.data, f, len);
@@ -604,7 +617,7 @@ static void pair_send(void *ctx, const uint8_t *f, size_t n)
     if (n >= 4 && f[3] == ODL_PAIR_START) {
         s_rec_pair_n = 0;                    /* a new ceremony: keep its frames */
     }
-    if (s_rec_pair_n < 8) {
+    if (s_rec_pair_n < 6 && n <= JOB_BUF) {
         DEV_KEEP(s_rec_pair[s_rec_pair_n], f, n);
         s_rec_pair_n++;
     }
