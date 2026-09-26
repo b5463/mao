@@ -9,12 +9,17 @@
  * re-sorted by RSSI, reachability or activity. A KNOWN device never leaves
  * the list by going offline; a DISCOVERED one leaves when the registry
  * declares it offline (and is never persisted).
+ *
+ * M3.1: for a device with a pair credential, "online" means PROVEN this
+ * session (a secure link session) and live - never "a plaintext ANNOUNCE
+ * with its device_id was heard".
  */
 #pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
 #include "odd_device.h"
+#include "mao_link.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,7 +32,10 @@ typedef struct {
     char name[ODD_NAME_MAX + 1];    /* live name when heard this boot, else last known */
     uint16_t device_type;
     bool known;                     /* relationship: KNOWN (else DISCOVERED) */
-    bool online;                    /* reachability: live registry says online */
+    bool has_cred;                  /* PAIRED_AUTHENTICATED (else KNOWN_UNVERIFIED when known) */
+    mao_link_state_t link;          /* secure link state (MAO_LINK_NONE without a credential) */
+    bool online;                    /* reachable: proven (paired) or heard (not paired) */
+    bool auth_failed;               /* heard, but it could not prove the stored identity */
     int slot;                       /* live registry slot, -1 = not heard this boot */
 } mao_world_entry_t;
 

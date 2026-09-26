@@ -16,8 +16,12 @@
 #include <inttypes.h>
 #include <string.h>
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "esp_now.h"
 #include "esp_timer.h"
+#include "esp_wifi.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "nvs.h"
 #include "odd_bus.h"
 #include "odd_link.h"
@@ -375,12 +379,12 @@ void lamp_link_command(int sub, int32_t v)
     case LINK_CMD_STATUS:
         ESP_LOGI(TAG, "security: %s%s, pair %s, session %s | hello ok=%" PRIu32 " bad=%" PRIu32 " promoted=%" PRIu32
                  " | env drop tag=%" PRIu32 " replay=%" PRIu32 " session=%" PRIu32 " none=%" PRIu32
-                 " | plaintext refused rx=%" PRIu32 " tx=%" PRIu32,
+                 " | plaintext refused rx=%" PRIu32 " tx=%" PRIu32 " | malformed=%" PRIu32,
                  s_auth.has_active ? "authorized" : "open", s_auth.has_pending ? " (+pending)" : "",
                  odl_d_state_name(s_pair.st), s_auth.sess.valid ? "yes" : "no", s_auth.hello_ok, s_auth.hello_bad,
                  s_auth.promoted, s_st.env_drop[ODL_RX_BAD_TAG], s_st.env_drop[ODL_RX_REPLAY],
                  s_st.env_drop[ODL_RX_WRONG_SESSION], s_st.env_drop[ODL_RX_NO_SESSION], s_st.plain_refused,
-                 s_st.plain_tx_refused);
+                 s_st.plain_tx_refused, s_st.malformed);
         if (s_auth.has_active) {
             ESP_LOGI(TAG, "  controller %016" PRIx64 " key fp %08" PRIx32, s_auth.active.peer_id,
                      odl_fingerprint(s_auth.active.k_link));
@@ -411,6 +415,25 @@ void lamp_link_command(int sub, int32_t v)
             ESP_LOGW(TAG, "dev: controller peer entry is now PLAINTEXT (driver filtering off: app gate only)");
         }
         break;
+    case LINK_CMD_SPOOFMAC: {
+        /* dev: impersonation test - the same device_id / name from ANOTHER
+         * radio address. The controller must refuse it (credential binds the
+         * radio). v = 1 alternate MAC, 0 back to the factory MAC. */
+        uint8_t mac[6];
+        esp_read_mac(mac, ESP_MAC_WIFI_STA);
+        if (v) {
+            mac[0] = 0x02;                   /* locally administered */
+            mac[5] ^= 0x5A;
+        }
+        esp_wifi_stop();
+        const esp_err_t e = esp_wifi_set_mac(WIFI_IF_STA, mac);
+        esp_wifi_start();
+        esp_wifi_set_max_tx_power(34);       /* the LOLIN RF quirk: keep the cap */
+        esp_wifi_set_channel(ODD_BUS_DEV_CHANNEL, WIFI_SECOND_CHAN_NONE);
+        ESP_LOGW(TAG, "dev: radio MAC now " MACSTR " (%s) - device_id unchanged", MAC2STR(mac), esp_err_to_name(e));
+        odd_bus_announce(NULL, 0);
+        break;
+    }
     case LINK_CMD_SELFTEST: {
         int total = 0;
         const int pass = odl_selftest(&total);

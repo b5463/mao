@@ -83,6 +83,8 @@ typedef enum {
     MAO_DEVPAGE_CONTROL,     /* KNOWN and online: the normal device page */
     MAO_DEVPAGE_NEW,         /* DISCOVERED only: name, NEW, PAIR - no remote control */
     MAO_DEVPAGE_OFFLINE,     /* KNOWN but not reachable: name, OFFLINE, CONNECT - no stale controls */
+    MAO_DEVPAGE_VERIFY,      /* remembered (M3.0) but never secured, heard: VERIFY - no controls */
+    MAO_DEVPAGE_REPAIR,      /* paired, heard, cannot prove the stored identity: REPAIR - no controls */
 } mao_devpage_t;
 
 mao_devpage_t mao_devpage(uint64_t id, mao_world_entry_t *w);
@@ -103,6 +105,8 @@ bool mao_rel_sheet_open(void);
 void mao_rel_sheet_input(const mao_world_entry_t *w, const mao_event_t *ev);
 void mao_rel_sheet_draw(const mao_world_entry_t *w);
 void mao_rel_init_dev(void);
+/* MAO_EVENT_LINK_CHANGED: ceremony outcomes, revocation completion. */
+void mao_rel_on_link_event(int32_t what);
 
 /* Defined in mao_app.c for mao_app_rel.c. */
 void mao_app_dev_refresh(void);

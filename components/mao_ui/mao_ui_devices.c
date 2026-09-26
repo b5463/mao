@@ -37,7 +37,7 @@
 #define SHEET_L1_Y        -36.0f
 #define SHEET_L2_Y        -8.0f
 #define SHEET_WORDS_Y     44.0f
-#define SHEET_WORD_DX     46.0f
+#define SHEET_WORD_DX     62.0f    /* fits CANCEL | MATCH on the round screen */
 #define OFFLINE_SCALE     0.45f
 #define NEW_SCALE         0.70f    /* nearby but not yet known: present, not yet at home */
 
@@ -69,8 +69,8 @@ typedef struct {
     lv_obj_t *word[MAO_UI_DEVICE_WORDS];      /* the other control words */
     lv_obj_t *fact_l, *fact_r;  /* read-only facts line */
     lv_obj_t *rel;              /* relationship word (INFO / FORGET) */
-    lv_obj_t *sh_l1, *sh_l2, *sh_w[2];
-    mao_text_cache_t crel, csl1, csl2, csw[2];
+    lv_obj_t *sh_l1, *sh_l2, *sh_big, *sh_w[2];
+    mao_text_cache_t crel, csl1, csl2, csbig, csw[2];
     mao_ui_sheet_t sheet;
     mao_spring_t sh;            /* sheet presence 0..1 */
     mao_text_cache_t ct, cv, cst, cc, cpr, cw[MAO_UI_DEVICE_WORDS], cfl, cfr;
@@ -147,6 +147,12 @@ static const char *list_status(uint32_t now)
     if (!m->known[m->selected]) {
         return "NEW";
     }
+    if (m->note[m->selected] == 1) {
+        return "VERIFY";
+    }
+    if (m->note[m->selected] == 2) {
+        return "NOT VERIFIED";
+    }
     return m->online[m->selected] ? "ONLINE" : "OFFLINE";
 }
 
@@ -165,7 +171,8 @@ static void list_layout(uint32_t now)
             y = d * LIST_SPACING * spread + enter;
             x = LIST_ARC * (y / LIST_ARC_REF) * (y / LIST_ARC_REF);
             const float edge = clampf((LIST_EDGE_R - fabsf(y)) / LIST_EDGE_FADE, 0.0f, 1.0f);
-            const float row = !s_list.model.online[i] ? OFFLINE_SCALE
+            const float row = s_list.model.note[i] ? NEW_SCALE
+                              : !s_list.model.online[i] ? OFFLINE_SCALE
                               : (s_list.model.known[i] ? 1.0f : NEW_SCALE);
             large = 255.0f * sel * edge * p * row;
             small = MAO_OPA_CONTEXT * (1.0f - sel) * edge * p * row;
@@ -232,7 +239,9 @@ static void sheet_layout(float p0, float s)
     const float a = p0 * s;
     const float rise = (1.0f - s) * 8.0f;
     mao_ui_text_place(s_panel.sh_l1, 0.0f, SHEET_L1_Y + rise, MAO_OPA_SECONDARY * a, &s_panel.csl1);
-    mao_ui_text_place(s_panel.sh_l2, 0.0f, SHEET_L2_Y + rise, 235.0f * a, &s_panel.csl2);
+    const bool big = s_panel.sheet.line2_big;
+    mao_ui_text_place(s_panel.sh_l2, 0.0f, SHEET_L2_Y + rise, big ? 0.0f : 235.0f * a, &s_panel.csl2);
+    mao_ui_text_place(s_panel.sh_big, 0.0f, SHEET_L2_Y + 2.0f + rise, big ? 255.0f * a : 0.0f, &s_panel.csbig);
     const int n = s_panel.sheet.word_count;
     for (int i = 0; i < 2; i++) {
         const float x = n == 2 ? (i == 0 ? -SHEET_WORD_DX : SHEET_WORD_DX) : 0.0f;
@@ -320,7 +329,8 @@ void mao_ui_device_sheet(const mao_ui_sheet_t *sheet)
     if (sheet->on) {
         s_panel.sheet = *sheet;
         set_text(s_panel.sh_l1, sheet->line1 ? sheet->line1 : "");
-        set_text(s_panel.sh_l2, sheet->line2 ? sheet->line2 : "");
+        set_text(s_panel.sh_l2, sheet->line2 && !sheet->line2_big ? sheet->line2 : "");
+        set_text(s_panel.sh_big, sheet->line2 && sheet->line2_big ? sheet->line2 : "");
         for (int i = 0; i < 2; i++) {
             set_text(s_panel.sh_w[i], i < sheet->word_count && sheet->words[i] ? sheet->words[i] : "");
         }
@@ -534,6 +544,8 @@ void mao_devices_ui_create(lv_obj_t *scr)
     s_panel.rel = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, 4, "");
     s_panel.sh_l1 = mao_ui_make_text(scr, MAO_FONT_SMALL, MAO_COL_FG, MAO_TRACK_SMALL, "");
     s_panel.sh_l2 = mao_ui_make_text(scr, MAO_FONT_NORMAL, MAO_COL_FG, MAO_TRACK_NORMAL, "");
+    s_panel.sh_big = mao_ui_make_text(scr, MAO_FONT_LARGE, MAO_COL_FG, MAO_TRACK_LARGE, "");
+    mao_ui_text_cache_reset(&s_panel.csbig);
     for (int i = 0; i < 2; i++) {
         s_panel.sh_w[i] = mao_ui_make_text(scr, MAO_FONT_NORMAL, MAO_COL_FG, MAO_TRACK_NORMAL, "");
         mao_ui_text_cache_reset(&s_panel.csw[i]);

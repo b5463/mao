@@ -61,6 +61,9 @@ esp_err_t mao_rel_forget(uint64_t id);
  * fallback metadata is updated (one write). No-op for strangers. */
 void mao_rel_note_live(uint64_t id, const char *name, uint16_t type);
 
+/* The radio bound in the pair credential (false without one). */
+bool mao_rel_peer_mac(uint64_t id, uint8_t mac[6]);
+
 /* Dev: drop the stored credential (MAO key loss) or corrupt it (wrong key). */
 esp_err_t mao_rel_debug_drop_key(uint64_t id);
 esp_err_t mao_rel_debug_corrupt_key(uint64_t id);

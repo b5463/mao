@@ -36,4 +36,5 @@ enum {
     LINK_CMD_FORCESAS,      /* dev: value 1/0 - corrupt our transcript copy (SAS mismatch) */
     LINK_CMD_PEERPLAIN,     /* dev: make the controller's peer entry plaintext (app-gate test) */
     LINK_CMD_SELFTEST,
+    LINK_CMD_SPOOFMAC,      /* dev: value 1/0 - announce from another radio MAC (impersonation test) */
 };

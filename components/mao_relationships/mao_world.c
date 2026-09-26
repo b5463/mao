@@ -33,7 +33,13 @@ bool mao_world_get(uint64_t id, mao_world_entry_t *out)
         out->device_type = r.device_type;
     }
     if (live) {
-        from_live(out, &d, slot);   /* live ANNOUNCE is authoritative */
+        from_live(out, &d, slot);   /* for a paired device this was learned over the secure path */
+    }
+    out->has_cred = known && r.has_cred;
+    out->link = out->has_cred ? mao_link_state(id) : MAO_LINK_NONE;
+    if (out->has_cred) {
+        out->online = out->online && out->link == MAO_LINK_SECURE;
+        out->auth_failed = out->link == MAO_LINK_FAILED;
     }
     return true;
 }

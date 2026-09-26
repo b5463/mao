@@ -230,6 +230,18 @@ static bool persist_credential(uint64_t id, const char *name, uint16_t type, con
     return true;
 }
 
+bool mao_rel_peer_mac(uint64_t id, uint8_t mac[6])
+{
+    lock();
+    const int slot = mao_rel_table_find(&s_t, id);
+    const bool ok = slot >= 0 && s_t.rec[slot].has_cred;
+    if (ok) {
+        memcpy(mac, s_t.rec[slot].peer_mac, 6);
+    }
+    unlock();
+    return ok;
+}
+
 esp_err_t mao_rel_debug_drop_key(uint64_t id)
 {
     lock();

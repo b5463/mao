@@ -95,6 +95,18 @@ static struct {
     uint32_t plain_refused_tx, env_drop, hello_ok, hello_fail, ack_bad;
 } s_st;
 
+#if CONFIG_MAO_DEV_CONSOLE
+/* Development only: copies of frames already sent, for replay tests. */
+static struct {
+    uint8_t f[ODL_MAX_FRAME];
+    uint8_t n;
+} s_rec_hello, s_rec_data, s_rec_pair[8];
+static uint8_t s_rec_pair_n;
+#define DEV_KEEP(slot, frame, len) do { memcpy((slot).f, (frame), (len)); (slot).n = (uint8_t)(len); } while (0)
+#else
+#define DEV_KEEP(slot, frame, len) do { } while (0)
+#endif
+
 static uint32_t now_ms(void)
 {
     return (uint32_t)(esp_timer_get_time() / 1000);
@@ -284,6 +296,7 @@ static void start_hello_locked(peer_t *p, uint32_t now)
     }
     p->tries = 1;
     p->hello_last_ms = now;
+    DEV_KEEP(s_rec_hello, p->hello, p->hello_len);
     mao_radio_send(NULL, p->hello, p->hello_len);   /* broadcast: reaches whatever peer entry it holds */
     if (p->st != MAO_LINK_SECURE) {
         set_state(p, MAO_LINK_VERIFYING);
@@ -485,6 +498,9 @@ esp_err_t mao_link_tx(const uint8_t *dst, const uint8_t *frame, size_t len)
         uint8_t f[ODL_MAX_FRAME];
         const size_t n = odl_wrap(&p->sess, frame, len, f);
         unlock();
+        if (n) {
+            DEV_KEEP(s_rec_data, f, n);
+        }
         return n ? mao_radio_send(dst, f, n) : ESP_FAIL;
     }
     unlock();
@@ -584,6 +600,15 @@ bool mao_link_revoke_confirmed(uint64_t *id)
 static void pair_send(void *ctx, const uint8_t *f, size_t n)
 {
     (void)ctx;
+#if CONFIG_MAO_DEV_CONSOLE
+    if (n >= 4 && f[3] == ODL_PAIR_START) {
+        s_rec_pair_n = 0;                    /* a new ceremony: keep its frames */
+    }
+    if (s_rec_pair_n < 8) {
+        DEV_KEEP(s_rec_pair[s_rec_pair_n], f, n);
+        s_rec_pair_n++;
+    }
+#endif
     mao_radio_send(NULL, f, n);
 }
 
@@ -809,6 +834,68 @@ static void dev_inject(const char *mode, const char *what)
              esp_err_to_name(e));
 }
 
+/* Resend frames of an earlier exchange: the device must refuse all of them. */
+static void dev_replay(const char *what)
+{
+    lock();
+    uint8_t mac[6] = { 0 };
+    for (int i = 0; i < PEERS_MAX; i++) {
+        if (s_peers[i].used) {
+            memcpy(mac, s_peers[i].mac, 6);
+            break;
+        }
+    }
+    unlock();
+    int sent = 0;
+    if (!strcmp(what, "hello") && s_rec_hello.n) {
+        mao_radio_send(NULL, s_rec_hello.f, s_rec_hello.n);
+        sent = 1;
+    } else if (!strcmp(what, "data") && s_rec_data.n) {
+        mao_radio_send(mac, s_rec_data.f, s_rec_data.n);
+        sent = 1;
+    } else if (!strcmp(what, "pair")) {
+        for (int i = 0; i < s_rec_pair_n; i++) {
+            mao_radio_send(NULL, s_rec_pair[i].f, s_rec_pair[i].n);
+            vTaskDelay(pdMS_TO_TICKS(20));
+            sent++;
+        }
+    }
+    ESP_LOGW(TAG, "dev: replayed %d old %s frame(s)", sent, what);
+}
+
+/* Malformed bootstrap / link frames (the device must survive, commit nothing). */
+static void dev_fuzz(void)
+{
+    uint64_t self_id;
+    uint8_t self_mac[6];
+    self_identity(&self_id, self_mac);
+    int sent = 0;
+    for (int i = 0; i < 64; i++) {
+        uint8_t f[ODL_MAX_FRAME];
+        size_t n;
+        odl_msg_t m = { .type = (uint8_t)(1 + i % 7), .ctrl_id = self_id, .dev_id = s_pair_dev.dev_id };
+        olc_random(m.txid, sizeof(m.txid));
+        olc_random(m.pub, sizeof(m.pub));
+        olc_random(m.nonce, sizeof(m.nonce));
+        olc_random(m.tag, sizeof(m.tag));
+        n = odl_encode(&m, f);
+        switch (i % 8) {
+        case 0: n = n > 10 ? n - 7 : n; break;            /* truncated */
+        case 1: f[2] = 9; break;                           /* wrong version */
+        case 2: f[3] = 0x3F; break;                        /* unknown type */
+        case 3: memset(&f[n], 0xAA, 20); n += 20; break;   /* oversized */
+        case 4: memset(&f[28], 0, 32); break;              /* zero public key / nonce */
+        case 5: n = 4; break;                              /* head only */
+        case 6: olc_random(&f[4], n - 4); break;           /* random body, right length */
+        default: break;                                    /* well formed, stale txid */
+        }
+        mao_radio_send(NULL, f, n);
+        sent++;
+        vTaskDelay(pdMS_TO_TICKS(15));
+    }
+    ESP_LOGW(TAG, "dev: sent %d malformed / stale link frames", sent);
+}
+
 static void dev_command(char *arg)
 {
     char *sub = arg ? arg : "";
@@ -858,6 +945,10 @@ static void dev_command(char *arg)
             ESP_LOGW(TAG, "dev: link now uses key fp %08" PRIx32 " (RAM only)", odl_fingerprint(p->key));
         }
         unlock();
+    } else if (!strcmp(sub, "replay") && rest) {
+        dev_replay(rest);
+    } else if (!strcmp(sub, "fuzz")) {
+        dev_fuzz();
     } else if (!strcmp(sub, "inject") && rest) {
         char *what = strchr(rest, ' ');
         if (what) {
@@ -866,7 +957,7 @@ static void dev_command(char *arg)
         dev_inject(rest, what ? what : "set");
     } else {
         ESP_LOGW(TAG, "link status | selftest | bench | forcesas on|off | oldkey save|use | "
-                 "inject bcast|uni set|action|session");
+                 "inject bcast|uni set|action|session | replay hello|data|pair | fuzz");
     }
 }
 #endif

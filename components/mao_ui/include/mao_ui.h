@@ -46,6 +46,7 @@ typedef struct {
     const char *name[MAO_UI_DEVICES_MAX];
     bool online[MAO_UI_DEVICES_MAX];
     bool known[MAO_UI_DEVICES_MAX];     /* part of MAO's setup (else merely nearby: NEW) */
+    uint8_t note[MAO_UI_DEVICES_MAX];   /* 0 none, 1 VERIFY (remembered, not yet secured), 2 NOT VERIFIED */
     int selected;
 } mao_ui_devices_t;
 
@@ -86,6 +87,7 @@ typedef struct {
     bool hide_title;         /* a question replaces the page heading */
     const char *line1;       /* small, quiet */
     const char *line2;       /* the subject */
+    bool line2_big;          /* large type (a pairing code to compare) */
     const char *words[2];
     int8_t word_count;
     int8_t focus;            /* index into words */

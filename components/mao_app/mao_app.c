@@ -19,6 +19,7 @@
 #include "mao_settings.h"
 #include "mao_system.h"
 #include "mao_ui.h"
+#include "mao_link.h"
 #include "mao_rel.h"
 #include "mao_world.h"
 
@@ -136,9 +137,10 @@ static bool device_ready(const mao_device_t *dev, const mao_device_controls_t *c
 
 static esp_err_t invoke_action_checked(const mao_device_t *dev, const mao_device_controls_t *ctl, int list_idx)
 {
-    if (!mao_rel_is_known(dev->info.id)) {
-        /* Belt and braces: the NEW page offers no controls at all. */
-        ESP_LOGW(TAG, "refused: '%s' is not part of MAO's setup", dev->info.name);
+    if (mao_link_state(dev->info.id) != MAO_LINK_SECURE) {
+        /* Belt and braces: only a paired device proven this session is ever
+         * controlled (the pages already offer nothing else). */
+        ESP_LOGW(TAG, "refused: '%s' is not a proven paired device", dev->info.name);
         return ESP_ERR_INVALID_STATE;
     }
     /* Known-not-ready: answer locally, send nothing (§43); the remote stays
@@ -172,6 +174,7 @@ static void refresh_devices_list(void)
         model.name[model.count] = devs[i].name;
         model.online[model.count] = devs[i].online;
         model.known[model.count] = devs[i].known;
+        model.note[model.count] = devs[i].auth_failed ? 2 : (devs[i].known && !devs[i].has_cred && devs[i].online);
         ids[model.count] = devs[i].id;
         model.count++;
     }
@@ -838,6 +841,10 @@ static void on_dev_command(int32_t value, int64_t now)
             mao_device_controls_t ct;
             if (mao_devices_get(i, &dv)) {
                 mao_device_controls(&dv, &ct);
+                if (ct.action_count > 0 && mao_link_state(dv.info.id) != MAO_LINK_SECURE) {
+                    ESP_LOGW(TAG, "dev: odd-action refused for '%s' (not a proven paired device)", dv.info.name);
+                    continue;
+                }
                 if (ct.action_count > 0) {
                     const int pick = ct.primary_action >= 0 ? ct.primary_action : 0;
                     ESP_LOGI(TAG, "dev: invoking %s on '%s'",
@@ -998,6 +1005,9 @@ static void on_event(const mao_event_t *ev, void *ctx)
         break;
     case MAO_EVENT_REL_CHANGED:
         refresh_device_views();
+        break;
+    case MAO_EVENT_LINK_CHANGED:
+        mao_rel_on_link_event(ev->value);
         break;
     default:
         break;

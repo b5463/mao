@@ -1,48 +1,59 @@
 /*
- * DEVICE page relationship layer (M3.0). Decides which page a device gets and
- * owns the pages that are about the relationship rather than the device:
+ * DEVICE page relationship + security layer (M3.0, M3.1). Decides which
+ * page a device gets and owns the pages that are about the relationship
+ * rather than the device (docs/device_relationships.md, docs/link_security.md):
  *
  *   NEW      heard nearby, not part of MAO's setup: name, NEW, PAIR.
- *            No remote control is offered until PAIR (MAO product policy,
- *            not network security: the transport is not authenticated).
- *   OFFLINE  KNOWN but not reachable: name, OFFLINE, CONNECT. Relationship
- *            memory is not connectivity: no stale CAPTURE / LEVEL controls.
- *            CONNECT stays a deliberate attempt (it may fail honestly).
- *   CONTROL  KNOWN and online: the normal generic device page (mao_app.c).
+ *   VERIFY   remembered (e.g. an M3.0 relationship) but never secured: VERIFY.
+ *   REPAIR   paired, heard, but it could not prove the stored identity
+ *            (wrong key, lost credential, another controller): REPAIR.
+ *   OFFLINE  paired / remembered, not reachable: OFFLINE, CONNECT, INFO.
+ *   CONTROL  paired and proven this session: the normal device page.
  *
- * PAIR is one deliberate press. The device becomes KNOWN only after the
- * record is committed; the page then turns into the normal device page in
- * place. It never connects, identifies or controls anything by itself.
+ * PAIR / VERIFY / REPAIR run the same ceremony (mao_link): PAIRING, then the
+ * six-digit code with CANCEL / MATCH (CANCEL focused), then CONFIRM ON
+ * DEVICE, then the normal page in place. Nothing is remembered or trusted
+ * before the ceremony's commit point. No character performance: the words
+ * carry it.
  *
- * FORGET is deliberate and confirmed: a quiet word one step below CONNECT,
- * then "FORGET / <NAME>?" with NO focused - YES needs a turn and a press.
- * Forgetting an online device turns its page back into NEW (MAO still hears
- * it); an offline one leaves DEVICES. Runs in the dispatcher task.
+ * FORGET is deliberate and confirmed; for a proven device it first revokes
+ * MAO's authorization on the device (bounded), then erases everything here.
+ * Runs in the dispatcher task.
  */
 #include "mao_app_priv.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include "sdkconfig.h"
-
-#include <inttypes.h>
 #include "esp_log.h"
 #include "mao_audio.h"
+#include "mao_devices.h"
 #include "mao_led.h"
+#include "mao_link.h"
 #include "mao_rel.h"
 #include "mao_system.h"
 #include "mao_ui.h"
 
 static const char *TAG = "MAO_APP";
 
-static const char *s_note;      /* PAIR outcome on the NEW page ("FULL" / "NOT SAVED") */
+static const char *s_note;      /* outcome of the last ceremony on this page */
 static uint64_t s_note_dev;
 
-typedef enum { SHEET_NONE = 0, SHEET_DETAILS, SHEET_CONFIRM } sheet_t;
+typedef enum { SHEET_NONE = 0, SHEET_DETAILS, SHEET_CONFIRM, SHEET_FORGETTING } sheet_t;
 static sheet_t s_sheet;
 static int8_t s_sheet_focus;
 static sheet_t s_confirm_back;      /* where NO returns to */
 static int8_t s_off_focus;          /* OFFLINE page: 0 CONNECT, 1 relationship word */
 static volatile uint8_t s_layout = 1;   /* 0 = A (FORGET word), 1 = B (INFO -> details) */
+static uint64_t s_forget_dev;       /* a revocation in flight for this device */
+static bool s_forget_online;
+static int8_t s_cer_focus;          /* SAS screen: 0 CANCEL, 1 MATCH */
+
+static bool ceremony_for(uint64_t id, mao_link_pair_status_t *ps)
+{
+    mao_link_pair_status(ps);
+    return ps->dev_id == id && ps->st != ODL_C_IDLE;
+}
 
 mao_devpage_t mao_devpage(uint64_t id, mao_world_entry_t *w)
 {
@@ -51,6 +62,12 @@ mao_devpage_t mao_devpage(uint64_t id, mao_world_entry_t *w)
     }
     if (!w->known) {
         return MAO_DEVPAGE_NEW;
+    }
+    if (!w->has_cred) {
+        return w->online ? MAO_DEVPAGE_VERIFY : MAO_DEVPAGE_OFFLINE;
+    }
+    if (w->auth_failed) {
+        return MAO_DEVPAGE_REPAIR;
     }
     return w->online ? MAO_DEVPAGE_CONTROL : MAO_DEVPAGE_OFFLINE;
 }
@@ -94,12 +111,38 @@ void mao_rel_word_activate(const mao_world_entry_t *w)
     mao_app_dev_refresh();
 }
 
+/* ---------------------------------------------------------------------- */
+/* Drawing                                                                */
+/* ---------------------------------------------------------------------- */
+
+static void draw_ceremony_sheet(const mao_link_pair_status_t *ps, mao_ui_sheet_t *sh)
+{
+    static char code[8];
+    odl_sas_text(ps->sas, code);
+    sh->on = true;
+    sh->line2 = code;
+    sh->line2_big = true;
+    if (ps->st == ODL_C_SAS_READY) {
+        sh->line1 = "SAME CODE?";        /* compare with the device, then decide */
+        sh->words[0] = "CANCEL";
+        sh->words[1] = "MATCH";
+        sh->word_count = 2;
+        sh->focus = s_cer_focus;
+    } else {
+        sh->line1 = "WAITING";           /* for the device's own confirmation; the code stays */
+        sh->word_count = 0;
+    }
+}
+
 void mao_rel_sheet_draw(const mao_world_entry_t *w)
 {
     static char question[ODD_NAME_MAX + 2];
     mao_ui_sheet_t sh = { .on = s_sheet != SHEET_NONE };
-    if (s_sheet == SHEET_DETAILS) {
-        sh.line1 = "PAIRED";
+    mao_link_pair_status_t ps;
+    if (ceremony_for(w->id, &ps) && (ps.st == ODL_C_SAS_READY || ps.st == ODL_C_WAIT_ACCEPT)) {
+        draw_ceremony_sheet(&ps, &sh);
+    } else if (s_sheet == SHEET_DETAILS) {
+        sh.line1 = w->has_cred ? "PAIRED" : "REMEMBERED";
         sh.line2 = odd_device_type_name(w->device_type);
         sh.words[0] = "FORGET";
         sh.word_count = 1;
@@ -113,22 +156,206 @@ void mao_rel_sheet_draw(const mao_world_entry_t *w)
         sh.words[1] = "YES";
         sh.word_count = 2;
         sh.focus = s_sheet_focus;
+    } else if (s_sheet == SHEET_FORGETTING) {
+        sh.hide_title = true;
+        sh.line1 = "FORGET";
+        sh.line2 = w->name;
     }
     mao_ui_device_sheet(&sh);
 }
 
+static void draw_offline(const mao_world_entry_t *w)
+{
+    mao_ui_device_t m = {
+        .title = w->name,
+        .online = false,              /* the status word reads OFFLINE */
+        .described = true,
+        .no_centre = true,
+        .focus = (int8_t)(1 + s_off_focus),   /* CONNECT or the relationship word */
+        .rel_word = mao_rel_word(),
+    };
+    mao_ui_device_update(&m);
+}
+
+void mao_rel_page_draw(mao_devpage_t kind, const mao_world_entry_t *w)
+{
+    if (kind == MAO_DEVPAGE_OFFLINE) {
+        draw_offline(w);
+        return;
+    }
+    if (kind != MAO_DEVPAGE_NEW && kind != MAO_DEVPAGE_VERIFY && kind != MAO_DEVPAGE_REPAIR) {
+        return;
+    }
+    mao_link_pair_status_t ps;
+    const bool cer = ceremony_for(w->id, &ps);
+    const bool noted = s_note && s_note_dev == w->id;
+    const char *fact = kind == MAO_DEVPAGE_NEW ? "NEW" : kind == MAO_DEVPAGE_REPAIR ? "NOT VERIFIED" : NULL;
+    if (cer && (ps.st == ODL_C_WAIT_COMMIT || ps.st == ODL_C_WAIT_REVEAL)) {
+        fact = "PAIRING";                /* a short cryptographic beat: the word holds */
+    } else if (noted) {
+        fact = s_note;
+    }
+    mao_ui_device_t m = {
+        .title = w->name,
+        .primary = kind == MAO_DEVPAGE_NEW ? "PAIR" : kind == MAO_DEVPAGE_VERIFY ? "VERIFY" : "REPAIR",
+        .online = true,
+        .described = true,
+        .focus = kind == MAO_DEVPAGE_NEW ? 0 : (int8_t)(s_off_focus ? 2 : 0),   /* centre or INFO */
+        .connect_hidden = true,
+        .status_l = fact,
+        .rel_word = kind == MAO_DEVPAGE_NEW ? NULL : mao_rel_word(),
+    };
+    mao_ui_device_update(&m);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Ceremony                                                               */
+/* ---------------------------------------------------------------------- */
+
+static const char *fail_note(odl_fail_t f)
+{
+    switch (f) {
+    case ODL_F_NOT_PAIRING: return "NOT PAIRING";   /* the device is not in pairing mode */
+    case ODL_F_REJECTED:    return "REJECTED";
+    case ODL_F_MISMATCH:    return "NO MATCH";
+    case ODL_F_TIMEOUT:     return "TRY AGAIN";
+    case ODL_F_STORAGE:     return "NOT SAVED";
+    default:                return "PAIR FAILED";
+    }
+}
+
+static void start_ceremony(mao_devpage_t kind, const mao_world_entry_t *w)
+{
+    uint8_t mac[6];
+    mao_device_t d;
+    bool have_mac = false;
+    if (w->slot >= 0 && mao_devices_get(w->slot, &d)) {
+        memcpy(mac, d.mac, 6);          /* the radio we hear it on */
+        have_mac = true;
+    } else if (kind == MAO_DEVPAGE_REPAIR) {
+        have_mac = mao_rel_peer_mac(w->id, mac);
+    }
+    if (!have_mac) {
+        s_note = "TRY AGAIN";
+        s_note_dev = w->id;
+        mao_app_dev_refresh();
+        return;
+    }
+    s_note = NULL;
+    s_cer_focus = 0;                     /* CANCEL: the code must be compared first */
+    mao_ui_device_feedback(MAO_UI_FB_PENDING);
+    mao_audio_touch();
+    ESP_LOGI(TAG, "%s '%s': secure pairing", kind == MAO_DEVPAGE_NEW ? "pair" : kind == MAO_DEVPAGE_VERIFY ?
+             "verify" : "re-pair", w->name);
+    if (mao_link_pair_start(w->id, mac, w->name, w->device_type) != ESP_OK) {
+        s_note = "TRY AGAIN";
+        s_note_dev = w->id;
+    }
+    mao_app_dev_refresh();
+}
+
+/* The ceremony moved (MAO_EVENT_LINK_CHANGED): outcomes become page notes. */
+void mao_rel_on_link_event(int32_t what)
+{
+    if (what == MAO_LINK_EV_REVOKED && s_forget_dev) {
+        uint64_t id;
+        const bool confirmed = mao_link_revoke_confirmed(&id);
+        const uint64_t dev = s_forget_dev;
+        s_forget_dev = 0;
+        s_sheet = SHEET_NONE;
+        ESP_LOGI(TAG, "remote revocation %s", confirmed ? "confirmed" : "NOT confirmed (device may keep a stale "
+                 "controller credential until its next pairing)");
+        const esp_err_t err = mao_rel_forget(dev);
+        if (err == ESP_OK && !s_forget_online) {
+            mao_app_go_devices();
+            return;
+        }
+    }
+    mao_link_pair_status_t ps;
+    mao_link_pair_status(&ps);
+    if (ps.st == ODL_C_FAILED || ps.st == ODL_C_CANCELLED) {
+        s_note = ps.st == ODL_C_CANCELLED ? NULL : fail_note(ps.fail);
+        s_note_dev = ps.dev_id;
+        mao_ui_device_feedback(ps.st == ODL_C_CANCELLED ? MAO_UI_FB_REST : MAO_UI_FB_FAILED);
+        if (ps.st == ODL_C_FAILED) {
+            mao_audio_back();
+        }
+        mao_link_pair_reset();
+    } else if (ps.st == ODL_C_PAIRED) {
+        s_note = NULL;
+        mao_ui_device_feedback(MAO_UI_FB_DONE);
+        mao_audio_confirm();
+        mao_led_pulse(MAO_LED_PULSE_CONFIRM);
+        mao_link_pair_reset();
+    }
+    mao_app_dev_refresh();
+}
+
+static bool ceremony_input(const mao_world_entry_t *w, const mao_event_t *ev)
+{
+    mao_link_pair_status_t ps;
+    if (!ceremony_for(w->id, &ps) || ps.st > ODL_C_WAIT_ACCEPT) {
+        return false;
+    }
+    switch (ev->type) {
+    case MAO_EVENT_INPUT_CW:
+    case MAO_EVENT_INPUT_CCW:
+        if (ps.st == ODL_C_SAS_READY) {
+            const int8_t f = ev->type == MAO_EVENT_INPUT_CW ? 1 : 0;
+            if (f != s_cer_focus) {
+                s_cer_focus = f;
+                mao_audio_tick(160);
+                ESP_LOGI(TAG, "pairing: %s focused", f ? "MATCH" : "CANCEL");
+            }
+        }
+        break;
+    case MAO_EVENT_INPUT_CLICK:
+        if (ps.st == ODL_C_SAS_READY && s_cer_focus == 1) {
+            ESP_LOGI(TAG, "pairing: codes match (user)");
+            mao_audio_confirm();
+            mao_link_pair_confirm();
+        } else if (ps.st == ODL_C_SAS_READY) {
+            ESP_LOGI(TAG, "pairing: cancelled by the user");
+            mao_audio_back();
+            mao_link_pair_cancel();
+        }
+        break;
+    case MAO_EVENT_INPUT_LONG_PRESS:
+        ESP_LOGI(TAG, "pairing: cancelled (BACK)");
+        mao_audio_back();
+        mao_link_pair_cancel();          /* BACK aborts safely before the commit point */
+        break;
+    default:
+        break;
+    }
+    mao_app_dev_refresh();
+    return true;
+}
+
+/* ---------------------------------------------------------------------- */
+/* FORGET                                                                 */
+/* ---------------------------------------------------------------------- */
+
 static void forget(const mao_world_entry_t *w)
 {
+    mao_audio_back();
+    if (w->has_cred && mao_link_revoke(w->id) == ESP_OK) {
+        /* Proven device: ask it to drop our authorization first (bounded). */
+        s_forget_dev = w->id;
+        s_forget_online = w->online;
+        s_sheet = SHEET_FORGETTING;
+        mao_app_dev_refresh();
+        return;
+    }
     const esp_err_t err = mao_rel_forget(w->id);
     s_sheet = SHEET_NONE;
-    mao_audio_back();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "'%s' stays part of MAO's setup (forget not saved)", w->name);
         mao_app_dev_refresh();
         return;
     }
-    ESP_LOGI(TAG, "'%s' is no longer part of MAO's setup%s", w->name,
-             w->online ? " (still nearby: NEW)" : "");
+    ESP_LOGI(TAG, "'%s' is no longer part of MAO's setup%s", w->name, w->online ? " (still nearby: NEW)" :
+             w->has_cred ? " (offline: the device may keep a stale controller credential)" : "");
     if (w->online) {
         mao_app_dev_refresh();           /* the page becomes NEW in place */
     } else {
@@ -138,6 +365,9 @@ static void forget(const mao_world_entry_t *w)
 
 void mao_rel_sheet_input(const mao_world_entry_t *w, const mao_event_t *ev)
 {
+    if (s_sheet == SHEET_FORGETTING) {
+        return;                          /* a bounded revocation is running */
+    }
     switch (ev->type) {
     case MAO_EVENT_INPUT_CW:
     case MAO_EVENT_INPUT_CCW:
@@ -174,66 +404,17 @@ void mao_rel_sheet_input(const mao_world_entry_t *w, const mao_event_t *ev)
     mao_app_dev_refresh();
 }
 
-static void draw_offline(const mao_world_entry_t *w)
-{
-    (void)w;
-    mao_ui_device_t m = {
-        .title = w->name,
-        .online = false,              /* the status word reads OFFLINE */
-        .described = true,
-        .no_centre = true,
-        .focus = (int8_t)(1 + s_off_focus),   /* CONNECT or the relationship word */
-        .rel_word = mao_rel_word(),
-    };
-    mao_ui_device_update(&m);
-}
-
-void mao_rel_page_draw(mao_devpage_t kind, const mao_world_entry_t *w)
-{
-    if (kind == MAO_DEVPAGE_OFFLINE) {
-        draw_offline(w);
-        return;
-    }
-    if (kind != MAO_DEVPAGE_NEW) {
-        return;
-    }
-    const bool noted = s_note && s_note_dev == w->id;
-    mao_ui_device_t m = {
-        .title = w->name,
-        .primary = "PAIR",            /* the one thing this page offers */
-        .online = w->online,
-        .described = true,
-        .focus = 0,
-        .connect_hidden = true,
-        .status_l = noted ? s_note : "NEW",
-        .status_r = w->online ? NULL : "OFFLINE",
-    };
-    mao_ui_device_update(&m);
-}
-
-static void pair(const mao_world_entry_t *w)
-{
-    mao_ui_device_feedback(MAO_UI_FB_PENDING);    /* a short persistence beat */
-    const esp_err_t err = mao_rel_pair(w->id, w->name, w->device_type);
-    if (err == ESP_OK) {
-        s_note = NULL;
-        ESP_LOGI(TAG, "'%s' is now part of MAO's setup", w->name);
-        mao_ui_device_feedback(MAO_UI_FB_DONE);  /* the word resolves into the device's controls */
-        mao_audio_confirm();
-        mao_led_pulse(MAO_LED_PULSE_CONFIRM);
-    } else {
-        s_note = err == ESP_ERR_NO_MEM ? "FULL" : "NOT SAVED";
-        s_note_dev = w->id;
-        mao_ui_device_feedback(MAO_UI_FB_FAILED);
-        mao_audio_back();
-    }
-    mao_app_dev_refresh();
-}
+/* ---------------------------------------------------------------------- */
+/* Input on relationship pages                                            */
+/* ---------------------------------------------------------------------- */
 
 bool mao_rel_page_input(mao_devpage_t kind, const mao_world_entry_t *w, const mao_event_t *ev, bool guarded)
 {
+    if (kind != MAO_DEVPAGE_NONE && ceremony_input(w, ev)) {
+        return true;                     /* a ceremony for this device owns the knob */
+    }
     if (ev->type == MAO_EVENT_INPUT_LONG_PRESS) {
-        mao_app_go_devices();                    /* BACK, as on every device page */
+        mao_app_go_devices();            /* BACK, as on every device page */
         return true;
     }
     if (kind == MAO_DEVPAGE_OFFLINE) {
@@ -256,12 +437,26 @@ bool mao_rel_page_input(mao_devpage_t kind, const mao_world_entry_t *w, const ma
         }
         return true;
     }
-    if (kind != MAO_DEVPAGE_NEW) {
-        return kind == MAO_DEVPAGE_NONE;         /* nothing to operate on a vanished device */
+    if (kind != MAO_DEVPAGE_NEW && kind != MAO_DEVPAGE_VERIFY && kind != MAO_DEVPAGE_REPAIR) {
+        return kind == MAO_DEVPAGE_NONE;          /* nothing to operate on a vanished device */
     }
     switch (ev->type) {
+    case MAO_EVENT_INPUT_CW:
+    case MAO_EVENT_INPUT_CCW:
+        if (kind != MAO_DEVPAGE_NEW) {
+            /* VERIFY / REPAIR pages also offer INFO (FORGET): centre <-> INFO */
+            const int8_t f = ev->type == MAO_EVENT_INPUT_CW ? 1 : 0;
+            if (f != s_off_focus) {
+                s_off_focus = f;
+                mao_audio_tick(160);
+                mao_app_dev_refresh();
+            }
+        }
+        break;
     case MAO_EVENT_INPUT_PRESS:
-        mao_ui_device_feedback(MAO_UI_FB_PRESS);
+        if (s_off_focus == 0 || kind == MAO_DEVPAGE_NEW) {
+            mao_ui_device_feedback(MAO_UI_FB_PRESS);
+        }
         break;
     case MAO_EVENT_INPUT_RELEASE:
         mao_ui_device_feedback(MAO_UI_FB_REST);
@@ -269,12 +464,14 @@ bool mao_rel_page_input(mao_devpage_t kind, const mao_world_entry_t *w, const ma
     case MAO_EVENT_INPUT_CLICK:
         if (guarded) {
             ESP_LOGI(TAG, "click ignored: page just opened");
+        } else if (kind != MAO_DEVPAGE_NEW && s_off_focus == 1) {
+            mao_rel_word_activate(w);
         } else {
-            pair(w);
+            start_ceremony(kind, w);
         }
         break;
     default:
-        break;                                   /* one word: the dial has nothing to move */
+        break;
     }
     return true;
 }

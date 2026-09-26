@@ -56,7 +56,8 @@ static void run(char *line)
         const int on = a2 && !strcmp(a2, "on");
         const int sub = !strcmp(arg, "reset") ? LINK_CMD_RESET : !strcmp(arg, "corrupt") ? LINK_CMD_CORRUPT
                         : !strcmp(arg, "forcesas") ? LINK_CMD_FORCESAS : !strcmp(arg, "peerplain") ? LINK_CMD_PEERPLAIN
-                        : !strcmp(arg, "selftest") ? LINK_CMD_SELFTEST : LINK_CMD_STATUS;
+                        : !strcmp(arg, "selftest") ? LINK_CMD_SELFTEST : !strcmp(arg, "spoofmac") ? LINK_CMD_SPOOFMAC
+                        : LINK_CMD_STATUS;
         lamp_post_command(LAMP_CMD_LINK, sub | (on << 8));
     } else if (!strcmp(cmd, "status")) {
         lamp_post_command(LAMP_CMD_STATUS, 0);
