@@ -10,4 +10,6 @@ CC=${CC:-"python -m ziglang cc"}
 $CC -O1 -std=gnu11 -Wall -Wextra -Werror -Wno-missing-field-initializers -I$L/include \
     test_link.c fake_crypto.c $L/odd_link_kdf.c $L/odd_link_frame.c $L/odd_link_env.c $L/odd_link_pair.c \
     -o test_link.exe
+$CC -O1 -std=gnu11 -Wall -Wextra -Werror -Wno-missing-field-initializers -I$L/include     test_auth.c fake_crypto.c $L/odd_link_kdf.c $L/odd_link_frame.c $L/odd_link_env.c $L/odd_link_auth.c     -o test_auth.exe
 ./test_link.exe
+./test_auth.exe
