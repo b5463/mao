@@ -12,6 +12,7 @@
 #include "mao_app.h"
 #include "mao_devices.h"
 #include "mao_rel.h"
+#include "mao_link.h"
 
 void app_main(void)
 {
@@ -27,6 +28,7 @@ void app_main(void)
     mao_ir_init();
     /* Known devices first: DEVICES can show them (offline) before the radio
      * has heard anything. Never blocks on the network. */
+    mao_system_report("link security", mao_link_init());
     mao_system_report("relationships", mao_rel_init());
     /* Radio + ODD BUS. Before the app, so device events have a listener
      * as soon as the dispatcher starts. */
