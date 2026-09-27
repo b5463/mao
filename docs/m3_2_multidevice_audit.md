@@ -118,9 +118,68 @@ max 10).
 | CONNECT to CAMERA during LAMP SETs and reboot (§59) | PASS: CAMERA session untouched |
 | Fairness: 5 CAPTURE baseline, 5 during a 50 Hz LAMP flood (1250 frames) | PASS: each exactly once; radio→ACK 5.7–9.1 ms (flood) vs 5.9–12.2 ms; DONE ≈ 0.7 s both |
 | NVS writes over the whole run above (≈ 49 min, 34 HELLOs) | 0 |
+| Profile swap B LIGHT → CAMERA → LIGHT while A runs (§53) | PASS: same id and credential, 1 write per swap (B only), B's caps refresh with no ghost controls, A's session untouched |
+| Two devices named "CAMERA 01" (§54/§55) | PASS: one CAPTURE per row, each executed only by its own board |
+| Same ACTION seq (60001) and cap on both devices (§81) | PASS: each executed once |
+| Both endpoints silent (§129) | PASS: MAO TX ≈ 0.33 frames/s, no HELLO storm; CAMERA released first recovers without waiting for LAMP |
+| CAMERA wrong credential, LAMP valid (§130) | PASS: CAMERA FAILED / NOT VERIFIED / REPAIR, retries ≈ 2 per 30 s, its ESP-NOW entry removed; LAMP SECURE, IDENTIFY and POWER work; heap flat; REPAIR → fp 92d9eea1, 1 write |
+| Recovery after CAMERA reboot, LAMP idle vs flooding (§97) | endpoint boot → SECURE 4.3 / 5.3 / 4.7 s vs 5.1 / 3.9 / 4.4 s: no difference |
+| Feedback collision: 6 s CAPTURE, LAMP page + IDENTIFY meanwhile (§77) | PASS: no BUSY/DONE bleed either way, each executed once |
+| Single device (§138): CAMERA alone, LAMP alone | PASS: actions, re-key, MAO reboot (SECURE 494 ms) |
+| Endpoint reboot ×6 after the F5 fix | 0 plaintext refusals on either endpoint |
+
+## F5 (found on hardware, fixed)
+
+An endpoint's boot-time ANNOUNCE (dst ANY) reached the *other* endpoint,
+which counted it as `plaintext refused rx` — the counter meant for
+operational plaintext from a controller. The frame was already dropped (no
+security effect), but ordinary two-device use raised a security counter.
+Fixed in the bench endpoint (`78ed99b`): an endpoint ignores ANNOUNCE (it
+only ever sends it). MAO and `odd_link` unchanged.
+
+## Jobs, buffers, timers (§124–§127)
+
+* ESP-NOW RX callback copies each frame by value into the devices inbox; no
+  shared scratch buffer, no crypto or UI work in the callback.
+* HELLO nonce, HELLO frame buffer, tries, probe / retry / offline deadlines:
+  per `peer_t` (link) or per `entry_t` (ODD). `hello_tick` walks all peers.
+* Link jobs: pairing jobs belong to the single ceremony (`s_pair`, carries
+  its device id); revocation is single (`s_revoke`, carries its id);
+  dev-hook jobs carry their argument. No "current peer" target.
+* Action deadline / recovery: per device (F1). Transfer: one interaction,
+  guarded by transfer id and `s_tr.dev`; probe answers and device loss are
+  matched to that device.
+* Events carry identity: DEVICE_* and ACTION_UPDATE carry the registry
+  slot; secure / probe callbacks carry device id + MAC; LINK_CHANGED is
+  resolved through the ceremony / revocation state, which carries its id.
+* Pairing-result feedback is shown on the open page without comparing
+  devices, but the ceremony page captures all input until the result
+  (BACK cancels in place), so it cannot land elsewhere. Edge, like F4.
+
+## Resources
+
+| | 0 peers | 1 peer | 2 peers |
+|---|---|---|---|
+| free heap, idle | 151,692 | 151,428 | 150,864–151,128 |
+| ESP-NOW peers (encrypted) | 1 (0) | 2 (1) | 3 (2), max 10 |
+| mao_devices stack free | 2,452 | 1,236 | 1,172 |
+| mao_link stack free | 5,488 | 5,488 | 3,504 (2,912 after selftest) |
+
+≈ 260–400 B heap per secure peer. Image: DEV 1,312,256 B (+1,280 vs M3.1,
+28.5 % free); release 1,234,784 B (+320, 32.7 % free).
+
+## Known gaps
+
+* Hardware validation covers two simultaneous secure peers, not eight.
+* Physical encoder walk, screen review and audio (F3) deferred to the UI
+  milestone (user decision).
+* No hook for an ESP-NOW peer-install failure (§69): not tested.
+* After an endpoint reboot MAO re-keys when its offline detection fires
+  (≈ 5 s with a DEVICE page open, longer at HOME): single-device behaviour,
+  unchanged.
 
 Memory idle (free heap) with 0 / 1 / 2 secure peers: 151,536 / 151,344 /
 150,880 B.
 
 Host suites: character 36/36 identical; relationships 122 (84 + 38 M3.2);
-link 180 + 73 (220 + 33 M3.2). On target: link selftest 47/47, ODD 64.
+link 180 + 73 (220 + 33 M3.2). On target: link selftest 47/47, ODD 64 (final firmware `b0b218b`).
