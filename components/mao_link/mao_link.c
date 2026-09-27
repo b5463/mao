@@ -807,12 +807,19 @@ static void dev_status(void)
     for (int i = 0; i < PEERS_MAX; i++) {
         const peer_t *p = &s_peers[i];
         if (p->used) {
+            bool enc = false;
+            const bool radio = mao_radio_peer_query(p->mac, &enc);
             ESP_LOGI(TAG, "  %016" PRIx64 " %s key fp %08" PRIx32 " sessions=%" PRIu32 " tx=%" PRIu32
-                     " rx_hi=%" PRIu32 " drops=%" PRIu32, p->id, mao_link_state_name(p->st),
-                     odl_fingerprint(p->key), p->sessions, p->sess.tx_ctr, p->sess.rx_hi, p->env_drop);
+                     " rx_hi=%" PRIu32 " drops=%" PRIu32 " | radio %02x:%02x:%02x:%02x:%02x:%02x %s", p->id,
+                     mao_link_state_name(p->st), odl_fingerprint(p->key), p->sessions, p->sess.tx_ctr,
+                     p->sess.rx_hi, p->env_drop, p->mac[0], p->mac[1], p->mac[2], p->mac[3], p->mac[4], p->mac[5],
+                     !radio ? "no peer entry" : enc ? "encrypted" : "PLAINTEXT");
         }
     }
     unlock();
+    int total = 0, enc = 0;
+    mao_radio_peer_count(&total, &enc);
+    ESP_LOGI(TAG, "  esp-now peers: %d (%d encrypted, max %d)", total, enc, CONFIG_ESP_WIFI_ESPNOW_MAX_ENCRYPT_NUM);
 }
 
 /* A plaintext operational ODD frame towards the first paired device:

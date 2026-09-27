@@ -80,6 +80,25 @@ esp_err_t mao_radio_debug_peer_plain(const uint8_t mac[6], bool plain)
     return err;
 }
 
+bool mao_radio_peer_query(const uint8_t mac[6], bool *encrypted)
+{
+    esp_now_peer_info_t peer;
+    const bool found = esp_now_get_peer(mac, &peer) == ESP_OK;
+    if (encrypted) {
+        *encrypted = found && peer.encrypt;
+    }
+    memset(peer.lmk, 0, sizeof(peer.lmk));
+    return found;
+}
+
+void mao_radio_peer_count(int *total, int *encrypted)
+{
+    esp_now_peer_num_t n = { 0 };
+    esp_now_get_peer_num(&n);
+    *total = n.total_num;
+    *encrypted = n.encrypt_num;
+}
+
 esp_err_t mao_espnow_init(void)
 {
     ESP_RETURN_ON_ERROR(esp_now_init(), TAG, "esp_now_init");

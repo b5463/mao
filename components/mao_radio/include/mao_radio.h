@@ -48,6 +48,11 @@ esp_err_t mao_radio_send(const uint8_t *dst_mac, const void *data, size_t len);
 esp_err_t mao_radio_set_peer_key(const uint8_t mac[6], const uint8_t *lmk);
 /* Development: the peer's entry as plaintext (tests of the app-level gate). */
 esp_err_t mao_radio_debug_peer_plain(const uint8_t mac[6], bool plain);
+/* Diagnostics: is there an ESP-NOW peer entry for mac, and is it encrypted?
+ * Never exposes the key. Returns false if there is no entry. */
+bool mao_radio_peer_query(const uint8_t mac[6], bool *encrypted);
+/* Diagnostics: ESP-NOW peer entries in total / encrypted (broadcast included). */
+void mao_radio_peer_count(int *total, int *encrypted);
 
 void mao_radio_get_mac(uint8_t mac[6]);
 void mao_radio_get_stats(mao_radio_stats_t *out);
