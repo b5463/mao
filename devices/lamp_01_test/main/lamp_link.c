@@ -303,6 +303,9 @@ void lamp_link_rx(const uint8_t mac[6], const uint8_t *data, size_t len, int8_t 
             return;
         }
     }
+    if (len >= 4 && data[3] == ODD_MSG_ANNOUNCE) {
+        return;   /* another device's discovery hint (M3.2 bench: two endpoints hear each other) - never ours */
+    }
     if (odl_devauth_locked(&s_auth) && (len < 4 || data[3] != ODD_MSG_DISCOVER)) {
         if (s_st.plain_refused++ < 5) {
             ESP_LOGW(TAG, "plaintext ODD type %u refused: operational traffic needs the secure link",
