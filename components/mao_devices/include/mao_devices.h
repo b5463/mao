@@ -136,7 +136,7 @@ typedef enum {
  * (ESP_ERR_INVALID_STATE while one is in flight). Progress arrives as
  * MAO_EVENT_ACTION_UPDATE events. */
 esp_err_t mao_devices_invoke_action(uint64_t id, uint8_t cap_id);
-mao_action_state_t mao_devices_action_state(void);
+mao_action_state_t mao_devices_action_state(uint64_t id);   /* that device's transaction */
 const char *mao_devices_action_state_name(mao_action_state_t st);
 void mao_devices_action_dump(void);
 

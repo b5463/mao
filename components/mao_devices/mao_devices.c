@@ -71,9 +71,26 @@ typedef struct {
     uint8_t retries;
 } cmd_t;
 
+/* A device's in-flight action transaction: one per device (M3.2), so an
+ * action on one device never blocks or answers for another. */
+typedef struct {
+    volatile bool req;        /* invoke requested (any task) */
+    uint64_t dev;
+    uint8_t cap;
+    uint8_t state;            /* mao_action_state_t */
+    uint16_t seq;
+    bool seq_set;
+    int64_t start_us;
+    int64_t last_tx_us;
+    int64_t invoke_us;        /* latency instrumentation: requested */
+    int64_t first_tx_us;      /* first ACTION on the radio */
+    uint8_t fast_retries;
+} action_tx_t;
+
 typedef struct {
     bool used;
     mao_device_t pub;
+    action_tx_t act;
     cmd_t cmd[ODD_MAX_CAPS];
     uint8_t failures;
     uint32_t describe_req_ms;
@@ -106,23 +123,8 @@ static uint64_t s_rx_peer;
 static uint32_t s_plain_hints, s_plain_ignored, s_auth_mismatch, s_plain_gated, s_describe_skipped;
 static bool (*s_remembered)(uint64_t id);   /* relationship layer: needs M3.1 proof */
 
-/* The one in-flight action transaction. */
 #define ACTION_RECOVER_US   (800 * 1000)        /* status-recovery cadence after ACCEPTED */
 #define ACTION_DEADLINE_US  (8LL * 1000 * 1000) /* development completion timeout */
-typedef struct {
-    volatile bool req;        /* invoke requested (any task) */
-    uint64_t dev;
-    uint8_t cap;
-    uint8_t state;            /* mao_action_state_t */
-    uint16_t seq;
-    bool seq_set;
-    int64_t start_us;
-    int64_t last_tx_us;
-    int64_t invoke_us;        /* latency instrumentation: requested */
-    int64_t first_tx_us;      /* first ACTION on the radio */
-    uint8_t fast_retries;
-} action_tx_t;
-static action_tx_t s_act;
 static uint32_t s_results_dup, s_results_stale;
 static void action_post(int idx, uint8_t state);
 static volatile uint32_t s_flood_until_ms;
@@ -403,16 +405,15 @@ static void on_ack(entry_t *e, int idx, const odd_message_t *m, int64_t now_us)
         return;
     }
     /* This ACK answers the action transaction? */
-    if (s_act.seq_set && m->u.ack.acked_seq == s_act.seq && m->u.ack.applied.cap_id == s_act.cap &&
-        e->pub.info.id == s_act.dev &&
-        (s_act.state == MAO_ACTION_SENDING || s_act.state == MAO_ACTION_ACCEPTED)) {
+    if (e->act.seq_set && m->u.ack.acked_seq == e->act.seq && m->u.ack.applied.cap_id == e->act.cap &&
+        (e->act.state == MAO_ACTION_SENDING || e->act.state == MAO_ACTION_ACCEPTED)) {
         switch (m->u.ack.status) {
         case ODD_ACK_ACCEPTED:
-            if (s_act.state == MAO_ACTION_SENDING) {
-                ESP_LOGI(TAG, "latency: radio -> ACK %lld us", (long long)(now_us - s_act.first_tx_us));
+            if (e->act.state == MAO_ACTION_SENDING) {
+                ESP_LOGI(TAG, "latency: radio -> ACK %lld us", (long long)(now_us - e->act.first_tx_us));
                 action_post(idx, MAO_ACTION_ACCEPTED);
             }
-            s_act.last_tx_us = now_us;   /* result recovery paces from here */
+            e->act.last_tx_us = now_us;   /* result recovery paces from here */
             break;
         case ODD_ACK_BUSY:
             action_post(idx, MAO_ACTION_BUSY);
@@ -426,7 +427,7 @@ static void on_ack(entry_t *e, int idx, const odd_message_t *m, int64_t now_us)
         case ODD_ACK_STALE_SESSION:
             e->session_ok = false;
             e->session_inflight = false;
-            if (s_act.state == MAO_ACTION_ACCEPTED) {
+            if (e->act.state == MAO_ACTION_ACCEPTED) {
                 /* Accepted, then the device forgot us: it rebooted mid-run.
                  * NEVER re-invoke - the outcome is unknown, and only a new
                  * explicit user intention may create a new action. */
@@ -434,8 +435,8 @@ static void on_ack(entry_t *e, int idx, const odd_message_t *m, int64_t now_us)
             } else {
                 /* Never accepted: the gate refuses before any execution, so
                  * re-sending the SAME identity after reopening is safe. */
-                s_act.req = true;
-                s_act.state = MAO_ACTION_IDLE;
+                e->act.req = true;
+                e->act.state = MAO_ACTION_IDLE;
                 wake_task();
             }
             break;
@@ -585,9 +586,9 @@ static void on_message(const odd_message_t *m, void *ctx)
             ESP_LOGW(TAG, "ACTION_RESULT with foreign incarnation ignored");
             break;
         }
-        if (s_act.seq_set && m->u.action_result.action_seq == s_act.seq &&
-            m->u.action_result.cap_id == s_act.cap && e->pub.info.id == s_act.dev) {
-            if (s_act.state == MAO_ACTION_ACCEPTED || s_act.state == MAO_ACTION_SENDING) {
+        if (e->act.seq_set && m->u.action_result.action_seq == e->act.seq &&
+            m->u.action_result.cap_id == e->act.cap) {
+            if (e->act.state == MAO_ACTION_ACCEPTED || e->act.state == MAO_ACTION_SENDING) {
                 action_post(idx, m->u.action_result.result == ODD_ACTION_R_DONE ? MAO_ACTION_DONE
                                                                                 : MAO_ACTION_FAILED);
             } else {
@@ -621,74 +622,93 @@ static void send_set(entry_t *e, int c, cmd_t *cmd, int64_t now_us, bool retry)
 
 static void action_post(int idx, uint8_t state)
 {
-    s_act.state = state;
-    ESP_LOGI(TAG, "action %s <- cap %u seq %u", mao_devices_action_state_name(state), s_act.cap, s_act.seq);
+    action_tx_t *a = &s_dev[idx].act;
+    a->state = state;
+    ESP_LOGI(TAG, "action %s <- '%s' cap %u seq %u", mao_devices_action_state_name(state),
+             s_dev[idx].pub.info.name, a->cap, a->seq);
     post(MAO_EVENT_ACTION_UPDATE, (idx << 4) | state);
 }
 
 static void send_action(entry_t *e, bool fresh, int64_t now_us)
 {
     odd_message_t body = { 0 };
-    body.u.action.cap_id = s_act.cap;
+    body.u.action.cap_id = e->act.cap;
     if (fresh) {
-        odd_bus_send_session(e->pub.mac, e->pub.info.id, ODD_MSG_ACTION, &body, s_incarnation, &s_act.seq);
-        s_act.seq_set = true;
+        odd_bus_send_session(e->pub.mac, e->pub.info.id, ODD_MSG_ACTION, &body, s_incarnation, &e->act.seq);
+        e->act.seq_set = true;
     } else {
         /* The SAME identity: status recovery, never a new execution. */
-        odd_bus_send_session_seq(e->pub.mac, e->pub.info.id, ODD_MSG_ACTION, &body, s_incarnation, s_act.seq);
+        odd_bus_send_session_seq(e->pub.mac, e->pub.info.id, ODD_MSG_ACTION, &body, s_incarnation, e->act.seq);
     }
-    s_act.last_tx_us = now_us;
+    e->act.last_tx_us = now_us;
 }
 
-/* Drive the action transaction (task context). */
-static void service_action(int64_t now_us)
+static bool action_open(const action_tx_t *a)
 {
-    if (s_act.state != MAO_ACTION_SENDING && s_act.state != MAO_ACTION_ACCEPTED && !s_act.req) {
+    return a->req || a->state == MAO_ACTION_SENDING || a->state == MAO_ACTION_ACCEPTED;
+}
+
+/* Drive one device's action transaction (task context). */
+static void service_action_one(entry_t *e, int idx, int64_t now_us)
+{
+    action_tx_t *const act = &e->act;
+    if (!action_open(act)) {
         return;
     }
-    lock();
-    const int idx = find_locked(s_act.dev);
-    unlock();
-    entry_t *e = idx >= 0 ? &s_dev[idx] : NULL;
-    if (s_act.req) {
-        if (!e || !e->pub.online) {
-            s_act.req = false;
+    if (act->req) {
+        if (!e->pub.online) {
+            act->req = false;
             action_post(idx, MAO_ACTION_FAILED);   /* nothing was sent: definitely not executed */
             return;
         }
         if (!e->session_ok) {
             return;   /* service_session is opening it; we go right after */
         }
-        s_act.req = false;
-        s_act.start_us = now_us;
-        s_act.fast_retries = 0;
-        s_act.state = MAO_ACTION_SENDING;
+        act->req = false;
+        act->start_us = now_us;
+        act->fast_retries = 0;
+        act->state = MAO_ACTION_SENDING;
         send_action(e, true, now_us);
-        s_act.first_tx_us = esp_timer_get_time();
-        ESP_LOGI(TAG, "latency: invoke -> radio %lld us", (long long)(s_act.first_tx_us - s_act.invoke_us));
+        act->first_tx_us = esp_timer_get_time();
+        ESP_LOGI(TAG, "latency: invoke -> radio %lld us", (long long)(act->first_tx_us - act->invoke_us));
         return;
     }
-    if (!e) {
-        action_post(idx, MAO_ACTION_UNKNOWN);
-        return;
-    }
-    if (now_us - s_act.start_us >= ACTION_DEADLINE_US) {
+    if (now_us - act->start_us >= ACTION_DEADLINE_US) {
         /* The remote action may have executed; only the outcome is lost. */
-        ESP_LOGW(TAG, "'%s': action seq %u unresolved after deadline", e->pub.info.name, s_act.seq);
+        ESP_LOGW(TAG, "'%s': action seq %u unresolved after deadline", e->pub.info.name, act->seq);
         action_post(idx, MAO_ACTION_UNKNOWN);
         return;
     }
-    if (s_act.state == MAO_ACTION_SENDING) {
-        if (now_us - s_act.last_tx_us >= ACK_TIMEOUT_US && s_act.fast_retries < MAX_RETRIES) {
-            s_act.fast_retries++;
+    if (act->state == MAO_ACTION_SENDING) {
+        if (now_us - act->last_tx_us >= ACK_TIMEOUT_US && act->fast_retries < MAX_RETRIES) {
+            act->fast_retries++;
             s_stats.retries++;
             send_action(e, false, now_us);
-        } else if (now_us - s_act.last_tx_us >= ACTION_RECOVER_US) {
+        } else if (now_us - act->last_tx_us >= ACTION_RECOVER_US) {
             send_action(e, false, now_us);   /* slow knocking; it may have executed */
         }
-    } else if (now_us - s_act.last_tx_us >= ACTION_RECOVER_US) {
+    } else if (now_us - act->last_tx_us >= ACTION_RECOVER_US) {
         send_action(e, false, now_us);       /* ACCEPTED: recover the result */
     }
+}
+
+static void service_action(int64_t now_us)
+{
+    for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+        if (s_dev[i].used) {
+            service_action_one(&s_dev[i], i, now_us);
+        }
+    }
+}
+
+static bool any_action_open(void)
+{
+    for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+        if (s_dev[i].used && action_open(&s_dev[i].act)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /* Open (or retry opening) this boot's session with a device. Returns true
@@ -753,7 +773,7 @@ static bool service_commands(int64_t now_us)
         if (!e->used || !e->pub.online) {
             continue;
         }
-        bool want_session = s_act.req && s_act.dev == e->pub.info.id && e->pub.online;
+        bool want_session = e->act.req && e->pub.online;
         for (int c = 0; c < e->pub.cap_count; c++) {
             want_session = want_session || e->cmd[c].dirty || e->cmd[c].in_flight;
         }
@@ -837,9 +857,8 @@ static void service_liveness(uint32_t now)
         count_online_locked();
         unlock();
         ESP_LOGI(TAG, "'%s' offline (not seen for %" PRIu32 " ms)", e->pub.info.name, now - e->pub.last_seen_ms);
-        if (s_act.dev == e->pub.info.id &&
-            (s_act.state == MAO_ACTION_SENDING || s_act.state == MAO_ACTION_ACCEPTED || s_act.req)) {
-            s_act.req = false;
+        if (action_open(&e->act)) {
+            e->act.req = false;
             action_post(i, MAO_ACTION_UNKNOWN);   /* it may have run; never auto re-invoke */
         }
         post(MAO_EVENT_DEVICE_LOST, i);
@@ -902,8 +921,7 @@ static void devices_task(void *arg)
             }
         }
         service_action(esp_timer_get_time());
-        const bool busy = service_commands(esp_timer_get_time()) ||
-                          s_act.req || s_act.state == MAO_ACTION_SENDING || s_act.state == MAO_ACTION_ACCEPTED;
+        const bool busy = service_commands(esp_timer_get_time()) || any_action_open();
         const uint32_t sent_before = s_discovery.sent;
         const uint32_t until_discovery = odd_discovery_poll(&s_discovery, now);
         s_stats.discoveries_sent = s_discovery.sent;
@@ -935,18 +953,28 @@ static void devices_task(void *arg)
 
 esp_err_t mao_devices_invoke_action(uint64_t id, uint8_t cap_id)
 {
-    if (s_act.req || s_act.state == MAO_ACTION_SENDING || s_act.state == MAO_ACTION_ACCEPTED) {
-        return ESP_ERR_INVALID_STATE;   /* one transaction at a time */
+    lock();
+    const int idx = find_locked(id);
+    unlock();
+    if (idx < 0) {
+        return ESP_ERR_NOT_FOUND;
     }
-    s_act = (action_tx_t) { .dev = id, .cap = cap_id, .invoke_us = esp_timer_get_time() };
-    s_act.req = true;
+    action_tx_t *const act = &s_dev[idx].act;   /* registry slots are never reused */
+    if (action_open(act)) {
+        return ESP_ERR_INVALID_STATE;   /* one transaction at a time per device */
+    }
+    *act = (action_tx_t) { .dev = id, .cap = cap_id, .invoke_us = esp_timer_get_time() };
+    act->req = true;
     wake_task();
     return ESP_OK;
 }
 
-mao_action_state_t mao_devices_action_state(void)
+mao_action_state_t mao_devices_action_state(uint64_t id)
 {
-    return (mao_action_state_t)s_act.state;
+    lock();
+    const int idx = find_locked(id);
+    unlock();
+    return idx < 0 ? MAO_ACTION_IDLE : (mao_action_state_t)s_dev[idx].act.state;
 }
 
 const char *mao_devices_action_state_name(mao_action_state_t st)
@@ -957,9 +985,14 @@ const char *mao_devices_action_state_name(mao_action_state_t st)
 
 void mao_devices_action_dump(void)
 {
-    ESP_LOGI(TAG, "action: state=%s dev=%016llx cap=%u seq=%u results_dup=%" PRIu32 " results_stale=%" PRIu32,
-             mao_devices_action_state_name((mao_action_state_t)s_act.state), (unsigned long long)s_act.dev,
-             s_act.cap, s_act.seq, s_results_dup, s_results_stale);
+    for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+        if (s_dev[i].used && s_dev[i].act.dev) {
+            const action_tx_t *a = &s_dev[i].act;
+            ESP_LOGI(TAG, "action: '%s' state=%s cap=%u seq=%u", s_dev[i].pub.info.name,
+                     mao_devices_action_state_name((mao_action_state_t)a->state), a->cap, a->seq);
+        }
+    }
+    ESP_LOGI(TAG, "action: results_dup=%" PRIu32 " results_stale=%" PRIu32, s_results_dup, s_results_stale);
 }
 
 /* This boot's controller incarnation (see odd_message.h): random, non-zero,

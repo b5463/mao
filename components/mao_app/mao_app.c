@@ -43,8 +43,11 @@ static esp_timer_handle_t s_settle_timer;   /* retires action feedback presentat
  * what the current action is, and whether the user is in a shooting rhythm.
  * Only feedback INTENSITY depends on it - never safety or identity. */
 static uint8_t s_cam_layout = 1;     /* 0 A: READY + STORAGE; 1 B: asymmetric (default); 2 C: n% */
-static int32_t s_act_sem;            /* semantic of the action in flight / last resolved */
-static bool s_act_via_centre;        /* invoked from the centre word (tool feedback owner) */
+/* Per device (registry slot, never reused within a boot): each device can have
+ * its own action in flight (M3.2). */
+static int32_t s_act_sem[MAO_DEVICES_MAX];     /* semantic of its action in flight / last resolved */
+static bool s_act_via_centre[MAO_DEVICES_MAX]; /* invoked from the centre word (tool feedback owner) */
+static int s_fb_slot = -1;           /* the device whose result the character is showing */
 static int64_t s_dev_opened_us;      /* entry guard against a double tap's second click */
 static int64_t s_cap_last_done_us;
 static uint8_t s_cap_streak;         /* routine captures in a row (habituation) */
@@ -151,8 +154,10 @@ static esp_err_t invoke_action_checked(const mao_device_t *dev, const mao_device
         return ESP_ERR_INVALID_STATE;
     }
     const esp_err_t err = mao_devices_invoke_action(dev->info.id, dev->caps[ctl->action_idx[list_idx]].cap.id);
-    if (err == ESP_OK) {
-        s_act_sem = ctl->action_sem[list_idx];
+    const int slot = mao_devices_find(dev->info.id);
+    if (err == ESP_OK && slot >= 0) {
+        s_act_sem[slot] = ctl->action_sem[list_idx];
+        s_act_via_centre[slot] = false;   /* the page sets it when the centre word invoked */
         mao_audio_touch();   /* the controller's own tiny cue - never a shutter sound */
         mao_led_pulse(MAO_LED_PULSE_CONFIRM);
     }
@@ -274,7 +279,7 @@ static void refresh_device_panel(void)
         }
     }
     /* Facts: normal conditions are quiet, exceptions create information. */
-    const mao_action_state_t ast = mao_devices_action_state();
+    const mao_action_state_t ast = mao_devices_action_state(dev.info.id);
     const bool pending = ast == MAO_ACTION_SENDING || ast == MAO_ACTION_ACCEPTED;
     if (!dev.online) {
         if (ctl.ready_idx >= 0 || ctl.storage_idx >= 0) {
@@ -588,7 +593,7 @@ static void on_device(const mao_event_t *ev, int64_t now)
         break;
     case MAO_EVENT_INPUT_RELEASE:
         if (ok && centre_is_action(&ctl)) {
-            const mao_action_state_t st = mao_devices_action_state();
+            const mao_action_state_t st = mao_devices_action_state(dev.info.id);
             mao_ui_device_feedback(st == MAO_ACTION_SENDING || st == MAO_ACTION_ACCEPTED ? MAO_UI_FB_PENDING
                                                                                          : MAO_UI_FB_REST);
         }
@@ -666,7 +671,9 @@ static void on_device(const mao_event_t *ev, int64_t now)
             const uint32_t t_release = ev->time_ms;
             const int64_t t_commit = esp_timer_get_time();
             const esp_err_t err = invoke_action_checked(&dev, &ctl, c->idx);
-            s_act_via_centre = c->kind == 1;
+            if (err == ESP_OK && mao_devices_find(dev.info.id) >= 0) {
+                s_act_via_centre[mao_devices_find(dev.info.id)] = c->kind == 1;
+            }
             if (err == ESP_OK) {
                 ESP_LOGI(TAG, "%s: release -> committed %lld ms",
                          odd_action_semantic_name(ctl.action_sem[c->idx]),
@@ -676,8 +683,8 @@ static void on_device(const mao_event_t *ev, int64_t now)
                 }
             } else {
                 ESP_LOGI(TAG, "%s refused locally (%s)", odd_action_semantic_name(ctl.action_sem[c->idx]),
-                         err == ESP_ERR_INVALID_STATE && mao_devices_action_state() != MAO_ACTION_SENDING &&
-                         mao_devices_action_state() != MAO_ACTION_ACCEPTED ? "not ready" : "still working");
+                         err == ESP_ERR_INVALID_STATE && mao_devices_action_state(dev.info.id) != MAO_ACTION_SENDING &&
+                         mao_devices_action_state(dev.info.id) != MAO_ACTION_ACCEPTED ? "not ready" : "still working");
                 if (c->kind == 1) {
                     /* Still working / not ready: the word could not move. */
                     mao_ui_device_feedback(MAO_UI_FB_BUSY);
@@ -1055,8 +1062,14 @@ static void show_feedback(mao_character_reaction_t r, uint32_t hold_ms)
 static void on_action_update(int32_t value)
 {
     const mao_action_state_t st = (mao_action_state_t)(value & 0x0F);
-    const bool capture = s_act_sem == ODD_ACTION_CAPTURE;
-    const bool tool = capture && s_act_via_centre && mao_state()->view == MAO_VIEW_DEVICE;
+    const int slot = value >> 4;
+    if (slot < 0 || slot >= MAO_DEVICES_MAX) {
+        return;
+    }
+    const bool on_page = mao_state()->view == MAO_VIEW_DEVICE;
+    const bool capture = s_act_sem[slot] == ODD_ACTION_CAPTURE;
+    const bool tool = capture && s_act_via_centre[slot] && on_page;
+    s_fb_slot = slot;
     switch (st) {
     case MAO_ACTION_ACCEPTED:
         if (!capture) {
@@ -1118,7 +1131,9 @@ static void on_action_update(int32_t value)
 
 static void on_ui_settle(void)
 {
-    const mao_action_state_t st = mao_devices_action_state();
+    mao_device_t fb;
+    const mao_action_state_t st = s_fb_slot >= 0 && mao_devices_get(s_fb_slot, &fb)
+                                      ? mao_devices_action_state(fb.info.id) : MAO_ACTION_IDLE;
     if (st == MAO_ACTION_BUSY) {
         mao_character_react(MAO_CHAR_REACT_IDLE);   /* end the held busy loop */
     }
