@@ -59,7 +59,7 @@ typedef struct {
     uint8_t tries;
     uint32_t last_hint_ms, last_auth_ms, retry_after_ms;
     uint32_t probe_ms;                  /* secure probe sent (0 = none) */
-    uint32_t sessions, auth_fail, env_drop;
+    uint32_t sessions, auth_fail, env_drop, hello_fail;   /* diagnostics, per peer */
 } peer_t;
 
 typedef enum {
@@ -431,6 +431,7 @@ static void hello_tick(uint32_t now)
             continue;
         }
         p->hello_len = 0;
+        p->hello_fail++;
         s_st.hello_fail++;
         const bool heard = now - p->last_hint_ms < HINT_FRESH_MS;
         if (p->st == MAO_LINK_SECURE && p->sess.valid && now - p->last_auth_ms < STALE_AUTH_MS) {
@@ -810,9 +811,9 @@ static void dev_status(void)
             bool enc = false;
             const bool radio = mao_radio_peer_query(p->mac, &enc);
             ESP_LOGI(TAG, "  %016" PRIx64 " %s key fp %08" PRIx32 " sessions=%" PRIu32 " tx=%" PRIu32
-                     " rx_hi=%" PRIu32 " drops=%" PRIu32 " | radio %02x:%02x:%02x:%02x:%02x:%02x %s", p->id,
+                     " rx_hi=%" PRIu32 " drops=%" PRIu32 " hello-fail=%" PRIu32 " bad-ack=%" PRIu32 " | radio %02x:%02x:%02x:%02x:%02x:%02x %s", p->id,
                      mao_link_state_name(p->st), odl_fingerprint(p->key), p->sessions, p->sess.tx_ctr,
-                     p->sess.rx_hi, p->env_drop, p->mac[0], p->mac[1], p->mac[2], p->mac[3], p->mac[4], p->mac[5],
+                     p->sess.rx_hi, p->env_drop, p->hello_fail, p->auth_fail, p->mac[0], p->mac[1], p->mac[2], p->mac[3], p->mac[4], p->mac[5],
                      !radio ? "no peer entry" : enc ? "encrypted" : "PLAINTEXT");
         }
     }
