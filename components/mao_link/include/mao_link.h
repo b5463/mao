@@ -62,7 +62,8 @@ typedef enum {
     MAO_LINK_OFFLINE,            /* credential, nothing heard */
     MAO_LINK_VERIFYING,          /* a secure hello is in flight */
     MAO_LINK_SECURE,             /* proven this session */
-    MAO_LINK_FAILED,             /* heard, but it could not prove the stored identity */
+    MAO_LINK_FAILED,             /* heard, but it could not prove the stored identity
+                                  * (kept while periodic re-tries run; REPAIR) */
 } mao_link_state_t;
 mao_link_state_t mao_link_state(uint64_t id);
 const char *mao_link_state_name(mao_link_state_t s);

@@ -320,7 +320,9 @@ static void start_hello_locked(peer_t *p, uint32_t now)
     p->hello_last_ms = now;
     DEV_KEEP(s_rec_hello, p->hello, p->hello_len);
     mao_radio_send(NULL, p->hello, p->hello_len);   /* broadcast: reaches whatever peer entry it holds */
-    if (p->st != MAO_LINK_SECURE) {
+    /* A periodic re-try of a device that could not prove itself stays FAILED
+     * (the REPAIR page must not flicker to OFFLINE); success makes it SECURE. */
+    if (p->st != MAO_LINK_SECURE && p->st != MAO_LINK_FAILED) {
         set_state(p, MAO_LINK_VERIFYING);
     }
 }
