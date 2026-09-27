@@ -172,11 +172,12 @@ static bool operational(uint8_t type)
            type == ODD_MSG_SESSION_OPEN || type == ODD_MSG_ACTION;
 }
 
-/* Remembered, but without a credential: must prove itself before any
- * operational traffic (see mao_devices_set_auth_gate). */
+/* Remembered, but not proven this session (no credential: VERIFY; a
+ * credential that failed or is still verifying: REPAIR): no operational
+ * traffic until the link is SECURE (see mao_devices_set_auth_gate). */
 static bool needs_proof(uint64_t id)
 {
-    return s_remembered && !mao_link_requires_auth(id) && s_remembered(id);
+    return s_remembered && mao_link_state(id) != MAO_LINK_SECURE && s_remembered(id);
 }
 
 static esp_err_t odd_send(const uint8_t *dst_mac, const uint8_t *frame, size_t len, void *ctx)
