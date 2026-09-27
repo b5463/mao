@@ -73,3 +73,54 @@ two pages within 1.6 s; left as is.
   action result (it is the user's interaction), unchanged.
 * No change to link security, the pairing protocol, the envelope, the UI
   layout or the character.
+
+## Fixes (as built)
+
+* **F1** (`9405cef`): `action_tx_t` is a member of each registry `entry_t`;
+  `mao_devices_invoke_action` refuses only when that device has one open;
+  `mao_devices_action_state(id)` is per device. Exactly-once rules unchanged.
+* **F2** (`0f18f00`): `on_action_update` drops page and character feedback
+  for a result whose slot is not the open DEVICE page's device (the world
+  still refreshes). Per-slot `s_act_sem` / `s_act_via_centre`.
+* **Diagnostics** (`065cb9f`): `mao link status` prints each peer's bound
+  radio MAC and whether its ESP-NOW entry is encrypted, plus peer counts.
+  No key material.
+* F3 and F4 unchanged (observation / documented edge).
+
+## Hardware validation (two physical endpoints)
+
+Bench: MAO (98:88:e0:d4:d0:90); CAMERA 01 on a LOLIN C3 Mini
+(60:55:f9:23:53:24, id 0dd06055f9235324); LAMP 01 on an ESP32-C3 v0.3
+(a0:76:4e:1d:86:d4, id 0dd0a0764e1d86d4). Both endpoints at the 8.5 dBm TX cap.
+Distinct credentials and sessions throughout; `link status` shows two
+encrypted ESP-NOW entries bound to the right MACs (3 peers incl. broadcast,
+max 10).
+
+| Case | Result |
+|---|---|
+| Pair both, one after the other | PASS: distinct fp, the first undisturbed |
+| CAMERA 20 CAPTURE / 5 IDENTIFY / 5 SYNC / 3 CONNECT with LAMP online | PASS, LAMP counters unchanged |
+| LIGHT 20 LEVEL / 10 POWER / 5 IDENTIFY / 3 CONNECT with CAMERA online | PASS, CAMERA unchanged |
+| F1: LIGHT IDENTIFY while a CAMERA action is open | PASS (was "still working") |
+| F2: CAMERA UNKNOWN while the LAMP page is open | PASS: no feedback on LAMP |
+| Runtime re-key ×5 each | PASS: the other session unchanged |
+| Endpoint reboot ×5 each, simultaneous ×3 | PASS: same credential, fresh session, 2 rows |
+| MAO reboot ×10 | PASS: SEEN→SECURE median 10 / 11.5 ms, boot→SECURE 481–503 ms, 0 writes |
+| Online FORGET / re-pair ×3 each | PASS: moves to the end, the other untouched |
+| Offline forget / re-pair ×2 each | PASS: revoke NOT confirmed, commit-last replace |
+| REPAIR ×3 each while the other is SECURE | PASS: order kept, the other controllable |
+| Old credential after re-repair | PASS: refused, the other unaffected |
+| Forget row 0 with row 1's page open (§86/87) | PASS: page and selection follow identity |
+| Row 0 offline with row 1's page open (§88) | PASS: selection kept, row 1 action once, rejoin with order kept, 0 writes |
+| 20 mixed leak cycles (re-key, SET, reboot) | PASS: heap 151,128 B at every checkpoint, 0 resets, 0 writes |
+| 34 min dual soak (SET traffic on both, status every minute) | PASS: 0 resets / offline / hello fail / env drops; heap 151,128 → 150,904 → 150,864 B (two one-time steps, then flat), min 146,992 |
+| CONNECT to LAMP while CAMERA reboots and re-keys (§58) | PASS: transfer stays AWAY in LAMP, returns on press; LAMP session untouched |
+| CONNECT to CAMERA during LAMP SETs and reboot (§59) | PASS: CAMERA session untouched |
+| Fairness: 5 CAPTURE baseline, 5 during a 50 Hz LAMP flood (1250 frames) | PASS: each exactly once; radio→ACK 5.7–9.1 ms (flood) vs 5.9–12.2 ms; DONE ≈ 0.7 s both |
+| NVS writes over the whole run above (≈ 49 min, 34 HELLOs) | 0 |
+
+Memory idle (free heap) with 0 / 1 / 2 secure peers: 151,536 / 151,344 /
+150,880 B.
+
+Host suites: character 36/36 identical; relationships 122 (84 + 38 M3.2);
+link 180 + 73 (220 + 33 M3.2). On target: link selftest 47/47, ODD 64.
