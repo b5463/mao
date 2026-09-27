@@ -1066,7 +1066,15 @@ static void on_action_update(int32_t value)
     if (slot < 0 || slot >= MAO_DEVICES_MAX) {
         return;
     }
+    /* A result belongs to its device. While another device's page is open it
+     * only updates the world (the page redraws from it); it never borrows this
+     * page's word or the character (M3.2). */
     const bool on_page = mao_state()->view == MAO_VIEW_DEVICE;
+    const bool visible = !on_page || mao_devices_find(mao_state()->device_id) == slot;
+    if (!visible) {
+        refresh_device_views();
+        return;
+    }
     const bool capture = s_act_sem[slot] == ODD_ACTION_CAPTURE;
     const bool tool = capture && s_act_via_centre[slot] && on_page;
     s_fb_slot = slot;
