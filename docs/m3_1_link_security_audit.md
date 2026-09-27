@@ -193,3 +193,61 @@ driver behaviour). The encrypted-peer limit is raised (G3); an ODD-wide
 documented PMK constant is used (G4); every credential binds the radio MAC
 and the check uses the receive metadata (G5). The design is in
 [link_security.md](link_security.md).
+
+## Validation (M3.1 campaigns A–F)
+
+Bench: MAO (ESP32-C3-LCDkit) and one LOLIN C3 Mini endpoint (CAMERA 01 /
+LAMP 01 profiles), ESP-IDF 6.0.3. The encrypted-peer limit was raised from
+the audited 7 to **10**. Every dev hook used is development-only.
+
+**Results**
+
+| Campaign | What | Result |
+|---|---|---|
+| A | 10 pair → FORGET → re-pair; 5 CANCEL, 5 REJECT, 5 forced SAS mismatch, 5 pair mode off; 10 MAO + 10 endpoint reboots | all pass; 10 distinct credentials; revoke 4–14 ms; no reboot re-paired |
+| B1 | MAO credential dropped (5×) | relationship kept, never SECURE again from id/MAC/name, REPAIR required, old key refused |
+| B2 | endpoint credential reset / corrupted (5×) | same; commit-last proven with and without an old credential |
+| B3 | runtime LMK broken (5×, `sec peerplain`) | re-keyed from K_link, no re-pair, 0 writes |
+| B4 | online FORGET (5×) | authenticated REVOKE, 4–29 ms, both ends erased, revoked key refused |
+| B5 | offline FORGET (3×) | local trust gone, revoke honestly "not confirmed", returns as NEW, stale remote credential replaced commit-last |
+| C | 10 DATA replays; 3 fuzz runs (192 frames); 30 plaintext ACTION / SET_VALUE / SESSION_OPEN injections; 10 wrong-radio spoofs with the real credential | 0 ODD deliveries, 0 executions, 0 credential or metadata changes, 0 resets |
+| D | CAMERA and LIGHT regression, profile swap both ways, exactly-once under ACK/RESULT loss, CONNECT, input grammar | pass; credential unchanged by profile swaps; security counters flat during normal use |
+| E | measurements (below) | pass |
+| F | host suites, OpenSSL oracle, on-target self-tests | link security 220/220, relationships 84/84, character harness 36/36 identical, OpenSSL (pyca 50.0.1, OpenSSL 4.0.2) regenerates the committed vectors unchanged, on-target 47/47, ODD 64 checks |
+
+Fixes found by validation: dev security hooks moved to the `mao_link` task
+(console stack 264 → ≥1040 B free); no operational plaintext queries to
+VERIFY / REPAIR peers; a failing re-try no longer flickers REPAIR → OFFLINE.
+
+**Measurements**
+
+| Item | Value |
+|---|---|
+| App image, DEV / release | M2.6 1,245,952 / 1,186,336 B; M3.0 1,259,840 / 1,195,200 B; **M3.1 1,310,976 / 1,234,464 B** (app partition 1,835,008 B: 28.5 % / 32.7 % free) |
+| Release growth M3.0 → M3.1 | TF-PSA crypto +14.7 KB, odd_link +11.4 KB, mao_link +8.6 KB, esp_stdio +2.0 KB, mao_app +1.6 KB, espnow +1.5 KB, relationships +1.3 KB, rest < 1 KB |
+| Idle heap | HOME ≈152.0 KB, DEVICES 151.9 KB, CAMERA page 151.9 KB, SECURE idle 151.4–151.7 KB; absolute low 147,764 B (at boot) |
+| Pair / repair | minimum never went below the boot low; idle after settling unchanged |
+| X25519 | generate 104.8 ms, agree 104.6 ms |
+| HKDF (88 B) / HMAC (64 B) | 0.60 ms / 0.14 ms (per-frame envelope cost is of the HMAC order) |
+| Credential NVS commit | 1.2 ms |
+| Pair: press → SAS | 449 ms machine time |
+| PAIRED → SECURE | 13 ms (HELLO, LMK install, first envelope) |
+| MAO boot → SECURE | 482–501 ms (SEEN → SECURE 8–16 ms, median 10) |
+| Endpoint reboot → SECURE | 1.29–1.37 s (8 of 10) or 10.7 s (2 of 10), see recovery phasing |
+| Envelope | 32 B fixed (16 header + 16 tag); largest wrapped frame 179 B of 250 |
+| Load (stress orbit / 50 Hz ODD flood) | 33–36 fps, frame avg 10.8–12.0 ms; 0 event, inbox or malformed drops |
+| Lowest task stacks | mao_devices 1156 B, mao_link 2916 B (self-test), mao_devcmd 1040 B, dispatcher 2648 B, LVGL 2924 B, wifi 1828 B |
+| NVS writes | 0 in normal use and re-keys; 1 per metadata name/type change; pair / repair / forget only otherwise |
+
+**Not directly tested** (no existing hook, deliberately not added):
+previous-session DATA replay, previous-session HELLO replay, per-class fuzz
+outcome (aggregate count only), corrupted-tag / unknown-session /
+bad-counter DATA envelopes, right-radio / wrong-credential spoof. Transfer-id
+stale guarding was only observed as "abort mid-transfer, no stale advance".
+
+**Limitations:** no secure boot, no flash encryption, no eFuse key store, no
+tamper resistance (flash extraction exposes credentials); no jamming or DoS
+protection; plaintext discovery leaks presence and basic metadata; first-pair
+MITM resistance depends on the user comparing the SAS; the endpoint's serial
+console stands in for a product's local-presence UI; one physical endpoint
+only, so multi-device authenticated operation is not hardware-validated.

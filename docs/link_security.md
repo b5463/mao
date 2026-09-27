@@ -15,6 +15,12 @@ The platform facts behind the design are in
 > are not addressed. First pairing is only as good as the user's comparison of
 > the six-digit code. Nothing here is "unbreakable".
 
+> **The secure-online rule.** A plaintext ANNOUNCE is a *presence hint* and
+> nothing more. A matching device_id, name, type **and** radio MAC together are
+> still insufficient. A paired device is ONLINE, described and controllable
+> only after a successful HELLO / HELLO_ACK proof under its stored credential,
+> from its bound radio address. Controls appear only after that proof.
+
 ## Threat model
 
 **Protected against:**
@@ -59,6 +65,21 @@ even if a future IDF delivers such frames.
 with a static key is undocumented (audit G2). Every link session installs an
 LMK nobody has used before, so a counter that restarts can never repeat a
 nonce under the same key.
+
+**Native ESP-NOW behaviour is not relied on.** On IDF 6.0.3 the driver was
+observed to drop plaintext unicast sent to an encrypted peer, and traffic
+under a wrong LMK or PMK, before the receive callback (audit §7; seen again in
+Campaign C as "pre-app drops"). The API exposes no per-frame "this was
+encrypted" flag, so M3.1 does not depend on it: every operational ODD frame
+must also pass the application's authenticated envelope, and the endpoint's
+link gate refuses plaintext operational ODD it does receive.
+
+**PMK and LMK.** ESP-NOW requires a PMK shared by both sides. ODD uses one
+ODD-wide documented constant, `ODL_ESPNOW_PMK` =
+`SHA-256("ODD-ESPNOW-PMK-v1")[0:16]`. It is **not** a pair secret and not a
+device identity; it only satisfies the driver. Per-pair security comes from
+K_link, per-session security from the HELLO-derived LMK and envelope keys.
+Encrypted peer slots: `CONFIG_ESP_WIFI_ESPNOW_MAX_ENCRYPT_NUM` = 10.
 
 ## Identities (all separate)
 
@@ -180,6 +201,22 @@ session   = HKDF(salt=nonce_c | nonce_d, ikm=K_link,
 * Session keys are never persisted.
 * Every new session has new nonces, so every key differs from all earlier
   sessions and a reboot cannot reuse an LMK.
+* **HELLO replay semantics.** A HELLO byte-identical to the one that opened
+  the *current* session, from the same radio, is treated as a lost-ACK
+  retransmission: the cached HELLO_ACK is re-sent and **no new session** is
+  created (MAO ignores an ACK it did not ask for). Any other already-seen
+  HELLO nonce is refused (a short seen-nonce list). Only the first case was
+  exercised on hardware; replaying a HELLO from an *earlier* session was not
+  producible with the existing dev hooks.
+* **Recovery.** After a MAO reboot the stored credential gives SECURE in about
+  0.5 s (SEEN → SECURE ≈ 10 ms). After an endpoint reboot MAO notices through
+  an unanswered in-session probe; a plaintext ANNOUNCE triggers that probe
+  only after `STALE_AUTH_MS` of authenticated silence, otherwise the next
+  discovery round does. Recovery is therefore bimodal, ≈1.3 s or up to ≈11 s.
+  This is deliberate: a forged ANNOUNCE cannot force re-keys.
+* **Runtime key loss is not credential loss.** If the session or its LMK
+  breaks, MAO re-keys from K_link; the relationship and credential stay, and
+  no re-pair is needed (Campaign B3).
 
 ## DATA envelope
 
@@ -195,7 +232,11 @@ tag = HMAC(K_dir, first 16 bytes | inner)[:16]      K_dir = K_c2d or K_d2c
   dropped and counted.
 * **Counter:** starts at 1 per direction and session. The receiver keeps the
   highest value plus a 32-frame bitmap window, and rejects duplicates and
-  anything older than the window.
+  anything older than the window. Only frames with a valid tag move the
+  window. It protects the *current* session; a frame from an earlier session
+  fails on session_id (and on the session keys) instead.
+* **Largest frame:** CAPABILITIES with 8 caps is 147 B of ODD, 179 B wrapped,
+  71 B under ESP-NOW's 250 B.
 * **Link control inside the envelope:** `'L' 'C' type`, with REVOKE = 1 and
   REVOKE_ACK = 2.
 
@@ -217,6 +258,13 @@ tag = HMAC(K_dir, first 16 bytes | inner)[:16]      K_dir = K_c2d or K_d2c
 * Operational controls require relationship + credential + a live secure
   session.
 * There is no plaintext fallback anywhere.
+* A **remembered** device that is not SECURE (VERIFY: no credential; REPAIR:
+  a credential that failed or is verifying) gets **no operational ODD
+  traffic** at all: no GET_CAPS, GET_STATE, SESSION_OPEN, SET_VALUE or ACTION.
+  Its ANNOUNCE makes it SEEN only. Cached capabilities are descriptive, never
+  authority. NEW (not remembered) devices keep M3.0 plaintext discovery.
+* A periodic re-try of a device that could not prove itself stays FAILED
+  until it succeeds, so the REPAIR page does not flicker to OFFLINE.
 * The M3.0 dev bypass (`mao odd-action`) is refused for devices that require
   the secure link.
 
@@ -249,5 +297,15 @@ keys, counters, ODD sessions and incarnations.
 ## Physical presence
 
 The bench endpoint enters pair mode, accepts and rejects over its serial
-console. A product needs a deliberate local action instead (button, menu or
+console. That console is a **bench stand-in** for a product's local-presence
+UI; a product needs a deliberate local action instead (button, menu or
 display).
+
+## Validation scope
+
+M3.1 was validated with **one** physical endpoint (switched between the
+CAMERA and LIGHT profiles). Several simultaneous authenticated peers, and the
+encrypted-peer slot behaviour with more than one of them, are not yet
+hardware-validated. Results, measurements and the tests that were *not*
+possible with the existing hooks are in the audit note, section
+"Validation (M3.1 campaigns A–F)".
