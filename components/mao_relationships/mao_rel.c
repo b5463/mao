@@ -337,6 +337,21 @@ static uint64_t dev_resolve(const char *arg)
     return i >= 0 && i < n ? l[i].id : 0;
 }
 
+/* Run on the mao_link task (mao_link_dev_call), never on the console task. */
+static void dev_dropkey(uint64_t id)
+{
+    if (mao_rel_debug_drop_key(id) != ESP_OK) {
+        ESP_LOGW(TAG, "rel dropkey: no credential");
+    }
+}
+
+static void dev_corrupt(uint64_t id)
+{
+    if (mao_rel_debug_corrupt_key(id) != ESP_OK) {
+        ESP_LOGW(TAG, "rel corrupt: no credential");
+    }
+}
+
 static void dev_command(char *arg)
 {
     char *sub = arg ? arg : "";
@@ -397,13 +412,17 @@ static void dev_command(char *arg)
         mao_link_pair_cancel();
     } else if (strcmp(sub, "dropkey") == 0 && rest) {
         const uint64_t id = dev_resolve(rest);
-        if (!id || mao_rel_debug_drop_key(id) != ESP_OK) {
-            ESP_LOGW(TAG, "rel dropkey <index|id>: no credential");
+        if (id) {
+            mao_link_dev_call(dev_dropkey, id, "rel dropkey");   /* key / NVS / radio work: link task */
+        } else {
+            ESP_LOGW(TAG, "rel dropkey <index|id>: not known");
         }
     } else if (strcmp(sub, "corrupt") == 0 && rest) {
         const uint64_t id = dev_resolve(rest);
-        if (!id || mao_rel_debug_corrupt_key(id) != ESP_OK) {
-            ESP_LOGW(TAG, "rel corrupt <index|id>: no credential");
+        if (id) {
+            mao_link_dev_call(dev_corrupt, id, "rel corrupt");
+        } else {
+            ESP_LOGW(TAG, "rel corrupt <index|id>: not known");
         }
     } else if (strcmp(sub, "failnext") == 0 && rest) {
         s_fail_write = strcmp(rest, "write") == 0;

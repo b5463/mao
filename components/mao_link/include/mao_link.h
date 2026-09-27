@@ -92,6 +92,13 @@ esp_err_t mao_link_revoke(uint64_t id);
 bool mao_link_revoke_busy(void);
 bool mao_link_revoke_confirmed(uint64_t *id);
 
+/* ---- development ---- */
+/* Run fn(arg) on the mao_link task: security dev hooks (credential / key /
+ * session work) never run on the small console task. The console logs
+ * "dev job N queued: <what>", the link task "dev job N done: <what>" after
+ * the hook's own result lines. Development consoles only. */
+void mao_link_dev_call(void (*fn)(uint64_t arg), uint64_t arg, const char *what);
+
 /* MAO_EVENT_LINK_CHANGED values */
 enum { MAO_LINK_EV_STATE = 1, MAO_LINK_EV_PAIR = 2, MAO_LINK_EV_REVOKED = 3 };
 

@@ -64,7 +64,16 @@ typedef struct {
 
 typedef enum {
     JOB_SELFTEST = 1, JOB_BENCH, JOB_PAIR_START, JOB_PAIR_FRAME, JOB_PAIR_CONFIRM, JOB_PAIR_CANCEL,
+    JOB_DEV_CALL,                            /* data: dev_call_t */
 } job_type_t;
+
+typedef struct {
+    void (*fn)(uint64_t arg);
+    uint64_t arg;
+    uint32_t n;
+    char what[24];
+} dev_call_t;
+_Static_assert(sizeof(dev_call_t) <= JOB_BUF, "dev call job");
 
 typedef struct {
     uint8_t type;
@@ -741,6 +750,13 @@ static void run_job(const job_t *j)
     case JOB_PAIR_CANCEL:
         odl_pairc_cancel(&s_pair);
         break;
+    case JOB_DEV_CALL: {
+        dev_call_t c;
+        memcpy(&c, j->data, sizeof(c));
+        c.fn(c.arg);
+        ESP_LOGI(TAG, "dev job %" PRIu32 " done: %s", c.n, c.what);
+        break;
+    }
     default:
         break;
     }
@@ -769,6 +785,17 @@ static void link_task(void *arg)
 static uint8_t s_old_key[ODL_KEY_LEN];
 static bool s_old_saved;
 
+void mao_link_dev_call(void (*fn)(uint64_t arg), uint64_t arg, const char *what)
+{
+    static uint32_t s_n;
+    job_t j = { .type = JOB_DEV_CALL };
+    dev_call_t c = { .fn = fn, .arg = arg, .n = ++s_n };
+    strncpy(c.what, what, sizeof(c.what) - 1);
+    memcpy(j.data, &c, sizeof(c));
+    ESP_LOGI(TAG, "dev job %" PRIu32 " queued: %s", c.n, c.what);
+    post_job(&j);
+}
+
 static void dev_status(void)
 {
     ESP_LOGI(TAG, "link: pair %s | hello ok=%" PRIu32 " fail=%" PRIu32 " bad-ack=%" PRIu32 " | env drop=%" PRIu32
@@ -789,7 +816,9 @@ static void dev_status(void)
 /* A plaintext operational ODD frame towards the first paired device:
  * "bcast" as broadcast, "uni" as unicast with our peer entry briefly
  * plaintext. The device must refuse both. Development only. */
-static void dev_inject(const char *mode, const char *what)
+enum { INJ_UNI = 1, INJ_ACTION = 1 << 8, INJ_SESSION = 2 << 8 };
+
+static void dev_inject(uint64_t arg)
 {
     lock();
     peer_t *p = NULL;
@@ -814,12 +843,14 @@ static void dev_inject(const char *mode, const char *what)
     self_identity(&self_id, self_mac);
     odd_header_t h = { .version = ODD_BUS_PROTOCOL_VERSION, .seq = 0x7777, .src_id = self_id, .dst_id = id };
     odd_message_t b = { 0 };
-    if (!strcmp(what, "action")) {
+    const uint64_t what = arg & 0xFF00;
+    const bool uni = (arg & INJ_UNI) != 0;
+    if (what == INJ_ACTION) {
         h.type = ODD_MSG_ACTION;
         h.flags = ODD_FRAME_F_INCARNATION;
         b.incarnation = 0x1122334455667788ull;
         b.u.action.cap_id = 1;
-    } else if (!strcmp(what, "session")) {
+    } else if (what == INJ_SESSION) {
         h.type = ODD_MSG_SESSION_OPEN;
         h.flags = ODD_FRAME_F_INCARNATION;
         b.incarnation = 0x1122334455667788ull;
@@ -835,7 +866,7 @@ static void dev_inject(const char *mode, const char *what)
         return;
     }
     esp_err_t e;
-    if (!strcmp(mode, "uni")) {
+    if (uni) {
         mao_radio_debug_peer_plain(mac, true);
         e = mao_radio_send(mac, f, n);
         vTaskDelay(pdMS_TO_TICKS(30));
@@ -843,13 +874,16 @@ static void dev_inject(const char *mode, const char *what)
     } else {
         e = mao_radio_send(NULL, f, n);
     }
-    ESP_LOGW(TAG, "dev: injected PLAINTEXT %s (%s) towards %016" PRIx64 ": %s", odd_msg_type_name(h.type), mode, id,
+    ESP_LOGW(TAG, "dev: injected PLAINTEXT %s (%s) towards %016" PRIx64 ": %s", odd_msg_type_name(h.type), uni ? "uni" : "bcast", id,
              esp_err_to_name(e));
 }
 
 /* Resend frames of an earlier exchange: the device must refuse all of them. */
-static void dev_replay(const char *what)
+enum { REPLAY_HELLO, REPLAY_DATA, REPLAY_PAIR };
+
+static void dev_replay(uint64_t what)
 {
+    static const char *const kWhat[] = { "hello", "data", "pair" };
     lock();
     uint8_t mac[6] = { 0 };
     for (int i = 0; i < PEERS_MAX; i++) {
@@ -860,25 +894,26 @@ static void dev_replay(const char *what)
     }
     unlock();
     int sent = 0;
-    if (!strcmp(what, "hello") && s_rec_hello.n) {
+    if (what == REPLAY_HELLO && s_rec_hello.n) {
         mao_radio_send(NULL, s_rec_hello.f, s_rec_hello.n);
         sent = 1;
-    } else if (!strcmp(what, "data") && s_rec_data.n) {
+    } else if (what == REPLAY_DATA && s_rec_data.n) {
         mao_radio_send(mac, s_rec_data.f, s_rec_data.n);
         sent = 1;
-    } else if (!strcmp(what, "pair")) {
+    } else if (what == REPLAY_PAIR) {
         for (int i = 0; i < s_rec_pair_n; i++) {
             mao_radio_send(NULL, s_rec_pair[i].f, s_rec_pair[i].n);
             vTaskDelay(pdMS_TO_TICKS(20));
             sent++;
         }
     }
-    ESP_LOGW(TAG, "dev: replayed %d old %s frame(s)", sent, what);
+    ESP_LOGW(TAG, "dev: replayed %d old %s frame(s)", sent, kWhat[what]);
 }
 
 /* Malformed bootstrap / link frames (the device must survive, commit nothing). */
-static void dev_fuzz(void)
+static void dev_fuzz(uint64_t unused)
 {
+    (void)unused;
     uint64_t self_id;
     uint8_t self_mac[6];
     self_identity(&self_id, self_mac);
@@ -909,6 +944,64 @@ static void dev_fuzz(void)
     ESP_LOGW(TAG, "dev: sent %d malformed / stale link frames", sent);
 }
 
+/* save: remember the current key of the first peer; use: try it again (after
+ * a re-pair it must be refused) - 'use' again swaps back. RAM only. */
+static peer_t *first_peer_locked(void)
+{
+    for (int i = 0; i < PEERS_MAX; i++) {
+        if (s_peers[i].used) {
+            return &s_peers[i];
+        }
+    }
+    return NULL;
+}
+
+static void dev_oldkey_save(uint64_t unused)
+{
+    (void)unused;
+    lock();
+    peer_t *p = first_peer_locked();
+    if (p) {
+        memcpy(s_old_key, p->key, ODL_KEY_LEN);
+        s_old_saved = true;
+    }
+    unlock();
+    if (p) {
+        ESP_LOGW(TAG, "dev: key fp %08" PRIx32 " saved", odl_fingerprint(s_old_key));
+    } else {
+        ESP_LOGW(TAG, "dev: oldkey save: no paired device");
+    }
+}
+
+static void dev_oldkey_use(uint64_t unused)
+{
+    (void)unused;
+    lock();
+    peer_t *p = first_peer_locked();
+    uint32_t fp = 0;
+    if (p && s_old_saved) {
+        uint8_t tmp[ODL_KEY_LEN];
+        memcpy(tmp, p->key, ODL_KEY_LEN);
+        memcpy(p->key, s_old_key, ODL_KEY_LEN);
+        memcpy(s_old_key, tmp, ODL_KEY_LEN);
+        olc_wipe(tmp, sizeof(tmp));
+        if (p->sess.valid) {
+            mao_radio_set_peer_key(p->mac, NULL);
+            odl_session_end(&p->sess);
+        }
+        p->st = MAO_LINK_OFFLINE;
+        p->last_hint_ms = now_ms();
+        start_hello_locked(p, now_ms());
+        fp = odl_fingerprint(p->key);
+    }
+    unlock();
+    if (fp) {
+        ESP_LOGW(TAG, "dev: link now uses key fp %08" PRIx32 " (RAM only)", fp);
+    } else {
+        ESP_LOGW(TAG, "dev: oldkey use: %s", p ? "nothing saved (save first; RAM only)" : "no paired device");
+    }
+}
+
 static void dev_command(char *arg)
 {
     char *sub = arg ? arg : "";
@@ -928,46 +1021,23 @@ static void dev_command(char *arg)
     } else if (!strcmp(sub, "forcesas") && rest) {
         s_pair.debug_mismatch = !strcmp(rest, "on");
         ESP_LOGW(TAG, "dev: forced SAS mismatch %s", s_pair.debug_mismatch ? "ON" : "off");
-    } else if (!strcmp(sub, "oldkey") && rest) {
-        /* save: remember the current key of the first peer; use: try it again
-         * (after a re-pair it must be refused); restore: back to the current one */
-        lock();
-        peer_t *p = NULL;
-        for (int i = 0; i < PEERS_MAX && !p; i++) {
-            if (s_peers[i].used) {
-                p = &s_peers[i];
-            }
-        }
-        if (p && !strcmp(rest, "save")) {
-            memcpy(s_old_key, p->key, ODL_KEY_LEN);
-            s_old_saved = true;
-            ESP_LOGW(TAG, "dev: key fp %08" PRIx32 " saved", odl_fingerprint(s_old_key));
-        } else if (p && s_old_saved && !strcmp(rest, "use")) {
-            uint8_t tmp[ODL_KEY_LEN];
-            memcpy(tmp, p->key, ODL_KEY_LEN);
-            memcpy(p->key, s_old_key, ODL_KEY_LEN);
-            memcpy(s_old_key, tmp, ODL_KEY_LEN);   /* 'use' again swaps back */
-            olc_wipe(tmp, sizeof(tmp));
-            if (p->sess.valid) {
-                mao_radio_set_peer_key(p->mac, NULL);
-                odl_session_end(&p->sess);
-            }
-            p->st = MAO_LINK_OFFLINE;
-            p->last_hint_ms = now_ms();
-            start_hello_locked(p, now_ms());
-            ESP_LOGW(TAG, "dev: link now uses key fp %08" PRIx32 " (RAM only)", odl_fingerprint(p->key));
-        }
-        unlock();
-    } else if (!strcmp(sub, "replay") && rest) {
-        dev_replay(rest);
+    } else if (!strcmp(sub, "oldkey") && rest && (!strcmp(rest, "save") || !strcmp(rest, "use"))) {
+        const bool use = !strcmp(rest, "use");
+        mao_link_dev_call(use ? dev_oldkey_use : dev_oldkey_save, 0, use ? "oldkey use" : "oldkey save");
+    } else if (!strcmp(sub, "replay") && rest &&
+               (!strcmp(rest, "hello") || !strcmp(rest, "data") || !strcmp(rest, "pair"))) {
+        const uint64_t what = !strcmp(rest, "hello") ? REPLAY_HELLO : !strcmp(rest, "data") ? REPLAY_DATA : REPLAY_PAIR;
+        mao_link_dev_call(dev_replay, what, "replay");
     } else if (!strcmp(sub, "fuzz")) {
-        dev_fuzz();
+        mao_link_dev_call(dev_fuzz, 0, "fuzz");
     } else if (!strcmp(sub, "inject") && rest) {
         char *what = strchr(rest, ' ');
         if (what) {
             *what++ = '\0';
         }
-        dev_inject(rest, what ? what : "set");
+        uint64_t a = !strcmp(rest, "uni") ? INJ_UNI : 0;
+        a |= what && !strcmp(what, "action") ? INJ_ACTION : what && !strcmp(what, "session") ? INJ_SESSION : 0;
+        mao_link_dev_call(dev_inject, a, "inject");
     } else {
         ESP_LOGW(TAG, "link status | selftest | bench | forcesas on|off | oldkey save|use | "
                  "inject bcast|uni set|action|session | replay hello|data|pair | fuzz");
