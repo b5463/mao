@@ -3,7 +3,8 @@
  * mao_rel_table.c) against a fake backend with failure injection.
  *
  * PERSISTENCE / MODEL TESTS ONLY, with synthetic device_ids. They prove the
- * storage rules, not multi-radio behaviour (one physical endpoint exists).
+ * storage rules, not multi-radio behaviour (that is the M3.2 hardware
+ * campaign with two physical endpoints).
  */
 #include <stdio.h>
 #include <string.h>
@@ -261,6 +262,104 @@ int main(void)
     CHECK(mao_rel_table_forget(&t, ID(3)) == ESP_OK);
     reboot(&t, NULL);
     CHECK(mao_rel_table_find(&t, ID(3)) < 0 && mao_rel_table_count(&t) == MAO_REL_MAX - 1);
+
+    /* ---- M3.2: two (and eight) authenticated devices, records independent ---- */
+    memset(&F, 0, sizeof(F));
+    reboot(&t, NULL);
+    uint8_t macA[6] = { 0x60, 0x55, 0xf9, 0x23, 0x53, 0x24 }, macB[6] = { 0xa0, 0x76, 0x4e, 0x1d, 0x86, 0xd4 };
+    uint8_t kA[32], kB[32], kA2[32];
+    memset(kA, 0xA1, 32);
+    memset(kB, 0xB2, 32);
+    memset(kA2, 0xA3, 32);
+    CHECK(mao_rel_table_set_cred(&t, ID(1), "CAMERA 01", ODD_DEVICE_CAMERA, macA, kA, &created) == ESP_OK && created);
+    CHECK(mao_rel_table_set_cred(&t, ID(2), "LAMP 01", ODD_DEVICE_LIGHT, macB, kB, &created) == ESP_OK && created);
+    reboot(&t, &bad);
+    int sA = mao_rel_table_find(&t, ID(1)), sB = mao_rel_table_find(&t, ID(2));
+    CHECK(bad == 0 && sA >= 0 && sB >= 0 && sA != sB);
+    CHECK(memcmp(t.rec[sA].k_link, kA, 32) == 0 && memcmp(t.rec[sA].peer_mac, macA, 6) == 0);
+    CHECK(memcmp(t.rec[sB].k_link, kB, 32) == 0 && memcmp(t.rec[sB].peer_mac, macB, 6) == 0);
+    mao_rel_table_list(&t, list);
+    CHECK(list[0].id == ID(1) && list[1].id == ID(2));                 /* stable pair order */
+    const uint32_t oA = t.rec[sA].order, oB = t.rec[sB].order;
+    /* REPAIR of A (credential replaced in place): B untouched, both orders kept */
+    uint8_t blobB[MAO_REL_BLOB_LEN];
+    memcpy(blobB, F.blob[sB], MAO_REL_BLOB_LEN);
+    CHECK(mao_rel_table_set_cred(&t, ID(1), NULL, 0, macA, kA2, &created) == ESP_OK && !created);
+    CHECK(memcmp(F.blob[sB], blobB, MAO_REL_BLOB_LEN) == 0);          /* B's record not rewritten */
+    reboot(&t, NULL);
+    CHECK(t.rec[sA].order == oA && t.rec[sB].order == oB && t.rec[sA].cred_gen == 1 && t.rec[sB].cred_gen == 0);
+    CHECK(memcmp(t.rec[sA].k_link, kA2, 32) == 0 && memcmp(t.rec[sB].k_link, kB, 32) == 0);
+    /* metadata update of B: A untouched */
+    uint8_t blobA[MAO_REL_BLOB_LEN];
+    memcpy(blobA, F.blob[sA], MAO_REL_BLOB_LEN);
+    CHECK(mao_rel_table_note(&t, ID(2), "LAMP LAB", ODD_DEVICE_LIGHT, &changed) == ESP_OK && changed);
+    CHECK(memcmp(F.blob[sA], blobA, MAO_REL_BLOB_LEN) == 0 && memcmp(t.rec[sB].k_link, kB, 32) == 0);
+    /* profile swap of B (same id, other type): still one record, credential kept */
+    CHECK(mao_rel_table_note(&t, ID(2), "CAMERA 01", ODD_DEVICE_CAMERA, &changed) == ESP_OK && changed);
+    reboot(&t, NULL);
+    CHECK(mao_rel_table_count(&t) == 2 && t.rec[sB].device_type == ODD_DEVICE_CAMERA && t.rec[sB].has_cred);
+    /* duplicate name, distinct identities: two records, found by id only */
+    CHECK(strcmp(t.rec[sA].name, t.rec[sB].name) == 0 && mao_rel_table_find(&t, ID(1)) == sA &&
+          mao_rel_table_find(&t, ID(2)) == sB);
+    CHECK(mao_rel_table_note(&t, ID(2), "LAMP 01", ODD_DEVICE_LIGHT, &changed) == ESP_OK && changed);
+    /* forget A: B keeps slot, order, credential; re-paired A goes last */
+    CHECK(mao_rel_table_forget(&t, ID(1)) == ESP_OK);
+    reboot(&t, NULL);
+    CHECK(mao_rel_table_find(&t, ID(1)) < 0 && mao_rel_table_find(&t, ID(2)) == sB);
+    CHECK(t.rec[sB].has_cred && memcmp(t.rec[sB].k_link, kB, 32) == 0 && t.rec[sB].order == oB);
+    CHECK(mao_rel_table_set_cred(&t, ID(1), "CAMERA 01", ODD_DEVICE_CAMERA, macA, kA, &created) == ESP_OK && created);
+    mao_rel_table_list(&t, list);
+    CHECK(list[0].id == ID(2) && list[1].id == ID(1) && list[1].order > oB);
+    /* credential loss of one device: the other stays verified */
+    CHECK(mao_rel_table_clear_cred(&t, ID(2)) == ESP_OK);
+    reboot(&t, NULL);
+    sA = mao_rel_table_find(&t, ID(1));
+    CHECK(!t.rec[sB].has_cred && t.rec[sA].has_cred && memcmp(t.rec[sA].k_link, kA, 32) == 0);
+    /* a damaged record of one device never costs the other its record or key */
+    CHECK(mao_rel_table_set_cred(&t, ID(2), NULL, 0, macB, kB, NULL) == ESP_OK);
+    F.len[sB] = 20;
+    reboot(&t, &bad);
+    CHECK(bad == 1 && mao_rel_table_find(&t, ID(2)) < 0 && mao_rel_table_find(&t, ID(1)) == sA &&
+          t.rec[sA].has_cred && memcmp(t.rec[sA].k_link, kA, 32) == 0);
+    /* 8-record model: each record round-trips its own key and MAC, order stable */
+    memset(&F, 0, sizeof(F));
+    reboot(&t, NULL);
+    for (int n = 1; n <= MAO_REL_MAX; n++) {
+        uint8_t k[32], m[6] = { 0x02, 0, 0, 0, 0, (uint8_t)n };
+        memset(k, 0x10 + n, 32);
+        char name[17];
+        snprintf(name, sizeof(name), "DEV %d", n);
+        CHECK(mao_rel_table_set_cred(&t, ID(n), name, 2, m, k, NULL) == ESP_OK);
+    }
+    int slot_of[MAO_REL_MAX + 1];
+    reboot(&t, &bad);
+    bool own = bad == 0 && mao_rel_table_count(&t) == MAO_REL_MAX;
+    for (int n = 1; n <= MAO_REL_MAX; n++) {
+        slot_of[n] = mao_rel_table_find(&t, ID(n));
+        uint8_t k[32];
+        memset(k, 0x10 + n, 32);
+        own = own && slot_of[n] >= 0 && memcmp(t.rec[slot_of[n]].k_link, k, 32) == 0 &&
+              t.rec[slot_of[n]].peer_mac[5] == n;
+    }
+    CHECK(own);
+    mao_rel_table_list(&t, list);
+    ordered = true;
+    for (int i = 0; i < MAO_REL_MAX; i++) {
+        ordered = ordered && list[i].id == ID(i + 1);
+    }
+    CHECK(ordered);
+    /* index stability: forgetting one device never moves another */
+    CHECK(mao_rel_table_forget(&t, ID(1)) == ESP_OK && mao_rel_table_forget(&t, ID(5)) == ESP_OK);
+    reboot(&t, NULL);
+    bool stable = true;
+    for (int n = 1; n <= MAO_REL_MAX; n++) {
+        if (n != 1 && n != 5) {
+            stable = stable && mao_rel_table_find(&t, ID(n)) == slot_of[n];
+        }
+    }
+    CHECK(stable);
+    mao_rel_table_list(&t, list);
+    CHECK(mao_rel_table_count(&t) == MAO_REL_MAX - 2 && list[0].id == ID(2) && list[3].id == ID(6));
     printf("relationship table: %d checks passed, %d failed\n", s_pass, s_fail);
     return s_fail ? 1 : 0;
 }

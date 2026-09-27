@@ -181,6 +181,84 @@ int main(void)
     CHECK(odl_devauth_unwrap(&d, MAC_A, f, n, &in, &il) == ODL_RX_NO_SESSION);   /* the old session is dead */
     CHECK(hello(&d, &a1_mao, ID_A, MAC_A, MAC_A, &ok, &kc, NULL, NULL) == ODL_HELLO_NEW_SESSION && ok);
 
+    /* ---- M3.2: one controller, two paired devices (D and E), nothing shared ---- */
+    static const uint8_t MAC_E[6] = { 0xa0, 0x76, 0x4e, 0x1d, 0x86, 0xd4 };
+    const uint64_t ID_E = 0x0DD0A0764E1D86D4ull;
+    odl_devauth_t e;
+    const odl_credential_t d_dev = cred(ID_A, MAC_A, 0x11), d_mao = cred(ID_D, MAC_D, 0x11);
+    const odl_credential_t e_dev = cred(ID_A, MAC_A, 0x55), e_mao = cred(ID_E, MAC_E, 0x55);
+    odl_devauth_init(&d, &OPS, ID_D, MAC_D, &d_dev, NULL);
+    odl_devauth_init(&e, &OPS, ID_E, MAC_E, &e_dev, NULL);
+    odl_session_keys_t kd, ke;
+    CHECK(hello(&d, &d_mao, ID_A, MAC_A, MAC_A, &ok, &kd, NULL, NULL) == ODL_HELLO_NEW_SESSION && ok);
+    uint8_t lmk_d[16];
+    memcpy(lmk_d, s_lmk, 16);
+    /* E's ACK is verified against E's radio */
+    {
+        uint8_t nc[16], hf[ODL_MAX_FRAME];
+        const size_t hn = odl_hello_build(&e_mao, ID_A, MAC_A, nc, hf);
+        odl_msg_t m, a;
+        odl_decode(hf, hn, &m);
+        s_sent_len = 0;
+        CHECK(odl_devauth_hello(&e, &m, MAC_A) == ODL_HELLO_NEW_SESSION && s_sent_len > 0);
+        CHECK(odl_decode(s_sent, s_sent_len, &a));
+        CHECK(odl_hello_ack_verify(&e_mao, ID_A, MAC_A, nc, &a, MAC_E, &ke));
+        CHECK(!odl_hello_ack_verify(&e_mao, ID_A, MAC_A, nc, &a, MAC_D, &kc));   /* from the other radio */
+        CHECK(!odl_hello_ack_verify(&d_mao, ID_A, MAC_A, nc, &a, MAC_E, &kc));   /* under D's credential */
+    }
+    CHECK(memcmp(lmk_d, s_lmk, 16) != 0 && memcmp(kd.lmk, ke.lmk, 16) != 0);   /* no shared LMK */
+    CHECK(memcmp(kd.sid, ke.sid, 8) != 0 && memcmp(kd.k_c2d, ke.k_c2d, 32) != 0 && memcmp(kd.k_d2c, ke.k_d2c, 32) != 0);
+    CHECK(memcmp(d.sess.sid, kd.sid, 8) == 0 && memcmp(e.sess.sid, ke.sid, 8) == 0);
+    /* wrong-peer credential: MAO's HELLO for D presented to E (and vice versa) */
+    CHECK(hello(&e, &d_mao, ID_A, MAC_A, MAC_A, &ok, &kc, NULL, NULL) == ODL_HELLO_IGNORED && !ok);   /* not E's id */
+    CHECK(hello(&d, &e_mao, ID_A, MAC_A, MAC_A, &ok, &kc, NULL, NULL) == ODL_HELLO_IGNORED && !ok);
+    const odl_credential_t e_with_d_key = cred(ID_E, MAC_E, 0x11), d_with_e_key = cred(ID_D, MAC_D, 0x55);
+    CHECK(hello(&e, &e_with_d_key, ID_A, MAC_A, MAC_A, &ok, &kc, NULL, NULL) == ODL_HELLO_REFUSED && !ok);
+    CHECK(hello(&d, &d_with_e_key, ID_A, MAC_A, MAC_A, &ok, &kc, NULL, NULL) == ODL_HELLO_REFUSED && !ok);
+    CHECK(memcmp(d.sess.sid, kd.sid, 8) == 0 && memcmp(e.sess.sid, ke.sid, 8) == 0);   /* both sessions intact */
+    /* cross-peer envelopes fail; each window is its own */
+    odl_session_t cd, ce;
+    odl_session_start(&cd, &kd, 'C');
+    odl_session_start(&ce, &ke, 'C');
+    uint8_t fd[ODL_MAX_FRAME], fe[ODL_MAX_FRAME];
+    size_t nd = odl_wrap(&cd, inner, sizeof(inner), fd), ne = odl_wrap(&ce, inner, sizeof(inner), fe);
+    CHECK(cd.tx_ctr == ce.tx_ctr);                           /* same counter value, different sessions */
+    CHECK(odl_devauth_unwrap(&e, MAC_A, fd, nd, &in, &il) == ODL_RX_WRONG_SESSION);
+    CHECK(odl_devauth_unwrap(&d, MAC_A, fe, ne, &in, &il) == ODL_RX_WRONG_SESSION);
+    CHECK(odl_devauth_unwrap(&d, MAC_A, fd, nd, &in, &il) == ODL_RX_OK);
+    CHECK(odl_devauth_unwrap(&e, MAC_A, fe, ne, &in, &il) == ODL_RX_OK);   /* D's accept never burnt E's counter */
+    CHECK(odl_devauth_unwrap(&d, MAC_A, fd, nd, &in, &il) == ODL_RX_REPLAY);
+    CHECK(odl_devauth_unwrap(&e, MAC_A, fe, ne, &in, &il) == ODL_RX_REPLAY);
+    /* the same session id forced onto E's frame: E's key still refuses D's frame */
+    memcpy(fe, fd, nd);
+    memcpy(&fe[4], e.sess.sid, 8);
+    CHECK(odl_devauth_unwrap(&e, MAC_A, fe, nd, &in, &il) == ODL_RX_BAD_TAG);
+    /* D advances far; E's window does not move */
+    for (int i = 0; i < 50; i++) {
+        nd = odl_wrap(&cd, inner, sizeof(inner), fd);
+        odl_devauth_unwrap(&d, MAC_A, fd, nd, &in, &il);
+    }
+    CHECK(d.sess.rx_hi == 51 && e.sess.rx_hi == 1 && ce.tx_ctr == 1);
+    ne = odl_wrap(&ce, inner, sizeof(inner), fe);
+    CHECK(odl_devauth_unwrap(&e, MAC_A, fe, ne, &in, &il) == ODL_RX_OK);
+    /* device -> controller: D's reply never verifies in E's controller session */
+    size_t rd = odl_devauth_wrap(&d, inner, sizeof(inner), fd);
+    CHECK(rd && odl_unwrap(&ce, fd, rd, &in, &il) == ODL_RX_WRONG_SESSION && odl_unwrap(&cd, fd, rd, &in, &il) == ODL_RX_OK);
+    /* one-peer teardown: D revoked; E keeps its credential and session */
+    CHECK(odl_devauth_revoke(&d) && !odl_devauth_has_session(&d));
+    CHECK(odl_devauth_locked(&e) && odl_devauth_has_session(&e) && memcmp(e.sess.sid, ke.sid, 8) == 0);
+    ne = odl_wrap(&ce, inner, sizeof(inner), fe);
+    CHECK(odl_devauth_unwrap(&e, MAC_A, fe, ne, &in, &il) == ODL_RX_OK);
+    nd = odl_wrap(&cd, inner, sizeof(inner), fd);
+    CHECK(odl_devauth_unwrap(&d, MAC_A, fd, nd, &in, &il) == ODL_RX_NO_SESSION);
+    /* E re-keys: D (now factory) is unaffected, E's old session is dead */
+    uint8_t old_e[ODL_MAX_FRAME];
+    const size_t old_en = odl_wrap(&ce, inner, sizeof(inner), old_e);
+    CHECK(hello(&e, &e_mao, ID_A, MAC_A, MAC_A, &ok, &kc, NULL, NULL) == ODL_HELLO_NEW_SESSION);
+    CHECK(odl_devauth_has_session(&e) && memcmp(e.sess.sid, ke.sid, 8) != 0);
+    CHECK(odl_devauth_unwrap(&e, MAC_A, old_e, old_en, &in, &il) == ODL_RX_WRONG_SESSION);
+    CHECK(!odl_devauth_locked(&d));
+
     printf("link security (sessions / authorization): %d checks passed, %d failed\n", s_pass, s_fail);
     return s_fail ? 1 : 0;
 }
