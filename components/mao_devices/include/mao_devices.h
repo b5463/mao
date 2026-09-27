@@ -86,6 +86,13 @@ typedef struct {
 /* Bring up radio + ODD BUS and start discovery (slow cadence). */
 esp_err_t mao_devices_init(void);
 
+/* M3.1: remembered(id) true = a relationship that must prove itself over the
+ * secure link. Without a credential such a device gets no operational ODD
+ * traffic (GET_CAPS / GET_STATE / SESSION_OPEN / SET_VALUE / ACTION): a
+ * plaintext ANNOUNCE only makes it SEEN. Set by the relationship layer;
+ * called on the devices task, must not block. */
+void mao_devices_set_auth_gate(bool (*remembered)(uint64_t id));
+
 /* Fast discovery and short offline timeout while device views are open. */
 void mao_devices_set_active(bool active);
 

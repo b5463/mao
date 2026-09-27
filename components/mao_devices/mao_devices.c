@@ -103,7 +103,8 @@ static uint64_t s_incarnation;   /* this boot's identity; generated once, never 
  * s_rx_peer (M3.1). Plaintext from a paired id is only a presence hint. */
 static bool s_rx_auth;
 static uint64_t s_rx_peer;
-static uint32_t s_plain_hints, s_plain_ignored, s_auth_mismatch;
+static uint32_t s_plain_hints, s_plain_ignored, s_auth_mismatch, s_plain_gated, s_describe_skipped;
+static bool (*s_remembered)(uint64_t id);   /* relationship layer: needs M3.1 proof */
 
 /* The one in-flight action transaction. */
 #define ACTION_RECOVER_US   (800 * 1000)        /* status-recovery cadence after ACCEPTED */
@@ -165,9 +166,36 @@ static void radio_rx(const uint8_t mac[6], const uint8_t *data, size_t len, int8
 /* Every ODD frame leaves through the link layer: enveloped inside a secure
  * session, plaintext broadcast for strangers, refused for a paired device
  * that has not proven itself (mao_link.c). */
+static bool operational(uint8_t type)
+{
+    return type == ODD_MSG_GET_CAPS || type == ODD_MSG_GET_STATE || type == ODD_MSG_SET_VALUE ||
+           type == ODD_MSG_SESSION_OPEN || type == ODD_MSG_ACTION;
+}
+
+/* Remembered, but without a credential: must prove itself before any
+ * operational traffic (see mao_devices_set_auth_gate). */
+static bool needs_proof(uint64_t id)
+{
+    return s_remembered && !mao_link_requires_auth(id) && s_remembered(id);
+}
+
 static esp_err_t odd_send(const uint8_t *dst_mac, const uint8_t *frame, size_t len, void *ctx)
 {
     (void)ctx;
+    /* A remembered relationship without a credential (VERIFY / lost key)
+     * must prove itself first: a plaintext ANNOUNCE makes it SEEN, never a
+     * target of operational queries. (With a credential mao_link_tx itself
+     * refuses plaintext.) Discovery metadata and strangers are unaffected. */
+    if (dst_mac && len >= ODD_HEADER_LEN && s_remembered && operational(frame[3])) {
+        uint64_t dst = 0;
+        for (int i = 7; i >= 0; i--) {
+            dst = dst << 8 | frame[16 + i];
+        }
+        if (needs_proof(dst)) {
+            s_plain_gated++;                 /* safety net: request() already skips these */
+            return ESP_ERR_INVALID_STATE;
+        }
+    }
     return mao_link_tx(dst_mac, frame, len);
 }
 
@@ -202,6 +230,10 @@ static void post(mao_event_type_t type, int index)
 
 static void request(entry_t *e, odd_msg_type_t type)
 {
+    if (needs_proof(e->pub.info.id)) {
+        s_describe_skipped++;                /* SEEN only: described once the link is secure */
+        return;
+    }
     odd_bus_send(e->pub.mac, e->pub.info.id, type, NULL, NULL);
 }
 
@@ -993,6 +1025,11 @@ esp_err_t mao_devices_init(void)
     return ESP_OK;
 }
 
+void mao_devices_set_auth_gate(bool (*remembered)(uint64_t id))
+{
+    s_remembered = remembered;
+}
+
 void mao_devices_set_active(bool active)
 {
     if (active != s_active) {
@@ -1135,6 +1172,9 @@ void mao_devices_log_status(void)
              " inbox_drop=%" PRIu32 " sessions=%" PRIu32 " no_session=%" PRIu32,
              d.devices_online, d.discoveries_sent, d.announces_rx, d.commands_sent, d.acks_rx, d.acks_stale,
              d.retries, d.timeouts, d.coalesced, d.inbox_dropped, d.sessions_opened, d.no_session_acks);
+    ESP_LOGI(TAG, "security: plaintext hints=%" PRIu32 " ignored=%" PRIu32 " describe skipped(unverified)=%" PRIu32
+             " gated tx(unverified)=%" PRIu32 " auth id mismatch=%" PRIu32, s_plain_hints, s_plain_ignored,
+             s_describe_skipped, s_plain_gated, s_auth_mismatch);
     if (d.rtt_count) {
         ESP_LOGI(TAG, "latency: cmd->ack rtt avg=%.2fms min=%.2fms max=%.2fms (n=%" PRIu32 "), "
                  "input->ack avg=%.2fms max=%.2fms",

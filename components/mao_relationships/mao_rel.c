@@ -443,6 +443,7 @@ esp_err_t mao_rel_init(void)
     s_lock = xSemaphoreCreateMutexStatic(&s_lock_buf);
     mao_rel_table_init(&s_t, &s_backend);
     mao_link_set_persist(persist_credential);
+    mao_devices_set_auth_gate(mao_rel_is_known);
 #if CONFIG_MAO_DEV_CONSOLE
     mao_devcmd_register("rel", dev_command);
 #endif
