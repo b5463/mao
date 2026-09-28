@@ -278,7 +278,9 @@ int odd_bus_selftest(void)
     memcpy(g, f, n); g[ODD_HEADER_LEN + 8 + 3] = 0;    /* result 0 */
     CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "result 0 rejected");
     memcpy(g, f, n); g[ODD_HEADER_LEN + 8 + 3] = 9;    /* unknown result */
-    CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "unknown result rejected");
+    /* M4.0 (G9): a newer device's result decodes; the controller treats a
+     * value it does not know as FAILED and logs it (was: rejected). */
+    CHECK(redecode(g, n, &d) == ODD_DECODE_OK && d.u.action_result.result == 9, "unknown result decodes");
     memcpy(g, f, n); g[6] = 0;
     CHECK(redecode(g, n, &d) == ODD_DECODE_MALFORMED, "unflagged ACTION_RESULT rejected");
 
@@ -329,6 +331,38 @@ int odd_bus_selftest(void)
     n = make(ODD_MSG_STATE, &b, f);
     CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.u.state.value[0].value == 1 &&
           d.u.state.value[1].value == 84, "camera state notification round trip");
+
+    /* M4.0 contract descriptor and forward tolerance. */
+    memset(&b, 0, sizeof(b));
+    b.u.caps.has_descriptor = true;
+    b.u.caps.major = ODD_CONTRACT_MAJOR;
+    b.u.caps.minor = ODD_CONTRACT_MINOR;
+    b.u.caps.count = 2;
+    b.u.caps.cap[0] = (odd_capability_t) { 1, ODD_CAP_ACTION, ODD_CAP_F_WRITE, ODD_ACTION_CAPTURE, ODD_ACTION_CAPTURE, 1 };
+    b.u.caps.cap[1] = (odd_capability_t) { 2, 42, 0, 9, -9, 0 };   /* a newer type: fields not ours to judge */
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.u.caps.has_descriptor && d.u.caps.major == ODD_CONTRACT_MAJOR &&
+          d.u.caps.minor == ODD_CONTRACT_MINOR && d.u.caps.count == 2 && d.u.caps.cap[1].type == 42,
+          "descriptor + unknown type round trip");
+    b.u.caps.has_descriptor = false;
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(f[ODD_HEADER_LEN] == 2 && odd_decode(f, n, &d) == ODD_DECODE_OK && d.u.caps.major == 1 &&
+          d.u.caps.minor == 0, "no descriptor = contract 1.0");
+    b.u.caps.has_descriptor = true;
+    b.u.caps.major = 2;
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_OK && d.u.caps.major == 2 && d.u.caps.count == 0,
+          "another major: records never parsed");
+    b.u.caps.major = ODD_CONTRACT_MAJOR;
+    b.u.caps.cap[1] = (odd_capability_t) { 1, ODD_CAP_READY, ODD_CAP_F_READ, 0, 1, 1 };
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_MALFORMED, "duplicate cap id rejected");
+    b.u.caps.cap[1] = (odd_capability_t) { 2, ODD_CAP_POWER, ODD_CAP_F_WRITE, 0, 5, 1 };
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_MALFORMED, "POWER outside 0..1 rejected");
+    b.u.caps.cap[1] = (odd_capability_t) { 2, ODD_CAP_ACTION, ODD_CAP_F_READ, ODD_ACTION_IDENTIFY, ODD_ACTION_IDENTIFY, 1 };
+    n = make(ODD_MSG_CAPABILITIES, &b, f);
+    CHECK(odd_decode(f, n, &d) == ODD_DECODE_MALFORMED, "ACTION without WRITE rejected");
 
     /* Sequence arithmetic across wrap-around. */
     CHECK(odd_seq_newer(1, 0) && odd_seq_newer(0, 65535) && odd_seq_newer(10, 65530), "seq newer across wrap");

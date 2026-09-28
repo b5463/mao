@@ -14,6 +14,7 @@ static int s_pass, s_fail;
 static const uint8_t MAC_A[6] = { 0x98, 0x88, 0xe0, 0xd4, 0xd0, 0x90 };   /* MAO */
 static const uint8_t MAC_B[6] = { 0x02, 0xb0, 0xb0, 0xb0, 0xb0, 0xb0 };   /* another controller */
 static const uint8_t MAC_D[6] = { 0x60, 0x55, 0xf9, 0x23, 0x53, 0x24 };
+static const uint8_t MAC_E_[6] = { 0xa0, 0x76, 0x4e, 0x1d, 0x86, 0xd4 };   /* the second endpoint (M3.2) */
 #define ID_A 0x0DD09888E0D4D090ull
 #define ID_B 0x0DD002B0B0B0B0B0ull
 #define ID_D 0x0DD06055F9235324ull
@@ -83,6 +84,21 @@ static odl_hello_result_t hello(odl_devauth_t *d, const odl_credential_t *ctrl_v
         }
     }
     return r;
+}
+
+/* One HELLO round with a device whose radio is dev_mac; the ACK is verified
+ * against that radio. True when both sides hold the new session. */
+static bool handshake(odl_devauth_t *d, const odl_credential_t *ctrl_view, const uint8_t dev_mac[6],
+                      odl_session_keys_t *keys)
+{
+    uint8_t nc[16], f[ODL_MAX_FRAME];
+    const size_t n = odl_hello_build(ctrl_view, ID_A, MAC_A, nc, f);
+    odl_msg_t m, a;
+    odl_decode(f, n, &m);
+    s_sent_len = 0;
+    const odl_hello_result_t r = odl_devauth_hello(d, &m, MAC_A);
+    return (r == ODL_HELLO_NEW_SESSION || r == ODL_HELLO_PROMOTED) && s_sent_len &&
+           odl_decode(s_sent, s_sent_len, &a) && odl_hello_ack_verify(ctrl_view, ID_A, MAC_A, nc, &a, dev_mac, keys);
 }
 
 int main(void)
@@ -258,6 +274,30 @@ int main(void)
     CHECK(odl_devauth_has_session(&e) && memcmp(e.sess.sid, ke.sid, 8) != 0);
     CHECK(odl_devauth_unwrap(&e, MAC_A, old_e, old_en, &in, &il) == ODL_RX_WRONG_SESSION);
     CHECK(!odl_devauth_locked(&d));
+
+    /* ---- M4.0: a delayed description of an earlier profile cannot land ----
+     * E answers GET_CAPS as a CAMERA in session S1; the frame is delayed;
+     * E reboots as a LIGHT (same identity, same credential) and a new session
+     * S2 carries the LIGHT description. The old CAMERA frame then arrives. */
+    {
+        odl_session_keys_t k1, k2;
+        CHECK(handshake(&e, &e_mao, MAC_E_, &k1));
+        odl_session_t c1;
+        odl_session_start(&c1, &k1, 'C');
+        const uint8_t camera_caps[20] = { 'O', 'D', 1, 4, 5 };
+        uint8_t delayed[ODL_MAX_FRAME];
+        const size_t dn = odl_devauth_wrap(&e, camera_caps, sizeof(camera_caps), delayed);
+        odl_devauth_init(&e, &OPS, ID_E, MAC_E, &e_dev, NULL);                    /* reboot, new profile */
+        CHECK(handshake(&e, &e_mao, MAC_E_, &k2));
+        odl_session_t c2;
+        odl_session_start(&c2, &k2, 'C');
+        const uint8_t light_caps[20] = { 'O', 'D', 1, 4, 3 };
+        uint8_t fresh[ODL_MAX_FRAME];
+        const size_t fn = odl_devauth_wrap(&e, light_caps, sizeof(light_caps), fresh);
+        CHECK(odl_unwrap(&c2, fresh, fn, &in, &il) == ODL_RX_OK && in[4] == 3);
+        CHECK(odl_unwrap(&c2, delayed, dn, &in, &il) == ODL_RX_WRONG_SESSION);    /* never restores CAMERA */
+        CHECK(odl_unwrap(&c1, delayed, dn, &in, &il) == ODL_RX_OK);              /* (it was genuine in S1) */
+    }
 
     printf("link security (sessions / authorization): %d checks passed, %d failed\n", s_pass, s_fail);
     return s_fail ? 1 : 0;

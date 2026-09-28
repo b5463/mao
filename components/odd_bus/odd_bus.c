@@ -17,6 +17,8 @@ static odd_send_fn_t s_send;
 static void *s_send_ctx;
 static odd_rx_fn_t s_on_rx;
 static void *s_rx_ctx;
+static odd_malformed_fn_t s_on_malformed;
+static void *s_malformed_ctx;
 static uint16_t s_seq;
 static odd_bus_stats_t s_stats;
 static uint32_t s_last_version_log_ms;
@@ -199,6 +201,7 @@ esp_err_t odd_bus_discover_to(const uint8_t *dst_mac, uint64_t dst_id)
 void odd_bus_input(const uint8_t src_mac[6], const uint8_t *frame, size_t len, int8_t rssi)
 {
     odd_message_t msg;
+    memset(&msg.hdr, 0, sizeof(msg.hdr));   /* a failed decode may not reach the header */
     switch (odd_decode(frame, len, &msg)) {
     case ODD_DECODE_OK:
         break;
@@ -220,6 +223,10 @@ void odd_bus_input(const uint8_t src_mac[6], const uint8_t *frame, size_t len, i
     case ODD_DECODE_MALFORMED:
     default:
         s_stats.rx_malformed++;
+        if (s_on_malformed && msg.hdr.type != 0 && msg.hdr.type <= ODD_MSG_TYPE_MAX && msg.hdr.src_id != 0 &&
+            msg.hdr.src_id != s_self.id) {
+            s_on_malformed(&msg.hdr, s_malformed_ctx);
+        }
         return;
     }
 
@@ -236,6 +243,12 @@ void odd_bus_input(const uint8_t src_mac[6], const uint8_t *frame, size_t len, i
     s_stats.rx++;
     s_stats.per_type_rx[msg.hdr.type]++;
     s_on_rx(&msg, s_rx_ctx);
+}
+
+void odd_bus_set_malformed_handler(odd_malformed_fn_t fn, void *ctx)
+{
+    s_malformed_ctx = ctx;
+    s_on_malformed = fn;
 }
 
 void odd_bus_get_stats(odd_bus_stats_t *out)

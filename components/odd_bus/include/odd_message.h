@@ -92,7 +92,9 @@ typedef enum {
     ODD_ACK_BUSY          = 8,   /* ACTION refused: the device cannot start it now */
 } odd_ack_status_t;
 
-/* Final outcome of an ACTION (ODD_MSG_ACTION_RESULT). 0 is invalid. */
+/* Final outcome of an ACTION (ODD_MSG_ACTION_RESULT). 0 is invalid; any other
+ * value a newer device may send decodes, and a controller treats values it
+ * does not know as FAILED. */
 typedef enum {
     ODD_ACTION_R_DONE   = 1,
     ODD_ACTION_R_FAILED = 2,
@@ -108,8 +110,21 @@ typedef struct {
     uint64_t dst_id;
 } odd_header_t;
 
+/* Device contract version (docs/odd_device_contract.md). Carried in an
+ * optional descriptor at the front of CAPABILITIES:
+ *   [ODD_CAPS_DESCRIPTOR][len >= 2][major][minor][len-2 bytes, skipped][count][records]
+ * A payload that starts with count (<= ODD_MAX_CAPS) has no descriptor and
+ * means contract 1.0. MAJOR = breaking semantics, MINOR = additive. The wire
+ * version (header byte 2) stays 1: it only changes if the framing does. */
+#define ODD_CONTRACT_MAJOR      1
+#define ODD_CONTRACT_MINOR      1      /* what this build implements */
+#define ODD_CAPS_DESCRIPTOR     0xD0
+#define ODD_CAPS_DESC_MAX       16     /* descriptor bytes after the length */
+
 typedef struct {
-    uint8_t count;
+    uint8_t major, minor;          /* contract; 1.0 when no descriptor was sent */
+    bool has_descriptor;           /* encode: send one; decode: one was present */
+    uint8_t count;                 /* 0 (records not parsed) when major != ODD_CONTRACT_MAJOR */
     odd_capability_t cap[ODD_MAX_CAPS];
 } odd_caps_msg_t;
 

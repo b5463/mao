@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -31,6 +32,13 @@ typedef enum {
     ODD_CAP_STORAGE = 5, /* remaining logical capacity, percent.
                           * Canonical: min 0, max 100, step 1, READ (never WRITE). */
 } odd_cap_type_t;
+
+/* Types this contract version defines. Anything else is a newer type: it
+ * is carried, never interpreted (docs/odd_device_contract.md). */
+static inline bool odd_cap_type_known(uint8_t type)
+{
+    return type >= ODD_CAP_POWER && type <= ODD_CAP_STORAGE;
+}
 
 /* Status categories: displayed as facts, never offered as controls. */
 static inline bool odd_cap_is_status(uint8_t type)

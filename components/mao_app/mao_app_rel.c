@@ -69,6 +69,9 @@ mao_devpage_t mao_devpage(uint64_t id, mao_world_entry_t *w)
     if (w->auth_failed) {
         return MAO_DEVPAGE_REPAIR;
     }
+    if (w->online && (w->compat == ODD_COMPAT_INCOMPATIBLE || w->compat == ODD_COMPAT_INVALID)) {
+        return MAO_DEVPAGE_INCOMPATIBLE;   /* trusted, just not operable: never REPAIR */
+    }
     return w->online ? MAO_DEVPAGE_CONTROL : MAO_DEVPAGE_OFFLINE;
 }
 
@@ -177,10 +180,31 @@ static void draw_offline(const mao_world_entry_t *w)
     mao_ui_device_update(&m);
 }
 
+/* Minimal on purpose (M4.0): name, one quiet word, INFO -> FORGET. The
+ * visual treatment belongs to the UI milestone. */
+static void draw_incompatible(const mao_world_entry_t *w)
+{
+    mao_ui_device_t m = {
+        .title = w->name,
+        .online = true,
+        .described = true,
+        .no_centre = true,
+        .status_c = w->compat == ODD_COMPAT_INCOMPATIBLE ? "INCOMPATIBLE" : "INVALID",
+        .connect_hidden = true,
+        .focus = 2,                    /* the relationship word is the only thing to operate */
+        .rel_word = mao_rel_word(),
+    };
+    mao_ui_device_update(&m);
+}
+
 void mao_rel_page_draw(mao_devpage_t kind, const mao_world_entry_t *w)
 {
     if (kind == MAO_DEVPAGE_OFFLINE) {
         draw_offline(w);
+        return;
+    }
+    if (kind == MAO_DEVPAGE_INCOMPATIBLE) {
+        draw_incompatible(w);
         return;
     }
     if (kind != MAO_DEVPAGE_NEW && kind != MAO_DEVPAGE_VERIFY && kind != MAO_DEVPAGE_REPAIR) {
@@ -415,6 +439,12 @@ bool mao_rel_page_input(mao_devpage_t kind, const mao_world_entry_t *w, const ma
     }
     if (ev->type == MAO_EVENT_INPUT_LONG_PRESS) {
         mao_app_go_devices();            /* BACK, as on every device page */
+        return true;
+    }
+    if (kind == MAO_DEVPAGE_INCOMPATIBLE) {
+        if (ev->type == MAO_EVENT_INPUT_CLICK && !guarded) {
+            mao_rel_word_activate(w);    /* INFO -> FORGET; nothing else to do here */
+        }
         return true;
     }
     if (kind == MAO_DEVPAGE_OFFLINE) {

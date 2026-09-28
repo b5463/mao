@@ -85,6 +85,8 @@ typedef enum {
     MAO_DEVPAGE_OFFLINE,     /* KNOWN but not reachable: name, OFFLINE, CONNECT - no stale controls */
     MAO_DEVPAGE_VERIFY,      /* remembered (M3.0) but never secured, heard: VERIFY - no controls */
     MAO_DEVPAGE_REPAIR,      /* paired, heard, cannot prove the stored identity: REPAIR - no controls */
+    MAO_DEVPAGE_INCOMPATIBLE, /* M4.0: paired, proven, online - but MAO cannot operate this
+                               * description (another contract major, or invalid): no controls */
 } mao_devpage_t;
 
 mao_devpage_t mao_devpage(uint64_t id, mao_world_entry_t *w);

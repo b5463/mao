@@ -47,6 +47,7 @@ static const char *TAG = "MAO_DEVICES";
 #define OFFLINE_IDLE_MS       32000      /* > 3 missed idle rounds */
 #define MODE_GRACE_MS         3000       /* after speeding up, let devices answer first */
 #define DESCRIBE_RETRY_MS     1000
+#define DESCRIBE_TRIES        5    /* GET_CAPS without a valid answer: INVALID (retries go on) */
 
 typedef enum { ITEM_RX = 0, ITEM_WAKE } item_kind_t;
 
@@ -94,6 +95,7 @@ typedef struct {
     cmd_t cmd[ODD_MAX_CAPS];
     uint8_t failures;
     uint32_t describe_req_ms;
+    uint8_t describe_tries;      /* GET_CAPS without a valid answer (M4.0 bound) */
     volatile bool refresh_req;   /* reachability probe requested (any task) */
     bool probe_armed;            /* next direct answer posts MAO_EVENT_DEVICE_PROBED */
     /* Controller session with this device (see odd_message.h identity
@@ -126,6 +128,7 @@ static bool (*s_remembered)(uint64_t id);   /* relationship layer: needs M3.1 pr
 #define ACTION_RECOVER_US   (800 * 1000)        /* status-recovery cadence after ACCEPTED */
 #define ACTION_DEADLINE_US  (8LL * 1000 * 1000) /* development completion timeout */
 static uint32_t s_results_dup, s_results_stale;
+static uint32_t s_desc_invalid;             /* M4.0: authenticated malformed descriptions */
 static void action_post(int idx, uint8_t state);
 static volatile uint32_t s_flood_until_ms;
 static uint32_t s_flood_next_ms;
@@ -240,6 +243,30 @@ static void request(entry_t *e, odd_msg_type_t type)
     odd_bus_send(e->pub.mac, e->pub.info.id, type, NULL, NULL);
 }
 
+/* Ask for the description: capabilities if none are held, else state.
+ * Bounded (M4.0): after DESCRIBE_TRIES capability requests without a valid
+ * answer the device is INVALID - still retried at the normal cadence, since
+ * a device that is still booting may answer later. */
+static void describe(entry_t *e, uint32_t now)
+{
+    e->describe_req_ms = now;
+    if (e->pub.cap_count || needs_proof(e->pub.info.id)) {
+        request(e, e->pub.cap_count ? ODD_MSG_GET_STATE : ODD_MSG_GET_CAPS);
+        return;
+    }
+    lock();
+    if (e->describe_tries < UINT8_MAX) {
+        e->describe_tries++;
+    }
+    if (e->describe_tries > DESCRIBE_TRIES) {
+        e->pub.compat = ODD_COMPAT_INVALID;
+    } else if (e->pub.compat != ODD_COMPAT_INVALID) {
+        e->pub.compat = ODD_COMPAT_DESCRIBING;
+    }
+    unlock();
+    request(e, ODD_MSG_GET_CAPS);
+}
+
 static void count_online_locked(void)
 {
     uint32_t n = 0;
@@ -289,6 +316,8 @@ static void on_announce(const odd_message_t *m, uint32_t now)
     if (reshaped) {
         e->pub.cap_count = 0;
         e->pub.described = false;
+        e->pub.compat = ODD_COMPAT_UNKNOWN;
+        e->describe_tries = 0;
         for (int c = 0; c < ODD_MAX_CAPS; c++) {
             e->cmd[c] = (cmd_t) { 0 };
         }
@@ -302,19 +331,16 @@ static void on_announce(const odd_message_t *m, uint32_t now)
     unlock();
     if (reshaped) {
         ESP_LOGI(TAG, "'%s' capability set changed: re-describing", e->pub.info.name);
-        e->describe_req_ms = now;
-        request(e, ODD_MSG_GET_CAPS);
+        describe(e, now);
         post(MAO_EVENT_DEVICE_CHANGED, idx);
     }
 
     if (found) {
         /* Refresh the description: capabilities if unknown, state always. */
-        e->describe_req_ms = now;
-        request(e, e->pub.cap_count ? ODD_MSG_GET_STATE : ODD_MSG_GET_CAPS);
+        describe(e, now);
         post(MAO_EVENT_DEVICE_FOUND, idx);
     } else if (!e->pub.described && now - e->describe_req_ms > DESCRIBE_RETRY_MS) {
-        e->describe_req_ms = now;
-        request(e, e->pub.cap_count ? ODD_MSG_GET_STATE : ODD_MSG_GET_CAPS);
+        describe(e, now);
     } else if (s_active && e->pub.described) {
         /* While the user is looking at devices, refresh state each round:
          * catches a device that rebooted or changed without a notification. */
@@ -322,24 +348,48 @@ static void on_announce(const odd_message_t *m, uint32_t now)
     }
 }
 
+/* Is every usable capability that carries a value confirmed? (Unknown or
+ * dropped capabilities never hold the description back.) */
+static bool described_locked(const entry_t *e)
+{
+    for (int i = 0; i < e->pub.cap_count; i++) {
+        if (e->pub.caps[i].usable && !e->pub.caps[i].known) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static void on_capabilities(entry_t *e, int idx, const odd_message_t *m)
 {
+    /* The whole set is evaluated before anything is published (M4.0): the
+     * UI sees the old view, then the new one - never a mixture. */
+    odd_contract_eval_t ev;
+    odd_contract_evaluate(&m->u.caps, &ev);
     lock();
     e->pub.cap_count = m->u.caps.count;
     for (int i = 0; i < m->u.caps.count; i++) {
         e->pub.caps[i] = (mao_device_cap_t) { .cap = m->u.caps.cap[i] };
+        e->pub.caps[i].usable = (ev.usable >> i) & 1;
         e->pub.caps[i].known = m->u.caps.cap[i].type == ODD_CAP_ACTION;   /* no value to wait for */
         e->cmd[i] = (cmd_t) { 0 };
     }
-    e->pub.described = false;
+    e->pub.compat = (uint8_t)ev.compat;
+    e->describe_tries = 0;
+    e->pub.described = ev.compat == ODD_COMPAT_INCOMPATIBLE || described_locked(e);
     unlock();
-    ESP_LOGI(TAG, "'%s': %u capabilities", e->pub.info.name, m->u.caps.count);
+    ESP_LOGI(TAG, "'%s': contract %u.%u%s, %u capabilities -> %s (usable 0x%02x, unknown %u, ambiguous %u)",
+             e->pub.info.name, m->u.caps.major, m->u.caps.minor, m->u.caps.has_descriptor ? "" : " (implied)",
+             m->u.caps.count, odd_compat_name(ev.compat), ev.usable, ev.unknown, ev.ambiguous);
     for (int i = 0; i < m->u.caps.count; i++) {
         const odd_capability_t *c = &m->u.caps.cap[i];
-        ESP_LOGI(TAG, "  cap %u %s [%" PRId32 "..%" PRId32 " step %" PRId32 "] flags 0x%02x",
-                 c->id, odd_cap_type_name(c->type), c->min, c->max, c->step, c->flags);
+        ESP_LOGI(TAG, "  cap %u %s [%" PRId32 "..%" PRId32 " step %" PRId32 "] flags 0x%02x%s",
+                 c->id, odd_cap_type_name(c->type), c->min, c->max, c->step, c->flags,
+                 (ev.usable >> i) & 1 ? "" : " (not used)");
     }
-    request(e, ODD_MSG_GET_STATE);
+    if (ev.compat != ODD_COMPAT_INCOMPATIBLE) {
+        request(e, ODD_MSG_GET_STATE);
+    }
     post(MAO_EVENT_DEVICE_CHANGED, idx);
 }
 
@@ -364,11 +414,7 @@ static void on_state(entry_t *e, int idx, const odd_message_t *m)
             dc->pending = false;
         }
     }
-    bool all_known = e->pub.cap_count > 0;
-    for (int i = 0; i < e->pub.cap_count; i++) {
-        all_known = all_known && e->pub.caps[i].known;
-    }
-    if (all_known && !e->pub.described) {
+    if (described_locked(e) && !e->pub.described) {
         e->pub.described = true;
         changed = true;
     }
@@ -440,7 +486,15 @@ static void on_ack(entry_t *e, int idx, const odd_message_t *m, int64_t now_us)
                 wake_task();
             }
             break;
+        case ODD_ACK_OK:
+        case ODD_ACK_CLAMPED:
+            break;   /* not answers an ACTION can get */
         default:
+            /* A status this build does not know (a newer device): a refusal
+             * we cannot interpret - generic failure, never a silent hang. */
+            ESP_LOGW(TAG, "'%s': unknown ACK status %u for the action: FAILED", e->pub.info.name,
+                     m->u.ack.status);
+            action_post(idx, MAO_ACTION_FAILED);
             break;
         }
         return;
@@ -519,6 +573,33 @@ static void on_ack(entry_t *e, int idx, const odd_message_t *m, int64_t now_us)
     }
 }
 
+/* A frame whose payload did not decode (M4.0). Only an authenticated
+ * CAPABILITIES of the device it claims - or one from a device that needs no
+ * proof - marks the device's description INVALID; anything else is noise. */
+static void on_malformed(const odd_header_t *h, void *ctx)
+{
+    (void)ctx;
+    if (h->type != ODD_MSG_CAPABILITIES) {
+        return;
+    }
+    const bool authentic = s_rx_auth ? h->src_id == s_rx_peer : !mao_link_requires_auth(h->src_id);
+    if (!authentic) {
+        return;
+    }
+    lock();
+    const int idx = find_locked(h->src_id);
+    if (idx >= 0 && s_dev[idx].pub.cap_count == 0) {
+        s_dev[idx].pub.compat = ODD_COMPAT_INVALID;
+        s_dev[idx].pub.described = false;
+    }
+    unlock();
+    if (idx >= 0) {
+        s_desc_invalid++;
+        ESP_LOGW(TAG, "'%s': invalid capability description (malformed)", s_dev[idx].pub.info.name);
+        post(MAO_EVENT_DEVICE_CHANGED, idx);
+    }
+}
+
 static void on_message(const odd_message_t *m, void *ctx)
 {
     (void)ctx;
@@ -589,6 +670,11 @@ static void on_message(const odd_message_t *m, void *ctx)
         if (e->act.seq_set && m->u.action_result.action_seq == e->act.seq &&
             m->u.action_result.cap_id == e->act.cap) {
             if (e->act.state == MAO_ACTION_ACCEPTED || e->act.state == MAO_ACTION_SENDING) {
+                if (m->u.action_result.result != ODD_ACTION_R_DONE &&
+                    m->u.action_result.result != ODD_ACTION_R_FAILED) {
+                    ESP_LOGW(TAG, "'%s': unknown action result %u: FAILED", e->pub.info.name,
+                             m->u.action_result.result);
+                }
                 action_post(idx, m->u.action_result.result == ODD_ACTION_R_DONE ? MAO_ACTION_DONE
                                                                                 : MAO_ACTION_FAILED);
             } else {
@@ -880,6 +966,8 @@ static void on_secure(uint64_t id, const uint8_t mac[6])
     if (idx >= 0) {
         s_dev[idx].pub.cap_count = 0;
         s_dev[idx].pub.described = false;
+        s_dev[idx].pub.compat = ODD_COMPAT_UNKNOWN;   /* re-negotiated on every secure session */
+        s_dev[idx].describe_tries = 0;
         s_dev[idx].describe_req_ms = 0;
     }
     unlock();
@@ -1040,6 +1128,7 @@ esp_err_t mao_devices_init(void)
     };
     strncpy(self.name, "MAO", sizeof(self.name) - 1);
     ESP_RETURN_ON_ERROR(odd_bus_init(&self, odd_send, NULL, on_message, NULL), TAG, "odd bus");
+    odd_bus_set_malformed_handler(on_malformed, NULL);
 
     do {
         s_incarnation = ((uint64_t)esp_random() << 32) | esp_random();
@@ -1209,6 +1298,18 @@ void mao_devices_log_status(void)
     ESP_LOGI(TAG, "security: plaintext hints=%" PRIu32 " ignored=%" PRIu32 " describe skipped(unverified)=%" PRIu32
              " gated tx(unverified)=%" PRIu32 " auth id mismatch=%" PRIu32, s_plain_hints, s_plain_ignored,
              s_describe_skipped, s_plain_gated, s_auth_mismatch);
+    for (int i = 0; i < MAO_DEVICES_MAX; i++) {
+        mao_device_t dev;
+        if (mao_devices_get(i, &dev)) {
+            int usable = 0;
+            for (int c = 0; c < dev.cap_count; c++) {
+                usable += dev.caps[c].usable;
+            }
+            ESP_LOGI(TAG, "contract: '%s' %s usable %d/%u%s", dev.info.name, odd_compat_name(dev.compat), usable,
+                     dev.cap_count, dev.described ? "" : " (describing)");
+        }
+    }
+    ESP_LOGI(TAG, "contract: invalid descriptions=%" PRIu32, s_desc_invalid);
     if (d.rtt_count) {
         ESP_LOGI(TAG, "latency: cmd->ack rtt avg=%.2fms min=%.2fms max=%.2fms (n=%" PRIu32 "), "
                  "input->ack avg=%.2fms max=%.2fms",

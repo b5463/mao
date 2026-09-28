@@ -153,6 +153,12 @@ static const char *list_status(uint32_t now)
     if (m->note[m->selected] == 2) {
         return "NOT VERIFIED";
     }
+    if (m->note[m->selected] == 3) {
+        return "INCOMPATIBLE";
+    }
+    if (m->note[m->selected] == 4) {
+        return "INVALID";
+    }
     return m->online[m->selected] ? "ONLINE" : "OFFLINE";
 }
 
@@ -477,6 +483,9 @@ void mao_ui_device_update(const mao_ui_device_t *m)
         status = "NO REPLY";
     } else if (m->has_toggle && m->has_level && !m->on) {
         status = "OFF";
+    }
+    if (m->no_centre && m->status_c) {
+        status = m->status_c;
     }
     set_text(s_panel.status, status);
 

@@ -16,6 +16,7 @@
 #include "esp_err.h"
 #include "odd_capability.h"
 #include "odd_device.h"
+#include "odd_contract.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,6 +30,7 @@ typedef struct {
     int32_t confirmed;      /* last value the device confirmed */
     bool known;             /* confirmed at least once */
     bool pending;           /* a change is not yet confirmed */
+    bool usable;            /* M4.0: understood, unambiguous, allowed by the contract */
 } mao_device_cap_t;
 
 /* Consistent copy of one registry entry for the UI / app. */
@@ -36,7 +38,8 @@ typedef struct {
     odd_device_info_t info;
     uint8_t mac[6];
     bool online;
-    bool described;         /* capabilities and state received */
+    bool described;         /* capabilities and state of every usable capability received */
+    uint8_t compat;         /* odd_compat_t: separate from reachability and authentication */
     bool link_problem;      /* recent commands went unconfirmed */
     int8_t rssi;
     uint32_t last_seen_ms;
@@ -44,7 +47,7 @@ typedef struct {
     mao_device_cap_t caps[ODD_MAX_CAPS];
 } mao_device_t;
 
-/* Generic control model derived from capabilities (mao_device_view.c).
+/* Generic control model derived from USABLE capabilities (mao_device_view.c).
  * Everything here is capability-driven: the dial drives one LEVEL-like
  * value, a press toggles one POWER-like value, actions are discrete
  * operations, and read-only facts (READY, STORAGE) are displayed, never
@@ -60,6 +63,9 @@ typedef struct {
     int primary_action;     /* index into action_idx[] (semantic priority), -1 */
     int ready_idx;          /* ODD_CAP_READY fact, -1 */
     int storage_idx;        /* ODD_CAP_STORAGE fact, -1 */
+    /* The device's primary control, by semantic priority: CAPTURE, else the
+     * LEVEL, else the POWER toggle. Never by packet order or device type. */
+    int primary_idx;        /* index into caps[], -1 = none */
 } mao_device_controls_t;
 
 typedef struct {

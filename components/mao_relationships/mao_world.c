@@ -14,6 +14,7 @@ static void from_live(mao_world_entry_t *e, const mao_device_t *d, int slot)
     memcpy(e->name, d->info.name, sizeof(e->name));
     e->device_type = d->info.device_type;
     e->online = d->online;
+    e->compat = d->compat;
     e->slot = slot;
 }
 
@@ -41,6 +42,8 @@ bool mao_world_get(uint64_t id, mao_world_entry_t *out)
         out->online = out->online && out->link == MAO_LINK_SECURE;
         out->auth_failed = out->link == MAO_LINK_FAILED;
     }
+    out->operable = out->has_cred && out->online &&
+                    (out->compat == ODD_COMPAT_COMPATIBLE || out->compat == ODD_COMPAT_LIMITED);
     return true;
 }
 

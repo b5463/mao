@@ -36,6 +36,9 @@ typedef struct {
     mao_link_state_t link;          /* secure link state (MAO_LINK_NONE without a credential) */
     bool online;                    /* reachable: proven (paired) or heard (not paired) */
     bool auth_failed;               /* heard, but it could not prove the stored identity */
+    uint8_t compat;                 /* odd_compat_t, live this boot (UNKNOWN when not heard) */
+    bool operable;                  /* controls may be offered now: known, proven, online and
+                                     * COMPATIBLE or LIMITED. Never true while offline. */
     int slot;                       /* live registry slot, -1 = not heard this boot */
 } mao_world_entry_t;
 

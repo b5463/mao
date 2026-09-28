@@ -83,6 +83,12 @@ static void encode_payload(wr_t *w, uint8_t type, const odd_message_t *b)
     }
     case ODD_MSG_CAPABILITIES:
         if (b->u.caps.count > ODD_MAX_CAPS) { w->ok = false; return; }
+        if (b->u.caps.has_descriptor) {
+            w8(w, ODD_CAPS_DESCRIPTOR);
+            w8(w, 2);
+            w8(w, b->u.caps.major);
+            w8(w, b->u.caps.minor);
+        }
         w8(w, b->u.caps.count);
         for (int i = 0; i < b->u.caps.count; i++) {
             const odd_capability_t *c = &b->u.caps.cap[i];
@@ -204,9 +210,7 @@ static bool decode_payload(rd_t *r, uint8_t type, odd_message_t *m)
         m->u.action_result.action_seq = r16(r);
         m->u.action_result.result = r8(r);
         return (m->hdr.flags & ODD_FRAME_F_INCARNATION) != 0 && r->ok && r->left == 0 &&
-               m->u.action_result.cap_id != 0 &&
-               (m->u.action_result.result == ODD_ACTION_R_DONE ||
-                m->u.action_result.result == ODD_ACTION_R_FAILED);
+               m->u.action_result.cap_id != 0 && m->u.action_result.result != 0;
     case ODD_MSG_DISCOVER:
     case ODD_MSG_ANNOUNCE: {
         m->u.info.id = m->hdr.src_id;
@@ -228,7 +232,28 @@ static bool decode_payload(rd_t *r, uint8_t type, odd_message_t *m)
         return m->u.info.cap_count <= ODD_MAX_CAPS;
     }
     case ODD_MSG_CAPABILITIES: {
-        const uint8_t count = r8(r);
+        uint8_t count = r8(r);
+        m->u.caps.major = 1;
+        m->u.caps.minor = 0;             /* no descriptor: contract 1.0 */
+        if (r->ok && count == ODD_CAPS_DESCRIPTOR) {
+            const uint8_t dlen = r8(r);
+            if (!r->ok || dlen < 2 || dlen > ODD_CAPS_DESC_MAX || r->left < dlen) {
+                return false;
+            }
+            m->u.caps.has_descriptor = true;
+            m->u.caps.major = r8(r);
+            m->u.caps.minor = r8(r);
+            for (uint8_t i = 2; i < dlen; i++) {
+                (void)r8(r);             /* a newer minor's descriptor fields */
+            }
+            if (m->u.caps.major != ODD_CONTRACT_MAJOR) {
+                /* Another major: its records may mean something else, or be
+                 * laid out differently. Never interpret them. */
+                m->u.caps.count = 0;
+                return r->ok;
+            }
+            count = r8(r);
+        }
         if (!r->ok || count > ODD_MAX_CAPS || r->left != (size_t)count * CAP_WIRE_LEN) {
             return false;
         }
@@ -237,11 +262,28 @@ static bool decode_payload(rd_t *r, uint8_t type, odd_message_t *m)
             odd_capability_t *c = &m->u.caps.cap[i];
             c->id = r8(r); c->type = r8(r); c->flags = r8(r);
             c->min = (int32_t)r32(r); c->max = (int32_t)r32(r); c->step = (int32_t)r32(r);
-            if (c->id == 0 || c->min > c->max || c->step <= 0) {
+            if (c->id == 0) {
                 return false;
             }
-            /* ACTION's canonical form: min == max == semantic (> 0), step 1. */
-            if (c->type == ODD_CAP_ACTION && (c->min != c->max || c->min <= 0 || c->step != 1)) {
+            for (uint8_t j = 0; j < i; j++) {
+                if (m->u.caps.cap[j].id == c->id) {
+                    return false;        /* one id, one capability */
+                }
+            }
+            if (!odd_cap_type_known(c->type)) {
+                continue;                /* a newer type: its fields are its own business */
+            }
+            if (c->min > c->max || c->step <= 0) {
+                return false;
+            }
+            /* ACTION's canonical form: min == max == semantic (> 0), step 1,
+             * WRITE (invoking it is the only thing one can do with it). */
+            if (c->type == ODD_CAP_ACTION &&
+                (c->min != c->max || c->min <= 0 || c->step != 1 || !(c->flags & ODD_CAP_F_WRITE))) {
+                return false;
+            }
+            /* POWER is on/off. */
+            if (c->type == ODD_CAP_POWER && (c->min != 0 || c->max != 1 || c->step != 1)) {
                 return false;
             }
             /* State facts are read-only and carry their canonical ranges. */

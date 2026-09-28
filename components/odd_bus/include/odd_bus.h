@@ -32,6 +32,12 @@ typedef esp_err_t (*odd_send_fn_t)(const uint8_t *dst_mac, const uint8_t *frame,
 /* Called for every valid message addressed to us (or to anyone). */
 typedef void (*odd_rx_fn_t)(const odd_message_t *msg, void *ctx);
 
+/* Called for a frame whose header parsed but whose payload is malformed
+ * (M4.0: lets the owner attribute an invalid description to a device). The
+ * header is only a claim: the owner decides whether it is authenticated. */
+typedef void (*odd_malformed_fn_t)(const odd_header_t *hdr, void *ctx);
+void odd_bus_set_malformed_handler(odd_malformed_fn_t fn, void *ctx);
+
 typedef struct {
     uint32_t tx;
     uint32_t tx_errors;

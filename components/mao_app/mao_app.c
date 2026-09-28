@@ -179,7 +179,11 @@ static void refresh_devices_list(void)
         model.name[model.count] = devs[i].name;
         model.online[model.count] = devs[i].online;
         model.known[model.count] = devs[i].known;
-        model.note[model.count] = devs[i].auth_failed ? 2 : (devs[i].known && !devs[i].has_cred && devs[i].online);
+        const bool cannot_operate = devs[i].has_cred && devs[i].online &&
+                                    (devs[i].compat == ODD_COMPAT_INCOMPATIBLE || devs[i].compat == ODD_COMPAT_INVALID);
+        model.note[model.count] = devs[i].auth_failed ? 2
+                                  : cannot_operate    ? (devs[i].compat == ODD_COMPAT_INCOMPATIBLE ? 3 : 4)
+                                                      : (devs[i].known && !devs[i].has_cred && devs[i].online);
         ids[model.count] = devs[i].id;
         model.count++;
     }

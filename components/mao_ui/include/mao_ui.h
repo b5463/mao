@@ -46,7 +46,8 @@ typedef struct {
     const char *name[MAO_UI_DEVICES_MAX];
     bool online[MAO_UI_DEVICES_MAX];
     bool known[MAO_UI_DEVICES_MAX];     /* part of MAO's setup (else merely nearby: NEW) */
-    uint8_t note[MAO_UI_DEVICES_MAX];   /* 0 none, 1 VERIFY (remembered, not yet secured), 2 NOT VERIFIED */
+    uint8_t note[MAO_UI_DEVICES_MAX];   /* 0 none, 1 VERIFY (remembered, not yet secured), 2 NOT VERIFIED,
+                                         * 3 INCOMPATIBLE, 4 INVALID (M4.0: trusted, not operable) */
     int selected;
 } mao_ui_devices_t;
 
@@ -76,6 +77,7 @@ typedef struct {
     bool editing;        /* LEVEL edit: the dial changes the value */
     bool connect_hidden;     /* no CONNECT on this page (a device not yet part of the setup) */
     bool no_centre;          /* no live control to show: the status word takes the centre */
+    const char *status_c;    /* with no_centre: that word (NULL = the reachability word) */
     const char *rel_word;    /* quiet relationship word below CONNECT (NULL = none);
                               * focus word_count + 2 */
 } mao_ui_device_t;
