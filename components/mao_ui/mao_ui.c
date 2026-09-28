@@ -137,6 +137,7 @@ static void tick_cb(lv_timer_t *t)
     busy |= mao_home_tick(dt, now);
     busy |= mao_overlay_tick(dt, now);
     busy |= mao_devices_ui_tick(dt, now);
+    busy |= mao_focus_tick(dt, now);
     if (s_away.on && s_away.obj) {
         s_away.phase += dt * 2.0f * 3.14159265f / 5.1f;    /* two slow, slightly */
         s_away.phase2 += dt * 2.0f * 3.14159265f / 7.9f;   /* mismatched breaths */
@@ -277,6 +278,7 @@ esp_err_t mao_ui_init(mao_view_t initial_view)
     esp_err_t err = mao_character_create(scr);
     mao_overlay_create(scr, initial_view == MAO_VIEW_INTRO);
     mao_devices_ui_create(scr);
+    mao_focus_create(scr);
     s_shown = initial_view;
     /* Lay out the first frame now (it is rendered before the panel lights). */
     mao_home_tick(0.0f, s_last_ms);
@@ -336,7 +338,7 @@ void mao_ui_show(mao_view_t view, int menu_index)
     /* The device views sit where the menu words were: they open once the
      * menu has cleared and close before it returns. */
     if (from == MAO_VIEW_DEVICES && view != MAO_VIEW_DEVICES) {
-        mao_devlist_show(false, 0);
+        mao_devlist_show(false, 0, view == MAO_VIEW_HOME);   /* home is to the left of the world */
     }
     if (from == MAO_VIEW_DEVICE && view != MAO_VIEW_DEVICE) {
         mao_devpanel_show(false, 0);
@@ -345,12 +347,15 @@ void mao_ui_show(mao_view_t view, int menu_index)
     if (view == MAO_VIEW_DEVICES) {
         mao_overlay_page_show(false, NULL);
         mao_overlay_menu_show(false, menu_index, 0);
-        mao_devlist_show(true, from == MAO_VIEW_DEVICE ? 0 : DEVICES_ENTER_DELAY);
+        /* YIELD (M4.1): the eyes step down below the rim and watch; the
+         * names arrive from the right a beat later (ATTEND, then arrival). */
+        const bool from_home = from == MAO_VIEW_HOME || from == MAO_VIEW_INTRO;
+        mao_character_peek(true);
+        mao_devlist_show(true, from == MAO_VIEW_DEVICE ? 0 : MAO_UI_BEAT_MS, from_home);
     } else if (view == MAO_VIEW_DEVICE) {
-        /* Composition note (tested on hardware): compact "peek" eyes on this
-         * page collide with the large value on 240x240 - the eyes stay out
-         * (mao_character_peek exists and lost the comparison). They return
-         * for what matters: transfer, failure, device events. */
+        /* Utility has the whole screen: the eyes withdraw fully (a compact
+         * peek on this page collided with the value on 240x240). */
+        mao_character_peek(false);
         mao_devpanel_show(true, DEVICES_ENTER_DELAY);
     } else if (view == MAO_VIEW_MENU) {
         if (from == MAO_VIEW_HOME) {

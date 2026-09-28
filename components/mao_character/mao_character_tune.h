@@ -69,7 +69,6 @@ typedef struct {
 #define MAO_LID_DEADZONE     0.08f   /* lid values below this show no lid */
 #define MAO_LID_RADIUS       10      /* rounded corners of the flat lid edge */
 #define MAO_TINT_PUPIL_MAX   0.90f   /* pupils go cobalt / yellow / red almost fully */
-#define MAO_TINT_GOLD_COLOR  0xFFB000   /* her poison-greed gold: saturated, on the iris */
 #define MAO_TINT_RED_COLOR   0xE5484D   /* red: mad / failure, as an event only */
 /* Covers: round background-coloured lids that come down over each eye and
  * leave a thin lower crescent when closed (STARBOY's blink / happy / sleep). */
@@ -190,10 +189,16 @@ typedef struct {
 
 /* Peek: compact presence on the DEVICE page (small eyes low on the screen,
  * watching the page's content; motion damped, no orbit). */
-#define MAO_PEEK_SHRINK_W    -0.34f
-#define MAO_PEEK_SHRINK_H    -0.40f
-#define MAO_PEEK_DROP        62.0f   /* px below the resting face position */
-#define MAO_PEEK_GAZE_UP     -4.0f   /* attention rests on the page above */
+/* Rim presence (M4.1): below the lower rim, about half the eye visible. */
+#define MAO_PEEK_SHRINK_W    -0.45f
+#define MAO_PEEK_SHRINK_H    -0.45f
+#define MAO_PEEK_DROP        104.0f  /* px below the resting face position */
+#define MAO_PEEK_GAZE_UP     -7.0f   /* attention rests on the page above */
+#define MAO_ATTEND_GAIN_X    0.10f   /* gaze px per screen px of the UI's attention */
+#define MAO_ATTEND_GAIN_Y    0.07f
+#define MAO_ATTEND_UP_MAX    10.0f
+#define MAO_ATTEND_FACE      0.12f   /* the face drifts towards it, px per px */
+#define MAO_ATTEND_FACE_MAX  14.0f
 #define MAO_PEEK_DIAL_GAIN   0.35f   /* damped physical response to the dial */
 #define MAO_PEEK_LAYER_GAIN  0.55f   /* expressions and the mind, reduced */
 

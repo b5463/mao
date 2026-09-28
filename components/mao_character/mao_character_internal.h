@@ -21,7 +21,7 @@ typedef enum { PRIO_IDLE = 0, PRIO_SYSTEM, PRIO_DIAL, PRIO_PRESS, PRIO_NAV } pri
 
 typedef enum {
     CMD_DIAL, CMD_PRESS, CMD_REACT, CMD_APPEAR, CMD_SLEEPY, CMD_LEAVE, CMD_RETURN,
-    CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION, CMD_TRANSFER, CMD_MIND, CMD_PEEK,
+    CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION, CMD_TRANSFER, CMD_MIND, CMD_PEEK, CMD_ATTEND,
 } cmd_type_t;
 
 typedef struct {
@@ -51,7 +51,9 @@ typedef struct {
 
     bool visible;               /* has appeared */
     bool present;               /* false while away (menu) */
-    bool peek;                  /* compact presence on the DEVICE page */
+    bool peek;                  /* rim presence (below the lower rim, watching the UI) */
+    float attend_gx, attend_gy; /* rim gaze towards the UI's attention, px */
+    float attend_fx;            /* the face drifts a little towards it, px */
     bool sleepy;
     bool pressed;
     mao_mouth_t mouth;

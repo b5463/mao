@@ -49,6 +49,7 @@ static int32_t s_act_sem[MAO_DEVICES_MAX];     /* semantic of its action in flig
 static bool s_act_via_centre[MAO_DEVICES_MAX]; /* invoked from the centre word (tool feedback owner) */
 static int s_fb_slot = -1;           /* the device whose result the character is showing */
 static int64_t s_dev_opened_us;      /* entry guard against a double tap's second click */
+static int64_t s_list_opened_us;     /* the same guard for DEVICES, opened by a press on HOME */
 static int64_t s_cap_last_done_us;
 static uint8_t s_cap_streak;         /* routine captures in a row (habituation) */
 static bool s_feedback_up;           /* the character currently borrows the page */
@@ -292,6 +293,7 @@ static void refresh_device_panel(void)
     } else {
         if (ctl.ready_idx >= 0) {
             const bool ready = dev.caps[ctl.ready_idx].value != 0;
+            model.centre_dim = !ready && !pending && ctl.primary_action >= 0;
             if (s_cam_layout == 0) {
                 model.status_l = ready || pending ? "READY" : "NOT READY";
             } else if (!ready && !pending) {
@@ -430,11 +432,14 @@ static void on_home(const mao_event_t *ev, int64_t now)
         mao_character_press(false);
         mao_audio_release();
         break;
-    case MAO_EVENT_INPUT_DOUBLE_CLICK:
-        /* MAO makes room for the system (the UI choreographs the drop). */
+    case MAO_EVENT_INPUT_CLICK:
+        /* M4.1 (D1): one press - MAO makes room and the world arrives. */
         mao_audio_confirm();
-        go_view(MAO_VIEW_MENU);
+        s_list_opened_us = now;
+        go_view(MAO_VIEW_DEVICES);
         break;
+    case MAO_EVENT_INPUT_DOUBLE_CLICK:
+        break;   /* no meaning anywhere: every CLICK has already acted */
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_character_react(MAO_CHAR_REACT_WARM);
         mao_audio_warm();
@@ -527,6 +532,10 @@ static void on_devices(const mao_event_t *ev, int64_t now)
         break;
     }
     case MAO_EVENT_INPUT_CLICK: {
+        if (now - s_list_opened_us < ENTRY_GUARD_US) {
+            ESP_LOGI(TAG, "click ignored: list just opened");
+            break;
+        }
         mao_world_entry_t dev;
         if (mao_world_get(list_row_id(st->devices_index, NULL), &dev)) {
             ESP_LOGI(TAG, "open device '%s' (%s)", dev.name, dev.known ? "known" : "new");

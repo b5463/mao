@@ -77,6 +77,7 @@ typedef struct {
     bool editing;        /* LEVEL edit: the dial changes the value */
     bool connect_hidden;     /* no CONNECT on this page (a device not yet part of the setup) */
     bool no_centre;          /* no live control to show: the status word takes the centre */
+    bool centre_dim;         /* the primary cannot run now (NOT READY): it steps back */
     const char *status_c;    /* with no_centre: that word (NULL = the reachability word) */
     const char *rel_word;    /* quiet relationship word below CONNECT (NULL = none);
                               * focus word_count + 2 */

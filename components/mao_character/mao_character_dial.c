@@ -77,15 +77,24 @@ void mao_char_dial_update(mao_char_t *mc, float dt, uint32_t now)
     if (!mc->present) {
         return;
     }
+    if (mc->peek && !engaged) {
+        /* On the rim with the dial quiet: MAO watches what the UI attends. */
+        mao_motion_set(&mc->m, CH_GAZE_X, mc->attend_gx);
+        mao_motion_set(&mc->m, CH_GAZE_Y, mc->attend_gy);
+        mao_motion_set(&mc->m, CH_FACE_X, mc->idle.base_x + mc->attend_fx);
+        return;
+    }
     if (engaged) {
         const float pk = mc->peek ? MAO_PEEK_DIAL_GAIN : 1.0f;
         const float s = smoothstep(0.0f, MAO_LATERAL_RAMP, i) * pk;
         const float o = mc->peek ? 0.0f : smoothstep(MAO_ORBIT_START, MAO_ORBIT_FULL, i);
         const float lat = 1.0f - o;
-        mao_motion_set(&mc->m, CH_GAZE_X, dir * (MAO_GAZE_MIN + (MAO_GAZE_MAX - MAO_GAZE_MIN) * s) * lat
+        const float ax = mc->peek ? mc->attend_gx : 0.0f, afx = mc->peek ? mc->attend_fx : 0.0f;
+        mao_motion_set(&mc->m, CH_GAZE_X, ax + dir * (MAO_GAZE_MIN + (MAO_GAZE_MAX - MAO_GAZE_MIN) * s) * lat
                                         + dir * MAO_GAZE_LAG_ORBIT * o);
-        mao_motion_set(&mc->m, CH_GAZE_Y, mc->peek ? MAO_PEEK_GAZE_UP : 0.0f);
-        mao_motion_set(&mc->m, CH_FACE_X, mc->idle.base_x + dir * (MAO_FACE_MIN + (MAO_FACE_MAX - MAO_FACE_MIN) * s) * lat);
+        mao_motion_set(&mc->m, CH_GAZE_Y, mc->peek ? mc->attend_gy : 0.0f);
+        mao_motion_set(&mc->m, CH_FACE_X, mc->idle.base_x + afx +
+                                        dir * (MAO_FACE_MIN + (MAO_FACE_MAX - MAO_FACE_MIN) * s) * lat);
         const float lean = clampf(mc->accel * MAO_LEAN_GAIN, -MAO_LEAN_MAX, MAO_LEAN_MAX);
         mao_motion_set(&mc->m, CH_TILT, dir * (MAO_TILT_MAX * s * lat + lean));
         mao_motion_set(&mc->m, CH_SQUASH, (mc->pressed ? MAO_PRESS_SQUASH : 0.0f) - MAO_MOTION_STRETCH * i);

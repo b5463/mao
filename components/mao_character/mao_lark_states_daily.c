@@ -80,19 +80,6 @@ static const lark_key_t ex_pu[] = { K(0, -0.15f, LINEAR) };
 static const lark_track_t examine[] = { TRACK(CH_NARROW, ex_lid), TRACK(CH_FACE_Y, ex_fy), TRACK(CH_GAZE_Y, ex_gy),
                                         TRACK(CH_GAZE_X, ex_gx), TRACK(CH_PUPIL, ex_pu) };
 
-/* poison: her eyes turn GOLD and glitter at a rare poison or herb -
- * wide open, irises swelling, big catchlights, trembling with greed. */
-static const lark_key_t po_lid[] = { K(0, -0.26f, LINEAR) };
-static const lark_key_t po_open[] = { K(0, 0.16f, LINEAR), K(450, 0.22f, IN_OUT), K(900, 0.16f, IN_OUT) };
-static const lark_key_t po_pu[] = { K(0, 0.45f, LINEAR) };
-static const lark_key_t po_sh[] = { K(0, 1.0f, LINEAR), K(300, 1.4f, IN_OUT), K(600, 1.0f, IN_OUT), K(900, 1.4f, IN_OUT) };
-static const lark_key_t po_gold[] = { K(0, 0.95f, LINEAR) };
-static const lark_key_t po_fx[] = { K(0, 0, LINEAR), K(45, 1.5f, LINEAR), K(90, -1.5f, LINEAR), K(135, 0, LINEAR),
-                                    K(900, 0, LINEAR) };
-static const lark_key_t po_fy[] = { K(0, -8.0f, LINEAR), K(450, -11.0f, IN_OUT), K(900, -8.0f, IN_OUT) };
-static const lark_track_t poison[] = { TRACK(CH_NARROW, po_lid), TRACK(CH_OPEN, po_open), TRACK(CH_PUPIL, po_pu),
-                                       TRACK(CH_SHINE, po_sh), TRACK(CH_TINT_WARM, po_gold), TRACK(CH_FACE_X, po_fx),
-                                       TRACK(CH_FACE_Y, po_fy) };
 
 /* ======================================================================== */
 /* Attitude                                                                 */
@@ -224,7 +211,6 @@ const lark_state_t kLarkDaily[] = {
     STATE("curious",      2800, 350, OUT,    0,      8, -4,   0,  4, NULL,     curious),
     STATE("examine",      4400, 500, IN_OUT, 0,      7,  0,   0,  2, NULL,     examine),
     GEN("keen", 90, OUT, EVT, 0, 0, 0, 0, NULL, lark_gen_keen),
-    STATE("poison",        900, 150, OUT,    0,      2,  0,   0,  6, NULL,     poison),
     GEN("doubletake", 150, OUT, ONE, 2, 0, 0, 0, NULL, lark_gen_doubletake),
     STATE("suspicious",   2400, 450, IN_OUT, 0,      6,  6,   4,  0, NULL,     suspicious),
     STATE("sly",          3000, 500, IN_OUT, 0,      4,  3,   0,  4, NULL,     sly),

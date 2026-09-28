@@ -177,11 +177,11 @@ void mao_char_leave(mao_char_t *mc, uint32_t now)
     }
     mao_idle_cancel(&mc->idle, &mc->m);
     mao_motion_profile(&mc->m, CH_AWAY, MAO_P_AWAY);
-    /* 1. notice the double click: eyes widen, tiny "o". */
+    /* 1. notice: eyes widen (eyes only - no mouth, M4.1). */
     mao_motion_set(&mc->m, CH_OPEN, MAO_SURPRISE_OPEN);
     mao_motion_set(&mc->m, CH_SPREAD, 2.0f);
     mao_motion_set(&mc->m, CH_ORBIT_R, 0.0f);
-    mc->mouth = MAO_MOUTH_O;
+    mc->mouth = MAO_MOUTH_NONE;
     mc->present = false;
     mc->leave_drop_at = now + (uint32_t)(MAO_SURPRISE_S * 1000.0f);
     mc->away_until = now + 600;
@@ -215,22 +215,23 @@ void mao_char_peek_set(mao_char_t *mc, bool on, uint32_t now)
         return;
     }
     mc->peek = on;
-    /* A peek into the tool, not a view transition: quick in, quick out. */
-    mao_motion_profile(&mc->m, CH_AWAY, (mao_spring_profile_t){ .k = 520.0f, .zeta = 0.95f });
+    /* Stepping down to the rim is a move with some weight (PAGE), not a
+     * blink; the travel is CH_AWAY: unscaled by the look, unlike CH_FACE_Y. */
+    mao_motion_profile(&mc->m, CH_AWAY, (mao_spring_profile_t){ .k = 190.0f, .zeta = 0.86f });
     if (on) {
         mc->present = true;
         mc->mouth = MAO_MOUTH_NONE;
         mc->leave_drop_at = 0;
-        mao_motion_set(&mc->m, CH_AWAY, 0.0f);
+        mao_motion_set(&mc->m, CH_AWAY, MAO_PEEK_DROP);
         mao_motion_set(&mc->m, CH_CLOSE, 0.0f);
         mao_motion_set(&mc->m, CH_OPEN, 1.0f);
         mao_motion_set(&mc->m, CH_SQUASH, 0.0f);
         mao_motion_set(&mc->m, CH_SPREAD, 0.0f);
         mao_motion_set(&mc->m, CH_EYE_W, MAO_PEEK_SHRINK_W);
         mao_motion_set(&mc->m, CH_EYE_H, MAO_PEEK_SHRINK_H);
-        mao_motion_set(&mc->m, CH_FACE_Y, mc->idle.base_y + MAO_PEEK_DROP);
-        mao_motion_set(&mc->m, CH_GAZE_X, 0.0f);
-        mao_motion_set(&mc->m, CH_GAZE_Y, MAO_PEEK_GAZE_UP);   /* attention on the page */
+        mao_motion_set(&mc->m, CH_FACE_Y, mc->idle.base_y);
+        mao_motion_set(&mc->m, CH_GAZE_X, mc->attend_gx);
+        mao_motion_set(&mc->m, CH_GAZE_Y, mc->attend_gy ? mc->attend_gy : MAO_PEEK_GAZE_UP);   /* the page */
         mc->away_until = now + 250;
         mao_idle_schedule(&mc->idle, now, mc->sleepy, true);
     } else {

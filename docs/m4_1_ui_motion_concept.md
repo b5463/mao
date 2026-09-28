@@ -60,7 +60,12 @@ implemented yet. The decisions marked **D1–D6** need your answer first.
 
 ---
 
-## 1. Decisions needed
+## 1. Decisions
+
+**Answered 2026-09-28:** D1 single press → DEVICES, MENU removed ·
+D3 BIZ UDPGothic · D4 **keep cat mode as MAO's own rare state, drop the gold
+tint** · D5 UNREADABLE · D6 keep the palette (default).
+
 
 | # | Question | My recommendation |
 |---|---|---|

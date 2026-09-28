@@ -1,8 +1,8 @@
 /*
  * MAO character / presence layer.
  *
- * A procedural character built from two eyes (and, for an instant, a tiny
- * mouth), drawn with plain LVGL objects. Behaviour is physical: every pose
+ * A procedural character built from two eyes - eyes only (M4.1), drawn
+ * with plain LVGL objects. Behaviour is physical: every pose
  * channel is a spring (mao_spring.h) and all proportions/gains live in
  * mao_character_tune.h. No needs, no emotions: reactions to input and events.
  *
@@ -104,10 +104,17 @@ void mao_character_set_sleepy(bool sleepy);
 void mao_character_leave(void);
 void mao_character_return(void);
 
-/* Compact presence for the DEVICE page: small eyes low on the screen,
- * attention on the page's content, motion damped, no orbiting. The mind
- * keeps running (blinks, interest, evaluation) at reduced strength. */
+/* Rim presence (M4.1): the eyes step down below the lower rim, smaller and
+ * partly clipped by the circle, still alive - utility has the screen, MAO
+ * watches it. Motion damped, no orbiting; the mind keeps running at reduced
+ * strength. peek(false) drops them fully out of sight (return() brings them
+ * back to the centre). */
 void mao_character_peek(bool on);
+
+/* Where the interface's attention is (screen px from the centre, + = right
+ * / down). While on the rim the eyes look there, lagging a little; it is
+ * composition, not a pointer. Ignored at the centre (HOME owns the gaze). */
+void mao_character_attend(int x, int y);
 
 mao_character_state_t mao_character_get_state(void);
 const char *mao_character_state_name(mao_character_state_t state);

@@ -85,6 +85,15 @@ static void apply(mao_char_t *mc, const cmd_t *c, uint32_t now)
         break;
     }
     case CMD_PEEK:       mao_char_peek_set(mc, c->flag, now); break;
+    case CMD_ATTEND: {
+        /* Screen target -> gaze within the face. The eyes sit near the rim,
+         * so a target above them means looking up. */
+        const float x = (float)(int16_t)(c->value >> 16), y = (float)(int16_t)(c->value & 0xFFFF);
+        mc->attend_gx = clampf(x * MAO_ATTEND_GAIN_X, -MAO_GAZE_MAX, MAO_GAZE_MAX);
+        mc->attend_gy = clampf((y - MAO_PEEK_DROP) * MAO_ATTEND_GAIN_Y, -MAO_ATTEND_UP_MAX, 4.0f);
+        mc->attend_fx = clampf(x * MAO_ATTEND_FACE, -MAO_ATTEND_FACE_MAX, MAO_ATTEND_FACE_MAX);
+        break;
+    }
     case CMD_MIND:
         if (c->arg == 0) {
             mao_life_debug_interest(&mc->life, (uint8_t)c->value);
@@ -234,6 +243,13 @@ void mao_character_set_sleepy(bool sleepy)      { post((cmd_t){ .type = CMD_SLEE
 void mao_character_leave(void)                  { post((cmd_t){ .type = CMD_LEAVE }); }
 void mao_character_return(void)                 { post((cmd_t){ .type = CMD_RETURN }); }
 void mao_character_peek(bool on)                { post((cmd_t){ .type = CMD_PEEK, .flag = on }); }
+
+void mao_character_attend(int x, int y)
+{
+    x = x < -200 ? -200 : (x > 200 ? 200 : x);
+    y = y < -200 ? -200 : (y > 200 ? 200 : y);
+    post((cmd_t){ .type = CMD_ATTEND, .value = (int32_t)(((uint32_t)(uint16_t)x << 16) | (uint16_t)y) });
+}
 
 void mao_character_debug_preview(mao_character_preview_t p)
 {

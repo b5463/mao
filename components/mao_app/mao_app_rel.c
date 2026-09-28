@@ -189,7 +189,7 @@ static void draw_incompatible(const mao_world_entry_t *w)
         .online = true,
         .described = true,
         .no_centre = true,
-        .status_c = w->compat == ODD_COMPAT_INCOMPATIBLE ? "INCOMPATIBLE" : "INVALID",
+        .status_c = w->compat == ODD_COMPAT_INCOMPATIBLE ? "INCOMPATIBLE" : "UNREADABLE",   /* M4.1 D5 */
         .connect_hidden = true,
         .focus = 2,                    /* the relationship word is the only thing to operate */
         .rel_word = mao_rel_word(),

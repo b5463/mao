@@ -1,22 +1,32 @@
 /*
  * MAO typography and colour tokens. The only place fonts and colours are
- * chosen: replacing the placeholder typeface later means editing this file.
+ * chosen.
  *
- * One family, three sizes, generous tracking. No bold hierarchy: emphasis
- * comes from size, position, opacity and motion.
+ * One family (BIZ UDPGothic, SIL OFL 1.1: fonts/OFL.txt), five roles. No bold
+ * hierarchy: emphasis comes from size, position, opacity, the focus line and
+ * motion (docs/m4_1_ui_motion_concept.md section 6).
  */
 #pragma once
 
 #include "lvgl.h"
 
-/* Type scale (Montserrat is a development placeholder). */
-#define MAO_FONT_SMALL       (&lv_font_montserrat_14)   /* status, secondary */
-#define MAO_FONT_NORMAL      (&lv_font_montserrat_20)   /* menu, ordinary values */
-#define MAO_FONT_LARGE       (&lv_font_montserrat_28)   /* the one important word/value */
+LV_FONT_DECLARE(mao_font_fact);      /* 13 px, printable ASCII + middle dot */
+LV_FONT_DECLARE(mao_font_name);      /* 18 px, printable ASCII + middle dot */
+LV_FONT_DECLARE(mao_font_word);      /* 30 px, printable ASCII + middle dot */
+LV_FONT_DECLARE(mao_font_code);      /* 44 px digits (pairing code) */
+LV_FONT_DECLARE(mao_font_numeral);   /* 64 px digits, % - . O N F (LEVEL, ON/OFF, ...) */
 
-#define MAO_TRACK_SMALL      5
+/* Type roles. */
+#define MAO_FONT_SMALL       (&mao_font_fact)      /* FACT: facts, conditions, state words, INFO */
+#define MAO_FONT_NORMAL      (&mao_font_name)      /* NAME: list neighbours, the page's anchor title */
+#define MAO_FONT_LARGE       (&mao_font_word)      /* WORD: the one important word */
+#define MAO_FONT_CODE        (&mao_font_code)
+#define MAO_FONT_NUMERAL     (&mao_font_numeral)
+
+#define MAO_TRACK_SMALL      4
 #define MAO_TRACK_NORMAL     3
-#define MAO_TRACK_LARGE      5
+#define MAO_TRACK_LARGE      4
+#define MAO_TRACK_NUMERAL    (-1)
 
 /* Palette: monochrome at rest. Colour is an event, never decoration. */
 #define MAO_COL_BG           0x08080A   /* near-black */

@@ -135,18 +135,6 @@ static const lark_key_t cn_fy[] = { K(0, 0, LINEAR), K(100, -6.0f, OUT), K(2400,
 static const lark_track_t cat_blank[] = { TRACK(CH_PUPIL, cn_pu), TRACK(CH_DARK, cn_dk),
                                           TRACK(CH_SLIT, cn_slit), TRACK(CH_NARROW, cn_lid), TRACK(CH_FACE_Y, cn_fy) };
 
-/* cat_greed: something precious - dark irises with a gold four-point star,
- * ears perked, little paw-bounces. */
-static const lark_key_t cgr_dk[] = { K(0, 0.9f, LINEAR) };
-static const lark_key_t cgr_st[] = { K(0, 0.9f, LINEAR), K(300, 1.15f, IN_OUT), K(600, 0.9f, IN_OUT), K(900, 1.15f, IN_OUT),
-                                     K(1200, 0.9f, IN_OUT) };
-static const lark_key_t cgr_pu[] = { K(0, 0.5f, LINEAR) };
-static const lark_key_t cgr_slit[] = { K(0, -0.75f, LINEAR) };
-static const lark_key_t cgr_lid[] = { K(0, -0.26f, LINEAR) };
-static const lark_key_t cgr_fy[] = { K(0, -6.0f, LINEAR), K(150, -14.0f, OUT), K(300, -6.0f, IN), K(450, -12.0f, OUT),
-                                     K(600, -6.0f, IN), K(1200, -6.0f, LINEAR) };
-static const lark_track_t cat_greed[] = { TRACK(CH_DARK, cgr_dk), TRACK(CH_STAR, cgr_st),
-                                          TRACK(CH_PUPIL, cgr_pu), TRACK(CH_SLIT, cgr_slit), TRACK(CH_NARROW, cgr_lid), TRACK(CH_FACE_Y, cgr_fy) };
 
 /* cat_glare: hiding behind a sleeve and glaring - sunk low, narrowed, thin
  * slits, ears half back. */
@@ -187,7 +175,6 @@ const lark_state_t kLarkCat[] = {
     STATE("cat_deadpan",     6000, 600, IN_OUT, CAT,      0,   0,   0,  0, NULL,  cat_deadpan),
     STATE("cat_content",     3600, 500, IN_OUT, CAT,      0,   0,   0,  0, NULL,  cat_content),
     STATE("cat_blank",       2400,  60, OUT,    CAT_ONE,  0,   0,   0,  0, NULL,  cat_blank),
-    STATE("cat_greed",       1200, 150, OUT,    CAT,      0,   0,   0,  0, NULL,  cat_greed),
     STATE("cat_glare",       3000, 400, IN_OUT, CAT,      0,   0,   0,  0, NULL,  cat_glare),
     STATE("cat_eat",         2800, 200, OUT,    CAT_ONE,  0,   0,   0,  0, NULL,  cat_eat),
 };
