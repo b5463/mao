@@ -331,6 +331,63 @@ int main(void)
         CHECK(odd_decode(F, k, &M) == ODD_DECODE_BAD_VERSION);
     }
 
+    /* ---- flags: unknown bits are a newer minor's business; contradictions refuse the set ---- */
+    {
+        odd_capability_t lf[3];
+        memcpy(lf, LIGHT, sizeof(LIGHT));
+        lf[1].flags |= 0x80;                                          /* a flag bit 1.1 does not define */
+        n = caps_frame(lf, 3, true, 1, 1);
+        CHECK(decode_eval(n) == ODD_DECODE_OK && E.compat == ODD_COMPAT_COMPATIBLE);
+        c = controls();
+        CHECK(c.level_idx == 1);                                      /* still the dial it declares */
+        memcpy(lf, LIGHT, sizeof(LIGHT));
+        lf[2].flags = ODD_CAP_F_READ | ODD_CAP_F_NOTIFY;              /* IDENTIFY one cannot invoke */
+        CHECK(odd_decode(F, caps_frame(lf, 3, true, 1, 1), &M) == ODD_DECODE_MALFORMED);
+    }
+
+    /* ---- compatibility is per device: one COMPATIBLE, one INCOMPATIBLE, eight mixed ---- */
+    {
+        mao_device_t dev[MAO_DEVICES_MAX];
+        memset(dev, 0, sizeof(dev));
+        for (int k = 0; k < MAO_DEVICES_MAX; k++) {
+            const int kind = k % 4;          /* CAMERA 1.0, LIGHT 1.1, major 2, CAMERA + unknown */
+            if (kind == 0) {
+                n = caps_frame(CAMERA, 5, false, 0, 0);
+            } else if (kind == 1) {
+                n = caps_frame(LIGHT, 3, true, 1, 1);
+            } else if (kind == 2) {
+                n = caps_frame(LIGHT, 3, true, 2, 0);
+            } else {
+                const odd_capability_t cu[] = { ACT(1, ODD_ACTION_CAPTURE), { 2, 77, 3, 0, 1, 1 } };
+                n = caps_frame(cu, 2, true, 1, 1);
+            }
+            CHECK(decode_eval(n) == ODD_DECODE_OK);
+            dev[k].cap_count = M.u.caps.count;
+            dev[k].compat = (uint8_t)E.compat;
+            dev[k].online = true;
+            for (int i = 0; i < M.u.caps.count; i++) {
+                dev[k].caps[i].cap = M.u.caps.cap[i];
+                dev[k].caps[i].usable = (E.usable >> i) & 1;
+            }
+        }
+        bool isolated = true;
+        for (int k = 0; k < MAO_DEVICES_MAX; k++) {
+            mao_device_controls_t ck;
+            mao_device_controls(&dev[k], &ck);
+            switch (k % 4) {
+            case 0: isolated = isolated && dev[k].compat == ODD_COMPAT_COMPATIBLE && ck.action_count == 3 &&
+                               ck.primary_idx == 0 && ck.level_idx < 0; break;
+            case 1: isolated = isolated && dev[k].compat == ODD_COMPAT_COMPATIBLE && ck.level_idx == 1 &&
+                               ck.action_count == 1 && ck.ready_idx < 0; break;
+            case 2: isolated = isolated && dev[k].compat == ODD_COMPAT_INCOMPATIBLE && ck.primary_idx < 0 &&
+                               ck.action_count == 0 && ck.toggle_idx < 0; break;
+            default: isolated = isolated && dev[k].compat == ODD_COMPAT_LIMITED && ck.action_count == 1 &&
+                                ck.toggle_idx < 0; break;
+            }
+        }
+        CHECK(isolated);
+    }
+
     CHECK(strcmp(odd_compat_name(ODD_COMPAT_LIMITED), "LIMITED") == 0 && strcmp(odd_compat_name(99), "?") == 0);
     printf("odd contract: %d checks passed, %d failed\n", s_pass, s_fail);
     return s_fail ? 1 : 0;

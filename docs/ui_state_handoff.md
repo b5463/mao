@@ -74,8 +74,20 @@ and stays so unless the UI milestone chooses otherwise.
 | `REL_CHANGED` | — | a FORGET / PAIR the user started | list order and words |
 | `TRANSFER_STEP` / `DEVICE_PROBED` | transfer id / slot | always (CONNECT is a user interaction) | — |
 
-Compatibility has no event of its own: a change arrives as `DEVICE_CHANGED`
-together with the new model, published whole.
+No new event types were needed (brief §136). The existing ones already are
+the stable app events:
+
+| Stable meaning | Event |
+|---|---|
+| device model changed (capabilities, values, compatibility, description) | `DEVICE_CHANGED`, the model published whole |
+| device online changed | `DEVICE_FOUND` / `DEVICE_LOST` |
+| action state changed | `ACTION_UPDATE` |
+| relationship / security changed | `REL_CHANGED` / `LINK_CHANGED` |
+
+Every compatibility change, including DESCRIBING → INVALID after the
+request bound, posts `DEVICE_CHANGED`. The LVGL component (`mao_ui`) does
+not even link `odd_bus` or `mao_devices`: it receives strings and flags from
+`mao_app`, so it cannot parse protocol.
 
 ## 4. Stable vs asynchronous data
 

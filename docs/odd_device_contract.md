@@ -107,6 +107,9 @@ device type never gates a control.
 * A semantic may occur **once**. Two CAPTUREs, two LEVELs, two POWERs or two
   READYs make that semantic ambiguous. MAO offers none of them, and never
   picks by packet order. The rest of the set stays usable.
+* Flag bits 1.1 does not define are ignored (a newer minor may add some).
+  Contradictory known flags refuse the set: an ACTION without WRITE, or a
+  READY / STORAGE with WRITE.
 * Everything else is optional. A CAMERA without SYNC_TEST, or a LIGHT
   without IDENTIFY, is fully usable with what it has.
 

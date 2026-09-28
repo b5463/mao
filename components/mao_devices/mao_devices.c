@@ -255,6 +255,7 @@ static void describe(entry_t *e, uint32_t now)
         return;
     }
     lock();
+    const uint8_t before = e->pub.compat;
     if (e->describe_tries < UINT8_MAX) {
         e->describe_tries++;
     }
@@ -263,8 +264,16 @@ static void describe(entry_t *e, uint32_t now)
     } else if (e->pub.compat != ODD_COMPAT_INVALID) {
         e->pub.compat = ODD_COMPAT_DESCRIBING;
     }
+    const bool changed = e->pub.compat != before;
     unlock();
     request(e, ODD_MSG_GET_CAPS);
+    if (changed) {
+        if (e->pub.compat == ODD_COMPAT_INVALID) {
+            ESP_LOGW(TAG, "'%s': no valid description after %d requests: INVALID (still retrying)",
+                     e->pub.info.name, DESCRIBE_TRIES);
+        }
+        post(MAO_EVENT_DEVICE_CHANGED, (int)(e - s_dev));   /* the whole model, as always */
+    }
 }
 
 static void count_online_locked(void)
