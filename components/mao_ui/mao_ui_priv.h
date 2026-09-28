@@ -88,6 +88,8 @@ void mao_home_create(lv_obj_t *scr, bool visible);
 void mao_home_boot(uint32_t now_ms);
 void mao_home_replay(uint32_t now_ms);
 bool mao_home_tick(float dt, uint32_t now_ms);
+/* The boot bloom (mao_ui_devices.c): the field from the centre, MAO in dots, back into the centre. */
+void mao_devices_boot_bloom(uint32_t now_ms);
 
 /* Menu, placeholder and first encounter (mao_overlay.c). */
 void mao_overlay_create(lv_obj_t *scr, bool intro_visible);

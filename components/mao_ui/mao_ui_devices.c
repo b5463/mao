@@ -1437,6 +1437,36 @@ static bool home_tune_layout(uint32_t now, float dt)
     return true;
 }
 
+/* Boot (M4.1): KINO D4's boot in MAO's field - it blooms from the centre
+ * through its ragged front, MAO's name arrives in dots over it, then the
+ * field draws back into the centre, where the eyes open (mao_home.c). */
+static uint32_t s_boot_t0;
+
+void mao_devices_boot_bloom(uint32_t now_ms)
+{
+    s_boot_t0 = now_ms ? now_ms : 1;
+}
+
+static bool boot_layout(uint32_t now)
+{
+    if (!s_boot_t0) {
+        return false;
+    }
+    const float t = (float)(now - s_boot_t0) / 1000.0f;
+    if (t > 1.5f) {
+        s_boot_t0 = 0;
+        return false;
+    }
+    const float grow = smooth01(t / 0.6f);                  /* out ... */
+    const float back = smooth01((t - 0.8f) / 0.32f);        /* ... and back into the centre */
+    field_request(122.0f * grow * (1.0f - back), 0.9f, 0.0f, 0.0f, 5.0f);   /* over anything else */
+    const float in = smooth01((t - 0.22f) / 0.3f), out = 1.0f - smooth01((t - 0.72f) / 0.22f);
+    if (in * out > 0.01f) {
+        mao_dots_text_halo("MAO", 0.0f, -2.0f, 5.0f, 4.2f, 255.0f * in * out);
+    }
+    return true;
+}
+
 /* HOME, left alone for a moment by someone new to it: a quiet PRESS. */
 static void home_hint_layout(uint32_t now)
 {
@@ -1510,6 +1540,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     ST(1, dotpage_layout(now));
     home_hint_layout(now);
     const bool intro_up = intro_layout(now);
+    const bool boot_up = boot_layout(now);
     const bool tune_up = home_tune_layout(now, dt);
     ST(2, mao_dots_end());
     ST(3, mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now));
@@ -1541,7 +1572,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
                          (now - s_list.shown_at_ms) < LOOKING_MS + 100;
     const bool field_alive = s_list.presence.x > 0.004f ||   /* the dots shimmer while they are there */
                              (s_dp.m.on && s_panel.presence.x > 0.004f) || s_dp.reach.x > 0.5f;
-    return field_alive || waiting || s_hint.allowed || intro_up || tune_up || s_list.show_at != 0 || s_panel.show_at != 0 ||
+    return field_alive || waiting || s_hint.allowed || intro_up || tune_up || boot_up || s_list.show_at != 0 || s_panel.show_at != 0 ||
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
            !mao_spring_settled(&s_list.side, 0.05f) ||
            !mao_spring_settled(&s_panel.presence, 0.002f) || !mao_spring_settled(&s_panel.ty, 0.05f) ||
