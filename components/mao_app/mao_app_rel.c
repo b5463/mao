@@ -44,7 +44,9 @@ static sheet_t s_sheet;
 static int8_t s_sheet_focus;
 static sheet_t s_confirm_back;      /* where NO returns to */
 static int8_t s_off_focus;          /* OFFLINE page: 0 CONNECT, 1 relationship word */
-static volatile uint8_t s_layout = 1;   /* 0 = A (FORGET word), 1 = B (INFO -> details) */
+/* 0 = A (FORGET -> confirm), 1 = B (INFO -> details -> FORGET). M4.1: A - the
+ * details sheet said nothing the page does not (PAIRED, the type). */
+static volatile uint8_t s_layout = 0;
 static uint64_t s_forget_dev;       /* a revocation in flight for this device */
 static bool s_forget_online;
 static int8_t s_cer_focus;          /* SAS screen: 0 CANCEL, 1 MATCH */
@@ -167,69 +169,53 @@ void mao_rel_sheet_draw(const mao_world_entry_t *w)
     mao_ui_device_sheet(&sh);
 }
 
-static void draw_offline(const mao_world_entry_t *w)
-{
-    mao_ui_device_t m = {
-        .title = w->name,
-        .online = false,              /* the status word reads OFFLINE */
-        .described = true,
-        .no_centre = true,
-        .focus = (int8_t)(1 + s_off_focus),   /* CONNECT or the relationship word */
-        .rel_word = mao_rel_word(),
-    };
-    mao_ui_device_update(&m);
-}
-
-/* Minimal on purpose (M4.0): name, one quiet word, INFO -> FORGET. The
- * visual treatment belongs to the UI milestone. */
-static void draw_incompatible(const mao_world_entry_t *w)
-{
-    mao_ui_device_t m = {
-        .title = w->name,
-        .online = true,
-        .described = true,
-        .no_centre = true,
-        .status_c = w->compat == ODD_COMPAT_INCOMPATIBLE ? "INCOMPATIBLE" : "UNREADABLE",   /* M4.1 D5 */
-        .connect_hidden = true,
-        .focus = 2,                    /* the relationship word is the only thing to operate */
-        .rel_word = mao_rel_word(),
-    };
-    mao_ui_device_update(&m);
-}
-
+/* The relationship pages in dots (M4.1): the device's mark, its state and
+ * the one thing a press does; holding brings BACK and FORGET up. */
 void mao_rel_page_draw(mao_devpage_t kind, const mao_world_entry_t *w)
 {
-    if (kind == MAO_DEVPAGE_OFFLINE) {
-        draw_offline(w);
-        return;
-    }
-    if (kind == MAO_DEVPAGE_INCOMPATIBLE) {
-        draw_incompatible(w);
-        return;
-    }
-    if (kind != MAO_DEVPAGE_NEW && kind != MAO_DEVPAGE_VERIFY && kind != MAO_DEVPAGE_REPAIR) {
+    if (kind != MAO_DEVPAGE_NEW && kind != MAO_DEVPAGE_VERIFY && kind != MAO_DEVPAGE_REPAIR &&
+        kind != MAO_DEVPAGE_OFFLINE && kind != MAO_DEVPAGE_INCOMPATIBLE) {
+        const mao_ui_dotpage_t off = { .on = false };
+        mao_ui_device_dots(&off);
         return;
     }
     mao_link_pair_status_t ps;
     const bool cer = ceremony_for(w->id, &ps);
+    const bool pairing = cer && (ps.st == ODL_C_WAIT_COMMIT || ps.st == ODL_C_WAIT_REVEAL);
     const bool noted = s_note && s_note_dev == w->id;
-    const char *fact = kind == MAO_DEVPAGE_NEW ? "NEW" : kind == MAO_DEVPAGE_REPAIR ? "NOT VERIFIED" : NULL;
-    if (cer && (ps.st == ODL_C_WAIT_COMMIT || ps.st == ODL_C_WAIT_REVEAL)) {
+    const char *fact = kind == MAO_DEVPAGE_NEW      ? "NEW"
+                       : kind == MAO_DEVPAGE_REPAIR  ? "NOT VERIFIED"
+                       : kind == MAO_DEVPAGE_OFFLINE ? "OFFLINE"
+                       : kind == MAO_DEVPAGE_INCOMPATIBLE
+                           ? (w->compat == ODD_COMPAT_INCOMPATIBLE ? "INCOMPATIBLE" : "UNREADABLE")   /* M4.1 D5 */
+                           : NULL;
+    if (pairing) {
         fact = "PAIRING";                /* a short cryptographic beat: the word holds */
     } else if (noted) {
         fact = s_note;
     }
-    mao_ui_device_t m = {
-        .title = w->name,
-        .primary = kind == MAO_DEVPAGE_NEW ? "PAIR" : kind == MAO_DEVPAGE_VERIFY ? "VERIFY" : "REPAIR",
-        .online = true,
+    int8_t sel;
+    const bool menu = mao_app_hold_menu(&sel);
+    const mao_ui_dotpage_t dm = {
+        .on = true,
+        .kind = MAO_DOTPAGE_WORD,
+        .online = kind != MAO_DEVPAGE_OFFLINE,
         .described = true,
-        .focus = kind == MAO_DEVPAGE_NEW ? 0 : (int8_t)(s_off_focus ? 2 : 0),   /* centre or INFO */
-        .connect_hidden = true,
-        .status_l = fact,
-        .rel_word = kind == MAO_DEVPAGE_NEW ? NULL : mao_rel_word(),
+        .type = w->device_type,
+        .known = kind != MAO_DEVPAGE_NEW,
+        .busy = pairing,
+        .word = kind == MAO_DEVPAGE_NEW       ? "PAIR"
+                : kind == MAO_DEVPAGE_VERIFY  ? "VERIFY"
+                : kind == MAO_DEVPAGE_REPAIR  ? "REPAIR"
+                : kind == MAO_DEVPAGE_OFFLINE ? "CONNECT"
+                                              : NULL,
+        .fact = fact,
+        .menu = menu,
+        .menu_sel = sel,
+        .opt_left = kind == MAO_DEVPAGE_NEW ? NULL : mao_rel_word(),
+        .name = w->name,
     };
-    mao_ui_device_update(&m);
+    mao_ui_device_dots(&dm);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -437,54 +423,35 @@ bool mao_rel_page_input(mao_devpage_t kind, const mao_world_entry_t *w, const ma
     if (kind != MAO_DEVPAGE_NONE && ceremony_input(w, ev)) {
         return true;                     /* a ceremony for this device owns the knob */
     }
-    if (ev->type == MAO_EVENT_INPUT_LONG_PRESS) {
-        mao_app_go_devices();            /* BACK, as on every device page */
-        return true;
-    }
-    if (kind == MAO_DEVPAGE_INCOMPATIBLE) {
-        if (ev->type == MAO_EVENT_INPUT_CLICK && !guarded) {
-            mao_rel_word_activate(w);    /* INFO -> FORGET; nothing else to do here */
+    if (kind != MAO_DEVPAGE_NEW && kind != MAO_DEVPAGE_VERIFY && kind != MAO_DEVPAGE_REPAIR &&
+        kind != MAO_DEVPAGE_OFFLINE && kind != MAO_DEVPAGE_INCOMPATIBLE) {
+        if (ev->type == MAO_EVENT_INPUT_LONG_PRESS) {
+            mao_app_go_devices();        /* BACK from a vanished device */
         }
+        return kind == MAO_DEVPAGE_NONE;
+    }
+    /* Holding: BACK, or FORGET for anything that is part of MAO's setup. */
+    switch (mao_app_hold(ev, false, kind != MAO_DEVPAGE_NEW)) {
+    case MAO_HOLD_EATEN:
+        mao_ui_device_feedback(MAO_UI_FB_REST);
+        mao_app_dev_refresh();
         return true;
-    }
-    if (kind == MAO_DEVPAGE_OFFLINE) {
-        if (ev->type == MAO_EVENT_INPUT_CW || ev->type == MAO_EVENT_INPUT_CCW) {
-            const int8_t f = ev->type == MAO_EVENT_INPUT_CW ? 1 : 0;
-            if (f != s_off_focus) {
-                s_off_focus = f;
-                mao_audio_tick(160);
-                ESP_LOGI(TAG, "offline page: %s focused", f ? mao_rel_word() : "CONNECT");
-                mao_app_dev_refresh();
-            }
-        } else if (ev->type == MAO_EVENT_INPUT_CLICK && !guarded && s_off_focus == 1) {
-            mao_rel_word_activate(w);
-        } else if (ev->type == MAO_EVENT_INPUT_CLICK && !guarded) {
-            /* The user's own intent: try to reach it (MAO's visit). */
-            ESP_LOGI(TAG, "connect requested: '%s' (known, offline)", w->name);
-            mao_ui_device_connect_hot(1.0f);
-            mao_audio_confirm();
-            mao_transfer_connect();
-        }
+    case MAO_HOLD_BACK:
+        mao_app_go_devices();
         return true;
-    }
-    if (kind != MAO_DEVPAGE_NEW && kind != MAO_DEVPAGE_VERIFY && kind != MAO_DEVPAGE_REPAIR) {
-        return kind == MAO_DEVPAGE_NONE;          /* nothing to operate on a vanished device */
-    }
-    switch (ev->type) {
-    case MAO_EVENT_INPUT_CW:
-    case MAO_EVENT_INPUT_CCW:
-        if (kind != MAO_DEVPAGE_NEW) {
-            /* VERIFY / REPAIR pages also offer INFO (FORGET): centre <-> INFO */
-            const int8_t f = ev->type == MAO_EVENT_INPUT_CW ? 1 : 0;
-            if (f != s_off_focus) {
-                s_off_focus = f;
-                mao_audio_tick(160);
-                mao_app_dev_refresh();
-            }
-        }
+    case MAO_HOLD_LEFT:
+        mao_rel_word_activate(w);
+        return true;
+    case MAO_HOLD_RIGHT:
+        return true;
+    default:
         break;
+    }
+    /* Press: the page's one word. */
+    const bool has_word = kind != MAO_DEVPAGE_INCOMPATIBLE;
+    switch (ev->type) {
     case MAO_EVENT_INPUT_PRESS:
-        if (s_off_focus == 0 || kind == MAO_DEVPAGE_NEW) {
+        if (has_word) {
             mao_ui_device_feedback(MAO_UI_FB_PRESS);
         }
         break;
@@ -494,14 +461,18 @@ bool mao_rel_page_input(mao_devpage_t kind, const mao_world_entry_t *w, const ma
     case MAO_EVENT_INPUT_CLICK:
         if (guarded) {
             ESP_LOGI(TAG, "click ignored: page just opened");
-        } else if (kind != MAO_DEVPAGE_NEW && s_off_focus == 1) {
-            mao_rel_word_activate(w);
-        } else {
+        } else if (kind == MAO_DEVPAGE_OFFLINE) {
+            /* The user's own intent: try to reach it (MAO's visit). */
+            ESP_LOGI(TAG, "connect requested: '%s' (known, offline)", w->name);
+            mao_ui_device_connect_hot(1.0f);
+            mao_audio_confirm();
+            mao_transfer_connect();
+        } else if (has_word) {
             start_ceremony(kind, w);
         }
         break;
     default:
-        break;
+        break;                           /* the knob alone does nothing here */
     }
     return true;
 }

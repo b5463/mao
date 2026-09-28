@@ -123,6 +123,14 @@ static struct {
     mao_spring_t burst;            /* a landing pushes the rings out */
     mao_spring_t optsel;           /* 0 the instrument .. 1 the hold-and-turn options are up */
     uint32_t level_until;          /* the brightness number shows until then */
+    uint32_t shot_at;              /* the last capture landed (the flash and the wave) */
+    uint32_t word_at;              /* a short word about the last action ... */
+    const char *word;              /* ... NOT NOW / NOT TAKEN */
+    struct {                       /* the sheet, in dots: copies of its words */
+        char l1[24], l2[24], w[2][12];
+        bool big;
+        int8_t n, focus;
+    } sh;
 } s_dp;
 
 static float clampf(float v, float lo, float hi)
@@ -533,7 +541,7 @@ static void panel_layout(void)
      * list position up to the heading, and back again on the way out. */
     const float title_opa = (s_panel.online ? 170.0f : 110.0f) * p0 * (s_panel.sheet.hide_title ? 1.0f - s : 1.0f);
     mao_ui_text_place(s_panel.title, 0.0f, s_panel.ty.x - lift, s_dp.m.on ? 0.0f : title_opa, &s_panel.ct);
-    sheet_layout(p0, s);
+    sheet_layout(s_dp.m.on ? 0.0f : p0, s);
 
     /* Focus is the line; neighbours recede a step. */
     const float cf = s_panel.focus == 0 ? 1.0f : 0.62f;
@@ -638,6 +646,15 @@ void mao_ui_device_sheet(const mao_ui_sheet_t *sheet)
             set_text(s_panel.sh_w[i], i < sheet->word_count && sheet->words[i] ? sheet->words[i] : "");
             s_panel.w_shw[i] = measure(s_panel.sh_w[i], MAO_FONT_NORMAL, MAO_TRACK_NORMAL);
         }
+        snprintf(s_dp.sh.l1, sizeof(s_dp.sh.l1), "%s", sheet->line1 ? sheet->line1 : "");
+        snprintf(s_dp.sh.l2, sizeof(s_dp.sh.l2), "%s", sheet->line2 ? sheet->line2 : "");
+        for (int i = 0; i < 2; i++) {
+            snprintf(s_dp.sh.w[i], sizeof(s_dp.sh.w[i]), "%s",
+                     i < sheet->word_count && sheet->words[i] ? sheet->words[i] : "");
+        }
+        s_dp.sh.big = sheet->line2_big;
+        s_dp.sh.n = sheet->word_count;
+        s_dp.sh.focus = sheet->focus;
         /* the text lives in the labels; keep no pointers to the caller's strings */
         s_panel.sheet.line1 = s_panel.sheet.line2 = NULL;
         s_panel.sheet.words[0] = s_panel.sheet.words[1] = NULL;
@@ -667,15 +684,21 @@ void mao_ui_device_feedback(mao_ui_fb_t fb)
         mao_focus_mode(MAO_FOCUS_NORMAL);       /* the line lands back ... */
         mao_focus_event(MAO_COL_YELLOW, 300);   /* ... in yellow, once */
         s_dp.burst.v += 160.0f;                 /* the puck: the rings are pushed out */
+        s_dp.shot_at = lv_tick_get();           /* ... the core flashes, a wave runs out */
+        s_dp.word = NULL;
         break;
     case MAO_UI_FB_BUSY:
         s_panel.cdy.target = 0.0f;
         s_panel.cdy.v += 45.0f;                 /* it could not move: barely yields */
         mao_focus_mode(MAO_FOCUS_NORMAL);
+        s_dp.word = "NOT NOW";
+        s_dp.word_at = lv_tick_get();
         break;
     case MAO_UI_FB_FAILED:
         s_panel.cdy.target = 0.0f;
         s_panel.cdx.v += 90.0f;                 /* a small misalignment that settles */
+        s_dp.word = "NOT TAKEN";
+        s_dp.word_at = lv_tick_get();
         mao_focus_mode(MAO_FOCUS_NORMAL);
         mao_focus_event(MAO_COL_RED, 240);
         break;
@@ -819,6 +842,54 @@ void mao_ui_device_update(const mao_ui_device_t *m)
 #define DP_REACH_MAX     150.0f    /* past the rim: the field fills the circle */
 
 
+/* A relationship page: the device's mark, what state it is in, and the one
+ * thing a press does. */
+static void word_page(float p, float menu, float t)
+{
+    const float keep = p * (1.0f - menu);
+    const float press = clampf(s_panel.cdy.x / 3.0f, 0.0f, 1.0f);
+    device_mark(s_panel.cdx.x * 0.8f, -22.0f, 22.0f * (1.0f - 0.08f * press), s_dp.m.type, s_dp.m.online,
+                s_dp.m.known, 255.0f * keep * (s_dp.m.online ? 1.0f : 0.8f), t);
+    if (s_dp.m.busy) {
+        mao_dots_ring(38.0f, 16, 3.0f, 230.0f * keep, MAO_GLYPH_DOT, -t * 5.0f, 0.35f);   /* underway */
+    }
+    if (s_dp.m.fact) {
+        const int cols = mao_dots_text_cols(s_dp.m.fact);
+        const float pitch = cols > 1 ? fminf(2.2f, 170.0f / (float)(cols - 1)) : 2.2f;
+        mao_dots_text(s_dp.m.fact, 0.0f, 22.0f, pitch, pitch * 0.8f, 150.0f * keep, -1.0f);
+    }
+    if (s_dp.m.word) {
+        mao_dots_text_halo(s_dp.m.word, s_panel.cdx.x * 0.8f, 50.0f + s_panel.cdy.x, 3.0f, 2.6f, 255.0f * keep);
+    }
+}
+
+/* A sheet over the page, in dots: a quiet line, its subject (large for a
+ * pairing code) and at most two answers - the chosen one bright and larger. */
+static void dot_sheet(float a, float t)
+{
+    if (a < 0.004f) {
+        return;
+    }
+    if (s_dp.sh.l1[0]) {
+        mao_dots_text(s_dp.sh.l1, 0.0f, -44.0f, 2.0f, 1.6f, 160.0f * a, -1.0f);
+    }
+    if (s_dp.sh.l2[0]) {
+        const int cols = mao_dots_text_cols(s_dp.sh.l2);
+        const float want = s_dp.sh.big ? 5.0f : 3.0f;
+        const float pitch = cols > 1 ? fminf(want, 196.0f / (float)(cols - 1)) : want;
+        mao_dots_text(s_dp.sh.l2, 0.0f, -8.0f, pitch, pitch * 0.85f, 255.0f * a, -1.0f);
+    }
+    if (s_dp.sh.n == 0 && s_dp.sh.l2[0] && s_dp.sh.big) {
+        mao_dots_ring(0.0f + 104.0f, 40, 3.0f, 200.0f * a, MAO_GLYPH_DOT, t * 1.6f, 0.25f);   /* waiting */
+    }
+    for (int i = 0; i < s_dp.sh.n && i < 2; i++) {
+        const bool chosen = s_dp.sh.focus == i;
+        const float x = s_dp.sh.n == 2 ? (i == 0 ? -52.0f : 52.0f) : 0.0f;
+        mao_dots_text_halo(s_dp.sh.w[i], x, 46.0f, chosen ? 2.8f : 2.0f, chosen ? 2.4f : 1.6f,
+                           (chosen ? 255.0f : 110.0f) * a);
+    }
+}
+
 static void dotpage_layout(uint32_t now)
 {
     const float p0 = clampf(s_panel.presence.x, 0.0f, 1.0f);
@@ -832,7 +903,7 @@ static void dotpage_layout(uint32_t now)
                                 s_panel.presence.target > 0.5f
                             ? DP_SEED + (DP_REACH_MAX - DP_SEED) * pct
                             : 0.0f;
-    if (!s_dp.m.on || p < 0.004f) {
+    if (!s_dp.m.on || p0 < 0.004f) {
         return;
     }
     /* The page grows out of the carousel's preview: it starts where the
@@ -847,7 +918,9 @@ static void dotpage_layout(uint32_t now)
     const float npitch = cols > 1 ? fminf(2.4f, 124.0f / (float)(cols - 1)) : 2.4f;
     mao_dots_text(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, (s_dp.m.online ? 170.0f : 100.0f) * p * (1.0f - menu), -1.0f);
 
-    if (s_dp.m.level) {
+    if (s_dp.m.kind == MAO_DOTPAGE_WORD) {
+        word_page(p, menu, t);
+    } else if (s_dp.m.level) {
         if (!s_dp.m.online) {
             mao_dots_text_halo("OFFLINE", 0.0f, 0.0f, 3.0f, 2.4f, 170.0f * p);
         } else if (!s_dp.m.power) {
@@ -866,12 +939,19 @@ static void dotpage_layout(uint32_t now)
         const float press = clampf(s_panel.cdy.x / 3.0f, 0.0f, 1.0f);
         const bool pending = s_panel.cdy.target > 1.0f && s_panel.cdy.target < 2.0f;
         const float big = smooth01(p0);            /* grows from the preview's size */
+        const float under = smooth01(p / fmaxf(p0, 0.001f));   /* 0 under a sheet: it collapses to the centre */
+        /* The shot: the core closes like an iris while the frame is taken,
+         * flashes solid when it is, and a wave runs out to the rim. */
+        const float shot = clampf((float)(now - s_dp.shot_at) / 620.0f, 0.0f, 1.0f);
+        const bool flash = s_dp.shot_at && shot < 0.22f;
+        const float iris = pending ? 0.70f : 1.0f;
         const puck_t pk = {
             .x = s_panel.cdx.x * 0.8f,
-            .core_r = (14.0f + (30.0f - 14.0f) * big) * (1.0f - 0.10f * press) * (1.0f - 0.35f * menu),
-            .glyph = core_glyph(s_dp.m.type),
+            .core_r = ((14.0f + (30.0f - 14.0f) * big) * (1.0f - 0.10f * press) * (1.0f - 0.35f * menu) * iris +
+                       (flash ? 7.0f * (1.0f - shot / 0.22f) : 0.0f)) * under,
+            .glyph = flash ? MAO_GLYPH_DOT : core_glyph(s_dp.m.type),
             .hollow = !s_dp.m.online,
-            .grow = big,
+            .grow = big * under,
             .change = 1.0f,
             .opa = (s_dp.m.online ? 1.0f : 0.35f) * (1.0f - 0.7f * menu),
             .fraction = 1.0f,
@@ -881,8 +961,15 @@ static void dotpage_layout(uint32_t now)
             .spin = !s_dp.m.online ? 0.0f : (pending ? 4.0f : 1.0f),
         };
         puck_draw(&pk, t);
+        if (s_dp.shot_at && shot < 1.0f) {
+            const float e = 1.0f - (1.0f - shot) * (1.0f - shot);
+            mao_dots_ring(34.0f + 80.0f * e, 52, 5.0f, 255.0f * sqrtf(1.0f - shot) * p, MAO_GLYPH_SQUARE, 0.0f, 1.0f);
+        }
         if (!s_dp.m.online) {
             mao_dots_text_halo("OFFLINE", 0.0f, 58.0f, 2.6f, 2.1f, 170.0f * p);
+        } else if (s_dp.word && now - s_dp.word_at < 1400) {
+            const float f = clampf((float)(1400 - (now - s_dp.word_at)) / 300.0f, 0.0f, 1.0f);
+            mao_dots_text_halo(s_dp.word, 0.0f, 62.0f, 2.4f, 2.0f, 220.0f * p * f * (1.0f - menu));
         }
     }
 
@@ -893,15 +980,23 @@ static void dotpage_layout(uint32_t now)
          * the middle: both, small, each on its own side. */
         const int8_t ms = s_dp.m.menu_sel;
         for (int i = 0; i < 2; i++) {
-            const char *wd = i == 0 ? "CONNECT" : "INFO";
+            const char *wd = i == 0 ? s_dp.m.opt_right : s_dp.m.opt_left;
+            if (!wd) {
+                continue;
+            }
             if (ms == i) {
                 mao_dots_text_halo(wd, 0.0f, 0.0f, 3.0f, 2.6f, 255.0f * p * menu);
             } else if (ms < 0) {
-                const float x = (i == 0 ? 52.0f : -52.0f);
-                mao_dots_text_halo(wd, x, 0.0f, 1.9f, 1.6f, 150.0f * p * menu);
+                const float x = (i == 0 ? 66.0f : -62.0f);
+                mao_dots_text_halo(wd, x, 0.0f, 1.7f, 1.4f, 150.0f * p * menu);
             }
         }
+        if (ms < 0) {
+            /* Letting go here goes back: a long press still means back. */
+            mao_dots_text_halo("BACK", 0.0f, 0.0f, 2.2f, 1.8f, 255.0f * p * menu);
+        }
     }
+    dot_sheet(p0 * sh, t);
 }
 
 void mao_ui_device_dots(const mao_ui_dotpage_t *m)
@@ -955,7 +1050,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
         panel_focus(&fx, &fy, &fw);
         const float s = clampf(s_panel.sh.x, 0.0f, 1.0f);
         const bool sheet_words = s > 0.5f && s_panel.sheet.word_count > 0;
-        fp = pp * (sheet_words ? s : (1.0f - s) * (s_dp.m.on ? 0.0f : 1.0f)) *
+        fp = pp * (sheet_words ? s : (1.0f - s)) * (s_dp.m.on ? 0.0f : 1.0f) *
              (s_panel.no_centre && s_panel.focus == 0 ? 0.0f : 1.0f);
     }
     if (fp > 0.02f && fw > 0.0f) {

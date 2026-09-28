@@ -102,11 +102,20 @@ void mao_ui_device_sheet(const mao_ui_sheet_t *sheet);
 
 /* The device page in MAO's dot language (M4.1). A LEVEL device is the field:
  * its reach is the brightness. An action device is the puck: its core is the
- * primary action. Everything the device handles by itself is not shown; the
- * rim carries MAO's own options (CONNECT, INFO). While `on`, the text page
- * only shows its sheets (INFO / FORGET). */
+ * primary action. A relationship page (NEW, VERIFY, REPAIR, OFFLINE,
+ * INCOMPATIBLE) is the device's mark, a state word and the one word a press
+ * does. Everything the device handles by itself is not shown. Holding brings
+ * MAO's options up: BACK in the middle, opt_right / opt_left either side.
+ * While `on`, the text page and its sheets are hidden: the sheets are drawn
+ * in dots too. Strings other than `name` must be static. */
+typedef enum {
+    MAO_DOTPAGE_CONTROL = 0, /* the instrument: field or puck */
+    MAO_DOTPAGE_WORD,        /* a relationship page */
+} mao_dotpage_kind_t;
+
 typedef struct {
     bool on;
+    uint8_t kind;            /* mao_dotpage_kind_t */
     bool level;              /* the field is the brightness */
     int32_t level_pct;       /* 0..100 */
     bool power;              /* the light is on */
@@ -114,7 +123,13 @@ typedef struct {
     bool described;
     uint16_t type;           /* core glyph (description only) */
     bool menu;               /* hold-and-turn: MAO's options are up */
-    int8_t menu_sel;         /* -1 none (centre), 0 CONNECT (turned right), 1 INFO (turned left) */
+    int8_t menu_sel;         /* -1 BACK (centre), 0 opt_right, 1 opt_left */
+    const char *opt_right;   /* e.g. CONNECT (NULL = none) */
+    const char *opt_left;    /* e.g. FORGET (NULL = none) */
+    const char *word;        /* WORD: what a press does (PAIR, CONNECT...; NULL = nothing) */
+    const char *fact;        /* WORD: the state (NEW, OFFLINE, NOT VERIFIED...; NULL = none) */
+    bool known;              /* WORD: part of MAO's setup (else the mark calls: NEW) */
+    bool busy;               /* WORD: something is underway (PAIRING) */
     const char *name;
 } mao_ui_dotpage_t;
 void mao_ui_device_dots(const mao_ui_dotpage_t *m);
