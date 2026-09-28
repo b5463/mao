@@ -1,5 +1,8 @@
 # ODD BUS identity model
 
+> Messages, capabilities, versioning, compatibility and the endpoint
+> checklist: `docs/odd_device_contract.md` (M4.0). This note covers identity.
+
 Four identities exist in the ODD JOBS ecosystem. They are different things,
 solve different problems, and must never be conflated.
 

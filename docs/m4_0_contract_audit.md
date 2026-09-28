@@ -125,3 +125,20 @@ per-capability notification, SET converges (last writer wins).
 * Unknown ACK status or ACTION result: FAILED, numeric value logged (G8, G9).
 * Existing CAMERA 01 / LAMP 01 firmware stays unchanged and proves the legacy
   1.0 path.
+
+## 4. As built (`2f74347`)
+
+| Gap | Fix |
+|---|---|
+| G1, G3 | the view uses only usable capabilities; POWER by type only; an unknown ACTION semantic is not usable |
+| G2 | a semantic that repeats is dropped as a whole (`odd_contract.c`), whatever the order |
+| G4 | `described` counts usable capabilities only |
+| G5 | the codec checks ranges of known types only |
+| G6, G7 | the codec rejects duplicate ids, POWER outside 0..1, ACTION without WRITE |
+| G8, G9 | unknown ACK status / ACTION result: FAILED, value logged; results ≠ 0 decode |
+| G10 | descriptor `[D0][len][major][minor]...` at the front of CAPABILITIES; none = 1.0 |
+| G11 | per-device `compat`; bounded description (5) → INVALID; authenticated malformed CAPABILITIES → INVALID (`odd_bus_set_malformed_handler`) |
+
+One existing ODD selftest rule changed on purpose: "unknown result rejected"
+became "unknown result decodes" (G9). Existing endpoint firmware is
+unchanged and reads as contract 1.0 COMPATIBLE.
