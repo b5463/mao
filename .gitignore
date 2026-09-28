@@ -4,3 +4,7 @@ managed_components/
 sdkconfig
 sdkconfig.old
 *.bin
+
+# host test binaries
+tests/**/*.exe
+tests/**/*.pdb
