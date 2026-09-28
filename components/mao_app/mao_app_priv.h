@@ -117,6 +117,25 @@ void mao_app_dev_refresh(void);
 void mao_app_go_devices(void);
 void mao_app_back_to_device(uint64_t id);   /* reopen a device page (after a missed CONNECT) */
 
+/* Defined in mao_app.c for mao_app_home.c: the view machine and the dial. */
+void mao_app_go_view(mao_view_t view);
+void mao_app_apply_brightness(bool sleepy);
+mao_dial_motion_t mao_app_dial_motion(int32_t detents, int64_t now);
+void mao_app_dial_tick(const mao_dial_motion_t *m);   /* rotary sound, thinned by speed */
+void mao_app_note_list_opened(int64_t now);           /* DEVICES opened: its entry guard starts */
+
+/* HOME (mao_app_home.c): the settings tune, the light used last, fiddling. */
+#include "mao_devices.h"
+void mao_app_on_home(const mao_event_t *ev, int64_t now);
+bool mao_app_home_hint_allowed(void);
+bool mao_app_tune_active(void);
+void mao_app_tune_close(void);
+bool mao_app_tune_idle(int64_t now);                  /* closes a tune left alone; true if it did */
+/* One turn on a light (its page or HOME): turning up a light that is off
+ * switches it on; 1 % a detent slowly, up to 8 % when sweeping. */
+void mao_app_lamp_turn(const mao_device_t *dev, const mao_device_controls_t *ctl, int32_t d,
+                       const mao_dial_motion_t *m);
+
 /* Holding on a device page (M4.1): a long press, or turning while held,
  * brings MAO's options up - BACK in the middle, the right option when turned
  * right, the left one when turned left; letting go chooses. Every device

@@ -22,7 +22,6 @@
 #include "mao_link.h"
 #include "mao_rel.h"
 #include "mao_world.h"
-#include "mao_fiddle.h"
 
 static const char *TAG = "MAO_APP";
 
@@ -413,13 +412,10 @@ static void refresh_device_views(void)
 /* ---------------------------------------------------------------------- */
 
 static int64_t s_view_since_us;   /* when the current view was entered (page idle) */
-static bool home_hint_allowed(void);
 static void on_page_idle(int64_t now);
 static void start_page_idle(void);
-static bool tune_active(void);
-static void tune_close(void);
 
-static void go_view(mao_view_t view)
+void mao_app_go_view(mao_view_t view)
 {
     const mao_app_state_t *st = mao_state();
     if (st->view == view) {
@@ -435,17 +431,17 @@ static void go_view(mao_view_t view)
     mao_devices_set_active(view == MAO_VIEW_DEVICES || view == MAO_VIEW_DEVICE);
     mao_state_set_view(view);
     s_view_since_us = esp_timer_get_time();
-    if (view != MAO_VIEW_HOME && tune_active()) {
-        tune_close();                             /* never left open behind another view */
+    if (view != MAO_VIEW_HOME && mao_app_tune_active()) {
+        mao_app_tune_close();                     /* never left open behind another view */
     }
-    mao_ui_home_hint(view == MAO_VIEW_HOME && home_hint_allowed());
+    mao_ui_home_hint(view == MAO_VIEW_HOME && mao_app_home_hint_allowed());
     if (view == MAO_VIEW_DEVICES || view == MAO_VIEW_DEVICE) {
         refresh_device_views();
     }
     mao_ui_show(view, st->menu_index);
 }
 
-static void apply_brightness(bool sleepy)
+void mao_app_apply_brightness(bool sleepy)
 {
     const uint8_t pref = mao_settings_get()->brightness;
     uint8_t pct = sleepy ? (uint8_t)(pref * SLEEPY_BRIGHTNESS_PCT / 100) : pref;
@@ -460,14 +456,14 @@ static void wake(void)
     if (!mao_state()->awake) {
         mao_state_set_awake(true);
         mao_character_set_sleepy(false);
-        apply_brightness(false);
+        mao_app_apply_brightness(false);
         ESP_LOGI(TAG, "awake");
     }
 }
 
 /* Classify the dial movement, log class changes, and give rotary audio
  * feedback thinned by speed so fast spins never become a buzz. */
-static mao_dial_motion_t dial_motion(int32_t detents, int64_t now)
+mao_dial_motion_t mao_app_dial_motion(int32_t detents, int64_t now)
 {
     if (now - s_last_dial_us > DIAL_SETTLE_US) {
         s_logged_speed = MAO_DIAL_STILL;
@@ -486,7 +482,7 @@ static mao_dial_motion_t dial_motion(int32_t detents, int64_t now)
 
 /* Rotary sound follows speed continuously: softer and sparser as the dial
  * spins faster (mao_audio does the thinning). */
-static void dial_tick(const mao_dial_motion_t *m)
+void mao_app_dial_tick(const mao_dial_motion_t *m)
 {
     float i = m->detents_per_s / TICK_FULL_DPS;
     i = i > 1.0f ? 1.0f : i;
@@ -510,304 +506,6 @@ static void on_intro(const mao_event_t *ev)
     }
 }
 
-static bool home_hint_allowed(void)
-{
-    return mao_settings_get()->devices_opened < MAO_SETTINGS_HINT_UNTIL;
-}
-
-/* HOME's own settings (M4.1): hold and turn - SOUND to the left, SCREEN to
- * the right (one detent each), the middle cancels; letting go on one opens
- * it: turn to set it, live; a press, or a few seconds without input,
- * finishes and saves once. A long press without a turn is still MAO's warm
- * reaction. */
-#define TUNE_STEP        5
-#define TUNE_SCREEN_MIN  10               /* never a black screen */
-#define TUNE_CLOSE_US    (5 * 1000 * 1000)
-
-static struct {
-    bool down, menu;
-    int8_t acc;                           /* -1 SOUND, 0 middle, +1 SCREEN */
-    int8_t adjust;                        /* -1 none, 0 SOUND, 1 SCREEN */
-    int value;
-    int64_t last_us;
-} s_tune = { .adjust = -1 };
-
-static bool tune_active(void)
-{
-    return s_tune.adjust >= 0 || s_tune.menu;
-}
-
-static void tune_close(void)
-{
-    if (s_tune.adjust == 0) {
-        mao_settings_set_volume((uint8_t)s_tune.value);
-        ESP_LOGI(TAG, "sound set to %d%%", s_tune.value);
-    } else if (s_tune.adjust == 1) {
-        mao_settings_set_brightness((uint8_t)s_tune.value);
-        ESP_LOGI(TAG, "screen set to %d%%", s_tune.value);
-    }
-    s_tune = (typeof(s_tune)) { .adjust = -1 };
-    apply_brightness(false);
-    mao_ui_home_tune(MAO_TUNE_OFF, -1, 0);
-}
-
-static void tune_open(int8_t which)
-{
-    s_tune.adjust = which;
-    s_tune.value = which == 0 ? mao_settings_get()->volume : mao_settings_get()->brightness;
-    s_tune.last_us = esp_timer_get_time();
-    ESP_LOGI(TAG, "tune %s (%d%%)", which == 0 ? "sound" : "screen", s_tune.value);
-    mao_ui_home_tune(MAO_TUNE_ADJUST, which, s_tune.value);
-}
-
-/* Returns true when the tune owned the event. */
-static bool on_home_tune(const mao_event_t *ev, int64_t now)
-{
-    if (s_tune.adjust >= 0) {
-        s_tune.last_us = now;
-        switch (ev->type) {
-        case MAO_EVENT_INPUT_CW:
-        case MAO_EVENT_INPUT_CCW: {
-            const int d = ev->type == MAO_EVENT_INPUT_CW ? (int)ev->value : -(int)ev->value;
-            const int lo = s_tune.adjust == 1 ? TUNE_SCREEN_MIN : 0;
-            int v = s_tune.value + d * TUNE_STEP;
-            v = v < lo ? lo : (v > 100 ? 100 : v);
-            if (v != s_tune.value) {
-                s_tune.value = v;
-                if (s_tune.adjust == 0) {
-                    mao_audio_set_volume((uint8_t)v);
-                    mao_audio_tick(160);             /* hear the new level */
-                } else {
-                    mao_display_set_brightness((uint8_t)v);   /* see it */
-                }
-                mao_ui_home_tune(MAO_TUNE_ADJUST, s_tune.adjust, v);
-            }
-            return true;
-        }
-        case MAO_EVENT_INPUT_CLICK:
-        case MAO_EVENT_INPUT_LONG_PRESS:
-            mao_audio_confirm();
-            tune_close();
-            return true;
-        default:
-            return true;                          /* press / release / double: nothing more */
-        }
-    }
-    switch (ev->type) {
-    case MAO_EVENT_INPUT_PRESS:
-        s_tune.down = true;
-        s_tune.menu = false;
-        s_tune.acc = 0;
-        return false;                             /* the eyes still answer the finger */
-    case MAO_EVENT_INPUT_CW:
-    case MAO_EVENT_INPUT_CCW: {
-        if (!s_tune.down) {
-            return false;                         /* a plain turn: the eyes follow */
-        }
-        if (!s_tune.menu) {
-            s_tune.menu = true;
-            mao_character_press(false);
-        }
-        const int8_t a = (int8_t)(s_tune.acc + (ev->type == MAO_EVENT_INPUT_CW ? 1 : -1));
-        const int8_t acc = a > 1 ? 1 : (a < -1 ? -1 : a);
-        if (acc != s_tune.acc || !s_tune.menu) {
-            mao_audio_tick(120);
-        }
-        s_tune.acc = acc;
-        mao_ui_home_tune(MAO_TUNE_CHOOSE, acc < 0 ? 0 : acc > 0 ? 1 : -1, 0);
-        return true;
-    }
-    case MAO_EVENT_INPUT_RELEASE: {
-        const bool menu = s_tune.menu;
-        const int8_t acc = s_tune.acc;
-        s_tune.down = false;
-        s_tune.menu = false;
-        if (!menu) {
-            return false;
-        }
-        mao_character_press(false);
-        if (acc == 0) {
-            mao_ui_home_tune(MAO_TUNE_OFF, -1, 0);   /* the middle: nothing */
-        } else {
-            mao_audio_touch();
-            tune_open(acc < 0 ? 0 : 1);
-        }
-        return true;
-    }
-    default:
-        return false;
-    }
-}
-
-/* One turn on a light - its page, or HOME's plain turn. Turning up a light
- * that is off switches it on. Slow turns are fine, fast ones travel: 1 % a
- * detent when setting it carefully, up to 8 % when sweeping across. */
-static void lamp_turn(const mao_device_t *dev, const mao_device_controls_t *ctl, int32_t d,
-                      const mao_dial_motion_t *m)
-{
-    const mao_device_cap_t *c = &dev->caps[ctl->level_idx];
-    const bool off = ctl->toggle_idx >= 0 && dev->caps[ctl->toggle_idx].value == 0;
-    if (d > 0 && off) {
-        const mao_device_cap_t *tc = &dev->caps[ctl->toggle_idx];
-        mao_devices_set_value(dev->info.id, tc->cap.id, tc->cap.max);
-        return;
-    }
-    if (off) {
-        return;
-    }
-    const int32_t span = c->cap.max - c->cap.min;
-    /* the speed window is 250 ms: one detent in it reads 4 /s */
-    const int32_t pct = m->detents_per_s <= 4.5f ? 1 : m->detents_per_s <= 8.5f ? 2
-                        : m->detents_per_s < 20.0f ? 4 : 8;
-    const int32_t want = span * pct / 100;
-    const int32_t step = want > c->cap.step ? want : (c->cap.step > 0 ? c->cap.step : 1);
-    int32_t v = c->value + d * step;
-    v = v < c->cap.min ? c->cap.min : (v > c->cap.max ? c->cap.max : v);
-    if (v != c->value) {
-        mao_devices_set_value(dev->info.id, c->cap.id, v);
-    }
-}
-
-/* HOME's light (M4.1): the light used last - or, before any was, the first
- * one in the setup - when it is here and answering. */
-static bool home_lamp(mao_device_t *dev, mao_device_controls_t *ctl)
-{
-    mao_world_entry_t devs[MAO_UI_DEVICES_MAX];
-    uint64_t want = mao_settings_get()->last_lamp;
-    for (int pass = 0; pass < 2; pass++) {
-        const int n = mao_world_list(devs);
-        for (int i = 0; i < n; i++) {
-            if ((want && devs[i].id != want) || !devs[i].known) {
-                continue;
-            }
-            mao_world_entry_t w;
-            const int slot = mao_devices_find(devs[i].id);
-            if (mao_devpage(devs[i].id, &w) != MAO_DEVPAGE_CONTROL || slot < 0 || !mao_devices_get(slot, dev)) {
-                continue;
-            }
-            mao_device_controls(dev, ctl);
-            if (dev->described && dev->online && ctl->level_idx >= 0) {
-                return true;
-            }
-        }
-        if (!want) {
-            break;
-        }
-        want = 0;                                 /* the last one is away: any light in the setup */
-    }
-    return false;
-}
-
-/* Fiddling with HOME's light (mao_fiddle.h): the light has already
- * followed the knob; MAO only lets it show. */
-static mao_fiddle_t s_fiddle;
-static uint32_t s_fiddle_told_ms;
-
-static void home_fiddle(uint64_t id, int32_t d, int64_t now)
-{
-    mao_device_t dev;
-    mao_device_controls_t ctl;
-    const int slot = mao_devices_find(id);
-    if (slot < 0 || !mao_devices_get(slot, &dev)) {
-        return;
-    }
-    mao_device_controls(&dev, &ctl);
-    if (ctl.level_idx < 0) {
-        return;
-    }
-    const mao_device_cap_t *c = &dev.caps[ctl.level_idx];
-    const bool off = ctl.toggle_idx >= 0 && dev.caps[ctl.toggle_idx].value == 0;
-    const int8_t edge = off || c->value <= c->cap.min ? -1 : (c->value >= c->cap.max ? 1 : 0);
-    const uint32_t ms = (uint32_t)(now / 1000);
-    static const mao_character_reaction_t kReact[] = {
-        [MAO_FIDDLE_NOTICE] = MAO_CHAR_REACT_FIDDLE_NOTICE,
-        [MAO_FIDDLE_ANNOYED] = MAO_CHAR_REACT_FIDDLE_ANNOYED,
-        [MAO_FIDDLE_FED_UP] = MAO_CHAR_REACT_FIDDLE_FED_UP,
-    };
-    const mao_fiddle_level_t l = mao_fiddle_turn(&s_fiddle, d, edge, ms);
-    if (l != MAO_FIDDLE_NONE) {
-        ESP_LOGI(TAG, "fiddling with '%s': %s (score %d)", dev.info.name,
-                 l == MAO_FIDDLE_NOTICE ? "noticed" : l == MAO_FIDDLE_ANNOYED ? "annoyed" : "fed up",
-                 mao_fiddle_score(&s_fiddle, ms));
-        mao_character_react(kReact[l]);
-        s_fiddle_told_ms = ms;
-    } else if (s_fiddle.level > 0 && s_fiddle.last_event_ms == ms && ms - s_fiddle_told_ms >= 500u) {
-        /* still at it: the mood it is in lasts (at most twice a second) */
-        mao_character_react(MAO_CHAR_REACT_FIDDLE_ONGOING);
-        s_fiddle_told_ms = ms;
-    }
-}
-
-static void home_lamp_show(uint64_t id)
-{
-    mao_device_t dev;
-    mao_device_controls_t ctl;
-    const int slot = mao_devices_find(id);
-    if (slot < 0 || !mao_devices_get(slot, &dev)) {
-        return;
-    }
-    mao_device_controls(&dev, &ctl);
-    if (ctl.level_idx < 0) {
-        return;
-    }
-    const mao_device_cap_t *c = &dev.caps[ctl.level_idx];
-    const int32_t span = c->cap.max - c->cap.min;
-    const int pct = span > 0 ? (int)((c->value - c->cap.min) * 100 / span) : 0;
-    mao_ui_home_lamp(dev.info.name, pct, ctl.toggle_idx < 0 || dev.caps[ctl.toggle_idx].value != 0);
-}
-
-static void on_home(const mao_event_t *ev, int64_t now)
-{
-    mao_ui_home_hint(home_hint_allowed());   /* any input restarts the hint's wait */
-    if (on_home_tune(ev, now)) {
-        return;
-    }
-    switch (ev->type) {
-    case MAO_EVENT_INPUT_CW:
-    case MAO_EVENT_INPUT_CCW: {
-        const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
-        const mao_dial_motion_t m = dial_motion(d, now);
-        mao_device_t dev;
-        mao_device_controls_t ctl;
-        if (home_lamp(&dev, &ctl)) {
-            /* a plain turn is the light: the eyes follow the scale's end */
-            lamp_turn(&dev, &ctl, d, &m);
-            mao_settings_note_last_lamp(dev.info.id);
-            home_lamp_show(dev.info.id);
-            home_fiddle(dev.info.id, d, now);
-        } else {
-            mao_character_dial(d);                /* no light here: the eyes follow */
-        }
-        dial_tick(&m);
-        break;
-    }
-    case MAO_EVENT_INPUT_PRESS:
-        /* Touching MAO: compress + a soft low contact sound. */
-        mao_character_press(true);
-        mao_audio_touch();
-        break;
-    case MAO_EVENT_INPUT_RELEASE:
-        mao_character_press(false);
-        mao_audio_release();
-        break;
-    case MAO_EVENT_INPUT_CLICK:
-        /* M4.1 (D1): one press - MAO makes room and the world arrives. */
-        mao_settings_note_devices_opened();
-        mao_audio_confirm();
-        s_list_opened_us = now;
-        go_view(MAO_VIEW_DEVICES);
-        break;
-    case MAO_EVENT_INPUT_DOUBLE_CLICK:
-        break;   /* no meaning anywhere: every CLICK has already acted */
-    case MAO_EVENT_INPUT_LONG_PRESS:
-        mao_character_react(MAO_CHAR_REACT_WARM);
-        mao_audio_warm();
-        mao_led_pulse(MAO_LED_PULSE_CONFIRM);
-        break;
-    default:
-        break;
-    }
-}
 
 static void on_menu(const mao_event_t *ev, int64_t now)
 {
@@ -816,7 +514,7 @@ static void on_menu(const mao_event_t *ev, int64_t now)
     case MAO_EVENT_INPUT_CW:
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
-        const mao_dial_motion_t m = dial_motion(d, now);
+        const mao_dial_motion_t m = mao_app_dial_motion(d, now);
         const int last = mao_ui_menu_count() - 1;
         int idx = st->menu_index + (int)d;
         if (idx < 0) {
@@ -827,7 +525,7 @@ static void on_menu(const mao_event_t *ev, int64_t now)
         if (idx != st->menu_index) {
             mao_state_set_menu_index(idx);
             mao_ui_menu_select(idx);
-            dial_tick(&m);
+            mao_app_dial_tick(&m);
         } else if (now - s_last_bump_us >= MENU_BUMP_GAP_US) {
             s_last_bump_us = now;
             mao_ui_menu_bump(d > 0 ? 1 : -1);
@@ -838,11 +536,11 @@ static void on_menu(const mao_event_t *ev, int64_t now)
         ESP_LOGI(TAG, "open %s", mao_ui_menu_label(st->menu_index));
         mao_audio_confirm();
         mao_led_pulse(MAO_LED_PULSE_CONFIRM);
-        go_view(mao_ui_menu_id(st->menu_index) == MAO_MENU_ID_DEVICES ? MAO_VIEW_DEVICES : MAO_VIEW_PLACEHOLDER);
+        mao_app_go_view(mao_ui_menu_id(st->menu_index) == MAO_MENU_ID_DEVICES ? MAO_VIEW_DEVICES : MAO_VIEW_PLACEHOLDER);
         break;
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_audio_back();
-        go_view(MAO_VIEW_HOME);
+        mao_app_go_view(MAO_VIEW_HOME);
         mao_character_react(MAO_CHAR_REACT_BACK);
         break;
     default:
@@ -855,11 +553,11 @@ static void on_placeholder(const mao_event_t *ev)
     switch (ev->type) {
     case MAO_EVENT_INPUT_CLICK:
         mao_audio_back();
-        go_view(MAO_VIEW_MENU);
+        mao_app_go_view(MAO_VIEW_MENU);
         break;
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_audio_back();
-        go_view(MAO_VIEW_HOME);
+        mao_app_go_view(MAO_VIEW_HOME);
         mao_character_react(MAO_CHAR_REACT_BACK);
         break;
     default:
@@ -874,7 +572,7 @@ static void on_devices(const mao_event_t *ev, int64_t now)
     case MAO_EVENT_INPUT_CW:
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
-        const mao_dial_motion_t m = dial_motion(d, now);
+        const mao_dial_motion_t m = mao_app_dial_motion(d, now);
         int count = 0;
         list_row_id(0, &count);
         int idx = st->devices_index + (int)d;
@@ -883,7 +581,7 @@ static void on_devices(const mao_event_t *ev, int64_t now)
             mao_state_set_devices_index(idx);
             s_sel_dev = list_row_id(idx, NULL);
             refresh_devices_list();
-            dial_tick(&m);
+            mao_app_dial_tick(&m);
         } else if (now - s_last_bump_us >= MENU_BUMP_GAP_US) {
             s_last_bump_us = now;
             mao_ui_devices_bump(d > 0 ? 1 : -1);
@@ -911,13 +609,13 @@ static void on_devices(const mao_event_t *ev, int64_t now)
             s_cap_streak = 0;
             mao_audio_confirm();
             mao_led_pulse(MAO_LED_PULSE_CONFIRM);
-            go_view(MAO_VIEW_DEVICE);
+            mao_app_go_view(MAO_VIEW_DEVICE);
         }
         break;
     }
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_audio_back();
-        go_view(MAO_VIEW_HOME);
+        mao_app_go_view(MAO_VIEW_HOME);
         break;
     default:
         break;
@@ -985,15 +683,15 @@ static bool on_device_dots(const mao_event_t *ev, int64_t now, const mao_device_
     case MAO_EVENT_INPUT_CW:
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
-        const mao_dial_motion_t m = dial_motion(d, now);
+        const mao_dial_motion_t m = mao_app_dial_motion(d, now);
         if (action) {
             mao_ui_device_turn(d);                   /* turning does nothing here: the iris still answers */
         }
         if (level && dev->described && dev->online) {
-            lamp_turn(dev, ctl, d, &m);
+            mao_app_lamp_turn(dev, ctl, d, &m);
             mao_settings_note_last_lamp(dev->info.id);   /* HOME's turn sets this one */
             refresh_device_panel();
-            dial_tick(&m);
+            mao_app_dial_tick(&m);
         }
         return true;
     }
@@ -1082,7 +780,7 @@ static void on_device(const mao_event_t *ev, int64_t now)
     case MAO_EVENT_INPUT_CW:
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
-        const mao_dial_motion_t m = dial_motion(d, now);
+        const mao_dial_motion_t m = mao_app_dial_motion(d, now);
         if (!ok || !dev.described) {
             break;
         }
@@ -1097,7 +795,7 @@ static void on_device(const mao_event_t *ev, int64_t now)
             if (v != c->value) {
                 mao_devices_set_value(dev.info.id, c->cap.id, v);
                 refresh_device_panel();
-                dial_tick(&m);
+                mao_app_dial_tick(&m);
             }
             break;
         }
@@ -1109,7 +807,7 @@ static void on_device(const mao_event_t *ev, int64_t now)
         if (n > 0 && next != s_dev_focus) {
             s_dev_focus = (int8_t)next;
             refresh_device_panel();
-            dial_tick(&m);
+            mao_app_dial_tick(&m);
         }
         break;
     }
@@ -1188,7 +886,7 @@ static void on_device(const mao_event_t *ev, int64_t now)
         break;
     case MAO_EVENT_INPUT_LONG_PRESS:
         mao_audio_back();
-        go_view(MAO_VIEW_DEVICES);
+        mao_app_go_view(MAO_VIEW_DEVICES);
         break;
     default:
         break;
@@ -1289,12 +987,12 @@ static void on_idle_timeout(void)
     }
     mao_state_note_idle();
     if (st->view != MAO_VIEW_HOME) {
-        go_view(MAO_VIEW_HOME);
+        mao_app_go_view(MAO_VIEW_HOME);
     }
     if (st->awake) {
         mao_state_set_awake(false);
         mao_character_set_sleepy(true);
-        apply_brightness(true);
+        mao_app_apply_brightness(true);
         mao_led_set_state(MAO_LED_STATE_OFF);
         ESP_LOGI(TAG, "sleepy after %d s without input", CONFIG_MAO_SLEEPY_TIMEOUT_S);
     }
@@ -1356,7 +1054,7 @@ static void on_dev_command(int32_t value, int64_t now)
         const uint32_t seconds = (uint32_t)(v % 1000);
         ESP_LOGI(TAG, "dev: dial %.0f detents/s for %" PRIu32 " s", (double)dps, seconds);
         wake();
-        go_view(MAO_VIEW_HOME);
+        mao_app_go_view(MAO_VIEW_HOME);
         mao_character_debug_dial(dps, seconds * 1000);
         mao_system_idle_kick(seconds * 1000 + SLEEPY_TIMEOUT_MS);
     } else if (value >= MAO_DEVCMD_CAMLAYOUT_BASE) {
@@ -1374,7 +1072,7 @@ static void on_dev_command(int32_t value, int64_t now)
         const int r = value - MAO_DEVCMD_REACT_BASE;
         if (r < MAO_CHAR_REACT_COUNT) {
             wake();
-            go_view(MAO_VIEW_HOME);
+            mao_app_go_view(MAO_VIEW_HOME);
             ESP_LOGI(TAG, "dev: react %s", mao_character_reaction_name((mao_character_reaction_t)r));
             mao_character_react((mao_character_reaction_t)r);
         } else {
@@ -1400,17 +1098,17 @@ static void on_dev_command(int32_t value, int64_t now)
     } else if (value >= MAO_DEVCMD_VIEW_BASE) {
         const mao_view_t v = (mao_view_t)(value - MAO_DEVCMD_VIEW_BASE);
         if (v == MAO_VIEW_PLACEHOLDER && mao_state()->view == MAO_VIEW_HOME) {
-            go_view(MAO_VIEW_MENU);
+            mao_app_go_view(MAO_VIEW_MENU);
         }
-        go_view(v);
+        mao_app_go_view(v);
     } else if (value >= MAO_DEVCMD_ANIM_BASE) {
         const mao_character_preview_t p = (mao_character_preview_t)(value - MAO_DEVCMD_ANIM_BASE);
         wake();   /* previews show the awake character */
-        go_view(MAO_VIEW_HOME);
+        mao_app_go_view(MAO_VIEW_HOME);
         mao_character_debug_preview(p);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
     } else if (value == MAO_DEVCMD_REPLAY_BOOT) {
-        go_view(MAO_VIEW_HOME);
+        mao_app_go_view(MAO_VIEW_HOME);
         mao_ui_debug_replay_boot();
     } else if (value == MAO_DEVCMD_SNAP) {
         mao_display_snapshot_dump();
@@ -1422,7 +1120,7 @@ static void on_dev_command(int32_t value, int64_t now)
         const uint32_t seconds = (uint32_t)(value - MAO_DEVCMD_STRESS_BASE);
         ESP_LOGI(TAG, "stress: continuous fast orbit for %" PRIu32 " s", seconds);
         wake();
-        go_view(MAO_VIEW_HOME);
+        mao_app_go_view(MAO_VIEW_HOME);
         mao_character_debug_dial(70.0f, seconds * 1000);
         mao_system_idle_kick(seconds * 1000 + SLEEPY_TIMEOUT_MS);
     }
@@ -1489,7 +1187,7 @@ static void on_event(const mao_event_t *ev, void *ctx)
         }
         switch (mao_state()->view) {
         case MAO_VIEW_INTRO:       on_intro(ev); break;
-        case MAO_VIEW_HOME:        on_home(ev, now); break;
+        case MAO_VIEW_HOME:        mao_app_on_home(ev, now); break;
         case MAO_VIEW_MENU:        on_menu(ev, now); break;
         case MAO_VIEW_PLACEHOLDER: on_placeholder(ev); break;
         case MAO_VIEW_DEVICES:     on_devices(ev, now); break;
@@ -1507,7 +1205,7 @@ static void on_event(const mao_event_t *ev, void *ctx)
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
         if (mao_state()->view == MAO_VIEW_HOME) {
             mao_ui_boot();
-            mao_ui_home_hint(home_hint_allowed());
+            mao_ui_home_hint(mao_app_home_hint_allowed());
         }
         break;
     case MAO_EVENT_IDLE_TIMEOUT:
@@ -1567,8 +1265,7 @@ static void on_page_idle(int64_t now)
         return;                                   /* asleep: nothing else to tidy */
     }
     s_deep_sleep = false;
-    if (s_tune.adjust >= 0 && now - s_tune.last_us >= TUNE_CLOSE_US) {
-        tune_close();                             /* set and left alone: done */
+    if (mao_app_tune_idle(now)) {
         return;
     }
     if (mao_state_idle_ms(now) < PAGE_IDLE_MS || now - s_view_since_us < (int64_t)PAGE_IDLE_MS * 1000 ||
@@ -1583,10 +1280,10 @@ static void on_page_idle(int64_t now)
     if (st->view == MAO_VIEW_DEVICE) {
         ESP_LOGI(TAG, "device page left alone: back to the list");
         mao_app_hold_reset();
-        go_view(MAO_VIEW_DEVICES);
+        mao_app_go_view(MAO_VIEW_DEVICES);
     } else if (st->view == MAO_VIEW_DEVICES) {
         ESP_LOGI(TAG, "list left alone: home");
-        go_view(MAO_VIEW_HOME);
+        mao_app_go_view(MAO_VIEW_HOME);
     }
 }
 
@@ -1741,6 +1438,11 @@ static void on_ui_settle(void)
     }
 }
 
+void mao_app_note_list_opened(int64_t now)
+{
+    s_list_opened_us = now;                       /* the entry guard for the press that opened it */
+}
+
 void mao_app_dev_refresh(void)
 {
     refresh_device_views();
@@ -1749,7 +1451,7 @@ void mao_app_dev_refresh(void)
 void mao_app_go_devices(void)
 {
     mao_audio_back();
-    go_view(MAO_VIEW_DEVICES);
+    mao_app_go_view(MAO_VIEW_DEVICES);
 }
 
 void mao_app_back_to_device(uint64_t id)
@@ -1764,7 +1466,7 @@ void mao_app_back_to_device(uint64_t id)
     s_dev_focus = 0;
     s_page_kind = mao_devpage(id, &w);
     s_dev_opened_us = esp_timer_get_time();
-    go_view(MAO_VIEW_DEVICE);
+    mao_app_go_view(MAO_VIEW_DEVICE);
     refresh_device_panel();
 }
 
@@ -1772,7 +1474,7 @@ void mao_app_go_home(void)
 {
     wake();
     if (mao_state()->view != MAO_VIEW_HOME) {
-        go_view(MAO_VIEW_HOME);
+        mao_app_go_view(MAO_VIEW_HOME);
     }
 }
 

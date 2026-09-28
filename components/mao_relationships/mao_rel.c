@@ -37,10 +37,11 @@ static nvs_handle_t s_nvs;
 static bool s_nvs_ok;
 static bool s_fail_write, s_fail_erase;   /* development: one-shot failure injection */
 
-/* Erase history (M4.1): every relationship erase is recorded - who asked and
- * why - in this namespace's "trace" key (never read as a relationship), and
- * printed at boot. A record that disappears without an entry here was not
- * erased by MAO's own forget. Only ids and tags, never keys. */
+/* Relationship history (M4.1): every erase is recorded - who asked and why -
+ * and so is every pairing (tags starting with "+"), in this namespace's
+ * "trace" key (never read as a relationship), printed at boot with the boot
+ * number. A record that disappears after its last "+" entry with no forget
+ * entry was not erased by MAO's own forget. Only ids and tags, never keys. */
 #define TRACE_KEY  "trace"
 #define TRACE_N    8
 typedef struct {
@@ -67,7 +68,7 @@ static void trace_save(void)
     }
 }
 
-static void trace_erase(int slot, uint64_t id, const char *why)
+static void trace_event(int slot, uint64_t id, const char *why)
 {
     rel_trace_entry_t *t = &s_trace.e[s_trace.next % TRACE_N];
     memset(t, 0, sizeof(*t));
@@ -242,6 +243,9 @@ esp_err_t mao_rel_pair(uint64_t id, const char *name, uint16_t type)
     unlock();
     const long us = (long)(esp_timer_get_time() - t0);
     if (err == ESP_OK && created) {
+        lock();
+        trace_event(mao_rel_table_find(&s_t, id), id, "+known");
+        unlock();
         ESP_LOGI(TAG, "paired: %016" PRIx64 " \"%s\" (%s) in %ld us", id, name, odd_device_type_name(type), us);
         changed();
     } else if (err == ESP_OK) {
@@ -260,7 +264,7 @@ esp_err_t mao_rel_forget(uint64_t id, const char *why)
     const int slot = mao_rel_table_find(&s_t, id);
     const esp_err_t err = mao_rel_table_forget(&s_t, id);
     if (err == ESP_OK) {
-        trace_erase(slot, id, why);
+        trace_event(slot, id, why);
     }
     unlock();
     if (err == ESP_OK) {
@@ -312,6 +316,9 @@ static bool persist_credential(uint64_t id, const char *name, uint16_t type, con
         ESP_LOGW(TAG, "credential for %016" PRIx64 " NOT saved (%s): not paired", id, esp_err_to_name(err));
         return false;
     }
+    lock();
+    trace_event(mao_rel_table_find(&s_t, id), id, created ? "+paired" : "+re-keyed");   /* the history has both sides */
+    unlock();
     mao_link_set_credential(id, mac, key);
     ESP_LOGI(TAG, "%s: %016" PRIx64 " \"%s\" authenticated (key fp %08" PRIx32 ", committed in %ld us)",
              created ? "paired" : "credential replaced", id, name ? name : "", odl_fingerprint(key), us);
@@ -551,10 +558,11 @@ esp_err_t mao_rel_init(void)
         }
         s_trace_ok = true;
         s_trace.boot++;
+        ESP_LOGI(TAG, "boot %u (relationship history: forgets, and pairings marked +)", s_trace.boot);
         for (int i = 0; i < TRACE_N; i++) {
             const rel_trace_entry_t *t = &s_trace.e[(s_trace.next + i) % TRACE_N];
             if (t->id) {
-                ESP_LOGI(TAG, "erase history: boot %u +%" PRIu32 " s: r%d %016" PRIx64 " (%s)", t->boot, t->uptime_s,
+                ESP_LOGI(TAG, "history: boot %u +%" PRIu32 " s: r%d %016" PRIx64 " (%s)", t->boot, t->uptime_s,
                          t->slot, t->id, t->why);
             }
         }
