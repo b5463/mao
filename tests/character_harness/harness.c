@@ -187,6 +187,9 @@ static void frame_hash(void)
     }
     s_frames++;
     if (s_trace) printf("%6u %016llx\n", s_now, (unsigned long long)s_h);
+#ifdef FRAME_HOOK
+    FRAME_HOOK;          /* invariants.c: checks every frame */
+#endif
 }
 
 /* Advance simulated time; timers fire on schedule, a "refresh" hashes the
@@ -280,6 +283,12 @@ static void scenario(const char *name)
     else if (IS("looks")) {
         for (int k = 0; k < mao_character_look_count(); k++) { mao_character_debug_look(k); dial_for(20, 1200); run_ms(1200); }
         mao_character_debug_look(0); run_ms(1000);
+    }
+    else if (IS("gather")) {   /* M4.1: the eyes make room for the interface, and come back */
+        for (int k = 0; k < 3; k++) {
+            mao_character_gather(); run_ms(MAO_CHAR_GATHER_MS + 600);
+            mao_character_return(); run_ms(2500);
+        }
     }
     else if (IS("previews")) {
         for (int k = 0; k < MAO_CHAR_PREVIEW_COUNT - 1; k++) { mao_character_debug_preview((mao_character_preview_t)k); run_ms(3500); }

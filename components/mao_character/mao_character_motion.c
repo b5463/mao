@@ -182,7 +182,9 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
 
     const float gx = v[CH_GAZE_X];
     const float gy = v[CH_GAZE_Y] + MAO_SLEEP_GAZE_DOWN * sleep;
-    const float half = L->eye_gap * 0.5f + v[CH_SPREAD];
+    /* The eyes meet at most, never pass through each other (a gather's
+     * spring used to overshoot the centre and swap them for ~100 ms). */
+    const float half = fmaxf(L->eye_gap * 0.5f + v[CH_SPREAD], 0.0f);
     const float tilt = v[CH_TILT];
     const float follow = orb ? MAO_SCLERA_FOLLOW : 1.0f;
     const float ew = orb ? 0.35f : 1.0f;   /* eyeballs wobble less; their pupils roll instead */
