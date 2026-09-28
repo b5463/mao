@@ -347,7 +347,7 @@ static void field_request(float reach, float strength, float oy, float hole, flo
 #define CAR_NAME_Y   52.0f     /* ... the name secondary, under it */
 #define CAR_STATE_Y  74.0f
 #define NAME_PITCH   2.6f
-#define SHEET_PREVIEW_Y -16.0f /* a question about a device: its preview, here */
+#define SHEET_PREVIEW_Y -24.0f /* a device's preview on its own relationship page, or under a question */
 
 /* A light's preview: its field at its brightness; at full, the size of a
  * camera's preview iris. */
@@ -373,6 +373,39 @@ static void device_mark(float x, float y, float r, uint16_t type, bool online, b
     const float pulse = known ? 1.0f : 1.0f + 0.12f * sinf(t * 2.0f * PI_F / 1.1f);   /* new: it calls */
     mao_dots_glyph(x, y, 2.0f * r * pulse, opa, MAO_GLYPH_DOT, 0);
     mao_dots_glyph(x, y, r * 1.0f, opa, core_glyph(type), 1);
+}
+
+/* A device as itself wherever it appears (M4.1): a light as its small
+ * field, a camera as its small iris, anything else as its mark. Its state
+ * changes how the same thing looks, never what it is:
+ *   PREV_LIVE   as it is;
+ *   PREV_FAINT  away, or not yet trusted: faint and small, the iris closed;
+ *   PREV_CALL   new, nearby: it breathes - it asks to be paired.
+ * scale 0..1 grows it in; pct is a light's brightness (-1 unknown); it sits
+ * on the vertical axis (the field is centred). */
+enum { PREV_LIVE = 0, PREV_FAINT, PREV_CALL };
+#define LIGHT_TYPE 2             /* ODD_DEVICE_LIGHT */
+
+static void device_preview(uint16_t type, int pct, int state, float y, float scale, float opa, float weight,
+                           uint32_t now)
+{
+    if (scale <= 0.0f || opa < 1.0f) {
+        return;
+    }
+    const float t = (float)now / 1000.0f;
+    const float breathe = state == PREV_CALL ? 0.5f + 0.5f * sinf(t * 2.0f * PI_F / 1.6f) : 1.0f;
+    if (type == LIGHT_TYPE) {
+        const float reach = lamp_preview_reach(pct >= 0 ? (float)pct / 100.0f : 0.6f) * scale *
+                            (state == PREV_FAINT ? 0.7f : 1.0f) * (state == PREV_CALL ? 0.86f + 0.14f * breathe : 1.0f);
+        field_request(reach, (state == PREV_FAINT ? 0.35f : 1.0f) * opa / 255.0f, y, 0.0f, weight);
+    } else if (type == CAM_TYPE) {
+        const float a = state == PREV_FAINT ? 0.0f : CAM_PREVIEW_AP * (state == PREV_CALL ? 0.55f + 0.45f * breathe : 1.0f);
+        const float ap[6] = { a, a, a, a, a, a };
+        iris_draw(0.0f, y, CAM_PREVIEW_R * (0.7f + 0.3f * scale), ap, (CAM_PREVIEW_R + 22.0f) * scale,
+                  opa * (state == PREV_FAINT ? 0.45f : 1.0f), now);
+    } else {
+        device_mark(0.0f, y, 20.0f * scale, type, state != PREV_FAINT, state != PREV_CALL, opa, t);
+    }
 }
 
 /* DEVICES as a carousel (M4.1 rework, user review): every device is an
@@ -423,21 +456,10 @@ static void list_layout(uint32_t now)
         /* The centre: which device, and how it is. */
         const bool on = s_list.model.online[shown], known = s_list.model.known[shown];
         const int8_t lv = s_list.model.level[shown];
-        if (lv >= 0 && on && s_list.model.power[shown]) {
-            field_request(lamp_preview_reach((float)lv / 100.0f) * late * change, 1.0f, PREVIEW_Y, 0.0f, p);
-        } else if (s_list.model.type[shown] == CAM_TYPE && on && known) {
-            /* a camera: its iris, small */
-            const float pap[6] = { CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP,
-                                   CAM_PREVIEW_AP };
-            iris_draw(0.0f, PREVIEW_Y, CAM_PREVIEW_R, pap, (CAM_PREVIEW_R + 22.0f) * late * change,
-                      255.0f * late * change, now);
-        } else if (lv >= 0 && on) {
-            /* a light that is off: its mark, dim */
-            device_mark(0.0f, PREVIEW_Y, 18.0f, s_list.model.type[shown], true, true, 110.0f * late * change, t);
-        } else {
-            device_mark(0.0f, PREVIEW_Y, 20.0f * late * (0.5f + 0.5f * change), s_list.model.type[shown], on, known,
-                        255.0f * late * change, t);
-        }
+        /* the device as itself; a light that is off is its faint self */
+        const bool dark = lv >= 0 && on && !s_list.model.power[shown];
+        const int st = !known ? PREV_CALL : (!on || dark) ? PREV_FAINT : PREV_LIVE;
+        device_preview(s_list.model.type[shown], lv, st, PREVIEW_Y, late * change, 255.0f * late * change, p, now);
         const char *nm = s_list.names[shown];
         const int cols = mao_dots_text_cols(nm);
         const float pitch = cols > 1 ? fminf(NAME_PITCH, 170.0f / (float)(cols - 1)) : NAME_PITCH;
@@ -955,17 +977,18 @@ static void word_page(float p, float menu, float t, uint32_t now)
         }
         grow = smooth01((since_gone - 450.0f) / 450.0f);
     }
-    device_mark(s_panel.cdx.x * 0.8f, -22.0f, 22.0f * grow * (1.0f - 0.08f * press), s_dp.m.type, s_dp.m.online,
-                s_dp.m.known, 255.0f * keep * grow * (s_dp.m.online ? 1.0f : 0.8f), t);
+    /* the device as itself: new (it calls), or away / not yet trusted (faint) */
+    const int st = !s_dp.m.known ? PREV_CALL : PREV_FAINT;
+    device_preview(s_dp.m.type, -1, st, SHEET_PREVIEW_Y, grow * (1.0f - 0.08f * press), 255.0f * keep * grow, 1.0f, now);
     if (s_dp.m.busy) {
-        scan_row(12.0f, keep, t);                 /* underway: between the mark and its word */
+        scan_row(28.0f, keep, t);                 /* underway: between the device and its word */
     }
     if (s_dp.m.fact) {
-        fact_text(s_dp.m.fact, s_dp.m.busy ? 38.0f : 26.0f, 160.0f * keep * grow);
+        fact_text(s_dp.m.fact, s_dp.m.busy ? 46.0f : 36.0f, 160.0f * keep * grow);
     }
     if (s_dp.m.word && !s_dp.m.busy) {
         /* nothing to press while something is underway */
-        mao_dots_text_halo(s_dp.m.word, s_panel.cdx.x * 0.8f, 62.0f + s_panel.cdy.x, 3.0f, 2.6f, 255.0f * keep * grow);
+        mao_dots_text_halo(s_dp.m.word, s_panel.cdx.x * 0.8f, 68.0f + s_panel.cdy.x, 3.0f, 2.6f, 255.0f * keep * grow);
     }
 }
 
@@ -1003,8 +1026,8 @@ static void dot_sheet(float a, float t, uint32_t now)
          * preview recedes and dims as FORGET is chosen. */
         if (s_dp.m.kind == MAO_DOTPAGE_WORD) {
             const float k = s_dp.sh.n == 0 ? smooth01(since / 600.0f) : s_dp.sh.focus == 0 ? 0.45f : 0.0f;
-            device_mark(0.0f, SHEET_PREVIEW_Y, 22.0f * (1.0f - 0.3f * k), s_dp.m.type, s_dp.m.online, s_dp.m.known,
-                        255.0f * a * (1.0f - 0.7f * k), t);
+            device_preview(s_dp.m.type, -1, !s_dp.m.known ? PREV_CALL : PREV_FAINT, SHEET_PREVIEW_Y,
+                           1.0f - 0.45f * k, 255.0f * a * (1.0f - 0.7f * k), 2.0f, now);
         }
         if (s_dp.sh.n == 0) {
             fact_text("FORGETTING", 60.0f, 170.0f * a);
