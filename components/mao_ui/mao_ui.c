@@ -15,7 +15,9 @@
 
 #include <math.h>
 #include "esp_check.h"
+#include <inttypes.h>
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "mao_character.h"
 #include "mao_display.h"
 
@@ -117,7 +119,42 @@ void mao_ui_text_place(lv_obj_t *o, float x, float y, float opa, mao_text_cache_
 /* Shared motion tick                                                     */
 /* ---------------------------------------------------------------------- */
 
+
+/* Tick CPU probe (M4.1): how much of the CPU this tick takes - float maths
+ * run in software on the C3. Logged every 10 s while it runs. */
+static struct {
+    int64_t sum_us, max_us, since_us;
+    uint32_t n;
+} s_probe;
+
+static void probe_note(int64_t t0, const char *what)
+{
+    const int64_t now = esp_timer_get_time(), d = now - t0;
+    s_probe.sum_us += d;
+    s_probe.n++;
+    if (d > s_probe.max_us) {
+        s_probe.max_us = d;
+    }
+    if (!s_probe.since_us) {
+        s_probe.since_us = now;
+    } else if (now - s_probe.since_us >= 10 * 1000 * 1000) {
+        ESP_LOGI(TAG, "%s tick: %.1f%% cpu, %" PRIu32 " ticks, avg %.2f ms, max %.2f ms", what,
+                 (double)s_probe.sum_us * 100.0 / (double)(now - s_probe.since_us), s_probe.n,
+                 (double)s_probe.sum_us / 1000.0 / (double)s_probe.n, (double)s_probe.max_us / 1000.0);
+        s_probe = (typeof(s_probe)) { .since_us = now };
+    }
+}
+
+static void tick_body(lv_timer_t *t);
+
 static void tick_cb(lv_timer_t *t)
+{
+    const int64_t t0 = esp_timer_get_time();
+    tick_body(t);
+    probe_note(t0, "ui");
+}
+
+static void tick_body(lv_timer_t *t)
 {
     const uint32_t now = lv_tick_get();
     float dt = (float)(now - s_last_ms) / 1000.0f;

@@ -11,7 +11,9 @@
  */
 #include "mao_character_internal.h"
 
+#include <inttypes.h>
 #include "esp_log.h"
+#include "esp_timer.h"
 
 static const char *TAG = "MAO_CHARACTER";
 
@@ -106,10 +108,44 @@ static void apply(mao_char_t *mc, const cmd_t *c, uint32_t now)
     }
 }
 
+
+/* Tick CPU probe (M4.1): how much of the CPU this tick takes - float maths
+ * run in software on the C3. Logged every 10 s while it runs. */
+static struct {
+    int64_t sum_us, max_us, since_us;
+    uint32_t n;
+} s_probe;
+
+static void probe_note(int64_t t0, const char *what)
+{
+    const int64_t now = esp_timer_get_time(), d = now - t0;
+    s_probe.sum_us += d;
+    s_probe.n++;
+    if (d > s_probe.max_us) {
+        s_probe.max_us = d;
+    }
+    if (!s_probe.since_us) {
+        s_probe.since_us = now;
+    } else if (now - s_probe.since_us >= 10 * 1000 * 1000) {
+        ESP_LOGI(TAG, "%s tick: %.1f%% cpu, %" PRIu32 " ticks, avg %.2f ms, max %.2f ms", what,
+                 (double)s_probe.sum_us * 100.0 / (double)(now - s_probe.since_us), s_probe.n,
+                 (double)s_probe.sum_us / 1000.0 / (double)s_probe.n, (double)s_probe.max_us / 1000.0);
+        s_probe = (typeof(s_probe)) { .since_us = now };
+    }
+}
+
+static void tick_body(mao_char_t *const mc);
+
 static void tick_cb(lv_timer_t *t)
 {
     (void)t;
-    mao_char_t *const mc = &s_c;
+    const int64_t t0 = esp_timer_get_time();
+    tick_body(&s_c);
+    probe_note(t0, "character");
+}
+
+static void tick_body(mao_char_t *const mc)
+{
     const uint32_t now = lv_tick_get();
     float dt = (float)(now - mc->last_tick_ms) / 1000.0f;
     mc->last_tick_ms = now;

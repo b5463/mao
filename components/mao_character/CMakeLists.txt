@@ -5,5 +5,5 @@ idf_component_register(
          "mao_lark_states_life.c" "mao_lark_states_cat.c" "mao_lark_states_more.c" "mao_lark_states_ctrl.c" "mao_life.c"
     INCLUDE_DIRS "include"
     REQUIRES lvgl
-    PRIV_REQUIRES esp_hw_support log mao_audio
+    PRIV_REQUIRES esp_hw_support esp_timer log mao_audio
 )

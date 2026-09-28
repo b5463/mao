@@ -131,6 +131,21 @@ void mao_field_set(float reach, float strength, float oy, uint32_t now_ms)
     if (reach <= 0.0f && !s_f.any) {
         return;                        /* dark and staying dark: nothing to do */
     }
+    /* The cells change only on the field's stepped clock or when its inputs
+     * move: with neither, the last result stands (no 441-cell recompute). */
+    {
+        static float l_reach = -1.0f, l_strength = -1.0f, l_oy = 1e9f;
+        static uint32_t l_step = UINT32_MAX;
+        const uint32_t step = now_ms / STEP_MS;
+        if (step == l_step && fabsf(reach - l_reach) < 0.25f && fabsf(strength - l_strength) < 0.004f &&
+            fabsf(oy - l_oy) < 0.25f) {
+            return;
+        }
+        l_step = step;
+        l_reach = reach;
+        l_strength = strength;
+        l_oy = oy;
+    }
     const int16_t noy = (int16_t)lrintf(oy);
     if (noy != s_f.oy) {
         /* The field moved: everything it covered and will cover is dirty. */

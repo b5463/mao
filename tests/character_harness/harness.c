@@ -36,6 +36,7 @@ static void hb(const void *p, size_t n)
 static uint32_t s_now;
 uint32_t lv_tick_get(void) { return s_now; }
 static uint32_t s_rng = 1;
+int64_t esp_timer_get_time(void) { return (int64_t)s_now * 1000; }
 uint32_t esp_random(void)
 {
     s_rng ^= s_rng << 13;

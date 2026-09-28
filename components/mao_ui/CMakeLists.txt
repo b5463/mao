@@ -3,5 +3,5 @@ idf_component_register(
          "fonts/mao_font_fact.c" "fonts/mao_font_name.c" "fonts/mao_font_word.c"
          "fonts/mao_font_code.c" "fonts/mao_font_numeral.c"
     INCLUDE_DIRS "include"
-    PRIV_REQUIRES mao_display mao_character lvgl odd_field
+    PRIV_REQUIRES mao_display mao_character lvgl odd_field esp_timer
 )
