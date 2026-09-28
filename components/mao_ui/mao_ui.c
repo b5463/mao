@@ -23,7 +23,7 @@ static const char *TAG = "MAO_UI";
 
 #define UI_TICK_MS        33
 #define MENU_ENTER_DELAY  210    /* words appear only once MAO has dropped out of the centre */
-#define HOME_RETURN_DELAY 150    /* MAO rises only once the words have collapsed */
+#define HOME_RETURN_DELAY 320    /* the field collapses to its dot, then the eyes open from it */
 #define DEVICES_ENTER_DELAY 120  /* a new text layer opens once the previous one has cleared */
 
 /* Display order lives here alone; each entry carries its identity, so
@@ -278,6 +278,7 @@ esp_err_t mao_ui_init(mao_view_t initial_view)
     esp_err_t err = mao_character_create(scr);
     mao_overlay_create(scr, initial_view == MAO_VIEW_INTRO);
     mao_devices_ui_create(scr);
+    mao_dots_create(scr);
     mao_focus_create(scr);
     s_shown = initial_view;
     /* Lay out the first frame now (it is rendered before the panel lights). */
@@ -349,13 +350,13 @@ void mao_ui_show(mao_view_t view, int menu_index)
         mao_overlay_menu_show(false, menu_index, 0);
         /* YIELD (M4.1): the eyes step down below the rim and watch; the
          * names arrive from the right a beat later (ATTEND, then arrival). */
+        /* The eyes gather into the centre; the field blooms from that dot. */
         const bool from_home = from == MAO_VIEW_HOME || from == MAO_VIEW_INTRO;
-        mao_character_peek(true);
-        mao_devlist_show(true, from == MAO_VIEW_DEVICE ? 0 : MAO_UI_BEAT_MS, from_home);
+        if (from_home) {
+            mao_character_gather();
+        }
+        mao_devlist_show(true, from_home ? MAO_CHAR_GATHER_MS : 0, from_home);
     } else if (view == MAO_VIEW_DEVICE) {
-        /* Utility has the whole screen: the eyes withdraw fully (a compact
-         * peek on this page collided with the value on 240x240). */
-        mao_character_peek(false);
         mao_devpanel_show(true, DEVICES_ENTER_DELAY);
     } else if (view == MAO_VIEW_MENU) {
         if (from == MAO_VIEW_HOME) {

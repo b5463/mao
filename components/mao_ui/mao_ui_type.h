@@ -35,6 +35,7 @@ LV_FONT_DECLARE(mao_font_numeral);   /* 64 px digits, % - . O N F (LEVEL, ON/OFF
 #define MAO_COL_COBALT       0x3D63FF   /* active / movement / connection */
 #define MAO_COL_YELLOW       0xF2C94C   /* completion / positive */
 #define MAO_COL_RED          0xE5484D   /* actual failure */
+#define MAO_COL_DOT          0xF3A2C4   /* MAO's one colour (the dot field; = the egg look) - pending the user's pick */
 
 /* Opacity levels for text. */
 #define MAO_OPA_PRIMARY      255

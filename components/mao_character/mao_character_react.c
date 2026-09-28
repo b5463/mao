@@ -159,7 +159,16 @@ void mao_char_appear(mao_char_t *mc, int dir, uint32_t now)
 {
     mc->visible = true;
     mc->present = true;
+    mc->gather_hide_at = 0;
     mao_motion_set(&mc->m, CH_OPEN, 1.0f);
+    mao_motion_set(&mc->m, CH_SPREAD, 0.0f);   /* from a gathered point, the eyes open outward */
+    /* Whatever the eyes did while hidden (a rim drop, a shrink), they open
+     * at home. */
+    mc->peek = false;
+    mao_motion_set(&mc->m, CH_AWAY, 0.0f);
+    mao_motion_set(&mc->m, CH_EYE_W, 0.0f);
+    mao_motion_set(&mc->m, CH_EYE_H, 0.0f);
+    mao_motion_set(&mc->m, CH_CLOSE, 0.0f);
     if (dir != 0) {
         /* Arrive displaced towards the first turn, looking that way, then settle. */
         mc->m.ch[CH_FACE_X].x = (float)dir * MAO_APPEAR_OFFSET;
@@ -187,8 +196,34 @@ void mao_char_leave(mao_char_t *mc, uint32_t now)
     mc->away_until = now + 600;
 }
 
+/* The system takes the screen: close to lines, draw together into the
+ * centre, vanish there (the UI's dot takes over). */
+void mao_char_gather(mao_char_t *mc, uint32_t now)
+{
+    if (!mc->visible) {
+        return;
+    }
+    mao_idle_cancel(&mc->idle, &mc->m);
+    mc->present = false;
+    mc->peek = false;
+    mc->leave_drop_at = 0;
+    mao_motion_set(&mc->m, CH_OPEN, 0.0f);
+    mao_motion_set(&mc->m, CH_SPREAD, -mc->m.look.eye_gap * 0.5f);
+    mao_motion_set(&mc->m, CH_ORBIT_R, 0.0f);
+    mao_motion_set(&mc->m, CH_AWAY, 0.0f);
+    mao_motion_set(&mc->m, CH_EXIT_X, 0.0f);
+    mao_motion_set(&mc->m, CH_FACE_X, mc->idle.base_x);
+    mao_motion_set(&mc->m, CH_GAZE_X, 0.0f);
+    mao_motion_set(&mc->m, CH_GAZE_Y, 0.0f);
+    mc->gather_hide_at = now + MAO_CHAR_GATHER_MS;
+}
+
 void mao_char_come_back(mao_char_t *mc, uint32_t now)
 {
+    if (!mc->visible) {
+        mao_char_appear(mc, 0, now);   /* gathered: open again from the centre */
+        return;
+    }
     mc->present = true;
     mc->peek = false;
     mao_motion_profile(&mc->m, CH_AWAY, MAO_P_AWAY);
@@ -263,6 +298,11 @@ void mao_char_set_sleepy(mao_char_t *mc, bool sleepy, uint32_t now)
 
 void mao_char_timed_reactions(mao_char_t *mc, uint32_t now)
 {
+    if (mc->gather_hide_at && !before(now, mc->gather_hide_at)) {
+        mc->gather_hide_at = 0;
+        mc->visible = false;
+        mao_char_draw_hide(&mc->draw);
+    }
     if (mc->wide_until && !before(now, mc->wide_until)) {
         mc->wide_until = 0;
         mao_motion_set(&mc->m, CH_OPEN, 1.0f);

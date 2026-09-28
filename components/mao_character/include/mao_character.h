@@ -104,6 +104,12 @@ void mao_character_set_sleepy(bool sleepy);
 void mao_character_leave(void);
 void mao_character_return(void);
 
+/* The system takes the screen (M4.1): the eyes close to two lines and draw
+ * together into the centre, where the interface's dot field takes over
+ * (~MAO_CHAR_GATHER_MS). return() opens them again from that point. */
+#define MAO_CHAR_GATHER_MS 190
+void mao_character_gather(void);
+
 /* Rim presence (M4.1): the eyes step down below the lower rim, smaller and
  * partly clipped by the circle, still alive - utility has the screen, MAO
  * watches it. Motion damped, no orbiting; the mind keeps running at reduced

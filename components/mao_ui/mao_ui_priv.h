@@ -37,6 +37,28 @@ int mao_ui_text_width(const lv_font_t *font, int32_t track, const char *txt);
  * *applied caches the tracking last set (avoids restyling). */
 int mao_ui_fit(lv_obj_t *label, const lv_font_t *font, int32_t track, float y, int32_t *applied);
 
+/* The dot field (mao_ui_dots.c): build a frame with begin / glyphs... / end. */
+typedef enum {
+    MAO_GLYPH_DOT = 0,
+    MAO_GLYPH_SQUARE,
+    MAO_GLYPH_PLUS,
+    MAO_GLYPH_CROSS,
+    MAO_GLYPH_DASH,
+    MAO_GLYPH_STAR,
+} mao_glyph_t;
+void mao_dots_create(lv_obj_t *scr);
+void mao_dots_begin(void);
+void mao_dots_glyph(float x, float y, float size, float opa, mao_glyph_t kind, uint8_t col);   /* col 1 = cut-out */
+void mao_dots_add(float x, float y, float d, float opa);                                      /* a round dot */
+int mao_dots_text_cols(const char *s);          /* width in matrix columns */
+/* 5x7 dot text centred at (cx, cy); reveal_r >= 0 shows only dots within
+ * that radius of the screen centre (a bloom reaching them). */
+void mao_dots_text(const char *s, float cx, float cy, float pitch, float d, float opa, float reveal_r);
+void mao_dots_field(float radius, float strength, float angle, uint32_t now_ms);   /* turning lattice bloom */
+void mao_dots_ring(float r, int count, float size, float opa, mao_glyph_t kind, float phase, float fraction);
+float mao_dots_noise(int i, int j, uint32_t t);  /* 0..1, deterministic */
+bool mao_dots_end(void);
+
 /* The focus line (mao_ui_focus.c). */
 typedef enum {
     MAO_FOCUS_NORMAL = 0,

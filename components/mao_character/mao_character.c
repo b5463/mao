@@ -85,6 +85,7 @@ static void apply(mao_char_t *mc, const cmd_t *c, uint32_t now)
         break;
     }
     case CMD_PEEK:       mao_char_peek_set(mc, c->flag, now); break;
+    case CMD_GATHER:     mao_char_gather(mc, now); break;
     case CMD_ATTEND: {
         /* Screen target -> gaze within the face. The eyes sit near the rim,
          * so a target above them means looking up. */
@@ -242,6 +243,7 @@ void mao_character_appear(int direction)        { post((cmd_t){ .type = CMD_APPE
 void mao_character_set_sleepy(bool sleepy)      { post((cmd_t){ .type = CMD_SLEEPY, .flag = sleepy }); }
 void mao_character_leave(void)                  { post((cmd_t){ .type = CMD_LEAVE }); }
 void mao_character_return(void)                 { post((cmd_t){ .type = CMD_RETURN }); }
+void mao_character_gather(void)                 { post((cmd_t){ .type = CMD_GATHER }); }
 void mao_character_peek(bool on)                { post((cmd_t){ .type = CMD_PEEK, .flag = on }); }
 
 void mao_character_attend(int x, int y)

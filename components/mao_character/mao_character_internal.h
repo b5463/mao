@@ -21,7 +21,7 @@ typedef enum { PRIO_IDLE = 0, PRIO_SYSTEM, PRIO_DIAL, PRIO_PRESS, PRIO_NAV } pri
 
 typedef enum {
     CMD_DIAL, CMD_PRESS, CMD_REACT, CMD_APPEAR, CMD_SLEEPY, CMD_LEAVE, CMD_RETURN,
-    CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION, CMD_TRANSFER, CMD_MIND, CMD_PEEK, CMD_ATTEND,
+    CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION, CMD_TRANSFER, CMD_MIND, CMD_PEEK, CMD_ATTEND, CMD_GATHER,
 } cmd_type_t;
 
 typedef struct {
@@ -76,6 +76,7 @@ typedef struct {
     uint32_t warm_tint_until;
     uint32_t wide_until;
     uint32_t leave_drop_at;     /* leave: when the drop starts */
+    uint32_t gather_hide_at;    /* gather: when the closed, converged eyes vanish */
     uint32_t away_until;        /* away/transition in progress */
     uint32_t last_input_ms;     /* dial or press, for the curiosity spark */
 
@@ -125,5 +126,6 @@ void mao_char_appear(mao_char_t *mc, int dir, uint32_t now);
 void mao_char_leave(mao_char_t *mc, uint32_t now);
 void mao_char_come_back(mao_char_t *mc, uint32_t now);
 void mao_char_peek_set(mao_char_t *mc, bool on, uint32_t now);
+void mao_char_gather(mao_char_t *mc, uint32_t now);
 void mao_char_set_sleepy(mao_char_t *mc, bool sleepy, uint32_t now);
 void mao_char_timed_reactions(mao_char_t *mc, uint32_t now);

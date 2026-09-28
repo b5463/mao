@@ -46,6 +46,7 @@ typedef struct {
     const char *name[MAO_UI_DEVICES_MAX];
     bool online[MAO_UI_DEVICES_MAX];
     bool known[MAO_UI_DEVICES_MAX];     /* part of MAO's setup (else merely nearby: NEW) */
+    uint16_t type[MAO_UI_DEVICES_MAX];  /* odd_device_type_t: only picks the core glyph (description) */
     uint8_t note[MAO_UI_DEVICES_MAX];   /* 0 none, 1 VERIFY (remembered, not yet secured), 2 NOT VERIFIED,
                                          * 3 INCOMPATIBLE, 4 INVALID (M4.0: trusted, not operable) */
     int selected;

@@ -34,7 +34,10 @@ typedef struct {
  * reflection below, and her flat upper lid resting on the iris.
  * "orb" is the same rig in MAO's monochrome palette. The older solid looks
  * remain for comparison. */
-#define MAO_LOOKS {                                                                                                   { "maomao", 86.0f, 104.0f, 94.0f, -4.0f, 56.0f, 70.0f, 0.40f, 0xF1ECE2, 0x4B55D2, 1.0f, 0.46f, 0x151842 },        { "orb",    86.0f, 104.0f, 94.0f, -4.0f, 34.0f, 42.0f, 0.40f, 0xF1ECE2, 0x0B0B0E, 0.0f, 0.0f,  0 },               { "slit",   18.0f,  41.0f, 56.0f, -5.0f,  0.0f,  0.0f, 1.00f, 0xF1ECE2, 0, 0.0f, 0.0f, 0 },                        { "pill",   18.0f,  26.0f, 52.0f,  0.0f,  0.0f,  0.0f, 1.00f, 0xF1ECE2, 0, 0.0f, 0.0f, 0 },                        { "bead",   22.0f,  22.0f, 58.0f, -3.0f,  0.0f,  0.0f, 1.00f, 0xF1ECE2, 0, 0.0f, 0.0f, 0 },                    }
+/* M4.1 (user references): flat bold egg eyes - two-tone, a simple inner disc
+ * for gaze, no catchlights, no iris ring. Four candidate MAO colours; the
+ * user picks one ("mao look <n>"), the rest go. */
+#define MAO_LOOKS {     { "egg_pink",     80.0f, 92.0f, 88.0f, -2.0f, 40.0f, 46.0f, 0.40f, 0xF3A2C4, 0xFCE4EE, 0.0f, 0.0f, 0 },     { "egg_lavender", 80.0f, 92.0f, 88.0f, -2.0f, 36.0f, 42.0f, 0.40f, 0xC7A6F7, 0x241640, 0.0f, 0.0f, 0 },     { "egg_cobalt",   80.0f, 92.0f, 88.0f, -2.0f, 40.0f, 46.0f, 0.40f, 0x4F6DFF, 0xBFCBFF, 0.0f, 0.0f, 0 },     { "egg_white",    80.0f, 92.0f, 88.0f, -2.0f, 36.0f, 42.0f, 0.40f, 0xF1ECE2, 0x0B0B0E, 0.0f, 0.0f, 0 },                                                                                                                   { "maomao", 86.0f, 104.0f, 94.0f, -4.0f, 56.0f, 70.0f, 0.40f, 0xF1ECE2, 0x4B55D2, 1.0f, 0.46f, 0x151842 },        { "orb",    86.0f, 104.0f, 94.0f, -4.0f, 34.0f, 42.0f, 0.40f, 0xF1ECE2, 0x0B0B0E, 0.0f, 0.0f,  0 },               { "slit",   18.0f,  41.0f, 56.0f, -5.0f,  0.0f,  0.0f, 1.00f, 0xF1ECE2, 0, 0.0f, 0.0f, 0 },                        { "pill",   18.0f,  26.0f, 52.0f,  0.0f,  0.0f,  0.0f, 1.00f, 0xF1ECE2, 0, 0.0f, 0.0f, 0 },                        { "bead",   22.0f,  22.0f, 58.0f, -3.0f,  0.0f,  0.0f, 1.00f, 0xF1ECE2, 0, 0.0f, 0.0f, 0 },                    }
 #define MAO_LOOK_DEFAULT 0
 
 /* Pupil looks (pupil_w > 0). Gaze moves the pupils; the eyeballs follow a
@@ -96,7 +99,7 @@ typedef struct {
 #define MAO_NARROW_MAX       0.55f   /* height loss at full narrow (warm) */
 #define MAO_EYE_MIN_H        4.0f    /* closed eye = thin line ("- -") */
 /* Maomao: resting lids slightly lowered - calm, a little unimpressed. */
-#define MAO_REST_NARROW      0.26f
+#define MAO_REST_NARROW      0.0f    /* M4.1: the neutral eye is a full egg; lids are expressions */
 #define MAO_SQUINT_MAX       0.55f   /* one-eye narrowing (skeptical inspection) */
 #define MAO_PRESS_SQUASH     0.50f   /* held press */
 #define MAO_PRESS_DROP       2.0f    /* px the face sinks while pressed */

@@ -179,6 +179,7 @@ static void refresh_devices_list(void)
     for (int i = 0; i < n && model.count < MAO_UI_DEVICES_MAX; i++) {
         model.name[model.count] = devs[i].name;
         model.online[model.count] = devs[i].online;
+        model.type[model.count] = devs[i].device_type;
         model.known[model.count] = devs[i].known;
         const bool cannot_operate = devs[i].has_cred && devs[i].online &&
                                     (devs[i].compat == ODD_COMPAT_INCOMPATIBLE || devs[i].compat == ODD_COMPAT_INVALID);

@@ -198,56 +198,130 @@ static bool row_recedes(int i)
     return s_list.model.known[i] && !s_list.model.online[i];
 }
 
+/* DEVICES as the puck (M4.1, after the user's references): the eyes have
+ * gathered into the centre; that dot grows into the selected device's core
+ * disc and rings of glyphs bloom out around it, breathing and turning. The
+ * dial turns the rings; changing device collapses the core and blooms the
+ * next one. State is carried by the rings (offline: dim, still, a hollow
+ * core; new: ripples outwards; needs attention: rings left incomplete).
+ * The name sits small under the rings; rim dots say where you are. */
+#define CORE_R          22.0f
+#define NAME_Y          97.0f
+#define STATE_Y         -99.0f
+#define PI_F            3.14159265f
+
+typedef struct {
+    float dr;            /* radius offset from the core's edge */
+    int count;
+    float size;
+    float opa;
+    mao_glyph_t kind;
+    float spin;          /* rad/s, alternating directions */
+} ring_t;
+
+static const ring_t kRings[] = {
+    { 10.0f, 26, 4.0f, 235.0f, MAO_GLYPH_SQUARE,  0.22f },
+    { 18.0f, 96, 2.0f, 150.0f, MAO_GLYPH_DOT,     0.00f },   /* reads as a thin solid line */
+    { 27.0f, 38, 4.0f, 190.0f, MAO_GLYPH_DOT,    -0.16f },
+    { 38.0f, 34, 5.0f, 150.0f, MAO_GLYPH_PLUS,    0.12f },
+    { 50.0f, 44, 4.0f, 105.0f, MAO_GLYPH_DASH,   -0.09f },
+    { 62.0f, 60, 2.0f,  70.0f, MAO_GLYPH_DOT,     0.06f },
+};
+#define RING_COUNT ((int)(sizeof(kRings) / sizeof(kRings[0])))
+
+static mao_glyph_t core_glyph(uint16_t type)
+{
+    switch (type) {
+    case 6: return MAO_GLYPH_PLUS;       /* ODD_DEVICE_CAMERA: an aim */
+    case 2: return MAO_GLYPH_STAR;       /* ODD_DEVICE_LIGHT: a light */
+    default: return MAO_GLYPH_CROSS;
+    }
+}
+
 static void list_layout(uint32_t now)
 {
-    const float p = clampf(s_list.presence.x, 0.0f, 1.0f);
-    const float spread = 0.40f + 0.60f * p;
-    const float enter = (1.0f - p) * 10.0f;
-    const float side = s_list.side.x;
-    const int count = s_list.model.count;
     for (int i = 0; i < MAO_UI_DEVICES_MAX; i++) {
-        float large = 0.0f, small = 0.0f, x = 0.0f, y = 0.0f;
-        if (i < count) {
-            const float d = (float)i - s_list.pos.x;
-            const float ad = fabsf(d);
-            const float sel = 1.0f - smooth01(ad / 0.8f);
-            y = d * LIST_SPACING * spread + enter;
-            /* The arc, plus the lateral entrance: rows further from the
-             * selection trail a little (they are further away). */
-            x = LIST_ARC * (y / LIST_ARC_REF) * (y / LIST_ARC_REF) + side * (1.0f + 0.25f * ad);
-            const float lim = y < 0.0f ? LIST_EDGE_TOP : LIST_EDGE_BOTTOM;
-            const float edge = clampf((lim - fabsf(y)) / LIST_EDGE_FADE, 0.0f, 1.0f);
-            const float row = s_list.model.note[i] ? NEW_SCALE
-                              : !s_list.model.online[i] ? OFFLINE_SCALE
-                              : (s_list.model.known[i] ? 1.0f : NEW_SCALE);
-            large = 255.0f * sel * edge * p * row;
-            small = MAO_OPA_CONTEXT * (1.0f - sel) * edge * p * row;
+        mao_ui_text_place(s_list.large[i], 0.0f, 0.0f, 0.0f, &s_list.cl[i]);   /* labels unused: dots */
+        mao_ui_text_place(s_list.small[i], 0.0f, 0.0f, 0.0f, &s_list.cs[i]);
+    }
+    mao_ui_text_place(s_list.state, 0.0f, 0.0f, 0.0f, &s_list.cst);
+    const float p = clampf(s_list.presence.x, 0.0f, 1.0f);
+    if (p < 0.004f) {
+        return;
+    }
+    const float t = (float)now / 1000.0f;
+    const float grow = smooth01(p / 0.85f);
+    const int count = s_list.model.count;
+    const bool empty = count == 0;
+    /* Which device the puck shows, and how far through a change it is. */
+    const float pos = s_list.pos.x;
+    const int shown = empty ? -1 : (int)clampf(lrintf(pos), 0.0f, (float)(count - 1));
+    const float between = empty ? 0.0f : fabsf(pos - (float)shown);            /* 0 settled .. 0.5 halfway */
+    const float change = 1.0f - smooth01(between * 2.2f);                       /* 1 settled, 0 collapsed */
+    const bool online = !empty && s_list.model.online[shown];
+    const bool fresh = !empty && !s_list.model.known[shown];
+    const bool noted = !empty && s_list.model.note[shown] != 0;
+    const bool offline = !empty && !online && s_list.model.known[shown];
+
+    /* A burst of the turning lattice while the puck opens or closes. */
+    const float surge = sinf(PI_F * clampf(p / 0.95f, 0.0f, 1.0f));
+    mao_dots_field(118.0f * grow, 0.75f * surge * surge, t * 0.35f, now);
+
+    /* The core: the gathered dot, grown. */
+    const float core_r = (3.0f + (CORE_R - 3.0f) * grow) * (0.30f + 0.70f * change);
+    const float beat = 1.0f + 0.04f * sinf(t * 2.0f * PI_F / 1.6f) * (offline ? 0.0f : 1.0f);
+    if (offline) {
+        mao_dots_ring(core_r, 22, 3.0f, 170.0f * grow, MAO_GLYPH_SQUARE, t * 0.1f, 1.0f);   /* hollow */
+    } else {
+        mao_dots_glyph(0.0f, 0.0f, 2.0f * core_r * beat, 255.0f, MAO_GLYPH_DOT, 0);
+        if (!empty && grow > 0.5f) {
+            mao_dots_glyph(0.0f, 0.0f, core_r * 0.95f, 255.0f * smooth01((grow - 0.5f) / 0.5f) * change,
+                           core_glyph(s_list.model.type[shown]), 1);
         }
-        mao_ui_text_place(s_list.large[i], x, y, large, &s_list.cl[i]);
-        mao_ui_text_place(s_list.small[i], x, y, small, &s_list.cs[i]);
-        if (i == s_list.model.selected) {
-            s_list.sel_x = x;
-            s_list.sel_y = y;   /* where the name lives; the page picks it up here */
+    }
+
+    /* The rings: revealed from the inside out, breathing outwards, turning. */
+    const float carry = pos * 0.9f;               /* the dial turns them */
+    const float state_opa = offline ? 0.35f : (noted ? 0.6f : 1.0f);
+    const float fraction = noted ? 0.72f : 1.0f;
+    const float amp = offline ? 0.0f : (fresh ? 5.0f : 2.2f);
+    for (int k = 0; k < RING_COUNT; k++) {
+        const ring_t *rg = &kRings[k];
+        const float base = CORE_R + rg->dr;
+        const float reach = clampf((grow * 120.0f - base) / 18.0f, 0.0f, 1.0f);
+        if (reach <= 0.0f) {
+            continue;
+        }
+        const float ripple = amp * sinf(t * 2.0f * PI_F / (fresh ? 1.1f : 2.4f) - base * 0.07f);
+        const float r = (base + ripple) * (0.55f + 0.45f * change);
+        const float spin = offline ? 0.0f : rg->spin * t;
+        const float dir = (k & 1) ? -1.0f : 1.0f;
+        mao_dots_ring(r, rg->count, rg->size, rg->opa * reach * state_opa * (0.4f + 0.6f * change), rg->kind,
+                      spin + dir * carry, fraction);
+    }
+
+    /* The name, small, under the rings; rim dots for the position. */
+    const float late = smooth01((p - 0.55f) / 0.45f);
+    if (!empty) {
+        const char *nm = s_list.names[shown];
+        const int cols = mao_dots_text_cols(nm);
+        const float pitch = cols > 1 ? fminf(2.2f, 118.0f / (float)(cols - 1)) : 2.2f;
+        mao_dots_text(nm, 0.0f, NAME_Y, pitch, 1.9f, (online || fresh ? 235.0f : 120.0f) * late * change, -1.0f);
+        s_list.sel_x = 0.0f;
+        s_list.sel_y = NAME_Y;       /* the page picks the name up here */
+        if (count > 1) {
+            for (int i = 0; i < count; i++) {
+                const float a = ((float)i - (float)(count - 1) * 0.5f) * 0.10f;
+                const bool is = i == shown;
+                mao_dots_glyph(110.0f * sinf(a), -110.0f * cosf(a), is ? 5.0f : 3.0f, (is ? 255.0f : 90.0f) * late,
+                               is ? MAO_GLYPH_SQUARE : MAO_GLYPH_DOT, 0);
+            }
         }
     }
     const char *st = list_state(now);
     if (st) {
-        set_text(s_list.state, st);
-    }
-    const bool empty = count == 0;
-    const float sy = empty ? 0.0f : s_list.sel_y + LIST_STATE_DY;
-    mao_ui_text_place(s_list.state, empty ? side : s_list.sel_x, sy,
-                      st ? MAO_OPA_SECONDARY * p : 0.0f, &s_list.cst);
-
-    /* MAO watches the selection from the rim (composition, not a pointer). */
-    if (p > 0.3f && s_list.presence.target > 0.5f) {
-        const int16_t ax = (int16_t)lrintf(empty ? 0.0f : s_list.sel_x);
-        const int16_t ay = (int16_t)lrintf(empty ? -20.0f : s_list.sel_y);
-        if (abs(ax - s_list.attend_x) >= 3 || abs(ay - s_list.attend_y) >= 3) {
-            s_list.attend_x = ax;
-            s_list.attend_y = ay;
-            mao_character_attend(ax, ay);
-        }
+        mao_dots_text(st, 0.0f, empty ? NAME_Y : STATE_Y + (count > 1 ? 12.0f : 0.0f), 2.0f, 1.7f,
+                      150.0f * late, -1.0f);
     }
 }
 
@@ -663,7 +737,9 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     mao_spring_step(&s_panel.cdx, dt);
     mao_spring_step(&s_panel.fdy, dt);
     mao_spring_step(&s_panel.sh, dt);
+    mao_dots_begin();
     list_layout(now);
+    mao_dots_end();
     panel_layout();
 
     /* One focus line: the surface with the most presence owns it. */
@@ -674,12 +750,6 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
         const float s = clampf(s_panel.sh.x, 0.0f, 1.0f);
         const bool sheet_words = s > 0.5f && s_panel.sheet.word_count > 0;
         fp = pp * (sheet_words ? s : (1.0f - s)) * (s_panel.no_centre && s_panel.focus == 0 ? 0.0f : 1.0f);
-    } else if (lp > 0.02f && s_list.model.count > 0) {
-        const int i = s_list.model.selected;
-        fx = s_list.sel_x;
-        fy = under(MAO_FONT_LARGE, s_list.sel_y);
-        fw = (float)s_list.width_l[i];
-        fp = lp * (row_recedes(i) ? 0.5f : 1.0f);
     }
     if (fp > 0.02f && fw > 0.0f) {
         mao_focus_target(fx, fy, fw);
@@ -689,7 +759,8 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     /* Keep ticking while the list is visible and empty so NOTHING NEARBY can appear. */
     const bool waiting = s_list.presence.target > 0.5f && s_list.model.count == 0 &&
                          (now - s_list.shown_at_ms) < LOOKING_MS + 100;
-    return waiting || s_list.show_at != 0 || s_panel.show_at != 0 ||
+    const bool field_alive = s_list.presence.x > 0.004f;   /* the field shimmers while it is there */
+    return field_alive || waiting || s_list.show_at != 0 || s_panel.show_at != 0 ||
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
            !mao_spring_settled(&s_list.side, 0.05f) ||
            !mao_spring_settled(&s_panel.presence, 0.002f) || !mao_spring_settled(&s_panel.ty, 0.05f) ||
