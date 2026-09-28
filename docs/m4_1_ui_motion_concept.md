@@ -575,3 +575,22 @@ decision. FORGET is on the left, the way the menu went.
   the end, and the eyes return.
 - A long press without a turn is still MAO's warm reaction.
 - A plain turn still moves the eyes, and a press still opens DEVICES.
+
+**Tests added in M4.1:**
+- `tests/character_harness/invariants.c`: every frame of every scenario
+  and seed must keep these properties (39 runs):
+  - even part sizes
+  - bounds
+  - the eyes keep their sides
+  - presence
+  - the gather contract
+  - one MAO colour
+  - per-scenario motion limits
+
+  They run in `check.sh` before the hash diff. The hash baseline itself
+  waits for approval (s133).
+- `tests/relationships/test_rel_fuzz.c`: model-based fuzz of the
+  relationship table (pair, re-pair, forget, rename, credential drop,
+  reboots, injected failures). After every step, the table, the fake flash
+  and the model must agree, and an erase or write may only touch its own
+  device's slot. Two deliberately broken copies are both caught.

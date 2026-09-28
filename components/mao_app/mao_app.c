@@ -315,6 +315,13 @@ static void refresh_device_panel(void)
 {
     mao_world_entry_t w;
     const mao_devpage_t kind = mao_devpage(mao_state()->device_id, &w);
+    if (kind == MAO_DEVPAGE_NONE && mao_state()->view == MAO_VIEW_DEVICE) {
+        /* The device is gone (a nearby, unpaired one left): nothing to show
+         * - back to the list, rather than an empty or stale page. */
+        ESP_LOGI(TAG, "device page: its device is gone, back to the list");
+        mao_app_go_devices();
+        return;
+    }
     if (kind != s_page_kind) {
         /* PAIR / FORGET / reachability changed the page under the user:
          * focus settles on its first control (CAPTURE, LEVEL or PAIR). */
