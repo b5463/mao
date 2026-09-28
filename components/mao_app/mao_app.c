@@ -31,6 +31,12 @@ static const char *TAG = "MAO_APP";
 #define MENU_BUMP_GAP_US      (250 * 1000)
 #define SLEEPY_FADE_MS        2500        /* the light goes down slowly ... */
 #define WAKE_FADE_MS          150         /* ... and comes back at once */
+/* Deep sleep (M4.1): long after dozing off - a night on the bedside table -
+ * the screen all but goes out; the sleeping eyes stay drawn, and any touch
+ * brings the light back at once (wake). */
+#define DEEP_SLEEP_IDLE_MS    (30u * 60u * 1000u)
+#define DEEP_BRIGHTNESS_PCT   3
+#define DEEP_FADE_MS          8000
 #define TICK_FULL_DPS         60.0f       /* dial speed at which ticks are softest */
 
 /* DEVICE page control focus: 0 = the value (LEVEL), 1 = POWER, 2 = ACTION.
@@ -1398,9 +1404,20 @@ static void on_event(const mao_event_t *ev, void *ctx)
  * or mid-transfer. */
 #define PAGE_IDLE_MS 60000
 
+static bool s_deep_sleep;
+
 static void on_page_idle(int64_t now)
 {
     const mao_app_state_t *st = mao_state();
+    if (!st->awake) {
+        if (!s_deep_sleep && mao_state_idle_ms(now) >= DEEP_SLEEP_IDLE_MS) {
+            s_deep_sleep = true;
+            mao_display_fade_brightness(DEEP_BRIGHTNESS_PCT, DEEP_FADE_MS);
+            ESP_LOGI(TAG, "deep sleep after %u min without input", (unsigned)(DEEP_SLEEP_IDLE_MS / 60000u));
+        }
+        return;                                   /* asleep: nothing else to tidy */
+    }
+    s_deep_sleep = false;
     if (s_tune.adjust >= 0 && now - s_tune.last_us >= TUNE_CLOSE_US) {
         tune_close();                             /* set and left alone: done */
         return;
