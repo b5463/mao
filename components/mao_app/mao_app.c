@@ -22,6 +22,7 @@
 #include "mao_link.h"
 #include "mao_rel.h"
 #include "mao_world.h"
+#include "mao_fiddle.h"
 
 static const char *TAG = "MAO_APP";
 
@@ -697,6 +698,40 @@ static bool home_lamp(mao_device_t *dev, mao_device_controls_t *ctl)
     return false;
 }
 
+/* Fiddling with HOME's light (mao_fiddle.h): the light has already
+ * followed the knob; MAO only lets it show. */
+static mao_fiddle_t s_fiddle;
+
+static void home_fiddle(uint64_t id, int32_t d, int64_t now)
+{
+    mao_device_t dev;
+    mao_device_controls_t ctl;
+    const int slot = mao_devices_find(id);
+    if (slot < 0 || !mao_devices_get(slot, &dev)) {
+        return;
+    }
+    mao_device_controls(&dev, &ctl);
+    if (ctl.level_idx < 0) {
+        return;
+    }
+    const mao_device_cap_t *c = &dev.caps[ctl.level_idx];
+    const bool off = ctl.toggle_idx >= 0 && dev.caps[ctl.toggle_idx].value == 0;
+    const int8_t edge = off || c->value <= c->cap.min ? -1 : (c->value >= c->cap.max ? 1 : 0);
+    const uint32_t ms = (uint32_t)(now / 1000);
+    static const mao_character_reaction_t kReact[] = {
+        [MAO_FIDDLE_NOTICE] = MAO_CHAR_REACT_FIDDLE_NOTICE,
+        [MAO_FIDDLE_ANNOYED] = MAO_CHAR_REACT_FIDDLE_ANNOYED,
+        [MAO_FIDDLE_FED_UP] = MAO_CHAR_REACT_FIDDLE_FED_UP,
+    };
+    const mao_fiddle_level_t l = mao_fiddle_turn(&s_fiddle, d, edge, ms);
+    if (l != MAO_FIDDLE_NONE) {
+        ESP_LOGI(TAG, "fiddling with '%s': %s (score %d)", dev.info.name,
+                 l == MAO_FIDDLE_NOTICE ? "noticed" : l == MAO_FIDDLE_ANNOYED ? "annoyed" : "fed up",
+                 mao_fiddle_score(&s_fiddle, ms));
+        mao_character_react(kReact[l]);
+    }
+}
+
 static void home_lamp_show(uint64_t id)
 {
     mao_device_t dev;
@@ -729,10 +764,11 @@ static void on_home(const mao_event_t *ev, int64_t now)
         mao_device_t dev;
         mao_device_controls_t ctl;
         if (home_lamp(&dev, &ctl)) {
-            /* a plain turn is the light: the eyes stay, the rim answers */
+            /* a plain turn is the light: the eyes follow the scale's end */
             lamp_turn(&dev, &ctl, d, &m);
             mao_settings_note_last_lamp(dev.info.id);
             home_lamp_show(dev.info.id);
+            home_fiddle(dev.info.id, d, now);
         } else {
             mao_character_dial(d);                /* no light here: the eyes follow */
         }

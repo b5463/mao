@@ -320,6 +320,11 @@ static void scenario(const char *name)
             }
             if (pass == 2) {
                 mao_character_debug_expression(34);                  /* a mood plays while it looks */
+                mao_character_react(MAO_CHAR_REACT_FIDDLE_NOTICE);   /* and its fiddling reactions */
+                run_ms(300);
+                mao_character_react(MAO_CHAR_REACT_FIDDLE_ANNOYED);
+                run_ms(300);
+                mao_character_react(MAO_CHAR_REACT_FIDDLE_FED_UP);
                 for (int k = 0; k < 40; k++) {
                     mao_character_look(k & 1 ? 80 : -80, -60, true);
                     run_ms(60);

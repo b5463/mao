@@ -58,6 +58,11 @@ typedef enum {
     MAO_CHAR_REACT_DEVICE_OFF,   /* a device went away */
     MAO_CHAR_REACT_UNSURE,       /* outcome unknowable: brief analytical uncertainty, no verdict */
     MAO_CHAR_REACT_IDLE,         /* end a held feedback (busy) with no result */
+    /* Fiddling with HOME's light (mao_fiddle.h): the light still follows
+     * every detent; MAO only lets it show. */
+    MAO_CHAR_REACT_FIDDLE_NOTICE,  /* "what are you doing": a suspicious look */
+    MAO_CHAR_REACT_FIDDLE_ANNOYED, /* tsk */
+    MAO_CHAR_REACT_FIDDLE_FED_UP,  /* mad */
     MAO_CHAR_REACT_COUNT,
 } mao_character_reaction_t;
 

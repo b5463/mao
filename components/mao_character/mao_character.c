@@ -386,7 +386,7 @@ const char *mao_character_reaction_name(mao_character_reaction_t r)
 {
     static const char *const kNames[MAO_CHAR_REACT_COUNT] = {
         "notice", "attend", "warm", "wake", "ack", "busy", "done", "fail", "back", "device_on", "device_off",
-        "unsure", "idle",
+        "unsure", "idle", "fiddle_notice", "fiddle_annoyed", "fiddle_fed_up",
     };
     return r < MAO_CHAR_REACT_COUNT ? kNames[r] : "?";
 }

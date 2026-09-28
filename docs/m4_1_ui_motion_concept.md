@@ -587,6 +587,22 @@ decision. FORGET is on the left, the way the menu went.
   the light's name sits. The eyes stay where they are, so nothing covers the
   arc. It leaves about 1.6 s after the last turn.
 - With no light in the setup, a plain turn moves the eyes as before.
+- The eyes look towards the lit end of the arc. They are held inside a
+  92 px circle while they do, so no part of them reaches the scale
+  (`mao_character_look`, harness invariant I10).
+- **Fiddling** (`mao_fiddle.c`): MAO notices when the light is being messed
+  with rather than set.
+  - Scoring: a flick back within 450 ms of the last turn scores 1, and
+    arriving at an end of the range scores 2. The score is summed over 5 s.
+  - At 8 MAO gives a suspicious look, at 14 a tsk, and at 22 it is mad.
+    "Mad" repeats every 8 s if it goes on.
+  - 4 s without scoring ends the bout.
+  - The light still follows every detent. MAO only lets it show, and the mind's
+    irritation stays untouched.
+  - Setting a light carefully never triggers it: overshoots and corrections,
+    fine-tuning for several seconds, or a full sweep to see the range
+    (`tests/fiddle`, 17 checks). Bench: careful setting stayed quiet, and
+    slamming end to end escalated to mad in about 1.2 s.
 
 **A dimmed MAO wakes first (2026-09-29):**
 - While MAO is dimmed (sleepy or deep sleep), the first touch only wakes it.

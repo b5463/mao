@@ -24,6 +24,8 @@ void mao_char_feedback(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
         [MAO_CHAR_REACT_DEVICE_ON] = "device_on", [MAO_CHAR_REACT_DEVICE_OFF] = "device_off",
         [MAO_CHAR_REACT_UNSURE] = "neutral",   /* unreachable: handled above */
         [MAO_CHAR_REACT_IDLE] = "neutral",
+        [MAO_CHAR_REACT_FIDDLE_NOTICE] = "suspicious", [MAO_CHAR_REACT_FIDDLE_ANNOYED] = "tsk",
+        [MAO_CHAR_REACT_FIDDLE_FED_UP] = "mad",
     };
     mao_char_wake(mc, now);
     mc->fb_play_at = 0;
@@ -102,7 +104,7 @@ void mao_char_attention_update(mao_char_t *mc, uint32_t now)
     }
     const bool looking = mc->look_on && !mc->peek && mc->transfer.phase == MAO_TR_NONE;
     if (looking) {
-        gain *= 0.25f;
+        gain *= feedback ? 1.0f : 0.25f;          /* its own reaction to the fiddling plays in full */
         mao_motion_set(&mc->m, CH_GAZE_X, mc->look_gx);
         mao_motion_set(&mc->m, CH_GAZE_Y, mc->look_gy);
     }
