@@ -120,7 +120,8 @@ static struct {
     mao_ui_dotpage_t m;
     char name[20];
     mao_spring_t reach;            /* the field follows the brightness */
-    mao_spring_t hole;             /* the camera's aperture, px */
+    mao_spring_t hole;             /* (kept for the page's flinch) */
+    mao_spring_t blade[6];         /* the camera's blades, each on its own spring: the iris closes as a ripple */
     uint8_t shots;                 /* frames taken on this visit (the filmstrip) */
     mao_spring_t optsel;           /* 0 the instrument .. 1 the hold-and-turn options are up */
     uint32_t level_until;          /* the brightness number shows until then */
@@ -232,40 +233,107 @@ static mao_glyph_t core_glyph(uint16_t type)
     }
 }
 
-/* The camera (M4.1): its own instrument - an iris. Six blade edges drawn
- * as dotted lines tangent to the aperture, inside a ring; they turn as the
- * aperture opens and closes, as a lens iris does. Taken frames collect as a
- * filmstrip on the lower rim. */
+/* The camera (M4.1): its own instrument - an iris, drawn in dots, animated
+ * by the lamp's rules rather than its material:
+ *   - things arrive staggered: each blade answers on its own spring, and the
+ *     iris grows in through a ragged, soft front, as the field does;
+ *   - weight falls with distance: blade marks are heavy at the aperture and
+ *     thin out towards the rim;
+ *   - depth is a few ink tiers, not outlines;
+ *   - at rest it shimmers quietly on a stepped clock - a few marks at a time,
+ *     so only those few are redrawn;
+ *   - soft springs, no cartoon bounce.
+ * Taken frames collect as a filmstrip on the lower rim. */
 #define CAM_TYPE        6        /* ODD_DEVICE_CAMERA */
-#define CAM_R           104.0f   /* the iris on the page */
-#define CAM_AP          34.0f    /* the aperture at rest */
-#define CAM_AP_PRESS    24.0f    /* the finger is on it */
+#define CAM_R           80.0f    /* the iris ring on the page */
+#define CAM_AP          30.0f    /* the aperture at rest */
+#define CAM_AP_PRESS    21.0f    /* the finger is on it */
 #define CAM_AP_SHUT     0.0f     /* the frame is being taken */
-#define CAM_PREVIEW_R   44.0f    /* the carousel's small iris */
-#define CAM_PREVIEW_AP  13.0f
+#define CAM_PREVIEW_R   30.0f    /* the carousel's small iris: the same size as a light's preview */
 #define CAM_STRIP_R     103.0f   /* the filmstrip's arc */
-#define CAM_STRIP_MAX   11
+#define CAM_STRIP_GAP   0.115f   /* rad between frames */
+#define CAM_STRIP_REACH 2.42f    /* rad from the bottom up each side: to just below the name */
+#define CAM_STEP_MS     65       /* the field's stepped clock */
+#define CAM_ROLL_MS     1300     /* a mark's hold: few change per step */
+
+static uint32_t cam_hash(uint32_t a, uint32_t b)
+{
+    uint32_t h = (a * 374761393u) ^ (b * 668265263u);
+    h = (h ^ (h >> 13)) * 1274126177u;
+    return h ^ (h >> 16);
+}
+
+/* The four ink tiers as opacity: lead, colour, dim, faint. */
+static const float kCamInk[4] = { 255.0f, 200.0f, 130.0f, 70.0f };
+
+/* The iris at (x, y): ring radius r, per-blade apertures ap[6] (0 = shut:
+ * the blades meet in a star), `front` the growing front's radius (the iris
+ * arrives through it), opacity opa. */
+static void iris_draw(float x, float y, float r, const float ap[6], float front, float opa, uint32_t now)
+{
+    if (opa < 4.0f || r < 2.0f || front <= 0.0f) {
+        return;
+    }
+    now -= now % CAM_STEP_MS;
+    const bool big = r > 40.0f;
+    const float step = big ? 5.0f : 3.4f;
+    for (int k = 0; k < 6; k++) {
+        const float apk = clampf(ap[k], 0.0f, r * 0.8f);
+        const float a = 0.5236f - 0.9f * (apk / r) + (float)k * 1.0472f;   /* the blades turn as it opens */
+        const float vx = apk * cosf(a), vy = apk * sinf(a);                   /* the aperture's corner */
+        const float dx = -sinf(a), dy = cosf(a);                               /* the blade's edge */
+        const float len = sqrtf(fmaxf(r * r - apk * apk, 0.0f));
+        int i = 0;
+        for (float t = 0.0f; t < len - 2.0f; t += step, i++) {
+            const float px = vx + dx * t, py = vy + dy * t;
+            const float w = t / len;                                          /* 0 at the aperture .. 1 at the rim */
+            const uint32_t here = cam_hash((uint32_t)(k * 131 + i), 17u);
+            const float jit = (float)(here % 1024u) / 1024.0f;
+            const float kf = (front - (sqrtf(px * px + py * py) + jit * 18.0f)) / 14.0f;
+            if (kf <= 0.0f) {
+                continue;                                                     /* not yet reached by the front */
+            }
+            if ((here >> 10) % 100u < (uint32_t)(3.0f + 30.0f * w * w)) {
+                continue;                                                     /* sparser towards the rim */
+            }
+            const uint32_t phase = (here >> 3) % CAM_ROLL_MS;
+            const uint32_t gen = (now + phase) / CAM_ROLL_MS;
+            const uint32_t h = cam_hash(here, gen);
+            const uint32_t ci = h % 100u;
+            const int ink = w < 0.3f ? (ci < 60 ? 0 : ci < 85 ? 1 : 2)
+                          : w < 0.65f ? (ci < 35 ? 0 : ci < 65 ? 1 : ci < 90 ? 2 : 3)
+                                      : (ci < 32 ? 1 : ci < 72 ? 2 : 3);
+            const float size = (big ? 3.4f : 2.4f) - (big ? 1.2f : 0.6f) * w;
+            const mao_glyph_t gl = w < 0.22f ? MAO_GLYPH_SQUARE : MAO_GLYPH_DOT;
+            mao_dots_glyph(x + px, y + py, size, opa * kCamInk[ink] / 255.0f * fminf(kf, 1.0f), gl, 0);
+        }
+    }
+    /* the ring: faint, a little broken, arriving last */
+    const int ring = big ? 56 : 22;
+    for (int i = 0; i < ring; i++) {
+        const uint32_t here = cam_hash((uint32_t)i, 911u);
+        const float kf = (front - (r + (float)(here % 1024u) / 1024.0f * 18.0f)) / 14.0f;
+        if (kf <= 0.0f || (here >> 10) % 100u < 14u) {
+            continue;
+        }
+        const uint32_t gen = (now + (here >> 3) % CAM_ROLL_MS) / CAM_ROLL_MS;
+        const int ink = cam_hash(here, gen) % 100u < 55 ? 2 : 3;
+        const float an = (float)i * 6.2832f / (float)ring;
+        mao_dots_glyph(x + r * cosf(an), y + r * sinf(an), big ? 2.6f : 2.0f, opa * kCamInk[ink] / 255.0f * fminf(kf, 1.0f),
+                       MAO_GLYPH_DOT, 0);
+    }
+}
 
 /* The field is shared by the carousel's lamp preview and the lamp page: each
  * scene asks for it, the tick grants the one with more presence. */
 static struct {
     float reach, strength, oy, hole, weight;
-    bool iris;
-    float ap, flash;
 } s_fq;
 
 static void field_request(float reach, float strength, float oy, float hole, float weight)
 {
     if (weight > s_fq.weight) {
-        s_fq = (typeof(s_fq)) { reach, strength, oy, hole, weight, false, 0.0f, 0.0f };
-    }
-}
-
-/* The camera's iris, in the field's material (mao_field_iris). */
-static void field_request_iris(float r, float ap, float flash, float strength, float oy, float weight)
-{
-    if (weight > s_fq.weight) {
-        s_fq = (typeof(s_fq)) { r, strength, oy, 0.0f, weight, true, ap, flash };
+        s_fq = (typeof(s_fq)) { reach, strength, oy, hole, weight };
     }
 }
 
@@ -344,10 +412,12 @@ static void list_layout(uint32_t now)
         const bool on = s_list.model.online[shown], known = s_list.model.known[shown];
         const int8_t lv = s_list.model.level[shown];
         if (lv >= 0 && on && s_list.model.power[shown]) {
-            field_request((30.0f + 34.0f * (float)lv / 100.0f) * late * change, 1.0f, PREVIEW_Y, 0.0f, p);
+            field_request((18.0f + 26.0f * (float)lv / 100.0f) * late * change, 1.0f, PREVIEW_Y, 0.0f, p);   /* at full: the iris's size */
         } else if (s_list.model.type[shown] == CAM_TYPE && on && known) {
             /* a camera: its iris, small */
-            field_request_iris(CAM_PREVIEW_R * late * change, CAM_PREVIEW_AP * late, 0.0f, 1.0f, PREVIEW_Y, p);
+            const float pap[6] = { 11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f };
+            iris_draw(0.0f, PREVIEW_Y, CAM_PREVIEW_R, pap, (CAM_PREVIEW_R + 20.0f) * late * change,
+                      255.0f * late * change, now);
         } else if (lv >= 0 && on) {
             /* a light that is off: its mark, dim */
             device_mark(0.0f, PREVIEW_Y, 10.0f, s_list.model.type[shown], true, true, 90.0f * late * change, t);
@@ -640,7 +710,9 @@ void mao_ui_device_feedback(mao_ui_fb_t fb)
         s_panel.cdy.v -= 70.0f;                 /* released tension: a tiny overshoot */
         mao_focus_mode(MAO_FOCUS_NORMAL);       /* the line lands back ... */
         mao_focus_event(MAO_COL_YELLOW, 300);   /* ... in yellow, once */
-        s_dp.hole.v += 420.0f;                  /* the iris snaps open past its rest ... */
+        for (int k = 0; k < 6; k++) {
+            s_dp.blade[k].v += 150.0f + 12.0f * (float)k;   /* the iris opens a little past its rest ... */
+        }
         s_dp.shot_at = lv_tick_get();           /* ... after the exposure flash */
         if (s_dp.m.on && s_dp.m.kind == MAO_DOTPAGE_CONTROL && !s_dp.m.level && s_dp.shots < 99) {
             s_dp.shots++;                       /* a frame joins the filmstrip */
@@ -987,7 +1059,7 @@ static void dotpage_layout(uint32_t now)
     const int cols = mao_dots_text_cols(s_dp.name);
     const float npitch = cols > 1 ? fminf(2.4f, 124.0f / (float)(cols - 1)) : 2.4f;
     const float nopa = (s_dp.m.online ? 170.0f : 100.0f) * p * (1.0f - menu);
-    if ((s_dp.m.level && s_dp.reach.x > 60.0f) || (s_dp.m.kind == MAO_DOTPAGE_CONTROL && !s_dp.m.level)) {
+    if (s_dp.m.level && s_dp.reach.x > 60.0f) {
         mao_dots_text_halo(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, nopa);   /* over the field */
     } else {
         mao_dots_text(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, nopa, -1.0f);
@@ -1010,37 +1082,54 @@ static void dotpage_layout(uint32_t now)
             mao_dots_text_halo(num, 0.0f, 0.0f, 6.0f, 5.0f, 255.0f * p * fade * (1.0f - menu));
         }
     } else {
-        /* An action device (the camera): the iris, in the field's own marks.
-         * The finger narrows it; the frame being taken shuts it; a frame
-         * taken lights the whole lens for an instant and snaps it open past
-         * its rest; failure makes it flinch. Its number, large in the
-         * opening, says which frame that was. */
+        /* An action device (the camera): the iris. The finger narrows it;
+         * the frame being taken shuts it (the blades meet in a star); a
+         * frame taken flashes the opening and the blades open a little past
+         * rest, one after another; failure makes it flinch. Its number, large
+         * in the opening, says which frame that was. */
         const bool pending = s_panel.cdy.target > 1.0f && s_panel.cdy.target < 2.0f;
         const bool pressed = s_panel.cdy.target > 2.5f;
-        s_dp.hole.target = pending ? CAM_AP_SHUT : pressed ? CAM_AP_PRESS : CAM_AP;
+        const float apt = !s_dp.m.online ? 0.0f : pending ? CAM_AP_SHUT : pressed ? CAM_AP_PRESS : CAM_AP;
+        for (int k = 0; k < 6; k++) {
+            s_dp.blade[k].target = apt;
+        }
         const float arrive = smooth01(p0);
+        const float under = smooth01(p / fmaxf(p0, 0.001f));
         const float cy = oy;
         const float jit = s_panel.cdx.x * 0.5f;                    /* failure: a flinch */
         const float r = CAM_PREVIEW_R + (CAM_R - CAM_PREVIEW_R) * arrive;
-        const float ap = s_dp.m.online ? fmaxf(0.0f, CAM_PREVIEW_AP + (s_dp.hole.x - CAM_PREVIEW_AP) * arrive +
-                                                   fabsf(jit) * 0.3f)
-                                       : 0.0f;
+        float ap[6];
+        for (int k = 0; k < 6; k++) {
+            ap[k] = fmaxf(0.0f, 11.0f + (s_dp.blade[k].x - 11.0f) * arrive + fabsf(jit) * 0.2f);
+        }
+        const bool blocked = s_dp.m.fact != NULL;                  /* e.g. FULL: it cannot take a frame */
+        iris_draw(jit, cy, r, ap, (r + 22.0f) * smooth01(p0 / 0.85f) * under,
+                  (s_dp.m.online ? (blocked ? 120.0f : 255.0f) : 110.0f) * p0 * (1.0f - 0.8f * menu), now);
         const float since = s_dp.shot_at ? (float)(now - s_dp.shot_at) : 1e9f;
-        const float flash = since < 240.0f ? 1.0f - since / 240.0f : 0.0f;
-        field_request_iris(r * smooth01(p0 / 0.9f), ap, flash,
-                           (s_dp.m.online ? 1.0f : 0.4f) * (1.0f - sh) * (1.0f - 0.9f * menu), cy, p0 + 0.01f);
-        if (since >= 240.0f && since < 1500.0f && s_dp.shots > 0 && s_dp.m.online) {
+        if (since < 200.0f) {
+            /* the exposure: the opening is light for an instant */
+            const float k = since / 200.0f;
+            mao_dots_glyph(jit, cy, 2.0f * fmaxf(ap[0], 10.0f) + 6.0f, 255.0f * p * (1.0f - k * k), MAO_GLYPH_DOT, 0);
+        } else if (since < 1500.0f && s_dp.shots > 0 && s_dp.m.online) {
             char num[4];
             snprintf(num, sizeof(num), "%u", (unsigned)s_dp.shots);
             const float f = clampf((1500.0f - since) / 300.0f, 0.0f, 1.0f);
-            mao_dots_text_halo(num, 0.0f, cy, 5.0f, 4.4f, 255.0f * p * f * (1.0f - menu));
+            const float pitch = s_dp.shots > 9 ? 3.2f : 4.2f;
+            mao_dots_text(num, jit, cy, pitch, pitch * 0.9f, 255.0f * p * f * (1.0f - menu), -1.0f);
         }
-        /* The filmstrip: this visit's frames along the lower rim, the newest
-         * dropping from the aperture into its place. */
-        const int n = s_dp.shots < CAM_STRIP_MAX ? s_dp.shots : CAM_STRIP_MAX;
+        /* The filmstrip: this visit's frames around the rim, the newest
+         * dropping from the aperture into its place. Fixed slots - the first
+         * at the bottom, then right, left, right... up both sides to the name -
+         * so a frame never moves once it has landed; only when the strip is
+         * full do all of them close up, and none is ever dropped. */
+        const int n = s_dp.shots;
         const float land = s_dp.shot_at ? clampf((float)(now - s_dp.shot_at - 120) / 380.0f, 0.0f, 1.0f) : 1.0f;
+        const int ranks = n / 2;                                     /* slots per side beyond the bottom one */
+        const float gap = ranks > 0 ? fminf(CAM_STRIP_GAP, CAM_STRIP_REACH / (float)ranks) : CAM_STRIP_GAP;
         for (int i = 0; i < n; i++) {
-            const float a = PI_F * 0.5f + ((float)i - (float)(n - 1) * 0.5f) * 0.115f;   /* centred at the bottom */
+            const int rank = (i + 1) / 2;
+            const float side = i == 0 ? 0.0f : (i & 1) ? -1.0f : 1.0f;   /* right first (a falls towards the right) */
+            const float a = PI_F * 0.5f + side * (float)rank * gap;
             float x = CAM_STRIP_R * cosf(a), y = CAM_STRIP_R * sinf(a);
             float sz = 6.0f;
             if (i == n - 1 && land < 1.0f) {
@@ -1053,6 +1142,8 @@ static void dotpage_layout(uint32_t now)
         }
         if (!s_dp.m.online) {
             mao_dots_text_halo("OFFLINE", 0.0f, 0.0f, 2.6f, 2.1f, 170.0f * p);
+        } else if (blocked) {
+            mao_dots_text_halo(s_dp.m.fact, 0.0f, cy, 2.6f, 2.2f, 235.0f * p * (1.0f - menu));
         } else if (s_dp.word && now - s_dp.word_at < 1400) {
             const float f = clampf((float)(1400 - (now - s_dp.word_at)) / 300.0f, 0.0f, 1.0f);
             mao_dots_text_halo(s_dp.word, 0.0f, cy, 2.2f, 1.9f, 230.0f * p * f * (1.0f - menu));
@@ -1122,16 +1213,17 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     mao_spring_step(&s_panel.sh, dt);
     mao_spring_step(&s_dp.reach, dt);
     mao_spring_step(&s_dp.hole, dt);
+    for (int k = 0; k < 6; k++) {
+        mao_spring_step(&s_dp.blade[k], dt);
+    }
     mao_spring_step(&s_dp.optsel, dt);
     s_fq.weight = 0.0f;
     s_fq.reach = 0.0f;
-    s_fq.iris = false;
     mao_dots_begin();
     list_layout(now);
     dotpage_layout(now);
     mao_dots_end();
-    mao_field_iris(s_fq.iris, s_fq.ap, s_fq.flash);
-    mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, s_fq.hole, now);
+    mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now);
     panel_layout();
 
     /* One focus line: the surface with the most presence owns it. */
@@ -1221,5 +1313,10 @@ void mao_devices_ui_create(lv_obj_t *scr)
     s_panel.online = true;
     mao_spring_init(&s_dp.reach, 0.0f, ((mao_spring_profile_t){ .k = 90.0f, .zeta = 0.92f }));
     mao_spring_init(&s_dp.hole, CAM_AP, ((mao_spring_profile_t){ .k = 240.0f, .zeta = 0.45f }));
+    for (int k = 0; k < 6; k++) {
+        /* soft, each a little different: they arrive one after another */
+        mao_spring_init(&s_dp.blade[k], CAM_AP,
+                        ((mao_spring_profile_t){ .k = 150.0f - 11.0f * (float)k, .zeta = 0.82f }));
+    }
     mao_spring_init(&s_dp.optsel, 0.0f, MAO_UI_SELECT);
 }

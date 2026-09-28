@@ -492,20 +492,29 @@ place (or the page leaves, if the device is offline).
 - A device page grows out of that preview.
 - LIGHT: the ODD field is the brightness. A large number shows while it
   changes. OFF is shown when the light is off.
-- CAMERA: an iris made of the field's own marks (`odd_field_mark`). It
-  looks like the same hand as the lamp, but moves as a shutter:
-  - Material: the blade seams and the opening's lip are dense and heavy,
-    and the faces are sparse.
-  - Motion:
-    - The finger narrows it.
-    - The frame being taken shuts it (the seams meet in a star).
-    - A frame taken lights the whole lens for an instant and snaps the
-      iris open past rest.
-    - Failure makes it flinch.
-  - After a capture, the frame number shows large in the opening.
-  - This visit's frames collect as a filmstrip on the lower rim.
-  - The carousel preview is the same iris, small.
-  - NOT NOW / NOT TAKEN appear when a capture does not work.
+- CAMERA: an iris in dots (six blade edges tangent to the aperture,
+  inside a faint ring). It is animated by the lamp's rules, not drawn in
+  the lamp's material:
+  - Staggered arrival: each blade has its own soft spring, and the iris
+    grows in through a ragged front.
+  - Weight falls with distance: heavy at the aperture, thinning to the rim.
+  - Depth comes from ink tiers.
+  - At rest it shimmers quietly on a stepped clock (a few marks at a time).
+
+  How it responds:
+  - The finger narrows it.
+  - The frame being taken shuts it (the blades meet in a star).
+  - A frame taken flashes the opening, and the blades open a little past
+    rest, one after another.
+  - Failure makes it flinch.
+
+  What it shows:
+  - The frame number, large in the opening, after a capture.
+  - The visit's frames as a filmstrip in fixed slots: bottom first, then
+    alternating up both sides to the name. A frame never moves once landed;
+    a full strip closes up, and none is dropped.
+  - FULL when storage stops it. Storage is otherwise hidden.
+  - The carousel preview is the same iris, the same size as a light's.
 - NEW / VERIFY / REPAIR / OFFLINE / INCOMPATIBLE: the device's mark (an
   outline when away, calling when new), a state word, and the press word.
 - Sheets (FORGET?, the pairing code, WAITING) are drawn in dots. The page

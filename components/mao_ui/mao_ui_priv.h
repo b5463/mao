@@ -63,12 +63,7 @@ bool mao_dots_end(void);
 
 /* The ODD JOBS field (mao_ui_field.c): reach in px from the centre. */
 void mao_field_create(lv_obj_t *scr);
-/* oy: the centre, px down; hole: a dark aperture of that radius at the centre (0 = none) */
-void mao_field_set(float reach, float strength, float oy, float hole, uint32_t now_ms);
-/* The camera's iris in the field's own material, for the next mao_field_set
- * (its reach is then the iris's radius): aperture ap, flash 0..1 (the lens
- * lit for an instant). on = false: the plain field. */
-void mao_field_iris(bool on, float ap, float flash);
+void mao_field_set(float reach, float strength, float oy, uint32_t now_ms);   /* oy: centre, px down */
 
 /* The focus line (mao_ui_focus.c). */
 typedef enum {

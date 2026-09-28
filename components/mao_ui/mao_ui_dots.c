@@ -33,7 +33,11 @@ static struct {
     dot_t dot[DOTS_MAX];
     int n;
     uint32_t hash, last_hash;
+    dot_t prev[DOTS_MAX];      /* the last frame drawn: only what changed is redrawn */
+    int prev_n;
 } s_d;
+
+#define DIRTY_MAX 16           /* more changed dots than this: one full redraw (LVGL keeps 32 areas, shared) */
 
 /* 5x7 matrix, columns left to right, bit 0 = top row. ' '..'Z'. */
 static const uint8_t kFont[][5] = {
@@ -318,12 +322,60 @@ void mao_dots_ring(float r, int count, float size, float opa, mao_glyph_t kind, 
     }
 }
 
+static bool same_dot(const dot_t *a, const dot_t *b)
+{
+    return a->x == b->x && a->y == b->y && a->d == b->d && a->opa == b->opa && a->kind == b->kind &&
+           a->col == b->col;
+}
+
+static void dot_area(const lv_area_t *o, const dot_t *d, lv_area_t *a)
+{
+    const int32_t cx = (o->x1 + o->x2 + 1) / 2, cy = (o->y1 + o->y2 + 1) / 2;
+    const int32_t h = d->d / 2 + 2;            /* the glyph and its strokes */
+    a->x1 = cx + d->x - h;
+    a->y1 = cy + d->y - h;
+    a->x2 = cx + d->x + h;
+    a->y2 = cy + d->y + h;
+}
+
+/* Only the dots that changed since the last frame are redrawn (a quiet
+ * shimmer costs a few small areas, not the whole screen); many changes at
+ * once (a page moving) are one full redraw. */
 bool mao_dots_end(void)
 {
     const bool changed = s_d.hash != s_d.last_hash;
-    if (changed) {
-        s_d.last_hash = s_d.hash;
-        lv_obj_invalidate(s_d.obj);
+    if (!changed) {
+        return false;
     }
-    return changed;
+    s_d.last_hash = s_d.hash;
+    lv_area_t o;
+    lv_obj_get_coords(s_d.obj, &o);
+    const int n = s_d.n > s_d.prev_n ? s_d.n : s_d.prev_n;
+    lv_area_t dirty[DIRTY_MAX];
+    int nd = 0;
+    bool full = false;
+    for (int i = 0; i < n && !full; i++) {
+        const bool now_in = i < s_d.n, was_in = i < s_d.prev_n;
+        if (now_in && was_in && same_dot(&s_d.dot[i], &s_d.prev[i])) {
+            continue;
+        }
+        if (nd >= DIRTY_MAX) {
+            full = true;
+            break;
+        }
+        lv_area_t a, b;
+        dot_area(&o, was_in ? &s_d.prev[i] : &s_d.dot[i], &a);
+        dot_area(&o, now_in ? &s_d.dot[i] : &s_d.prev[i], &b);
+        dirty[nd++] = (lv_area_t) { LV_MIN(a.x1, b.x1), LV_MIN(a.y1, b.y1), LV_MAX(a.x2, b.x2), LV_MAX(a.y2, b.y2) };
+    }
+    if (full) {
+        lv_obj_invalidate(s_d.obj);
+    } else {
+        for (int i = 0; i < nd; i++) {
+            lv_obj_invalidate_area(s_d.obj, &dirty[i]);
+        }
+    }
+    memcpy(s_d.prev, s_d.dot, sizeof(dot_t) * (size_t)s_d.n);
+    s_d.prev_n = s_d.n;
+    return true;
 }

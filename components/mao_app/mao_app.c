@@ -358,6 +358,8 @@ static void refresh_device_panel(void)
             .menu_sel = s_hold.sel,
             .opt_right = "CONNECT",
             .opt_left = mao_rel_word(),
+            /* Storage stays the device's business - until it stops you. */
+            .fact = ctl.storage_idx >= 0 && dev.caps[ctl.storage_idx].value <= 0 ? "FULL" : NULL,
             .name = dev.info.name,
         };
         mao_ui_device_dots(&dm);

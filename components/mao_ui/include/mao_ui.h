@@ -134,7 +134,8 @@ typedef struct {
     const char *opt_right;   /* e.g. CONNECT (NULL = none) */
     const char *opt_left;    /* e.g. FORGET (NULL = none) */
     const char *word;        /* WORD: what a press does (PAIR, CONNECT...; NULL = nothing) */
-    const char *fact;        /* WORD: the state (NEW, OFFLINE, NOT VERIFIED...; NULL = none) */
+    const char *fact;        /* WORD: the state (NEW, OFFLINE, NOT VERIFIED...); CONTROL: what stops the
+                              * primary (FULL); NULL = none */
     bool known;              /* WORD: part of MAO's setup (else the mark calls: NEW) */
     bool busy;               /* WORD: something is underway (PAIRING) */
     const char *name;

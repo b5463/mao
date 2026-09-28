@@ -43,16 +43,8 @@ bool odd_field_cell(const odd_field_geom_t *g, int gx, int gy, float reach, int3
         return false;
     }
 
-    if (!odd_field_mark(gx, gy, dist / g->far, ms, g->cell_ms, out)) {
-        return false;
-    }
-    out->grow = k < 1.0f ? k : 1.0f;
-    return true;
-}
-
-bool odd_field_mark(int gx, int gy, float d, int32_t ms, int32_t cell_ms, odd_field_cell_t *out)
-{
     /* Whether a cell is lit is fixed by position; the rim is mostly empty. */
+    const float d = dist / g->far;
     const uint32_t here = hash2(gx, gy);
     const uint32_t drop = (uint32_t)(6.0f + 74.0f * d * d);
     if ((here >> 3) % 100u < drop) {
@@ -60,8 +52,8 @@ bool odd_field_mark(int gx, int gy, float d, int32_t ms, int32_t cell_ms, odd_fi
     }
 
     /* The mark re-rolls on the cell's own clock (the changes scatter). */
-    const uint32_t phase = hash2(gx + 977, gy - 613) % (uint32_t)cell_ms;
-    const uint32_t gen = (uint32_t)(ms + (int32_t)phase) / (uint32_t)cell_ms;
+    const uint32_t phase = hash2(gx + 977, gy - 613) % (uint32_t)g->cell_ms;
+    const uint32_t gen = (uint32_t)(ms + (int32_t)phase) / (uint32_t)g->cell_ms;
     const uint32_t h = hash2(gx, (int)((uint32_t)gy + gen * 7919u));
 
     /* Weight falls with distance; the alphabet sorts itself by weight. */
@@ -93,6 +85,6 @@ bool odd_field_mark(int gx, int gy, float d, int32_t ms, int32_t cell_ms, odd_fi
 
     out->glyph = (uint8_t)gl;
     out->ink = (uint8_t)ink;
-    out->grow = 1.0f;
+    out->grow = k < 1.0f ? k : 1.0f;
     return true;
 }

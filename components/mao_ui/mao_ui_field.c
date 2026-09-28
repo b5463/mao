@@ -34,69 +34,6 @@ static struct {
     bool any;
 } s_f;
 
-/* The camera's iris, drawn with the field's marks (odd_field_mark): six
- * blade seams dense and heavy, the blade faces lighter towards the rim, the
- * aperture a ragged dark opening - and all of it re-rolling on the field's
- * clock, like the lamp. */
-static struct {
-    bool on;
-    float ap, flash;
-} s_iris;
-
-void mao_field_iris(bool on, float ap, float flash)
-{
-    s_iris.on = on;
-    s_iris.ap = ap;
-    s_iris.flash = flash;
-}
-
-static float cell_jit(int gx, int gy)
-{
-    uint32_t h = ((uint32_t)gx * 73856093u) ^ ((uint32_t)gy * 19349663u);
-    h = (h ^ (h >> 13)) * 1274126177u;
-    return (float)((h ^ (h >> 16)) % 1024u) / 1024.0f;
-}
-
-static bool iris_cell(int gx, int gy, float r, int32_t ms, odd_field_cell_t *c)
-{
-    const float pit = (float)kGeom.pitch;
-    const float px = (float)gx * pit, py = (float)gy * pit;
-    const float dist = sqrtf(px * px + py * py);
-    const float jit = cell_jit(gx, gy);
-    if (dist + jit * 10.0f > r) {
-        return false;                                  /* a ragged rim, as the field's frontier */
-    }
-    const float ap = s_iris.ap;
-    const float open = ap * (1.0f - s_iris.flash);     /* the flash fills the opening */
-    const float in = (dist - (open + jit * 7.0f)) / pit;
-    if (in <= 0.0f) {
-        return false;                                  /* the opening */
-    }
-    const float turn = 0.5236f - 0.9f * (ap / (r > 1.0f ? r : 1.0f));   /* the blades turn as it opens */
-    const float len = sqrtf(fmaxf(r * r - ap * ap, 0.0f));
-    float edge = 1e9f;
-    for (int k = 0; k < 6; k++) {
-        const float a = turn + (float)k * 1.0472f;
-        const float qx = px - ap * cosf(a), qy = py - ap * sinf(a);
-        const float dx = -sinf(a), dy = cosf(a);
-        const float t = qx * dx + qy * dy;
-        if (t >= -pit * 0.5f && t <= len) {
-            edge = fminf(edge, fabsf(qx * dy - qy * dx));
-        }
-    }
-    /* seams and the opening's lip heavy, the faces sparse: the blades read by density */
-    float d = edge < pit * 0.85f ? 0.04f : in < 1.6f ? 0.12f : 0.74f + 0.26f * (dist / r);
-    d *= 1.0f - s_iris.flash;                          /* lit: the whole lens goes heavy */
-    if (!odd_field_mark(gx, gy, d, ms, kGeom.cell_ms, c)) {
-        return false;
-    }
-    if (s_iris.flash > 0.5f) {
-        c->ink = 0;                                    /* the lead ink, everywhere, for an instant */
-    }
-    c->grow = in < 1.0f ? in : 1.0f;                   /* a soft edge to the opening */
-    return true;
-}
-
 static uint32_t mix_rgb(uint32_t a, uint32_t b, float t)
 {
     const int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
@@ -189,7 +126,7 @@ void mao_field_create(lv_obj_t *scr)
     lv_obj_add_event_cb(s_f.obj, draw_cb, LV_EVENT_DRAW_MAIN, NULL);
 }
 
-void mao_field_set(float reach, float strength, float oy, float hole, uint32_t now_ms)
+void mao_field_set(float reach, float strength, float oy, uint32_t now_ms)
 {
     if (reach <= 0.0f && !s_f.any) {
         return;                        /* dark and staying dark: nothing to do */
@@ -218,18 +155,10 @@ void mao_field_set(float reach, float strength, float oy, float hole, uint32_t n
             const float px = (float)(gx * kGeom.pitch), py = (float)(gy * kGeom.pitch) + (float)s_f.oy;
             if (px * px + py * py <= 116.0f * 116.0f) {   /* inside the circle */
                 odd_field_cell_t c;
-                if (s_iris.on ? iris_cell(gx, gy, reach, (int32_t)now_ms, &c)
-                              : odd_field_cell(&kGeom, gx, gy, reach, (int32_t)now_ms, &c)) {
-                    float m = 1.0f;
-                    if (hole > 0.0f) {
-                        /* the aperture: dark inside, a soft edge one cell wide */
-                        const float fy = (float)(gy * kGeom.pitch);
-                        m = (sqrtf(px * px + fy * fy) - hole) / (float)kGeom.pitch;
-                        m = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m);
-                    }
+                if (odd_field_cell(&kGeom, gx, gy, reach, (int32_t)now_ms, &c)) {
                     g = c.glyph;
                     k = c.ink;
-                    a = (uint8_t)lrintf(255.0f * c.grow * m * (strength > 1.0f ? 1.0f : strength));
+                    a = (uint8_t)lrintf(255.0f * c.grow * (strength > 1.0f ? 1.0f : strength));
                 }
             }
             uint8_t *so = &s_f.opa[gy + N][gx + N];
