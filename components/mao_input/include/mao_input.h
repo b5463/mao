@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 #define MAO_INPUT_DEBOUNCE_MS      20
-#define MAO_INPUT_LONG_PRESS_MS    600
+#define MAO_INPUT_LONG_PRESS_MS    900   /* M4.1: a slow press is still a press, not the options */
 #define MAO_INPUT_DOUBLE_CLICK_MS  350
 
 /* Encoder decoder diagnostics since boot. */

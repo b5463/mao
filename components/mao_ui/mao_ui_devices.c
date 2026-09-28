@@ -124,6 +124,8 @@ static struct {
     mao_spring_t blade[6];         /* the camera's blades, each on its own spring: the iris closes as a ripple */
     mao_spring_t leave;            /* under FORGET?: 1 staying .. 0 gone (it recedes as FORGET is chosen) */
     uint8_t left_kind;             /* what was just forgotten: 0 a mark, 1 a light's field, 2 an iris */
+    mao_spring_t twist;            /* the knob turned on the camera: the iris answers with a small turn */
+    uint8_t nudges;                /* presses in a row that chose nothing (then: TURN) */
     int32_t left_pct;
     uint8_t shots;                 /* frames taken on this visit (the filmstrip) */
     mao_spring_t optsel;           /* 0 the instrument .. 1 the hold-and-turn options are up */
@@ -273,6 +275,8 @@ static const float kCamInk[4] = { 255.0f, 200.0f, 130.0f, 70.0f };
 /* The iris at (x, y): ring radius r, per-blade apertures ap[6] (0 = shut:
  * the blades meet in a star), `front` the growing front's radius (the iris
  * arrives through it), opacity opa. */
+static float s_iris_twist;        /* rad: the camera page's answer to the knob (iris_draw adds it) */
+
 static void iris_draw(float x, float y, float r, const float ap[6], float front, float opa, uint32_t now)
 {
     if (opa < 4.0f || r < 2.0f || front <= 0.0f) {
@@ -283,7 +287,7 @@ static void iris_draw(float x, float y, float r, const float ap[6], float front,
     const float step = big ? 5.0f : 3.4f;
     for (int k = 0; k < 6; k++) {
         const float apk = clampf(ap[k], 0.0f, r * 0.8f);
-        const float a = 0.5236f - 0.9f * (apk / r) + (float)k * 1.0472f;   /* the blades turn as it opens */
+        const float a = 0.5236f - 0.9f * (apk / r) + (float)k * 1.0472f + s_iris_twist;   /* they turn as it opens */
         const float vx = apk * cosf(a), vy = apk * sinf(a);                   /* the aperture's corner */
         const float dx = -sinf(a), dy = cosf(a);                               /* the blade's edge */
         const float len = sqrtf(fmaxf(r * r - apk * apk, 0.0f));
@@ -471,6 +475,9 @@ static void list_layout(uint32_t now)
         s_list.sel_y = PREVIEW_Y;    /* the page grows out of the preview */
     }
     const char *st = list_state(now);
+    if (st && empty) {
+        mao_dots_text("SWITCH ONE ON", 0.0f, 52.0f, 1.9f, 1.5f, 130.0f * late, -1.0f);   /* what to do about it */
+    }
     if (st) {
         mao_dots_text(st, 0.0f, empty ? 30.0f : CAR_STATE_Y, 2.2f, 1.8f, 170.0f * late * change, -1.0f);
     }
@@ -770,6 +777,7 @@ void mao_ui_device_feedback(mao_ui_fb_t fb)
         mao_focus_event(MAO_COL_RED, 240);
         break;
     case MAO_UI_FB_NUDGE:
+        s_dp.nudges = s_dp.nudge_at && lv_tick_get() - s_dp.nudge_at < 3000 ? (uint8_t)(s_dp.nudges + 1) : 1;
         s_dp.nudge_at = lv_tick_get();
         break;
     case MAO_UI_FB_UNSURE:
@@ -1015,6 +1023,11 @@ static void sheet_answers(float a, uint32_t now, float y)
     }
     if (s_dp.sh.n == 2 && s_dp.sh.focus < 0) {
         mao_dots_glyph(0.0f, y, 4.0f, 200.0f * a, MAO_GLYPH_DOT, 0);   /* the knob, in the middle */
+        /* pressed again without turning: say it */
+        if (s_dp.nudges >= 2 && now - s_dp.nudge_at < 1800) {
+            const float f = clampf((float)(1800 - (now - s_dp.nudge_at)) / 300.0f, 0.0f, 1.0f);
+            mao_dots_text("TURN", 0.0f, y + 22.0f, 2.2f, 1.8f, 230.0f * a * f, -1.0f);
+        }
     }
 }
 
@@ -1157,6 +1170,7 @@ static void dotpage_layout(uint32_t now)
                                     fabsf(jit) * 0.2f);
         }
         const bool blocked = s_dp.m.fact != NULL;                  /* e.g. FULL: it cannot take a frame */
+        s_iris_twist = s_dp.twist.x;
         iris_draw(jit, cy, r, ap, (r + 22.0f) * smooth01(p0 / 0.85f) * under,
                   (s_dp.m.online ? (blocked ? 120.0f : 255.0f) : 110.0f) * p0 * (1.0f - 0.8f * menu) *
                       (fsheet ? 0.45f + 0.55f * leave : 1.0f),
@@ -1173,6 +1187,7 @@ static void dotpage_layout(uint32_t now)
             const float pitch = s_dp.shots > 9 ? 3.2f : 4.2f;
             mao_dots_text(num, jit, cy, pitch, pitch * 0.9f, 255.0f * p * f * (1.0f - menu), -1.0f);
         }
+        s_iris_twist = 0.0f;
         /* The filmstrip: this visit's frames around the rim, the newest
          * dropping from the aperture into its place. Fixed slots - the first
          * at the bottom, then right, left, right... up both sides to the name -
@@ -1200,6 +1215,7 @@ static void dotpage_layout(uint32_t now)
             mao_dots_text_halo("OFFLINE", 0.0f, 0.0f, 2.6f, 2.1f, 170.0f * p);
         } else if (blocked) {
             mao_dots_text_halo(s_dp.m.fact, 0.0f, cy, 2.6f, 2.2f, 235.0f * p * (1.0f - menu));
+            mao_dots_text_halo("FREE UP SPACE", 0.0f, 88.0f, 1.8f, 1.5f, 170.0f * p * (1.0f - menu));
         } else if (s_dp.word && now - s_dp.word_at < 1400) {
             const float f = clampf((float)(1400 - (now - s_dp.word_at)) / 300.0f, 0.0f, 1.0f);
             mao_dots_text_halo(s_dp.word, 0.0f, cy, 2.2f, 1.9f, 230.0f * p * f * (1.0f - menu));
@@ -1221,7 +1237,8 @@ static void dotpage_layout(uint32_t now)
                 mao_dots_text_halo(wd, 0.0f, 0.0f, 3.0f, 2.6f, 255.0f * p * menu);
             } else if (ms < 0) {
                 const float x = (i == 0 ? 70.0f : -70.0f);
-                mao_dots_text_halo(wd, x, 0.0f, 1.7f, 1.4f, 150.0f * p * menu);
+                /* FORGET, rarely needed, steps back */
+                mao_dots_text_halo(wd, x, 0.0f, 1.7f, 1.4f, (i == 1 ? 90.0f : 150.0f) * p * menu);
             }
         }
         if (ms < 0) {
@@ -1230,6 +1247,44 @@ static void dotpage_layout(uint32_t now)
         }
     }
     dot_sheet(p0 * sh, t, now);
+}
+
+void mao_ui_device_turn(int32_t detents)
+{
+    if (!mao_display_lock(0)) {
+        return;
+    }
+    s_dp.twist.v += 1.4f * (float)(detents > 3 ? 3 : detents < -3 ? -3 : detents);   /* a small turn, back */
+    mao_ui_wake();
+    mao_display_unlock();
+}
+
+static struct {
+    bool allowed;
+    uint32_t since;
+} s_hint;
+
+void mao_ui_home_hint(bool allowed)
+{
+    if (!mao_display_lock(0)) {
+        return;
+    }
+    s_hint.allowed = allowed;
+    s_hint.since = lv_tick_get();
+    mao_ui_wake();
+    mao_display_unlock();
+}
+
+/* HOME, left alone for a moment by someone new to it: a quiet PRESS. */
+static void home_hint_layout(uint32_t now)
+{
+    if (!s_hint.allowed || now - s_hint.since < 6000) {
+        return;
+    }
+    const float t = (float)(now - s_hint.since - 6000) / 1000.0f;
+    const float in = clampf(t / 0.8f, 0.0f, 1.0f);
+    const float breathe = 0.75f + 0.25f * sinf(t * 2.0f * PI_F / 2.4f);
+    mao_dots_text("PRESS", 0.0f, 98.0f, 2.0f, 1.7f, 190.0f * in * breathe, -1.0f);
 }
 
 void mao_ui_device_dots(const mao_ui_dotpage_t *m)
@@ -1273,12 +1328,14 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
         mao_spring_step(&s_dp.blade[k], dt);
     }
     mao_spring_step(&s_dp.leave, dt);
+    mao_spring_step(&s_dp.twist, dt);
     mao_spring_step(&s_dp.optsel, dt);
     s_fq.weight = 0.0f;
     s_fq.reach = 0.0f;
     mao_dots_begin();
     list_layout(now);
     dotpage_layout(now);
+    home_hint_layout(now);
     mao_dots_end();
     mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now);
     panel_layout();
@@ -1303,7 +1360,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
                          (now - s_list.shown_at_ms) < LOOKING_MS + 100;
     const bool field_alive = s_list.presence.x > 0.004f ||   /* the dots shimmer while they are there */
                              (s_dp.m.on && s_panel.presence.x > 0.004f) || s_dp.reach.x > 0.5f;
-    return field_alive || waiting || s_list.show_at != 0 || s_panel.show_at != 0 ||
+    return field_alive || waiting || s_hint.allowed || s_list.show_at != 0 || s_panel.show_at != 0 ||
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
            !mao_spring_settled(&s_list.side, 0.05f) ||
            !mao_spring_settled(&s_panel.presence, 0.002f) || !mao_spring_settled(&s_panel.ty, 0.05f) ||
@@ -1371,6 +1428,7 @@ void mao_devices_ui_create(lv_obj_t *scr)
     mao_spring_init(&s_dp.reach, 0.0f, ((mao_spring_profile_t){ .k = 90.0f, .zeta = 0.92f }));
     mao_spring_init(&s_dp.hole, CAM_AP, ((mao_spring_profile_t){ .k = 240.0f, .zeta = 0.45f }));
     mao_spring_init(&s_dp.leave, 1.0f, ((mao_spring_profile_t){ .k = 120.0f, .zeta = 0.9f }));
+    mao_spring_init(&s_dp.twist, 0.0f, ((mao_spring_profile_t){ .k = 70.0f, .zeta = 0.75f }));
     for (int k = 0; k < 6; k++) {
         /* soft, each a little different: they arrive one after another */
         mao_spring_init(&s_dp.blade[k], CAM_AP,

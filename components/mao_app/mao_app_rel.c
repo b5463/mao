@@ -92,6 +92,13 @@ mao_devpage_t mao_devpage(uint64_t id, mao_world_entry_t *w)
     return w->online ? MAO_DEVPAGE_CONTROL : MAO_DEVPAGE_OFFLINE;
 }
 
+void mao_rel_note_unreached(uint64_t id)
+{
+    s_note = "NOT REACHED";              /* CONNECT found nothing: say so, then TRY AGAIN */
+    s_note_dev = id;
+    mao_app_dev_refresh();
+}
+
 void mao_rel_page_reset(void)
 {
     s_note = NULL;
@@ -225,11 +232,13 @@ void mao_rel_page_draw(mao_devpage_t kind, const mao_world_entry_t *w)
         .type = w->device_type,
         .known = kind != MAO_DEVPAGE_NEW,
         .busy = pairing,
-        .word = kind == MAO_DEVPAGE_NEW       ? "PAIR"
-                : kind == MAO_DEVPAGE_VERIFY  ? "VERIFY"
-                : kind == MAO_DEVPAGE_REPAIR  ? "REPAIR"
-                : kind == MAO_DEVPAGE_OFFLINE ? "CONNECT"
-                                              : NULL,
+        /* after a refusal or a miss, the press word says what pressing does now */
+        .word = kind == MAO_DEVPAGE_INCOMPATIBLE ? NULL
+                : noted                          ? "TRY AGAIN"
+                : kind == MAO_DEVPAGE_NEW        ? "PAIR"
+                : kind == MAO_DEVPAGE_VERIFY     ? "VERIFY"
+                : kind == MAO_DEVPAGE_REPAIR     ? "REPAIR"
+                                                 : "CONNECT",
         .fact = fact,
         .menu = menu,
         .menu_sel = sel,

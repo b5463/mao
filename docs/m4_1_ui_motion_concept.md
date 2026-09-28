@@ -532,3 +532,30 @@ decision. FORGET is on the left, the way the menu went.
   covers another element.
 - Hidden, because the device handles them itself: IDENTIFY, SYNC TEST,
   READY, STORAGE.
+
+**For people who don't know it (consumer passes, 2026-09-28):**
+- A long press starts at 0.9 s (it was 0.6 s), so a slow press is still a
+  press. On the camera, a slow press used to open the menu and release to
+  BACK.
+- HOME shows a quiet PRESS after 6 s without input, until DEVICES has been
+  opened 5 times (remembered across reboots).
+- Pages left alone go back: a device page returns to the list after 1
+  minute without input, and the list returns HOME. A brushed knob must not
+  change a light nobody is looking at. This never happens mid-question,
+  mid-pairing or mid-transfer.
+- Turning the knob where it does nothing (the camera) still gets an answer:
+  the iris turns slightly and springs back.
+- A press that chose nothing on a two-answer question makes the answers lean
+  in; the second one says TURN.
+- Dead ends name the next step:
+  - After a refusal or a miss the press word is TRY AGAIN.
+  - FULL shows FREE UP SPACE.
+  - A CONNECT that finds nothing returns from the visit to the device's page,
+    which says NOT REACHED.
+  - An empty list says SWITCH ONE ON.
+  - A capture with no answer says NO ANSWER.
+- FORGET steps back in the hold menu (fainter than CONNECT).
+- Relationships check themselves: after every change and at boot, each
+  record in memory must match flash byte for byte. A missing or different
+  one is restored from memory and logged as an error. This follows an
+  unexplained loss of a paired record.

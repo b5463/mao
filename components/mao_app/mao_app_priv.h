@@ -92,6 +92,8 @@ typedef enum {
 mao_devpage_t mao_devpage(uint64_t id, mao_world_entry_t *w);
 /* The page opened, or its kind changed under the user: focus settles. */
 void mao_rel_page_reset(void);
+/* CONNECT did not reach this device: its page says so. */
+void mao_rel_note_unreached(uint64_t id);
 /* Draw a relationship page (no-op for CONTROL). */
 void mao_rel_page_draw(mao_devpage_t kind, const mao_world_entry_t *w);
 /* Input on a relationship page; true when consumed. guarded: a click inside
@@ -113,6 +115,7 @@ void mao_rel_on_link_event(int32_t what);
 /* Defined in mao_app.c for mao_app_rel.c. */
 void mao_app_dev_refresh(void);
 void mao_app_go_devices(void);
+void mao_app_back_to_device(uint64_t id);   /* reopen a device page (after a missed CONNECT) */
 
 /* Holding on a device page (M4.1): a long press, or turning while held,
  * brings MAO's options up - BACK in the middle, the right option when turned

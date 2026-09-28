@@ -358,7 +358,13 @@ void mao_ui_show(mao_view_t view, int menu_index)
         }
         mao_devlist_show(true, from_home ? MAO_CHAR_GATHER_MS : 0, from_home);
     } else if (view == MAO_VIEW_DEVICE) {
-        mao_devpanel_show(true, DEVICES_ENTER_DELAY);
+        /* Straight from HOME (back after a missed CONNECT): the eyes gather
+         * away first, as they do for DEVICES - they never sit on a page. */
+        const bool from_home = from == MAO_VIEW_HOME || from == MAO_VIEW_INTRO;
+        if (from_home) {
+            mao_character_gather();
+        }
+        mao_devpanel_show(true, from_home ? MAO_CHAR_GATHER_MS : DEVICES_ENTER_DELAY);
     } else if (view == MAO_VIEW_MENU) {
         if (from == MAO_VIEW_HOME) {
             mao_character_leave();

@@ -142,6 +142,15 @@ typedef struct {
 } mao_ui_dotpage_t;
 void mao_ui_device_dots(const mao_ui_dotpage_t *m);
 
+/* The knob turned on a page where turning does nothing (the camera): the
+ * device answers with a small turn of its own, so the knob never feels dead. */
+void mao_ui_device_turn(int32_t detents);
+
+/* HOME's hint: while `allowed`, a quiet PRESS appears after a few seconds
+ * without input. Call again on every HOME input (it restarts the wait) and
+ * with false when leaving HOME. */
+void mao_ui_home_hint(bool allowed);
+
 /* Tool feedback on the centre word: the word itself answers the physical
  * button, before and regardless of the character (no network latency). */
 typedef enum {

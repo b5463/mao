@@ -99,8 +99,47 @@ static esp_err_t nvs_backend_erase(void *ctx, int slot)
 
 static const mao_rel_backend_t s_backend = { nvs_backend_write, nvs_backend_erase, NULL };
 
+/* Every relationship in memory must be on flash, byte for byte (M4.1: a
+ * paired device's record once vanished from flash without any forget).
+ * Checked after every change and at the end of boot: a record that is
+ * missing or different on flash is written back from memory and reported
+ * loudly. It never removes or trusts anything that memory does not hold. */
+static void verify_persisted(const char *when)
+{
+    if (!s_nvs_ok) {
+        return;
+    }
+    lock();
+    for (int slot = 0; slot < MAO_REL_MAX; slot++) {
+        if (s_t.state[slot] != MAO_REL_SLOT_USED) {
+            continue;
+        }
+        uint8_t want[MAO_REL_BLOB_LEN], have[128];
+        mao_rel_encode(&s_t.rec[slot], want);
+        char key[4];
+        slot_key(slot, key);
+        size_t len = sizeof(have);
+        const esp_err_t err = nvs_get_blob(s_nvs, key, have, &len);
+        const bool same = err == ESP_OK && len == MAO_REL_BLOB_LEN && memcmp(want, have, len) == 0;
+        memset(have, 0, sizeof(have));
+        if (!same) {
+            ESP_LOGE(TAG, "relationship %s \"%s\" %s on flash (%s, %s): restoring it from memory", key,
+                     s_t.rec[slot].name, err == ESP_ERR_NVS_NOT_FOUND ? "MISSING" : "DIFFERENT", esp_err_to_name(err),
+                     when);
+            esp_err_t w = nvs_set_blob(s_nvs, key, want, MAO_REL_BLOB_LEN);
+            if (w == ESP_OK) {
+                w = nvs_commit(s_nvs);
+            }
+            ESP_LOGE(TAG, "relationship %s restore: %s", key, esp_err_to_name(w));
+        }
+        memset(want, 0, sizeof(want));
+    }
+    unlock();
+}
+
 static void changed(void)
 {
+    verify_persisted("after a change");
     mao_event_post(MAO_EVENT_REL_CHANGED, 0);
 }
 
@@ -500,5 +539,6 @@ esp_err_t mao_rel_init(void)
     }
     ESP_LOGI(TAG, "%d known device%s loaded in %lld us%s", loaded, loaded == 1 ? "" : "s",
              (long long)(esp_timer_get_time() - t0), skipped ? " (some records skipped)" : "");
+    verify_persisted("boot");
     return ESP_OK;
 }

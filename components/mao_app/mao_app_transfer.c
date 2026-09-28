@@ -58,6 +58,7 @@ static struct {
     uint32_t timeout_ms;        /* policy chosen from the device's known state */
     bool launch_armed;          /* probe answered; waiting out the visual beat */
     bool fail_on_return;        /* restrained FAIL once MAO is back home */
+    uint64_t page_dev;          /* started from this device's page: a miss goes back to it (0 = none) */
     esp_timer_handle_t timer;
 } s_tr;
 
@@ -162,6 +163,7 @@ static void start(int8_t dx, int8_t dy, int mode)
     s_tr.dy = dy;
     s_tr.launch_armed = false;
     s_tr.fail_on_return = false;
+    s_tr.page_dev = mao_state()->view == MAO_VIEW_DEVICE ? mao_state()->device_id : 0;
     mao_app_go_home();
     mao_devices_set_active(true);   /* fast liveness while a transfer runs */
     if (mode == 1) {                    /* synthetic success (animation work) */
@@ -267,6 +269,7 @@ void mao_transfer_step(int32_t id)
         }
         const uint32_t waited = now_ms() - s_tr.probe_t0;
         if (waited >= s_tr.timeout_ms) {
+            mao_rel_note_unreached(s_tr.dev);
             begin_fail("connect_timeout");
             break;
         }
@@ -298,6 +301,11 @@ void mao_transfer_step(int32_t id)
     case TR_RETURNING:
     case TR_FAILING:
         finish();
+        if (s_tr.page_dev) {
+            /* not reached: back to the page it was asked from, which says so */
+            mao_app_back_to_device(s_tr.page_dev);
+            s_tr.page_dev = 0;
+        }
         break;
     default:
         break;

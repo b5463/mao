@@ -441,6 +441,11 @@ static void refresh_device_views(void)
 
 /* ---------------------------------------------------------------------- */
 
+static int64_t s_view_since_us;   /* when the current view was entered (page idle) */
+static bool home_hint_allowed(void);
+static void on_page_idle(int64_t now);
+static void start_page_idle(void);
+
 static void go_view(mao_view_t view)
 {
     const mao_app_state_t *st = mao_state();
@@ -456,6 +461,8 @@ static void go_view(mao_view_t view)
     /* Discover quickly only while the user is looking at devices. */
     mao_devices_set_active(view == MAO_VIEW_DEVICES || view == MAO_VIEW_DEVICE);
     mao_state_set_view(view);
+    s_view_since_us = esp_timer_get_time();
+    mao_ui_home_hint(view == MAO_VIEW_HOME && home_hint_allowed());
     if (view == MAO_VIEW_DEVICES || view == MAO_VIEW_DEVICE) {
         refresh_device_views();
     }
@@ -527,8 +534,14 @@ static void on_intro(const mao_event_t *ev)
     }
 }
 
+static bool home_hint_allowed(void)
+{
+    return mao_settings_get()->devices_opened < MAO_SETTINGS_HINT_UNTIL;
+}
+
 static void on_home(const mao_event_t *ev, int64_t now)
 {
+    mao_ui_home_hint(home_hint_allowed());   /* any input restarts the hint's wait */
     switch (ev->type) {
     case MAO_EVENT_INPUT_CW:
     case MAO_EVENT_INPUT_CCW: {
@@ -549,6 +562,7 @@ static void on_home(const mao_event_t *ev, int64_t now)
         break;
     case MAO_EVENT_INPUT_CLICK:
         /* M4.1 (D1): one press - MAO makes room and the world arrives. */
+        mao_settings_note_devices_opened();
         mao_audio_confirm();
         s_list_opened_us = now;
         go_view(MAO_VIEW_DEVICES);
@@ -739,6 +753,9 @@ static bool on_device_dots(const mao_event_t *ev, int64_t now, const mao_device_
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
         const mao_dial_motion_t m = dial_motion(d, now);
+        if (action) {
+            mao_ui_device_turn(d);                   /* turning does nothing here: the iris still answers */
+        }
         if (level && dev->described && dev->online) {
             const mao_device_cap_t *c = &dev->caps[ctl->level_idx];
             const bool off = ctl->toggle_idx >= 0 && dev->caps[ctl->toggle_idx].value == 0;
@@ -1224,11 +1241,13 @@ static void on_event(const mao_event_t *ev, void *ctx)
 
     switch (ev->type) {
     case MAO_EVENT_SYSTEM_READY:
+        start_page_idle();
         mao_led_set_state(MAO_LED_STATE_OFF);   /* the LED is off at rest */
         mao_state_note_input(now);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
         if (mao_state()->view == MAO_VIEW_HOME) {
             mao_ui_boot();
+            mao_ui_home_hint(home_hint_allowed());
         }
         break;
     case MAO_EVENT_IDLE_TIMEOUT:
@@ -1260,8 +1279,57 @@ static void on_event(const mao_event_t *ev, void *ctx)
     case MAO_EVENT_LINK_CHANGED:
         mao_rel_on_link_event(ev->value);
         break;
+    case MAO_EVENT_PAGE_IDLE:
+        on_page_idle(now);
+        break;
     default:
         break;
+    }
+}
+
+/* A page left alone (M4.1): a device page goes back to the list after a
+ * minute without input - a brushed knob must not change a light nobody is
+ * looking at - and the list goes back HOME. Never mid-question, mid-pairing
+ * or mid-transfer. */
+#define PAGE_IDLE_MS 60000
+
+static void on_page_idle(int64_t now)
+{
+    const mao_app_state_t *st = mao_state();
+    if (mao_state_idle_ms(now) < PAGE_IDLE_MS || now - s_view_since_us < (int64_t)PAGE_IDLE_MS * 1000 ||
+        mao_transfer_active() || mao_rel_sheet_open()) {
+        return;
+    }
+    mao_link_pair_status_t ps;
+    mao_link_pair_status(&ps);
+    if (ps.st != ODL_C_IDLE) {
+        return;
+    }
+    if (st->view == MAO_VIEW_DEVICE) {
+        ESP_LOGI(TAG, "device page left alone: back to the list");
+        mao_app_hold_reset();
+        go_view(MAO_VIEW_DEVICES);
+    } else if (st->view == MAO_VIEW_DEVICES) {
+        ESP_LOGI(TAG, "list left alone: home");
+        go_view(MAO_VIEW_HOME);
+    }
+}
+
+static void page_idle_cb(void *arg)
+{
+    (void)arg;
+    mao_event_post(MAO_EVENT_PAGE_IDLE, 0);
+}
+
+static void start_page_idle(void)
+{
+    static esp_timer_handle_t t;
+    if (!t) {
+        const esp_timer_create_args_t args = { .callback = page_idle_cb, .name = "mao_pageidle" };
+        if (esp_timer_create(&args, &t) != ESP_OK) {
+            return;
+        }
+        esp_timer_start_periodic(t, 5000 * 1000);
     }
 }
 
@@ -1404,6 +1472,22 @@ void mao_app_go_devices(void)
 {
     mao_audio_back();
     go_view(MAO_VIEW_DEVICES);
+}
+
+void mao_app_back_to_device(uint64_t id)
+{
+    mao_world_entry_t w;
+    if (!mao_world_get(id, &w)) {
+        return;                              /* gone meanwhile: stay home */
+    }
+    wake();
+    mao_state_set_device(id);
+    mao_app_hold_reset();
+    s_dev_focus = 0;
+    s_page_kind = mao_devpage(id, &w);
+    s_dev_opened_us = esp_timer_get_time();
+    go_view(MAO_VIEW_DEVICE);
+    refresh_device_panel();
 }
 
 void mao_app_go_home(void)

@@ -11,6 +11,7 @@ static const char *TAG = "MAO_SYSTEM";
 #define KEY_FIRST_BOOT    "fb_done"
 #define KEY_VOLUME        "volume"
 #define KEY_BRIGHTNESS    "bright"
+#define KEY_DEV_OPENED    "dev_open"
 
 #define DEFAULT_VOLUME       60
 #define DEFAULT_BRIGHTNESS   70
@@ -81,6 +82,7 @@ esp_err_t mao_settings_init(void)
     s_settings.first_boot_done = first_boot_done != 0;
     load_u8(KEY_VOLUME, &s_settings.volume);
     load_u8(KEY_BRIGHTNESS, &s_settings.brightness);
+    load_u8(KEY_DEV_OPENED, &s_settings.devices_opened);
     if (s_settings.volume > 100) {
         s_settings.volume = DEFAULT_VOLUME;
     }
@@ -113,6 +115,15 @@ esp_err_t mao_settings_set_first_boot_done(bool done)
         return err;
     }
     return store_u8(KEY_FIRST_BOOT, 1);
+}
+
+void mao_settings_note_devices_opened(void)
+{
+    if (s_settings.devices_opened >= MAO_SETTINGS_HINT_UNTIL) {
+        return;                              /* learnt: no more writes */
+    }
+    s_settings.devices_opened++;
+    store_u8(KEY_DEV_OPENED, s_settings.devices_opened);
 }
 
 esp_err_t mao_settings_set_volume(uint8_t percent)
