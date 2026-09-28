@@ -305,7 +305,7 @@ void mao_rel_on_link_event(int32_t what)
         s_sheet = SHEET_NONE;
         ESP_LOGI(TAG, "remote revocation %s", confirmed ? "confirmed" : "NOT confirmed (device may keep a stale "
                  "controller credential until its next pairing)");
-        const esp_err_t err = mao_rel_forget(dev);
+        const esp_err_t err = mao_rel_forget(dev, confirmed ? "revoked" : "revoke-tmo");
         if (err == ESP_OK && !s_forget_online) {
             mao_app_go_devices();
             return;
@@ -392,7 +392,7 @@ static void forget(const mao_world_entry_t *w)
         mao_app_dev_refresh();
         return;
     }
-    const esp_err_t err = mao_rel_forget(w->id);
+    const esp_err_t err = mao_rel_forget(w->id, "forget-yes");
     s_sheet = SHEET_NONE;
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "'%s' stays part of MAO's setup (forget not saved)", w->name);

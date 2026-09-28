@@ -1275,6 +1275,30 @@ void mao_ui_home_hint(bool allowed)
     mao_display_unlock();
 }
 
+/* The first encounter, in MAO's own dots: the name arrives through a ragged
+ * front, TURN breathes under it; turning pulls the name aside as it goes and
+ * the eyes appear (mao_ui_intro_exit). */
+static uint32_t s_intro_t0;
+
+static bool intro_layout(uint32_t now)
+{
+    float p, shift;
+    mao_overlay_intro_get(&p, &shift);
+    if (p < 0.004f) {
+        return false;
+    }
+    if (!s_intro_t0) {
+        s_intro_t0 = now;
+    }
+    const float t = (float)(now - s_intro_t0) / 1000.0f;
+    const float front = 20.0f + 150.0f * smooth01(t / 1.6f);
+    mao_dots_text_front("MAO", shift, -12.0f, 6.0f, 5.0f, 255.0f * p, front);
+    const float pulse = 0.55f + 0.45f * (0.5f + 0.5f * sinf(t * 3.2f));
+    const float late = smooth01((t - 1.2f) / 0.8f);          /* after the name has arrived */
+    mao_dots_text("TURN", 0.0f, 34.0f, 2.2f, 1.8f, 190.0f * p * p * p * pulse * late, -1.0f);
+    return true;
+}
+
 /* HOME, left alone for a moment by someone new to it: a quiet PRESS. */
 static void home_hint_layout(uint32_t now)
 {
@@ -1336,6 +1360,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     list_layout(now);
     dotpage_layout(now);
     home_hint_layout(now);
+    const bool intro_up = intro_layout(now);
     mao_dots_end();
     mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now);
     panel_layout();
@@ -1360,7 +1385,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
                          (now - s_list.shown_at_ms) < LOOKING_MS + 100;
     const bool field_alive = s_list.presence.x > 0.004f ||   /* the dots shimmer while they are there */
                              (s_dp.m.on && s_panel.presence.x > 0.004f) || s_dp.reach.x > 0.5f;
-    return field_alive || waiting || s_hint.allowed || s_list.show_at != 0 || s_panel.show_at != 0 ||
+    return field_alive || waiting || s_hint.allowed || intro_up || s_list.show_at != 0 || s_panel.show_at != 0 ||
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
            !mao_spring_settled(&s_list.side, 0.05f) ||
            !mao_spring_settled(&s_panel.presence, 0.002f) || !mao_spring_settled(&s_panel.ty, 0.05f) ||

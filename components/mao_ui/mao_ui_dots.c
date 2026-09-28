@@ -254,6 +254,33 @@ void mao_dots_text(const char *s, float cx, float cy, float pitch, float d, floa
     }
 }
 
+void mao_dots_text_front(const char *s, float cx, float cy, float pitch, float d, float opa, float front)
+{
+    const int cols = mao_dots_text_cols(s);
+    const float x0 = cx - (float)(cols - 1) * pitch * 0.5f;
+    const float y0 = cy - 3.0f * pitch;
+    for (int k = 0; s[k]; k++) {
+        const uint8_t *g = glyph_bits(s[k]);
+        for (int c = 0; c < 5; c++) {
+            for (int row = 0; row < 7; row++) {
+                if (!(g[c] & (1u << row))) {
+                    continue;
+                }
+                const float x = x0 + (float)(k * 6 + c) * pitch, y = y0 + (float)row * pitch;
+                /* each dot's own moment: a ragged, soft front, as the field's */
+                uint32_t h = (uint32_t)(k * 131 + c * 17 + row) * 2654435761u;
+                h ^= h >> 15;
+                const float jit = (float)(h % 1024u) / 1024.0f;
+                const float kf = (front - (sqrtf(x * x + y * y) + jit * 22.0f)) / 12.0f;
+                if (kf <= 0.0f) {
+                    continue;
+                }
+                mao_dots_glyph(x, y, d, opa * (kf < 1.0f ? kf : 1.0f), MAO_GLYPH_SQUARE, 0);
+            }
+        }
+    }
+}
+
 void mao_dots_text_halo(const char *s, float cx, float cy, float pitch, float d, float opa)
 {
     const int cols = mao_dots_text_cols(s);

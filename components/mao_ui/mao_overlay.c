@@ -161,11 +161,18 @@ void mao_overlay_page_show(bool show, const char *title)
 
 static void intro_layout(uint32_t now)
 {
-    const float p = clampf(s_intro.presence.x, 0.0f, 1.0f);
-    /* "TURN" breathes while waiting, and leaves first. */
-    const float pulse = 0.55f + 0.45f * (0.5f + 0.5f * sinf((float)now / 1000.0f * 3.2f));
-    mao_ui_text_place(s_intro.word, s_intro.shift.x, INTRO_WORD_Y, 255.0f * p, &s_intro.cw);
-    mao_ui_text_place(s_intro.prompt, 0.0f, INTRO_PROMPT_Y, 170.0f * p * p * p * pulse, &s_intro.cp);
+    /* M4.1: the first encounter is drawn in dots (mao_ui_devices.c,
+     * intro_layout); the labels stay, invisible, so layout and caches are
+     * unchanged. */
+    (void)now;
+    mao_ui_text_place(s_intro.word, s_intro.shift.x, INTRO_WORD_Y, 0.0f, &s_intro.cw);
+    mao_ui_text_place(s_intro.prompt, 0.0f, INTRO_PROMPT_Y, 0.0f, &s_intro.cp);
+}
+
+void mao_overlay_intro_get(float *presence, float *shift)
+{
+    *presence = clampf(s_intro.presence.x, 0.0f, 1.0f);
+    *shift = s_intro.shift.x;
 }
 
 void mao_overlay_intro_exit(int direction)

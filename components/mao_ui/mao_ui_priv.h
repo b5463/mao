@@ -54,6 +54,11 @@ int mao_dots_text_cols(const char *s);          /* width in matrix columns */
 /* 5x7 dot text centred at (cx, cy); reveal_r >= 0 shows only dots within
  * that radius of the screen centre (a bloom reaching them). */
 void mao_dots_text(const char *s, float cx, float cy, float pitch, float d, float opa, float reveal_r);
+/* The same arriving through a ragged, soft front of radius `front` (each dot
+ * at its own moment, as the field grows). */
+void mao_dots_text_front(const char *s, float cx, float cy, float pitch, float d, float opa, float front);
+/* The first encounter's state (mao_overlay.c): presence 0..1, lateral shift. */
+void mao_overlay_intro_get(float *presence, float *shift);
 /* The same on a black halo: readable over the field. */
 void mao_dots_text_halo(const char *s, float cx, float cy, float pitch, float d, float opa);
 void mao_dots_field(float radius, float strength, float angle, uint32_t now_ms);   /* turning lattice bloom */

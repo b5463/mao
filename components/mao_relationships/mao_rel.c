@@ -37,6 +37,49 @@ static nvs_handle_t s_nvs;
 static bool s_nvs_ok;
 static bool s_fail_write, s_fail_erase;   /* development: one-shot failure injection */
 
+/* Erase history (M4.1): every relationship erase is recorded - who asked and
+ * why - in this namespace's "trace" key (never read as a relationship), and
+ * printed at boot. A record that disappears without an entry here was not
+ * erased by MAO's own forget. Only ids and tags, never keys. */
+#define TRACE_KEY  "trace"
+#define TRACE_N    8
+typedef struct {
+    uint64_t id;
+    uint32_t uptime_s;
+    uint16_t boot;
+    int8_t slot;
+    char why[13];
+} rel_trace_entry_t;
+typedef struct {
+    uint16_t boot;          /* boots seen (the current one) */
+    uint8_t next;
+    rel_trace_entry_t e[TRACE_N];
+} rel_trace_t;
+static rel_trace_t s_trace;
+static bool s_trace_ok;
+
+static void trace_save(void)
+{
+    if (s_nvs_ok && s_trace_ok) {
+        if (nvs_set_blob(s_nvs, TRACE_KEY, &s_trace, sizeof(s_trace)) == ESP_OK) {
+            nvs_commit(s_nvs);
+        }
+    }
+}
+
+static void trace_erase(int slot, uint64_t id, const char *why)
+{
+    rel_trace_entry_t *t = &s_trace.e[s_trace.next % TRACE_N];
+    memset(t, 0, sizeof(*t));
+    t->id = id;
+    t->uptime_s = (uint32_t)(esp_timer_get_time() / 1000000);
+    t->boot = s_trace.boot;
+    t->slot = (int8_t)slot;
+    strncpy(t->why, why ? why : "?", sizeof(t->why) - 1);
+    s_trace.next = (uint8_t)((s_trace.next + 1) % TRACE_N);
+    trace_save();
+}
+
 static void lock(void)
 {
     xSemaphoreTake(s_lock, portMAX_DELAY);
@@ -211,11 +254,18 @@ esp_err_t mao_rel_pair(uint64_t id, const char *name, uint16_t type)
     return err;
 }
 
-esp_err_t mao_rel_forget(uint64_t id)
+esp_err_t mao_rel_forget(uint64_t id, const char *why)
 {
     lock();
+    const int slot = mao_rel_table_find(&s_t, id);
     const esp_err_t err = mao_rel_table_forget(&s_t, id);
+    if (err == ESP_OK) {
+        trace_erase(slot, id, why);
+    }
     unlock();
+    if (err == ESP_OK) {
+        ESP_LOGW(TAG, "forget %016" PRIx64 " (slot r%d) because: %s", id, slot, why ? why : "?");
+    }
     if (err == ESP_OK) {
         mao_link_clear(id);                  /* no hidden key survives a FORGET */
         ESP_LOGI(TAG, "forgot: %016" PRIx64 " (relationship, credential and secure session)", id);
@@ -412,7 +462,7 @@ static void dev_command(char *arg)
         }
     } else if (strcmp(sub, "forget") == 0 && rest) {
         const uint64_t id = dev_resolve(rest);
-        if (!id || mao_rel_forget(id) == ESP_ERR_NOT_FOUND) {
+        if (!id || mao_rel_forget(id, "console") == ESP_ERR_NOT_FOUND) {
             ESP_LOGW(TAG, "rel forget <index|id>: not known");
         }
     } else if (strcmp(sub, "inject") == 0 && rest) {
@@ -433,7 +483,7 @@ static void dev_command(char *arg)
         int removed = 0;
         for (int i = 0; i < n; i++) {
             if ((l[i].id & TEST_ID_MASK) == TEST_ID_PREFIX) {
-                removed += mao_rel_forget(l[i].id) == ESP_OK;
+                removed += mao_rel_forget(l[i].id, "clear-test") == ESP_OK;
             }
         }
         ESP_LOGI(TAG, "rel: removed %d synthetic test records (real relationships untouched)", removed);
@@ -494,6 +544,22 @@ esp_err_t mao_rel_init(void)
         return ESP_OK;
     }
     s_nvs_ok = true;
+    {
+        size_t tl = sizeof(s_trace);
+        if (nvs_get_blob(s_nvs, TRACE_KEY, &s_trace, &tl) != ESP_OK || tl != sizeof(s_trace)) {
+            memset(&s_trace, 0, sizeof(s_trace));
+        }
+        s_trace_ok = true;
+        s_trace.boot++;
+        for (int i = 0; i < TRACE_N; i++) {
+            const rel_trace_entry_t *t = &s_trace.e[(s_trace.next + i) % TRACE_N];
+            if (t->id) {
+                ESP_LOGI(TAG, "erase history: boot %u +%" PRIu32 " s: r%d %016" PRIx64 " (%s)", t->boot, t->uptime_s,
+                         t->slot, t->id, t->why);
+            }
+        }
+        trace_save();
+    }
     int loaded = 0, skipped = 0;
     for (int slot = 0; slot < MAO_REL_MAX; slot++) {
         char key[4];

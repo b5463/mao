@@ -56,7 +56,8 @@ int mao_rel_list(mao_rel_info_t out[MAO_REL_MAX_KNOWN]);
  * ESP_ERR_NO_MEM (full: nothing is evicted), or a storage error. */
 esp_err_t mao_rel_pair(uint64_t id, const char *name, uint16_t type);
 /* Deliberate user act: ESP_OK once the record is erased and committed. */
-esp_err_t mao_rel_forget(uint64_t id);
+/* `why` (a short static tag) is kept in the erase history (see mao_rel.c). */
+esp_err_t mao_rel_forget(uint64_t id, const char *why);
 /* Live ANNOUNCE of any device: for a known one whose name/type changed, the
  * fallback metadata is updated (one write). No-op for strangers. */
 void mao_rel_note_live(uint64_t id, const char *name, uint16_t type);
