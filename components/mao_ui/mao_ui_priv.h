@@ -64,6 +64,7 @@ void mao_dots_text_halo(const char *s, float cx, float cy, float pitch, float d,
 /* Text along the rim: at the top (reading clockwise) or the bottom; r = the
  * middle row's radius; halo: a dark backing (over the field). */
 void mao_dots_text_arc(const char *s, float r, bool bottom, float pitch, float d, float opa, bool halo);
+float mao_dots_text_arc_width(const char *s, float pitch);   /* its length along the arc, px */
 void mao_dots_field(float radius, float strength, float angle, uint32_t now_ms);   /* turning lattice bloom */
 void mao_dots_ring(float r, int count, float size, float opa, mao_glyph_t kind, float phase, float fraction);
 float mao_dots_noise(int i, int j, uint32_t t);  /* 0..1, deterministic */

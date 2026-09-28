@@ -1193,8 +1193,9 @@ static void dotpage_layout(uint32_t now)
 
     /* The name follows the rim at the top: set along the circle, it reads
      * as part of the round screen rather than a line cut across it. */
-    const int cols = mao_dots_text_cols(s_dp.name);
-    const float npitch = cols > 1 ? fminf(2.4f, 150.0f / (float)(cols - 1)) : 2.4f;
+    /* at most ~100 deg of the rim, the letters tracked apart */
+    const float nw = mao_dots_text_arc_width(s_dp.name, 1.0f);
+    const float npitch = nw > 1.0f ? fminf(2.4f, 170.0f / nw) : 2.4f;
     const float nopa = (s_dp.m.online ? 170.0f : 100.0f) * (forget_q ? p0 : p) * (1.0f - menu);   /* the question keeps it */
     mao_dots_text_arc(s_dp.name, 98.0f, false, npitch, 1.9f, nopa, s_dp.m.level && s_dp.reach.x > 60.0f);
 
@@ -1266,7 +1267,10 @@ static void dotpage_layout(uint32_t now)
         const int n = s_dp.shots;
         const float land = s_dp.shot_at ? clampf((float)(now - s_dp.shot_at - 120) / 380.0f, 0.0f, 1.0f) : 1.0f;
         const int ranks = n / 2;                                     /* slots per side beyond the bottom one */
-        const float gap = ranks > 0 ? fminf(CAM_STRIP_GAP, CAM_STRIP_REACH / (float)ranks) : CAM_STRIP_GAP;
+        /* up both sides to just short of wherever the name ends */
+        const float name_half = mao_dots_text_arc_width(s_dp.name, npitch) * 0.5f / 98.0f;
+        const float reach = fminf(CAM_STRIP_REACH, PI_F - name_half - 0.16f);
+        const float gap = ranks > 0 ? fminf(CAM_STRIP_GAP, reach / (float)ranks) : CAM_STRIP_GAP;
         for (int i = 0; i < n; i++) {
             const int rank = (i + 1) / 2;
             const float side = i == 0 ? 0.0f : (i & 1) ? -1.0f : 1.0f;   /* right first (a falls towards the right) */

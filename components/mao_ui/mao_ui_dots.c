@@ -291,6 +291,13 @@ void mao_dots_text_front(const char *s, float cx, float cy, float pitch, float d
  * to right either way. r is the radius of the middle row. The positions are
  * cached per text (a sine and a cosine per column otherwise, every frame). */
 #define ARC_DOTS 260
+#define ARC_TRACK 1.5f      /* extra columns between letters on the curve: the inner rows crowd otherwise */
+
+float mao_dots_text_arc_width(const char *s, float pitch)
+{
+    const int n = (int)strlen(s);
+    return n > 0 ? ((float)n * (6.0f + ARC_TRACK) - (1.0f + ARC_TRACK)) * pitch : 0.0f;
+}
 typedef struct {
     char s[24];
     float r, pitch;
@@ -319,14 +326,14 @@ static const arc_text_t *arc_layout(const char *s, float r, bool bottom, float p
     a->bottom = bottom;
     a->used = s_arc_clock;
     a->n = 0;
-    const int cols = mao_dots_text_cols(s);
+    const float width = mao_dots_text_arc_width(s, pitch) / pitch;   /* in columns */
     for (int k = 0; s[k]; k++) {
         const uint8_t *g = glyph_bits(s[k]);
         for (int c = 0; c < 5; c++) {
             if (!g[c]) {
                 continue;
             }
-            const float along = ((float)(k * 6 + c) - (float)(cols - 1) * 0.5f) * pitch;
+            const float along = ((float)k * (6.0f + ARC_TRACK) + (float)c - (width - 1.0f) * 0.5f) * pitch;
             const float th = along / r, sn = sinf(th), cs = cosf(th);
             for (int row = 0; row < 7 && a->n < ARC_DOTS; row++) {
                 if (!(g[c] & (1u << row))) {
