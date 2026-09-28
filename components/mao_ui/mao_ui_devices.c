@@ -19,6 +19,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+#include "esp_log.h"
+#include "esp_timer.h"
 #include "mao_character.h"
 #include "mao_display.h"
 #include "mao_ui_priv.h"
@@ -277,6 +280,94 @@ static const float kCamInk[4] = { 255.0f, 200.0f, 130.0f, 70.0f };
  * arrives through it), opacity opa. */
 static float s_iris_twist;        /* rad: the camera page's answer to the knob (iris_draw adds it) */
 
+/* The iris's geometry depends only on its radius, apertures and twist; its
+ * shimmer and its arriving front change per frame. The geometry (positions,
+ * distances, which marks are ever lit, their clocks) is cached - two slots,
+ * the carousel's preview and the page - so a still iris costs a hash per
+ * mark, not a square root and a sine. The drawn result is unchanged. */
+#define IRIS_DOTS 128
+#define IRIS_RING 56
+typedef struct {
+    bool valid;
+    float r, ap[6], twist;
+    uint32_t used;
+    int n;
+    float px[IRIS_DOTS], py[IRIS_DOTS], edge[IRIS_DOTS], size[IRIS_DOTS];
+    uint32_t here[IRIS_DOTS];
+    uint8_t band[IRIS_DOTS], glyph[IRIS_DOTS];
+    int nr;
+    float rx[IRIS_RING], ry[IRIS_RING], redge[IRIS_RING];
+    uint32_t rhere[IRIS_RING];
+} iris_geo_t;
+static iris_geo_t s_ig[2];
+static uint32_t s_ig_clock;
+
+static const iris_geo_t *iris_geo(float r, const float ap[6])
+{
+    float apc[6];
+    for (int k = 0; k < 6; k++) {
+        apc[k] = clampf(ap[k], 0.0f, r * 0.8f);
+    }
+    s_ig_clock++;
+    for (int c = 0; c < 2; c++) {
+        iris_geo_t *g = &s_ig[c];
+        if (g->valid && g->r == r && g->twist == s_iris_twist && !memcmp(g->ap, apc, sizeof(apc))) {
+            g->used = s_ig_clock;
+            return g;
+        }
+    }
+    iris_geo_t *g = s_ig[0].used <= s_ig[1].used ? &s_ig[0] : &s_ig[1];   /* the older slot */
+    g->valid = true;
+    g->r = r;
+    g->twist = s_iris_twist;
+    memcpy(g->ap, apc, sizeof(apc));
+    g->used = s_ig_clock;
+    g->n = 0;
+    const bool big = r > 40.0f;
+    const float step = big ? 5.0f : 3.4f;
+    for (int k = 0; k < 6; k++) {
+        const float apk = apc[k];
+        const float a = 0.5236f - 0.9f * (apk / r) + (float)k * 1.0472f + s_iris_twist;   /* they turn as it opens */
+        const float vx = apk * cosf(a), vy = apk * sinf(a);                   /* the aperture's corner */
+        const float dx = -sinf(a), dy = cosf(a);                               /* the blade's edge */
+        const float len = sqrtf(fmaxf(r * r - apk * apk, 0.0f));
+        int i = 0;
+        for (float t = 0.0f; t < len - 2.0f && g->n < IRIS_DOTS; t += step, i++) {
+            const float px = vx + dx * t, py = vy + dy * t;
+            const float w = t / len;                                          /* 0 at the aperture .. 1 at the rim */
+            const uint32_t here = cam_hash((uint32_t)(k * 131 + i), 17u);
+            if ((here >> 10) % 100u < (uint32_t)(3.0f + 30.0f * w * w)) {
+                continue;                                                     /* sparser towards the rim */
+            }
+            const float jit = (float)(here % 1024u) / 1024.0f;
+            const int m = g->n++;
+            g->px[m] = px;
+            g->py[m] = py;
+            g->edge[m] = sqrtf(px * px + py * py) + jit * 18.0f;
+            g->here[m] = here;
+            g->band[m] = (uint8_t)(w < 0.3f ? 0 : w < 0.65f ? 1 : 2);
+            g->size[m] = (big ? 3.4f : 2.4f) - (big ? 1.2f : 0.6f) * w;
+            g->glyph[m] = (uint8_t)(w < 0.22f ? MAO_GLYPH_SQUARE : MAO_GLYPH_DOT);
+        }
+    }
+    /* the ring: faint, a little broken */
+    const int ring = big ? IRIS_RING : 22;
+    g->nr = 0;
+    for (int i = 0; i < ring; i++) {
+        const uint32_t here = cam_hash((uint32_t)i, 911u);
+        if ((here >> 10) % 100u < 14u) {
+            continue;
+        }
+        const float an = (float)i * 6.2832f / (float)ring;
+        const int m = g->nr++;
+        g->rx[m] = r * cosf(an);
+        g->ry[m] = r * sinf(an);
+        g->redge[m] = r + (float)(here % 1024u) / 1024.0f * 18.0f;
+        g->rhere[m] = here;
+    }
+    return g;
+}
+
 static void iris_draw(float x, float y, float r, const float ap[6], float front, float opa, uint32_t now)
 {
     if (opa < 4.0f || r < 2.0f || front <= 0.0f) {
@@ -284,50 +375,30 @@ static void iris_draw(float x, float y, float r, const float ap[6], float front,
     }
     now -= now % CAM_STEP_MS;
     const bool big = r > 40.0f;
-    const float step = big ? 5.0f : 3.4f;
-    for (int k = 0; k < 6; k++) {
-        const float apk = clampf(ap[k], 0.0f, r * 0.8f);
-        const float a = 0.5236f - 0.9f * (apk / r) + (float)k * 1.0472f + s_iris_twist;   /* they turn as it opens */
-        const float vx = apk * cosf(a), vy = apk * sinf(a);                   /* the aperture's corner */
-        const float dx = -sinf(a), dy = cosf(a);                               /* the blade's edge */
-        const float len = sqrtf(fmaxf(r * r - apk * apk, 0.0f));
-        int i = 0;
-        for (float t = 0.0f; t < len - 2.0f; t += step, i++) {
-            const float px = vx + dx * t, py = vy + dy * t;
-            const float w = t / len;                                          /* 0 at the aperture .. 1 at the rim */
-            const uint32_t here = cam_hash((uint32_t)(k * 131 + i), 17u);
-            const float jit = (float)(here % 1024u) / 1024.0f;
-            const float kf = (front - (sqrtf(px * px + py * py) + jit * 18.0f)) / 14.0f;
-            if (kf <= 0.0f) {
-                continue;                                                     /* not yet reached by the front */
-            }
-            if ((here >> 10) % 100u < (uint32_t)(3.0f + 30.0f * w * w)) {
-                continue;                                                     /* sparser towards the rim */
-            }
-            const uint32_t phase = (here >> 3) % CAM_ROLL_MS;
-            const uint32_t gen = (now + phase) / CAM_ROLL_MS;
-            const uint32_t h = cam_hash(here, gen);
-            const uint32_t ci = h % 100u;
-            const int ink = w < 0.3f ? (ci < 60 ? 0 : ci < 85 ? 1 : 2)
-                          : w < 0.65f ? (ci < 35 ? 0 : ci < 65 ? 1 : ci < 90 ? 2 : 3)
-                                      : (ci < 32 ? 1 : ci < 72 ? 2 : 3);
-            const float size = (big ? 3.4f : 2.4f) - (big ? 1.2f : 0.6f) * w;
-            const mao_glyph_t gl = w < 0.22f ? MAO_GLYPH_SQUARE : MAO_GLYPH_DOT;
-            mao_dots_glyph(x + px, y + py, size, opa * kCamInk[ink] / 255.0f * fminf(kf, 1.0f), gl, 0);
+    const iris_geo_t *g = iris_geo(r, ap);
+    for (int m = 0; m < g->n; m++) {
+        const float kf = (front - g->edge[m]) / 14.0f;
+        if (kf <= 0.0f) {
+            continue;                                                         /* not yet reached by the front */
         }
+        const uint32_t here = g->here[m];
+        const uint32_t gen = (now + (here >> 3) % CAM_ROLL_MS) / CAM_ROLL_MS;
+        const uint32_t ci = cam_hash(here, gen) % 100u;
+        const int ink = g->band[m] == 0 ? (ci < 60 ? 0 : ci < 85 ? 1 : 2)
+                      : g->band[m] == 1 ? (ci < 35 ? 0 : ci < 65 ? 1 : ci < 90 ? 2 : 3)
+                                        : (ci < 32 ? 1 : ci < 72 ? 2 : 3);
+        mao_dots_glyph(x + g->px[m], y + g->py[m], g->size[m], opa * kCamInk[ink] / 255.0f * fminf(kf, 1.0f),
+                       (mao_glyph_t)g->glyph[m], 0);
     }
-    /* the ring: faint, a little broken, arriving last */
-    const int ring = big ? 56 : 22;
-    for (int i = 0; i < ring; i++) {
-        const uint32_t here = cam_hash((uint32_t)i, 911u);
-        const float kf = (front - (r + (float)(here % 1024u) / 1024.0f * 18.0f)) / 14.0f;
-        if (kf <= 0.0f || (here >> 10) % 100u < 14u) {
+    for (int m = 0; m < g->nr; m++) {                                         /* the ring, arriving last */
+        const float kf = (front - g->redge[m]) / 14.0f;
+        if (kf <= 0.0f) {
             continue;
         }
+        const uint32_t here = g->rhere[m];
         const uint32_t gen = (now + (here >> 3) % CAM_ROLL_MS) / CAM_ROLL_MS;
         const int ink = cam_hash(here, gen) % 100u < 55 ? 2 : 3;
-        const float an = (float)i * 6.2832f / (float)ring;
-        mao_dots_glyph(x + r * cosf(an), y + r * sinf(an), big ? 2.6f : 2.0f, opa * kCamInk[ink] / 255.0f * fminf(kf, 1.0f),
+        mao_dots_glyph(x + g->rx[m], y + g->ry[m], big ? 2.6f : 2.0f, opa * kCamInk[ink] / 255.0f * fminf(kf, 1.0f),
                        MAO_GLYPH_DOT, 0);
     }
 }
@@ -1399,6 +1470,17 @@ void mao_ui_device_dots(const mao_ui_dotpage_t *m)
 
 /* ---------------------------------------------------------------------- */
 
+/* Stage timing (M4.1 perf): where a device-screen tick spends its time. */
+static int64_t s_st[6];
+static uint32_t s_st_n;
+#if defined(CONFIG_MAO_PERF_PROBE) && CONFIG_MAO_PERF_PROBE
+#define ST(i, expr) do { const int64_t t0_ = esp_timer_get_time(); expr; s_st[i] += esp_timer_get_time() - t0_; } while (0)
+#define ST_ON 1
+#else
+#define ST(i, expr) do { expr; } while (0)
+#define ST_ON 0
+#endif
+
 bool mao_devices_ui_tick(float dt, uint32_t now)
 {
     presence_due(&s_list.presence, &s_list.show_at, s_list.show_target, now);
@@ -1424,14 +1506,20 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     s_fq.weight = 0.0f;
     s_fq.reach = 0.0f;
     mao_dots_begin();
-    list_layout(now);
-    dotpage_layout(now);
+    ST(0, list_layout(now));
+    ST(1, dotpage_layout(now));
     home_hint_layout(now);
     const bool intro_up = intro_layout(now);
     const bool tune_up = home_tune_layout(now, dt);
-    mao_dots_end();
-    mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now);
-    panel_layout();
+    ST(2, mao_dots_end());
+    ST(3, mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now));
+    ST(4, panel_layout());
+    if (ST_ON && ++s_st_n >= 300) {
+        ESP_LOGI("MAO_UI", "stages avg us: list %" PRId64 " page %" PRId64 " dots_end %" PRId64 " field %" PRId64
+                 " panel %" PRId64, s_st[0] / s_st_n, s_st[1] / s_st_n, s_st[2] / s_st_n, s_st[3] / s_st_n, s_st[4] / s_st_n);
+        memset(s_st, 0, sizeof(s_st));
+        s_st_n = 0;
+    }
 
     /* One focus line: the surface with the most presence owns it. */
     const float lp = clampf(s_list.presence.x, 0.0f, 1.0f), pp = clampf(s_panel.presence.x, 0.0f, 1.0f);

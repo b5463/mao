@@ -27,33 +27,48 @@ static uint32_t hash2(int a, int b)
     return h ^ (h >> 16);
 }
 
+void odd_field_precompute(const odd_field_geom_t *g, int gx, int gy, odd_field_pre_t *pre)
+{
+    const float dx = (float)(gx * g->pitch), dy = (float)(gy * g->pitch);
+    const float dist = sqrtf(dx * dx + dy * dy);
+    /* When this cell's turn comes: ragged at the edge, tight at the origin. */
+    const float jit = (float)(hash2(gx + 31, gy - 17) % 1024u) / 1024.0f;
+    const float spread = g->jitter * (0.18f + 0.82f * (dist / g->far));
+    pre->edge = dist + jit * spread;
+    /* Whether a cell is lit is fixed by position; the rim is mostly empty. */
+    pre->d = dist / g->far;
+    const uint32_t here = hash2(gx, gy);
+    const uint32_t drop = (uint32_t)(6.0f + 74.0f * pre->d * pre->d);
+    pre->lit = !((here >> 3) % 100u < drop);
+    /* The mark re-rolls on the cell's own clock (the changes scatter). */
+    pre->phase = hash2(gx + 977, gy - 613) % (uint32_t)g->cell_ms;
+}
+
 bool odd_field_cell(const odd_field_geom_t *g, int gx, int gy, float reach, int32_t ms, odd_field_cell_t *out)
 {
     if (reach <= 0.0f) {
         return false;
     }
-    const float dx = (float)(gx * g->pitch), dy = (float)(gy * g->pitch);
-    const float dist = sqrtf(dx * dx + dy * dy);
+    odd_field_pre_t pre;
+    odd_field_precompute(g, gx, gy, &pre);
+    return odd_field_cell_pre(g, gx, gy, &pre, reach, ms, out);
+}
 
-    /* When this cell's turn comes: ragged at the edge, tight at the origin. */
-    const float jit = (float)(hash2(gx + 31, gy - 17) % 1024u) / 1024.0f;
-    const float spread = g->jitter * (0.18f + 0.82f * (dist / g->far));
-    const float k = (reach - (dist + jit * spread)) / g->fade;
+bool odd_field_cell_pre(const odd_field_geom_t *g, int gx, int gy, const odd_field_pre_t *pre, float reach, int32_t ms,
+                        odd_field_cell_t *out)
+{
+    if (reach <= 0.0f) {
+        return false;
+    }
+    const float k = (reach - pre->edge) / g->fade;
     if (k <= 0.0f) {
         return false;
     }
-
-    /* Whether a cell is lit is fixed by position; the rim is mostly empty. */
-    const float d = dist / g->far;
-    const uint32_t here = hash2(gx, gy);
-    const uint32_t drop = (uint32_t)(6.0f + 74.0f * d * d);
-    if ((here >> 3) % 100u < drop) {
+    const float d = pre->d;
+    if (!pre->lit) {
         return false;
     }
-
-    /* The mark re-rolls on the cell's own clock (the changes scatter). */
-    const uint32_t phase = hash2(gx + 977, gy - 613) % (uint32_t)g->cell_ms;
-    const uint32_t gen = (uint32_t)(ms + (int32_t)phase) / (uint32_t)g->cell_ms;
+    const uint32_t gen = (uint32_t)(ms + (int32_t)pre->phase) / (uint32_t)g->cell_ms;
     const uint32_t h = hash2(gx, (int)((uint32_t)gy + gen * 7919u));
 
     /* Weight falls with distance; the alphabet sorts itself by weight. */

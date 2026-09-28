@@ -32,6 +32,7 @@ static struct {
     float reach;
     int16_t oy;                         /* the field's centre, px below the screen centre */
     bool any;
+    odd_field_pre_t pre[SIDE][SIDE];    /* what depends only on position, computed once */
 } s_f;
 
 static uint32_t mix_rgb(uint32_t a, uint32_t b, float t)
@@ -118,6 +119,11 @@ static void draw_cb(lv_event_t *e)
 void mao_field_create(lv_obj_t *scr)
 {
     build_inks();
+    for (int gy = -N; gy <= N; gy++) {
+        for (int gx = -N; gx <= N; gx++) {
+            odd_field_precompute(&kGeom, gx, gy, &s_f.pre[gy + N][gx + N]);
+        }
+    }
     s_f.obj = lv_obj_create(scr);
     lv_obj_remove_style_all(s_f.obj);
     lv_obj_remove_flag(s_f.obj, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
@@ -170,7 +176,7 @@ void mao_field_set(float reach, float strength, float oy, uint32_t now_ms)
             const float px = (float)(gx * kGeom.pitch), py = (float)(gy * kGeom.pitch) + (float)s_f.oy;
             if (px * px + py * py <= 116.0f * 116.0f) {   /* inside the circle */
                 odd_field_cell_t c;
-                if (odd_field_cell(&kGeom, gx, gy, reach, (int32_t)now_ms, &c)) {
+                if (odd_field_cell_pre(&kGeom, gx, gy, &s_f.pre[gy + N][gx + N], reach, (int32_t)now_ms, &c)) {
                     g = c.glyph;
                     k = c.ink;
                     a = (uint8_t)lrintf(255.0f * c.grow * (strength > 1.0f ? 1.0f : strength));

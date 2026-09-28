@@ -62,6 +62,19 @@ typedef struct {
  * `reach` px at time ms. False if the cell is dark (unlit, or not reached). */
 bool odd_field_cell(const odd_field_geom_t *g, int gx, int gy, float reach, int32_t ms, odd_field_cell_t *out);
 
+/* The same, split for speed: what depends only on a cell's position (its
+ * distance, jitter, whether it is ever lit, its clock phase) computed once,
+ * then the per-frame part. odd_field_cell() is exactly the two in turn. */
+typedef struct {
+    float edge;        /* distance + jitter: the reach at which it appears */
+    float d;           /* distance / far */
+    bool lit;          /* ever lit (fixed by position) */
+    uint32_t phase;    /* its own clock's offset */
+} odd_field_pre_t;
+void odd_field_precompute(const odd_field_geom_t *g, int gx, int gy, odd_field_pre_t *pre);
+bool odd_field_cell_pre(const odd_field_geom_t *g, int gx, int gy, const odd_field_pre_t *pre, float reach, int32_t ms,
+                        odd_field_cell_t *out);
+
 #ifdef __cplusplus
 }
 #endif

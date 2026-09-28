@@ -207,13 +207,16 @@ void mao_dots_glyph(float x, float y, float size, float opa, mao_glyph_t kind, u
     if (s_d.n >= DOTS_MAX || opa < 6.0f || size < 1.0f) {
         return;
     }
-    if (x * x + y * y > 119.0f * 119.0f) {
+    /* Integer rounding and an integer circle test: floats are software on
+     * the C3 and this runs for every dot of every frame. */
+    const int32_t ix = (int32_t)(x < 0.0f ? x - 0.5f : x + 0.5f), iy = (int32_t)(y < 0.0f ? y - 0.5f : y + 0.5f);
+    if (ix * ix + iy * iy > 119 * 119) {
         return;                        /* the circle is the frame */
     }
     dot_t *o = &s_d.dot[s_d.n++];
-    o->x = (int16_t)lrintf(x);
-    o->y = (int16_t)lrintf(y);
-    o->d = (uint8_t)(size > 120.0f ? 120 : lrintf(size));
+    o->x = (int16_t)ix;
+    o->y = (int16_t)iy;
+    o->d = (uint8_t)(size > 120.0f ? 120 : (int32_t)(size + 0.5f));
     o->opa = (uint8_t)(opa > 255.0f ? 255 : opa);
     o->kind = (uint8_t)kind;
     o->col = col;

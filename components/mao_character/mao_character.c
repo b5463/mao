@@ -116,6 +116,7 @@ static struct {
     uint32_t n;
 } s_probe;
 
+static void probe_note(int64_t t0, const char *what) __attribute__((unused));
 static void probe_note(int64_t t0, const char *what)
 {
     const int64_t now = esp_timer_get_time(), d = now - t0;
@@ -139,9 +140,13 @@ static void tick_body(mao_char_t *const mc);
 static void tick_cb(lv_timer_t *t)
 {
     (void)t;
+#if defined(CONFIG_MAO_PERF_PROBE) && CONFIG_MAO_PERF_PROBE
     const int64_t t0 = esp_timer_get_time();
+#endif
     tick_body(&s_c);
+#if defined(CONFIG_MAO_PERF_PROBE) && CONFIG_MAO_PERF_PROBE
     probe_note(t0, "character");
+#endif
 }
 
 static void tick_body(mao_char_t *const mc)
