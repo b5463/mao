@@ -136,9 +136,17 @@ typedef struct {
     int64_t debounce_until_us;
     int64_t pressed_at_us;
     int64_t last_click_us;
+    bool turned_early;       /* turned deliberately while the press was still debouncing */
 } button_t;
 
 static button_t s_btn;
+
+/* Pushing an EC11 often nudges it by a detent. In the first moments of a
+ * press, turning counts only once it reaches two detents: a nudge is not a
+ * turn, and must neither move anything nor cancel the press. */
+#define PRESS_JIGGLE_MS      200
+#define PRESS_JIGGLE_DETENTS 2
+static int32_t s_jiggle;             /* detents held back at the start of a press */
 
 static bool button_raw_pressed(void)
 {
@@ -162,7 +170,8 @@ static void button_process(int64_t now)
             s_btn.pressed = pressed;
             if (pressed) {
                 s_btn.pressed_at_us = now;
-                s_btn.long_fired = false;
+                s_btn.long_fired = s_btn.turned_early;   /* already a hold-and-turn */
+                s_btn.turned_early = false;
                 mao_event_post(MAO_EVENT_INPUT_PRESS, 0);
             } else {
                 mao_event_post(MAO_EVENT_INPUT_RELEASE, 0);
@@ -215,19 +224,33 @@ static TickType_t button_next_timeout(int64_t now)
 
 static void encoder_flush(void)
 {
+    const int64_t now = esp_timer_get_time();
     portENTER_CRITICAL(&s_lock);
     int32_t detents = s_pending_detents;
     s_pending_detents = 0;
-    if (detents != 0 && s_btn.pressed) {
-        /* Turned while held (M4.1: hold-and-turn): this press is a gesture of
-         * its own - it must not also become a CLICK or a LONG PRESS. */
-        s_btn.long_fired = true;
-        s_btn.last_click_us = 0;
-    }
     portEXIT_CRITICAL(&s_lock);
 
     if (detents == 0) {
         return;
+    }
+    const bool pressing = s_btn.debouncing && !s_btn.pressed && button_raw_pressed();
+    const bool fresh = pressing || (s_btn.pressed && now - s_btn.pressed_at_us < PRESS_JIGGLE_MS * 1000);
+    if (!fresh) {
+        s_jiggle = 0;
+    } else {
+        s_jiggle += detents;
+        if (abs(s_jiggle) < PRESS_JIGGLE_DETENTS) {
+            return;                        /* a nudge from pushing the knob */
+        }
+        detents = s_jiggle;
+        s_jiggle = 0;
+    }
+    if (s_btn.pressed || pressing) {
+        /* Turned while held (M4.1: hold-and-turn): this press is a gesture of
+         * its own - it must not also become a CLICK or a LONG PRESS. */
+        s_btn.long_fired = true;
+        s_btn.last_click_us = 0;
+        s_btn.turned_early = pressing;
     }
     if (s_enc.reverse) {
         detents = -detents;

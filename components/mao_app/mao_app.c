@@ -243,7 +243,6 @@ static bool open_device(mao_device_t *dev, mao_device_controls_t *ctl)
     return true;
 }
 
-#define HOLD_DETENTS 2
 static struct {
     bool down;      /* the button is held */
     bool menu;      /* the options are up */
@@ -275,12 +274,13 @@ mao_hold_t mao_app_hold(const mao_event_t *ev, bool has_right, bool has_left)
         if (!s_hold.down) {
             return MAO_HOLD_PASS;
         }
+        /* A three-position switch, one detent per step: left option, BACK,
+         * right option. It stops at its ends - no hidden travel to wind back. */
         s_hold.menu = true;
-        s_hold.acc += ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
-        s_hold.acc = s_hold.acc > 4 ? 4 : (s_hold.acc < -4 ? -4 : s_hold.acc);
-        const int8_t sel = s_hold.acc >= HOLD_DETENTS && has_right  ? 0
-                           : s_hold.acc <= -HOLD_DETENTS && has_left ? 1
-                                                                      : -1;
+        s_hold.acc += ev->type == MAO_EVENT_INPUT_CW ? 1 : -1;
+        const int32_t hi = has_right ? 1 : 0, lo = has_left ? -1 : 0;
+        s_hold.acc = s_hold.acc > hi ? hi : (s_hold.acc < lo ? lo : s_hold.acc);
+        const int8_t sel = s_hold.acc > 0 ? 0 : s_hold.acc < 0 ? 1 : -1;
         if (sel != s_hold.sel) {
             s_hold.sel = sel;
             mao_audio_tick(120);
