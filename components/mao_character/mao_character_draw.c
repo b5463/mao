@@ -54,87 +54,53 @@ static void tri(lv_layer_t *layer, const lv_area_t *a, lv_point_precise_t p0, lv
     lv_draw_triangle(layer, &t);
 }
 
-/* Fill between a polyline (n points, x increasing) and a horizontal line
- * y_line, one 1 px column at a time: adjacent anti-aliased triangles would
- * leave hairline seams. below = the region under the polyline. */
-static void fill_columns(lv_layer_t *layer, const lv_area_t *a, const lv_point_precise_t *p, int n, int32_t y_line,
-                         bool below)
-{
-    lv_draw_rect_dsc_t r;
-    lv_draw_rect_dsc_init(&r);
-    r.bg_color = lv_color_hex(MAO_LID_COLOR);
-    int k = 0;
-    int32_t run_x = 0, run_y = INT32_MIN;
-    const int32_t x_end = (int32_t)p[n - 1].x;
-    for (int32_t x = (int32_t)p[0].x; x <= x_end + 1; x++) {
-        int32_t y = INT32_MIN;
-        if (x <= x_end) {
-            while (k < n - 2 && x > p[k + 1].x) {
-                k++;
-            }
-            const float x0 = p[k].x, x1 = p[k + 1].x;
-            const float u = x1 > x0 ? ((float)x - x0) / (x1 - x0) : 0.0f;
-            y = (int32_t)lrintf(p[k].y + (p[k + 1].y - p[k].y) * (u < 0.0f ? 0.0f : (u > 1.0f ? 1.0f : u)));
-        }
-        if (y != run_y) {
-            /* Flush the run of equal-height columns as one rectangle. */
-            if (run_y != INT32_MIN) {
-                const lv_area_t col = { a->x1 + run_x, a->y1 + (below ? run_y : y_line), a->x1 + x - 1,
-                                        a->y1 + (below ? y_line : run_y) };
-                if (col.y2 >= col.y1) {
-                    lv_draw_rect(layer, &r, &col);
-                }
-            }
-            run_x = x;
-            run_y = y;
-        }
-    }
-}
-
-/* Anti-aliased edge: the column fill is exact but stair-stepped on slopes
- * and curves; a thin line in the lid colour along the edge blends each step
- * into the eye white. */
-static void aa_edge(lv_layer_t *layer, const lv_area_t *a, const lv_point_precise_t *p, int n)
-{
-    lv_draw_line_dsc_t l;
-    lv_draw_line_dsc_init(&l);
-    l.color = lv_color_hex(MAO_LID_COLOR);
-    l.width = 2;
-    l.round_start = 1;
-    l.round_end = 1;
-    for (int k = 0; k < n - 1; k++) {
-        l.p1 = (lv_point_precise_t) { a->x1 + p[k].x, a->y1 + p[k].y };
-        l.p2 = (lv_point_precise_t) { a->x1 + p[k + 1].x, a->y1 + p[k + 1].y };
-        lv_draw_line(layer, &l);
-    }
-}
-
-/* Upper lid (pts: top-left, top-right, bottom-right, bottom-left): fill
- * from the top down to the sloped edge bottom-left -> bottom-right. */
+/* Upper lid (pts: top-left, top-right, bottom-right, bottom-left, object
+ * space): a solid block down to the higher bottom corner, and one
+ * anti-aliased triangle for the slope below it. The block overlaps the
+ * triangle by a row, so no seam can let the eye show through. */
 static void lid_draw_cb(lv_event_t *e)
 {
     lv_obj_t *o = lv_event_get_target(e);
     const lv_point_precise_t *p = lv_event_get_user_data(e);
+    lv_layer_t *layer = lv_event_get_layer(e);
     lv_area_t a;
     lv_obj_get_coords(o, &a);
-    const lv_point_precise_t edge[2] = { p[3], p[2] };
-    fill_columns(lv_event_get_layer(e), &a, edge, 2, (int32_t)p[0].y, false);
-    if (abs((int)(edge[0].y - edge[1].y)) >= 3) {
-        aa_edge(lv_event_get_layer(e), &a, edge, 2);   /* only visibly sloped lids step */
+    const int32_t yl = (int32_t)p[3].y, yr = (int32_t)p[2].y;
+    const int32_t y_hi = yl < yr ? yl : yr, y_lo = yl < yr ? yr : yl;
+    lv_draw_rect_dsc_t r;
+    lv_draw_rect_dsc_init(&r);
+    r.bg_color = lv_color_hex(MAO_LID_COLOR);
+    const lv_area_t block = { a.x1 + (int32_t)p[0].x, a.y1 + (int32_t)p[0].y, a.x1 + (int32_t)p[1].x,
+                              a.y1 + y_hi + (y_lo > y_hi ? 1 : 0) };
+    if (block.y2 >= block.y1) {
+        lv_draw_rect(layer, &r, &block);
+    }
+    if (y_lo > y_hi) {
+        /* the lower corner's side goes down to y_lo; the slope is the hypotenuse */
+        const lv_point_precise_t low = yl > yr ? p[3] : p[2];
+        tri(layer, &a, (lv_point_precise_t) { p[3].x, y_hi }, (lv_point_precise_t) { p[2].x, y_hi }, low,
+            MAO_LID_COLOR);
     }
 }
 
-/* Lower lid: pts 0..11 the arc (left to right), 12 / 13 the bottom corners. */
+/* Lower lid: pts[0] / pts[1] the object's corners, pts[2] / pts[3] a rounded
+ * shape's corners and pts[4].x its radius (object space). The shape is drawn
+ * anti-aliased and clipped to the object (the eye's box): its top edge is the
+ * smile line - a large circle's gentle cheek for a light smile, the eye's own
+ * round top for a full one. */
 static void low_draw_cb(lv_event_t *e)
 {
     lv_obj_t *o = lv_event_get_target(e);
     const lv_point_precise_t *p = lv_event_get_user_data(e);
     lv_area_t a;
     lv_obj_get_coords(o, &a);
-    fill_columns(lv_event_get_layer(e), &a, p, 12, (int32_t)p[12].y, true);
-    /* Every other arc point: 6 segments are smooth enough and half the cost. */
-    const lv_point_precise_t arc[7] = { p[0], p[2], p[4], p[6], p[8], p[10], p[11] };
-    aa_edge(lv_event_get_layer(e), &a, arc, 7);
+    lv_draw_rect_dsc_t r;
+    lv_draw_rect_dsc_init(&r);
+    r.bg_color = lv_color_hex(MAO_LID_COLOR);
+    r.radius = (int32_t)p[4].x;
+    const lv_area_t shape = { a.x1 + (int32_t)p[2].x, a.y1 + (int32_t)p[2].y, a.x1 + (int32_t)p[3].x,
+                              a.y1 + (int32_t)p[3].y };
+    lv_draw_rect(lv_event_get_layer(e), &r, &shape);
 }
 
 /* Place a custom-drawn object over the screen-centred box and store its
@@ -299,8 +265,17 @@ static int16_t px(float v)
     return (int16_t)lrintf(v);
 }
 
+static int16_t even(int16_t v)
+{
+    return (int16_t)(v & ~1);
+}
+
 static void apply_box(lv_obj_t *o, mao_box_t *last, mao_box_t next)
 {
+    /* A centred part with an odd size cannot stay centred: as it breathes one
+     * edge would jump a pixel and the other not. Even sizes grow evenly. */
+    next.w = even((int16_t)(next.w + 1));
+    next.h = even((int16_t)(next.h + 1));
     next.hidden = next.hidden || next.x > OFFSCREEN || next.x < -OFFSCREEN ||
                   next.y > OFFSCREEN || next.y < -OFFSCREEN || next.w < 1 || next.h < 1;
     if (next.hidden) {
@@ -412,25 +387,40 @@ void mao_char_draw_apply(mao_char_draw_t *d, const mao_pose_t *p)
             const float lift = ey[i] + eh[i] * 0.5f - (low[i] - (eh[i] + 2.0f) * 0.5f);   /* smile, px */
             const float band = fmaxf(eh[i] - lift, 7.0f);
             const float top = ey[i] - eh[i] * 0.5f, bottom = ey[i] + eh[i] * 0.5f + 3.0f;
-            const float r = fminf(ew[i], eh[i]) * 0.5f, flat = ew[i] * 0.5f - r;
             const float hw = ew[i] * 0.5f + 3.0f;
-            float q[14][2];
-            for (int k = 0; k < 12; k++) {
-                const float u = -1.0f + 2.0f * (float)k / 11.0f;
-                const float dx = fminf(fabsf(u) * hw, ew[i] * 0.5f);
-                const float over = dx - flat;
-                const float edge = over > 0.0f ? top + r - sqrtf(fmaxf(r * r - over * over, 0.0f)) : top;
-                q[k][0] = ex[i] + u * hw;
-                /* Light smile: a gentle wide cheek curve; full smile: parallel to
-                 * the top, an even arch. */
-                const float cheek = bottom - 3.0f - lift * (1.0f - 0.22f * u * u);
-                const float w = fminf(fmaxf((lift / eh[i] - 0.5f) / 0.35f, 0.0f), 1.0f);
-                q[k][1] = fminf(cheek + (edge + band - cheek) * w * w * (3.0f - 2.0f * w), bottom);
+            /* w: 0 a light smile (a cheek), 1 a full one (an even arch). */
+            const float wl = fminf(fmaxf((lift / eh[i] - 0.5f) / 0.35f, 0.0f), 1.0f);
+            const float w = wl * wl * (3.0f - 2.0f * wl);
+            /* Light: a circle whose top dips 22 % of the lift at the eye's
+             * sides - the cheek; full: the eye's own shape `band` below its
+             * top. In between the width (and so the curvature) morphs. */
+            const float sag = fmaxf(0.22f * lift, 1.0f), half = ew[i] * 0.5f;
+            const float rc = fminf((half * half + sag * sag) / (2.0f * sag), 160.0f);   /* a bounded mask for the renderer */
+            const float light_w = 2.0f * rc, full_w = ew[i] + 2.0f;
+            const float sw = light_w + (full_w - light_w) * w;
+            const float light_top = bottom - 3.0f - lift, full_top = top + band;
+            const float st = fminf(light_top + (full_top - light_top) * w, bottom);
+            const float sh = fmaxf(sw, eh[i] + 2.0f);          /* always reaches past the eye's bottom */
+            /* the object: the eye's box from just above the smile line down */
+            const float box[2][2] = { { ex[i] - hw, st - 1.0f }, { ex[i] + hw, bottom } };
+            const bool hid = !rig || !p->low_on || ew[i] < 1.0f || lift < 3.0f;
+            place_custom(d->lower[i], &d->last_lower[i], &d->low_pts[i][0], box, 2, hid);
+            if (!hid) {
+                const float ox = (float)d->last_lower[i].x - LV_HOR_RES / 2.0f;
+                const float oy = (float)d->last_lower[i].y - LV_VER_RES / 2.0f;
+                const lv_point_precise_t s0 = { (lv_value_precise_t)lrintf(ex[i] - sw * 0.5f - ox),
+                                                (lv_value_precise_t)lrintf(st - oy) };
+                const lv_point_precise_t s1 = { (lv_value_precise_t)lrintf(ex[i] + sw * 0.5f - ox),
+                                                (lv_value_precise_t)lrintf(st + sh - oy) };
+                const lv_value_precise_t rad = (lv_value_precise_t)lrintf(sw * 0.5f);
+                lv_point_precise_t *lp = &d->low_pts[i][0];
+                if (lp[2].x != s0.x || lp[2].y != s0.y || lp[3].x != s1.x || lp[3].y != s1.y || lp[4].x != rad) {
+                    lp[2] = s0;
+                    lp[3] = s1;
+                    lp[4].x = rad;
+                    lv_obj_invalidate(d->lower[i]);
+                }
             }
-            q[12][0] = ex[i] + hw; q[12][1] = bottom;
-            q[13][0] = ex[i] - hw; q[13][1] = bottom;
-            place_custom(d->lower[i], &d->last_lower[i], &d->low_pts[i][0], q, 14,
-                         !rig || !p->low_on || ew[i] < 1.0f || lift < 3.0f);
         }
         /* Round cover, eye-sized, sliding down over the eye. */
         apply_box(d->cover[i], &d->last_cover[i],
