@@ -384,22 +384,28 @@ bool mao_dots_end(void)
     lv_area_t dirty[DIRTY_MAX];
     int nd = 0;
     bool full = false;
-    for (int i = 0; i < n && !full; i++) {
+    /* Everything that changed, as one box: when too many dots moved to list
+     * them, only this box is redrawn - usually the preview or the iris, not
+     * the whole screen. */
+    lv_area_t all = { INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN };
+    for (int i = 0; i < n; i++) {
         const bool now_in = i < s_d.n, was_in = i < s_d.prev_n;
         if (now_in && was_in && same_dot(&s_d.dot[i], &s_d.prev[i])) {
             continue;
         }
-        if (nd >= DIRTY_MAX) {
-            full = true;
-            break;
-        }
         lv_area_t a, b;
         dot_area(&o, was_in ? &s_d.prev[i] : &s_d.dot[i], &a);
         dot_area(&o, now_in ? &s_d.dot[i] : &s_d.prev[i], &b);
-        dirty[nd++] = (lv_area_t) { LV_MIN(a.x1, b.x1), LV_MIN(a.y1, b.y1), LV_MAX(a.x2, b.x2), LV_MAX(a.y2, b.y2) };
+        const lv_area_t u = { LV_MIN(a.x1, b.x1), LV_MIN(a.y1, b.y1), LV_MAX(a.x2, b.x2), LV_MAX(a.y2, b.y2) };
+        all = (lv_area_t) { LV_MIN(all.x1, u.x1), LV_MIN(all.y1, u.y1), LV_MAX(all.x2, u.x2), LV_MAX(all.y2, u.y2) };
+        if (nd < DIRTY_MAX) {
+            dirty[nd++] = u;
+        } else {
+            full = true;
+        }
     }
     if (full) {
-        lv_obj_invalidate(s_d.obj);
+        lv_obj_invalidate_area(s_d.obj, &all);
     } else {
         for (int i = 0; i < nd; i++) {
             lv_obj_invalidate_area(s_d.obj, &dirty[i]);

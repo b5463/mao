@@ -23,7 +23,7 @@
 
 static const char *TAG = "MAO_UI";
 
-#define UI_TICK_MS        33
+#define UI_TICK_MS        25   /* 40 Hz: at the dot screens' render ceiling (~11.5 ms a moving frame), for less CPU than 60 Hz */
 #define MENU_ENTER_DELAY  210    /* words appear only once MAO has dropped out of the centre */
 #define HOME_RETURN_DELAY 320    /* the field collapses to its dot, then the eyes open from it */
 #define DEVICES_ENTER_DELAY 120  /* a new text layer opens once the previous one has cleared */
