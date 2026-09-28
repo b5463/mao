@@ -243,16 +243,11 @@ static bool open_device(mao_device_t *dev, mao_device_controls_t *ctl)
     return true;
 }
 
-static struct {
-    bool down;      /* the button is held */
-    bool menu;      /* the options are up */
-    int32_t acc;    /* detents turned while held */
-    int8_t sel;     /* -1 BACK, 0 right, 1 left */
-} s_hold = { .sel = -1 };
+static mao_hold_state_t s_hold = { .sel = -1 };
 
 void mao_app_hold_reset(void)
 {
-    s_hold = (typeof(s_hold)) { .sel = -1 };
+    mao_hold_reset(&s_hold);
 }
 
 bool mao_app_hold_menu(int8_t *sel)
@@ -265,50 +260,12 @@ bool mao_app_hold_menu(int8_t *sel)
 
 mao_hold_t mao_app_hold(const mao_event_t *ev, bool has_right, bool has_left)
 {
-    switch (ev->type) {
-    case MAO_EVENT_INPUT_PRESS:
-        s_hold = (typeof(s_hold)) { .down = true, .sel = -1 };
-        return MAO_HOLD_PASS;
-    case MAO_EVENT_INPUT_CW:
-    case MAO_EVENT_INPUT_CCW: {
-        if (!s_hold.down) {
-            return MAO_HOLD_PASS;
-        }
-        /* A three-position switch, one detent per step: left option, BACK,
-         * right option. It stops at its ends - no hidden travel to wind back. */
-        s_hold.menu = true;
-        s_hold.acc += ev->type == MAO_EVENT_INPUT_CW ? 1 : -1;
-        const int32_t hi = has_right ? 1 : 0, lo = has_left ? -1 : 0;
-        s_hold.acc = s_hold.acc > hi ? hi : (s_hold.acc < lo ? lo : s_hold.acc);
-        const int8_t sel = s_hold.acc > 0 ? 0 : s_hold.acc < 0 ? 1 : -1;
-        if (sel != s_hold.sel) {
-            s_hold.sel = sel;
-            mao_audio_tick(120);
-        }
-        return MAO_HOLD_EATEN;
+    bool moved = false;
+    const mao_hold_t r = mao_hold_step(&s_hold, ev->type, has_right, has_left, &moved);
+    if (moved) {
+        mao_audio_tick(120);
     }
-    case MAO_EVENT_INPUT_LONG_PRESS:
-        if (!s_hold.down) {
-            return MAO_HOLD_BACK;        /* not framed by a press (console): plain BACK */
-        }
-        if (!s_hold.menu) {
-            s_hold.menu = true;
-            s_hold.sel = -1;
-            mao_audio_tick(120);
-        }
-        return MAO_HOLD_EATEN;
-    case MAO_EVENT_INPUT_RELEASE: {
-        const bool menu = s_hold.menu;
-        const int8_t sel = s_hold.sel;
-        mao_app_hold_reset();
-        if (!menu) {
-            return MAO_HOLD_PASS;
-        }
-        return sel == 0 ? MAO_HOLD_RIGHT : sel == 1 ? MAO_HOLD_LEFT : MAO_HOLD_BACK;
-    }
-    default:
-        return MAO_HOLD_PASS;
-    }
+    return r;
 }
 
 static void refresh_device_panel(void)

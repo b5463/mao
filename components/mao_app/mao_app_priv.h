@@ -121,13 +121,7 @@ void mao_app_back_to_device(uint64_t id);   /* reopen a device page (after a mis
  * brings MAO's options up - BACK in the middle, the right option when turned
  * right, the left one when turned left; letting go chooses. Every device
  * page (control or relationship) feeds its input through this first. */
-typedef enum {
-    MAO_HOLD_PASS = 0,   /* not the hold's: the page handles the event */
-    MAO_HOLD_EATEN,      /* the hold took it (the options moved): redraw */
-    MAO_HOLD_BACK,       /* let go in the middle */
-    MAO_HOLD_RIGHT,      /* let go on the right option */
-    MAO_HOLD_LEFT,       /* let go on the left option */
-} mao_hold_t;
+#include "mao_hold.h"
 mao_hold_t mao_app_hold(const mao_event_t *ev, bool has_right, bool has_left);
 bool mao_app_hold_menu(int8_t *sel);   /* the options are up (sel: -1 BACK, 0 right, 1 left) */
 void mao_app_hold_reset(void);
