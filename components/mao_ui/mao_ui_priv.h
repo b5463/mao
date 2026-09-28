@@ -59,6 +59,10 @@ void mao_dots_ring(float r, int count, float size, float opa, mao_glyph_t kind, 
 float mao_dots_noise(int i, int j, uint32_t t);  /* 0..1, deterministic */
 bool mao_dots_end(void);
 
+/* The ODD JOBS field (mao_ui_field.c): reach in px from the centre. */
+void mao_field_create(lv_obj_t *scr);
+void mao_field_set(float reach, float strength, uint32_t now_ms);
+
 /* The focus line (mao_ui_focus.c). */
 typedef enum {
     MAO_FOCUS_NORMAL = 0,

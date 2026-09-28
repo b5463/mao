@@ -278,6 +278,7 @@ esp_err_t mao_ui_init(mao_view_t initial_view)
     esp_err_t err = mao_character_create(scr);
     mao_overlay_create(scr, initial_view == MAO_VIEW_INTRO);
     mao_devices_ui_create(scr);
+    mao_field_create(scr);
     mao_dots_create(scr);
     mao_focus_create(scr);
     s_shown = initial_view;

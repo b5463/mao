@@ -115,6 +115,15 @@ typedef struct {
 static devlist_t s_list;
 static panel_t s_panel;
 
+/* The device page in dots (see dotpage_layout). */
+static struct {
+    mao_ui_dotpage_t m;
+    char name[20];
+    mao_spring_t reach;            /* the field follows the brightness */
+    mao_spring_t burst;            /* a landing pushes the rings out */
+    mao_spring_t optsel;           /* 0 primary .. 1 on the rim (how much the page yields) */
+} s_dp;
+
 static float clampf(float v, float lo, float hi)
 {
     return v < lo ? lo : (v > hi ? hi : v);
@@ -238,6 +247,61 @@ static mao_glyph_t core_glyph(uint16_t type)
     }
 }
 
+/* The puck: a core disc with a glyph cut out of it and rings of glyphs that
+ * breathe outwards and turn. Shared by DEVICES and an action device's page. */
+typedef struct {
+    float x;             /* lateral offset (a failed action's shake) */
+    float core_r;
+    mao_glyph_t glyph;   /* cut out of the core; MAO_GLYPH_DOT = none */
+    bool hollow;         /* offline: the core is an outline */
+    float grow;          /* 0..1 how far the rings have bloomed */
+    float change;        /* 1 settled .. 0 collapsed (changing device) */
+    float opa;           /* ring strength (state) */
+    float fraction;      /* rings left incomplete (needs attention) */
+    float amp;           /* breathing amplitude */
+    float carry;         /* rad the dial has turned them */
+    float extra_r;       /* a landing's burst outwards */
+    float spin;          /* spin speed multiplier (pending) */
+} puck_t;
+
+static void puck_draw(const puck_t *k, float t)
+{
+    const float beat = 1.0f + 0.04f * sinf(t * 2.0f * PI_F / 1.6f) * (k->hollow ? 0.0f : 1.0f);
+    if (k->hollow) {
+        mao_dots_ring(k->core_r, 22, 3.0f, 170.0f * k->grow, MAO_GLYPH_SQUARE, t * 0.1f, 1.0f);
+    } else {
+        mao_dots_glyph(k->x, 0.0f, 2.0f * k->core_r * beat, 255.0f, MAO_GLYPH_DOT, 0);
+        if (k->glyph != MAO_GLYPH_DOT && k->grow > 0.5f) {
+            mao_dots_glyph(k->x, 0.0f, k->core_r * 0.95f, 255.0f * smooth01((k->grow - 0.5f) / 0.5f) * k->change,
+                           k->glyph, 1);
+        }
+    }
+    for (int i = 0; i < RING_COUNT; i++) {
+        const ring_t *rg = &kRings[i];
+        const float base = CORE_R + rg->dr;
+        const float reach = clampf((k->grow * 120.0f - base) / 18.0f, 0.0f, 1.0f);
+        if (reach <= 0.0f) {
+            continue;
+        }
+        const float ripple = k->amp * sinf(t * 2.0f * PI_F / (k->amp > 4.0f ? 1.1f : 2.4f) - base * 0.07f);
+        const float r = (base + ripple + k->extra_r * (0.4f + 0.6f * (float)i / (float)RING_COUNT)) *
+                        (0.55f + 0.45f * k->change);
+        const float spin = rg->spin * t * k->spin;
+        const float dir = (i & 1) ? -1.0f : 1.0f;
+        const float o = rg->opa * reach * k->opa * (0.4f + 0.6f * k->change);
+        if (k->x != 0.0f) {
+            /* shaken: draw the ring displaced (rings are centred otherwise) */
+            const int shown = (int)((float)rg->count * k->fraction + 0.5f);
+            for (int g = 0; g < shown; g++) {
+                const float an = spin + dir * k->carry + (float)g * 2.0f * PI_F / (float)rg->count;
+                mao_dots_glyph(k->x + r * sinf(an), -r * cosf(an), rg->size, o, rg->kind, 0);
+            }
+        } else {
+            mao_dots_ring(r, rg->count, rg->size, o, rg->kind, spin + dir * k->carry, k->fraction);
+        }
+    }
+}
+
 static void list_layout(uint32_t now)
 {
     for (int i = 0; i < MAO_UI_DEVICES_MAX; i++) {
@@ -267,38 +331,20 @@ static void list_layout(uint32_t now)
     const float surge = sinf(PI_F * clampf(p / 0.95f, 0.0f, 1.0f));
     mao_dots_field(118.0f * grow, 0.75f * surge * surge, t * 0.35f, now);
 
-    /* The core: the gathered dot, grown. */
-    const float core_r = (3.0f + (CORE_R - 3.0f) * grow) * (0.30f + 0.70f * change);
-    const float beat = 1.0f + 0.04f * sinf(t * 2.0f * PI_F / 1.6f) * (offline ? 0.0f : 1.0f);
-    if (offline) {
-        mao_dots_ring(core_r, 22, 3.0f, 170.0f * grow, MAO_GLYPH_SQUARE, t * 0.1f, 1.0f);   /* hollow */
-    } else {
-        mao_dots_glyph(0.0f, 0.0f, 2.0f * core_r * beat, 255.0f, MAO_GLYPH_DOT, 0);
-        if (!empty && grow > 0.5f) {
-            mao_dots_glyph(0.0f, 0.0f, core_r * 0.95f, 255.0f * smooth01((grow - 0.5f) / 0.5f) * change,
-                           core_glyph(s_list.model.type[shown]), 1);
-        }
-    }
-
-    /* The rings: revealed from the inside out, breathing outwards, turning. */
-    const float carry = pos * 0.9f;               /* the dial turns them */
-    const float state_opa = offline ? 0.35f : (noted ? 0.6f : 1.0f);
-    const float fraction = noted ? 0.72f : 1.0f;
-    const float amp = offline ? 0.0f : (fresh ? 5.0f : 2.2f);
-    for (int k = 0; k < RING_COUNT; k++) {
-        const ring_t *rg = &kRings[k];
-        const float base = CORE_R + rg->dr;
-        const float reach = clampf((grow * 120.0f - base) / 18.0f, 0.0f, 1.0f);
-        if (reach <= 0.0f) {
-            continue;
-        }
-        const float ripple = amp * sinf(t * 2.0f * PI_F / (fresh ? 1.1f : 2.4f) - base * 0.07f);
-        const float r = (base + ripple) * (0.55f + 0.45f * change);
-        const float spin = offline ? 0.0f : rg->spin * t;
-        const float dir = (k & 1) ? -1.0f : 1.0f;
-        mao_dots_ring(r, rg->count, rg->size, rg->opa * reach * state_opa * (0.4f + 0.6f * change), rg->kind,
-                      spin + dir * carry, fraction);
-    }
+    /* The core (the gathered dot, grown) and its rings. */
+    const puck_t pk = {
+        .core_r = (3.0f + (CORE_R - 3.0f) * grow) * (0.30f + 0.70f * change),
+        .glyph = empty ? MAO_GLYPH_DOT : core_glyph(s_list.model.type[shown]),
+        .hollow = offline,
+        .grow = grow,
+        .change = change,
+        .opa = offline ? 0.35f : (noted ? 0.6f : 1.0f),
+        .fraction = noted ? 0.72f : 1.0f,
+        .amp = offline ? 0.0f : (fresh ? 5.0f : 2.2f),
+        .carry = pos * 0.9f,
+        .spin = offline ? 0.0f : 1.0f,
+    };
+    puck_draw(&pk, t);
 
     /* The name, small, under the rings; rim dots for the position. */
     const float late = smooth01((p - 0.55f) / 0.45f);
@@ -438,13 +484,13 @@ static void panel_layout(void)
 {
     const float p0 = clampf(s_panel.presence.x, 0.0f, 1.0f);
     const float s = clampf(s_panel.sh.x, 0.0f, 1.0f);
-    const float p = p0 * (1.0f - s);          /* the page recedes under a sheet */
+    const float p = p0 * (1.0f - s) * (s_dp.m.on ? 0.0f : 1.0f);   /* recedes under a sheet; hidden by dots */
     const float hot = clampf(s_panel.hot.x, 0.0f, 1.0f);
     const float lift = s * 6.0f;              /* ... and tilts away a little */
     /* The name IS the selected list row, moved deeper: it travels from its
      * list position up to the heading, and back again on the way out. */
     const float title_opa = (s_panel.online ? 170.0f : 110.0f) * p0 * (s_panel.sheet.hide_title ? 1.0f - s : 1.0f);
-    mao_ui_text_place(s_panel.title, 0.0f, s_panel.ty.x - lift, title_opa, &s_panel.ct);
+    mao_ui_text_place(s_panel.title, 0.0f, s_panel.ty.x - lift, s_dp.m.on ? 0.0f : title_opa, &s_panel.ct);
     sheet_layout(p0, s);
 
     /* Focus is the line; neighbours recede a step. */
@@ -578,6 +624,7 @@ void mao_ui_device_feedback(mao_ui_fb_t fb)
         s_panel.cdy.v -= 70.0f;                 /* released tension: a tiny overshoot */
         mao_focus_mode(MAO_FOCUS_NORMAL);       /* the line lands back ... */
         mao_focus_event(MAO_COL_YELLOW, 300);   /* ... in yellow, once */
+        s_dp.burst.v += 160.0f;                 /* the puck: the rings are pushed out */
         break;
     case MAO_UI_FB_BUSY:
         s_panel.cdy.target = 0.0f;
@@ -721,6 +768,109 @@ void mao_ui_device_update(const mao_ui_device_t *m)
     mao_display_unlock();
 }
 
+
+/* ---------------------------------------------------------------------- */
+/* The device page in dots (M4.1)                                         */
+/* ---------------------------------------------------------------------- */
+
+#define DP_NAME_Y        -100.0f
+#define DP_OPT_R         104.0f
+#define DP_SEED          14.0f     /* the field at the lowest brightness: a small cluster */
+#define DP_REACH_MAX     150.0f    /* past the rim: the field fills the circle */
+
+
+/* MAO's own options on the lower rim: CONNECT (towards the world, right)
+ * and INFO (left). Small marks; the word appears only when chosen. */
+static void option_mark(int which, float opa, bool chosen)
+{
+    const float a = which == 0 ? 2.45f : 3.83f;   /* rad from the top, clockwise */
+    const float x = DP_OPT_R * sinf(a), y = -DP_OPT_R * cosf(a);
+    const float s = chosen ? 1.6f : 1.0f;
+    if (which == 0) {                             /* > of three squares */
+        mao_dots_glyph(x - 3.0f * s, y - 4.0f * s, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
+        mao_dots_glyph(x + 1.0f * s, y, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
+        mao_dots_glyph(x - 3.0f * s, y + 4.0f * s, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
+    } else {                                      /* i: a dot and a bar */
+        mao_dots_glyph(x, y - 5.0f * s, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
+        mao_dots_glyph(x, y + 1.0f * s, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
+        mao_dots_glyph(x, y + 4.5f * s, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
+    }
+}
+
+static void dotpage_layout(uint32_t now)
+{
+    const float p0 = clampf(s_panel.presence.x, 0.0f, 1.0f);
+    const float sh = clampf(s_panel.sh.x, 0.0f, 1.0f);
+    const float p = s_dp.m.on ? p0 * (1.0f - sh) : 0.0f;
+    const float t = (float)now / 1000.0f;
+    const float yield = clampf(s_dp.optsel.x, 0.0f, 1.0f);
+    /* The reach follows the model every frame (brightness, power, presence). */
+    const float pct = clampf((float)s_dp.m.level_pct, 0.0f, 100.0f) / 100.0f;
+    s_dp.reach.target = s_dp.m.on && s_dp.m.level && s_dp.m.power && s_dp.m.online &&
+                                s_panel.presence.target > 0.5f
+                            ? DP_SEED + (DP_REACH_MAX - DP_SEED) * pct
+                            : 0.0f;
+    if (s_dp.m.on && s_dp.m.level) {
+        const float r = s_dp.reach.x * smooth01(p0 / 0.9f);
+        mao_field_set(r, (1.0f - sh) * (1.0f - 0.65f * yield), now);
+        if (!s_dp.m.power && p > 0.02f) {
+            mao_dots_add(0.0f, 0.0f, 5.0f, 110.0f * p);     /* off: the light is still here */
+        }
+    } else {
+        mao_field_set(0.0f, 0.0f, now);
+    }
+    if (p < 0.004f) {
+        return;
+    }
+    /* The name travels in from its row and stays at the top, small. */
+    const float ny = s_panel.ty.x < -60.0f ? DP_NAME_Y : s_panel.ty.x;
+    const int cols = mao_dots_text_cols(s_dp.name);
+    const float pitch = cols > 1 ? fminf(2.2f, 120.0f / (float)(cols - 1)) : 2.2f;
+    mao_dots_text(s_dp.name, 0.0f, ny, pitch, 1.9f, (s_dp.m.online ? 200.0f : 110.0f) * p, -1.0f);
+
+    if (!s_dp.m.level) {
+        /* An action device: the puck, its core the primary action. */
+        const float press = clampf(s_panel.cdy.x / 3.0f, 0.0f, 1.0f);
+        const bool pending = s_panel.cdy.target > 1.0f && s_panel.cdy.target < 2.0f;
+        const puck_t pk = {
+            .x = s_panel.cdx.x * 0.8f,
+            .core_r = CORE_R * (1.0f - 0.10f * press) * (1.0f - 0.25f * yield),
+            .glyph = core_glyph(s_dp.m.type),
+            .hollow = !s_dp.m.online,
+            .grow = smooth01(p / 0.85f),
+            .change = 1.0f,
+            .opa = (s_dp.m.online ? 1.0f : 0.35f) * (1.0f - 0.55f * yield),
+            .fraction = 1.0f,
+            .amp = s_dp.m.online ? 2.2f : 0.0f,
+            .carry = 0.0f,
+            .extra_r = s_dp.burst.x,
+            .spin = !s_dp.m.online ? 0.0f : (pending ? 4.0f : 1.0f),
+        };
+        puck_draw(&pk, t);
+    }
+    /* The rim options. */
+    for (int i = 0; i < 2; i++) {
+        const bool chosen = s_dp.m.sel == i;
+        option_mark(i, (chosen ? 255.0f : 90.0f) * p, chosen);
+    }
+    if (s_dp.m.sel >= 0) {
+        mao_dots_text(s_dp.m.sel == 0 ? "CONNECT" : "INFO", 0.0f, 70.0f, 2.0f, 1.7f, 220.0f * p * yield, -1.0f);
+    }
+}
+
+void mao_ui_device_dots(const mao_ui_dotpage_t *m)
+{
+    if (!mao_display_lock(0)) {
+        return;
+    }
+    s_dp.m = *m;
+    snprintf(s_dp.name, sizeof(s_dp.name), "%s", m->name ? m->name : "");
+    s_dp.m.name = s_dp.name;
+    s_dp.optsel.target = m->sel >= 0 ? 1.0f : 0.0f;
+    mao_ui_wake();
+    mao_display_unlock();
+}
+
 /* ---------------------------------------------------------------------- */
 
 bool mao_devices_ui_tick(float dt, uint32_t now)
@@ -737,8 +887,12 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     mao_spring_step(&s_panel.cdx, dt);
     mao_spring_step(&s_panel.fdy, dt);
     mao_spring_step(&s_panel.sh, dt);
+    mao_spring_step(&s_dp.reach, dt);
+    mao_spring_step(&s_dp.burst, dt);
+    mao_spring_step(&s_dp.optsel, dt);
     mao_dots_begin();
     list_layout(now);
+    dotpage_layout(now);
     mao_dots_end();
     panel_layout();
 
@@ -749,7 +903,8 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
         panel_focus(&fx, &fy, &fw);
         const float s = clampf(s_panel.sh.x, 0.0f, 1.0f);
         const bool sheet_words = s > 0.5f && s_panel.sheet.word_count > 0;
-        fp = pp * (sheet_words ? s : (1.0f - s)) * (s_panel.no_centre && s_panel.focus == 0 ? 0.0f : 1.0f);
+        fp = pp * (sheet_words ? s : (1.0f - s) * (s_dp.m.on ? 0.0f : 1.0f)) *
+             (s_panel.no_centre && s_panel.focus == 0 ? 0.0f : 1.0f);
     }
     if (fp > 0.02f && fw > 0.0f) {
         mao_focus_target(fx, fy, fw);
@@ -759,7 +914,8 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     /* Keep ticking while the list is visible and empty so NOTHING NEARBY can appear. */
     const bool waiting = s_list.presence.target > 0.5f && s_list.model.count == 0 &&
                          (now - s_list.shown_at_ms) < LOOKING_MS + 100;
-    const bool field_alive = s_list.presence.x > 0.004f;   /* the field shimmers while it is there */
+    const bool field_alive = s_list.presence.x > 0.004f ||   /* the dots shimmer while they are there */
+                             (s_dp.m.on && s_panel.presence.x > 0.004f) || s_dp.reach.x > 0.5f;
     return field_alive || waiting || s_list.show_at != 0 || s_panel.show_at != 0 ||
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
            !mao_spring_settled(&s_list.side, 0.05f) ||
@@ -825,4 +981,7 @@ void mao_devices_ui_create(lv_obj_t *scr)
     mao_spring_init(&s_panel.fdy, 0.0f, (mao_spring_profile_t){ .k = 420.0f, .zeta = 0.9f });
     s_panel.value_opa = 255.0f;
     s_panel.online = true;
+    mao_spring_init(&s_dp.reach, 0.0f, ((mao_spring_profile_t){ .k = 90.0f, .zeta = 0.92f }));
+    mao_spring_init(&s_dp.burst, 0.0f, ((mao_spring_profile_t){ .k = 160.0f, .zeta = 0.55f }));
+    mao_spring_init(&s_dp.optsel, 0.0f, MAO_UI_SELECT);
 }

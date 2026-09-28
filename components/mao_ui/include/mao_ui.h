@@ -98,6 +98,24 @@ typedef struct {
 } mao_ui_sheet_t;
 void mao_ui_device_sheet(const mao_ui_sheet_t *sheet);
 
+/* The device page in MAO's dot language (M4.1). A LEVEL device is the field:
+ * its reach is the brightness. An action device is the puck: its core is the
+ * primary action. Everything the device handles by itself is not shown; the
+ * rim carries MAO's own options (CONNECT, INFO). While `on`, the text page
+ * only shows its sheets (INFO / FORGET). */
+typedef struct {
+    bool on;
+    bool level;              /* the field is the brightness */
+    int32_t level_pct;       /* 0..100 */
+    bool power;              /* the light is on */
+    bool online;
+    bool described;
+    uint16_t type;           /* core glyph (description only) */
+    int8_t sel;              /* -1 the primary, 0 CONNECT, 1 INFO */
+    const char *name;
+} mao_ui_dotpage_t;
+void mao_ui_device_dots(const mao_ui_dotpage_t *m);
+
 /* Tool feedback on the centre word: the word itself answers the physical
  * button, before and regardless of the character (no network latency). */
 typedef enum {
