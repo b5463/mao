@@ -436,3 +436,47 @@ hardware, with the reason in the commit.
 
 Each phase measures frame time, event drops, heap and stack, and keeps the
 security, relationship, link, contract and ODD suites green.
+
+## 8. As built (M4.1 rework from use, 2026-09-28)
+
+This section supersedes sections 3 and 4 where they differ. The user
+rejected the type-led phase 1 and gave video references (see the memory
+note on the visual direction). After a review from the user's side, the
+surfaces were rebuilt as follows.
+
+**Grammar, on every device page (control and relationship):**
+
+| Input | Does |
+|---|---|
+| turn | the page's one continuous thing (a light's brightness); nothing elsewhere |
+| press | the page's one thing: capture, light on / off, PAIR, VERIFY, REPAIR, CONNECT (offline) |
+| long press, or turning while held | MAO's options: BACK in the middle, CONNECT to the right, FORGET to the left |
+| release while the options are up | chooses (the middle = BACK) |
+| double press | nothing |
+
+A long press still means back: it goes back on release. So everyone who
+goes back sees the options. The input layer cancels a press's CLICK and
+LONG PRESS once the knob turned while it was held (`mao_input.c`). Helper:
+`mao_app_hold()`.
+
+**INFO is gone** (relationship layout A). Its details sheet only said
+PAIRED and the type. FORGET leads straight to "FORGET <name>?" with NO / YES,
+NO focused. A long press there is back, never a decision.
+
+**Surfaces:**
+- DEVICES: a carousel of device marks on the rim. The chosen one is at the
+  top. The centre shows its name in large dot type and a live preview (a
+  light as its own field at its brightness, or OFF). A state word appears
+  only when the device is not normal.
+- A device page grows out of that preview.
+- LIGHT: the ODD field is the brightness. A large number shows while it
+  changes. OFF is shown when the light is off.
+- CAMERA: the puck. The core closes like an iris while the frame is taken,
+  flashes and sends a wave to the rim when it lands. NOT NOW / NOT TAKEN
+  appear otherwise.
+- NEW / VERIFY / REPAIR / OFFLINE / INCOMPATIBLE: the device's mark (an
+  outline when away, calling when new), a state word, and the press word.
+- Sheets (FORGET?, the pairing code, WAITING) are drawn in dots. The page
+  collapses under them.
+- Hidden, because the device handles them itself: IDENTIFY, SYNC TEST,
+  READY, STORAGE.

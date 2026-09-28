@@ -110,6 +110,10 @@ DISCOVERED devices are never persisted and leave when they go offline.
 
 ## DEVICE pages
 
+> M4.1 changed the page grammar and removed INFO (FORGET is reached by
+> holding): see `m4_1_ui_motion_concept.md` section 8. The states and the
+> rules below are unchanged.
+
 | Page | Shown for | Content | Controls |
 |---|---|---|---|
 | NEW | DISCOVERED | name, `NEW`, **PAIR** (focused) | none: no CAPTURE / LEVEL / POWER / CONNECT |

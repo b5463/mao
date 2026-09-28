@@ -1,5 +1,8 @@
 # UI state handoff (M4.0 → UI / motion milestone)
 
+> How M4.1 visualises these states, and its input grammar (INFO replaced
+> by FORGET behind a hold): `m4_1_ui_motion_concept.md` section 8.
+
 What the device layer gives the UI, and what the UI will have to visualise.
 It is a list of states and events. It does not specify any visuals: layout,
 motion, typography and character choices belong to the UI milestone. Current
