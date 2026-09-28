@@ -866,8 +866,9 @@ static bool on_device_dots(const mao_event_t *ev, int64_t now, const mao_device_
                 /* Slow turns are fine, fast ones travel: 1 % a detent when
                  * setting it carefully, up to 8 % when sweeping across. */
                 const int32_t span = c->cap.max - c->cap.min;
-                const int32_t pct = m.detents_per_s < 3.0f ? 1 : m.detents_per_s < 8.0f ? 2
-                                    : m.detents_per_s < 16.0f ? 4 : 8;
+                /* the speed window is 250 ms: one detent in it reads 4 /s */
+                const int32_t pct = m.detents_per_s <= 4.5f ? 1 : m.detents_per_s <= 8.5f ? 2
+                                    : m.detents_per_s < 20.0f ? 4 : 8;
                 const int32_t want = span * pct / 100;
                 const int32_t step = want > c->cap.step ? want : (c->cap.step > 0 ? c->cap.step : 1);
                 int32_t v = c->value + d * step;
