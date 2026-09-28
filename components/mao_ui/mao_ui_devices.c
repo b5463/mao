@@ -1299,10 +1299,77 @@ static bool intro_layout(uint32_t now)
     return true;
 }
 
+/* HOME's settings (mao_ui_home_tune): chosen, then set, in dots. */
+static struct {
+    mao_tune_mode_t mode;
+    int8_t sel;                  /* CHOOSE: -1 middle, 0 SOUND, 1 SCREEN; ADJUST: which */
+    int value;
+    uint32_t since;              /* when it came up (the eyes gather first) */
+    mao_spring_t shown;          /* the drawn value follows the set one softly */
+} s_tune;
+
+void mao_ui_home_tune(mao_tune_mode_t mode, int8_t sel, int value)
+{
+    if (!mao_display_lock(0)) {
+        return;
+    }
+    if (mode != MAO_TUNE_OFF && s_tune.mode == MAO_TUNE_OFF) {
+        mao_character_gather();                  /* MAO makes room */
+        s_tune.since = lv_tick_get();
+        s_tune.shown.x = (float)value;
+    } else if (mode == MAO_TUNE_OFF && s_tune.mode != MAO_TUNE_OFF) {
+        mao_character_return();                  /* and comes back */
+    }
+    if (mode == MAO_TUNE_ADJUST && s_tune.mode != MAO_TUNE_ADJUST) {
+        s_tune.shown.x = (float)value;
+    }
+    s_tune.mode = mode;
+    s_tune.sel = sel;
+    s_tune.value = value;
+    s_tune.shown.target = (float)value;
+    mao_ui_wake();
+    mao_display_unlock();
+}
+
+static bool home_tune_layout(uint32_t now, float dt)
+{
+    if (s_tune.mode == MAO_TUNE_OFF) {
+        return false;
+    }
+    mao_spring_step(&s_tune.shown, dt);
+    const float in = smooth01((float)(now - s_tune.since - MAO_CHAR_GATHER_MS) / 220.0f);
+    if (s_tune.mode == MAO_TUNE_CHOOSE) {
+        /* the same three-position switch as a device page's hold */
+        if (s_tune.sel < 0) {
+            mao_dots_glyph(0.0f, 0.0f, 5.0f, 220.0f * in, MAO_GLYPH_DOT, 0);
+            mao_dots_text("SOUND", -60.0f, 0.0f, 1.9f, 1.6f, 160.0f * in, -1.0f);
+            mao_dots_text("SCREEN", 60.0f, 0.0f, 1.9f, 1.6f, 160.0f * in, -1.0f);
+        } else {
+            mao_dots_text(s_tune.sel == 0 ? "SOUND" : "SCREEN", 0.0f, 0.0f, 3.0f, 2.6f, 255.0f * in, -1.0f);
+        }
+        return true;
+    }
+    /* ADJUST: a ring filled to the level, the level large, its name above */
+    const float v = clampf(s_tune.shown.x, 0.0f, 100.0f);
+    const int n = 40;
+    for (int i = 0; i < n; i++) {
+        const float f = (float)i / (float)(n - 1);
+        const float an = -2.6f + 5.2f * f;             /* a 300 deg arc, open at the bottom */
+        const bool lit = f * 100.0f <= v + 0.01f;
+        mao_dots_glyph(94.0f * sinf(an), -94.0f * cosf(an), lit ? 5.0f : 3.0f, (lit ? 255.0f : 60.0f) * in,
+                       MAO_GLYPH_SQUARE, 0);
+    }
+    mao_dots_text(s_tune.sel == 0 ? "SOUND" : "SCREEN", 0.0f, -44.0f, 2.2f, 1.8f, 170.0f * in, -1.0f);
+    char num[4];
+    snprintf(num, sizeof(num), "%d", (int)lrintf(v));
+    mao_dots_text(num, 0.0f, 10.0f, 6.0f, 5.0f, 255.0f * in, -1.0f);
+    return true;
+}
+
 /* HOME, left alone for a moment by someone new to it: a quiet PRESS. */
 static void home_hint_layout(uint32_t now)
 {
-    if (!s_hint.allowed || now - s_hint.since < 6000) {
+    if (!s_hint.allowed || now - s_hint.since < 6000 || s_tune.mode != MAO_TUNE_OFF) {
         return;
     }
     const float t = (float)(now - s_hint.since - 6000) / 1000.0f;
@@ -1361,6 +1428,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     dotpage_layout(now);
     home_hint_layout(now);
     const bool intro_up = intro_layout(now);
+    const bool tune_up = home_tune_layout(now, dt);
     mao_dots_end();
     mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now);
     panel_layout();
@@ -1385,7 +1453,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
                          (now - s_list.shown_at_ms) < LOOKING_MS + 100;
     const bool field_alive = s_list.presence.x > 0.004f ||   /* the dots shimmer while they are there */
                              (s_dp.m.on && s_panel.presence.x > 0.004f) || s_dp.reach.x > 0.5f;
-    return field_alive || waiting || s_hint.allowed || intro_up || s_list.show_at != 0 || s_panel.show_at != 0 ||
+    return field_alive || waiting || s_hint.allowed || intro_up || tune_up || s_list.show_at != 0 || s_panel.show_at != 0 ||
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
            !mao_spring_settled(&s_list.side, 0.05f) ||
            !mao_spring_settled(&s_panel.presence, 0.002f) || !mao_spring_settled(&s_panel.ty, 0.05f) ||
@@ -1454,6 +1522,7 @@ void mao_devices_ui_create(lv_obj_t *scr)
     mao_spring_init(&s_dp.hole, CAM_AP, ((mao_spring_profile_t){ .k = 240.0f, .zeta = 0.45f }));
     mao_spring_init(&s_dp.leave, 1.0f, ((mao_spring_profile_t){ .k = 120.0f, .zeta = 0.9f }));
     mao_spring_init(&s_dp.twist, 0.0f, ((mao_spring_profile_t){ .k = 70.0f, .zeta = 0.75f }));
+    mao_spring_init(&s_tune.shown, 0.0f, ((mao_spring_profile_t){ .k = 180.0f, .zeta = 0.9f }));
     for (int k = 0; k < 6; k++) {
         /* soft, each a little different: they arrive one after another */
         mao_spring_init(&s_dp.blade[k], CAM_AP,

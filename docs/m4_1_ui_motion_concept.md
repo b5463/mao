@@ -559,3 +559,19 @@ decision. FORGET is on the left, the way the menu went.
   record in memory must match flash byte for byte. A missing or different
   one is restored from memory and logged as an error. This follows an
   unexplained loss of a paired record.
+
+**HOME settings (hold and turn):**
+- The choice works like a device page's hold switch:
+  - SOUND to the left, SCREEN to the right, one detent each.
+  - The middle cancels.
+  - The eyes gather away while it is up.
+- Letting go on one opens its adjuster:
+  - a 300 degree ring of dots filled to the level, the level large, and its
+    name above
+  - turning sets it in steps of 5, live: the screen dims or brightens, and
+    sound plays a tick at the new volume
+  - SCREEN never goes below 10 %
+- A press, or about 5 s without input, finishes. The value is saved once, at
+  the end, and the eyes return.
+- A long press without a turn is still MAO's warm reaction.
+- A plain turn still moves the eyes, and a press still opens DEVICES.

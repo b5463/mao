@@ -151,6 +151,15 @@ void mao_ui_device_turn(int32_t detents);
  * with false when leaving HOME. */
 void mao_ui_home_hint(bool allowed);
 
+/* HOME's own settings (M4.1), by hold-and-turn:
+ *   MAO_TUNE_OFF     the eyes;
+ *   MAO_TUNE_CHOOSE  held and turned: SOUND (left) / SCREEN (right); sel -1
+ *                    the middle, 0 SOUND, 1 SCREEN;
+ *   MAO_TUNE_ADJUST  released on one: turn to set it; `value` 0..100.
+ * The eyes gather away while it is up and return after. */
+typedef enum { MAO_TUNE_OFF = 0, MAO_TUNE_CHOOSE, MAO_TUNE_ADJUST } mao_tune_mode_t;
+void mao_ui_home_tune(mao_tune_mode_t mode, int8_t sel, int value);
+
 /* Tool feedback on the centre word: the word itself answers the physical
  * button, before and regardless of the character (no network latency). */
 typedef enum {

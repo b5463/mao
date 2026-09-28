@@ -445,6 +445,8 @@ static int64_t s_view_since_us;   /* when the current view was entered (page idl
 static bool home_hint_allowed(void);
 static void on_page_idle(int64_t now);
 static void start_page_idle(void);
+static bool tune_active(void);
+static void tune_close(void);
 
 static void go_view(mao_view_t view)
 {
@@ -462,6 +464,9 @@ static void go_view(mao_view_t view)
     mao_devices_set_active(view == MAO_VIEW_DEVICES || view == MAO_VIEW_DEVICE);
     mao_state_set_view(view);
     s_view_since_us = esp_timer_get_time();
+    if (view != MAO_VIEW_HOME && tune_active()) {
+        tune_close();                             /* never left open behind another view */
+    }
     mao_ui_home_hint(view == MAO_VIEW_HOME && home_hint_allowed());
     if (view == MAO_VIEW_DEVICES || view == MAO_VIEW_DEVICE) {
         refresh_device_views();
@@ -539,9 +544,136 @@ static bool home_hint_allowed(void)
     return mao_settings_get()->devices_opened < MAO_SETTINGS_HINT_UNTIL;
 }
 
+/* HOME's own settings (M4.1): hold and turn - SOUND to the left, SCREEN to
+ * the right (one detent each), the middle cancels; letting go on one opens
+ * it: turn to set it, live; a press, or a few seconds without input,
+ * finishes and saves once. A long press without a turn is still MAO's warm
+ * reaction. */
+#define TUNE_STEP        5
+#define TUNE_SCREEN_MIN  10               /* never a black screen */
+#define TUNE_CLOSE_US    (5 * 1000 * 1000)
+
+static struct {
+    bool down, menu;
+    int8_t acc;                           /* -1 SOUND, 0 middle, +1 SCREEN */
+    int8_t adjust;                        /* -1 none, 0 SOUND, 1 SCREEN */
+    int value;
+    int64_t last_us;
+} s_tune = { .adjust = -1 };
+
+static bool tune_active(void)
+{
+    return s_tune.adjust >= 0 || s_tune.menu;
+}
+
+static void tune_close(void)
+{
+    if (s_tune.adjust == 0) {
+        mao_settings_set_volume((uint8_t)s_tune.value);
+        ESP_LOGI(TAG, "sound set to %d%%", s_tune.value);
+    } else if (s_tune.adjust == 1) {
+        mao_settings_set_brightness((uint8_t)s_tune.value);
+        ESP_LOGI(TAG, "screen set to %d%%", s_tune.value);
+    }
+    s_tune = (typeof(s_tune)) { .adjust = -1 };
+    apply_brightness(false);
+    mao_ui_home_tune(MAO_TUNE_OFF, -1, 0);
+}
+
+static void tune_open(int8_t which)
+{
+    s_tune.adjust = which;
+    s_tune.value = which == 0 ? mao_settings_get()->volume : mao_settings_get()->brightness;
+    s_tune.last_us = esp_timer_get_time();
+    ESP_LOGI(TAG, "tune %s (%d%%)", which == 0 ? "sound" : "screen", s_tune.value);
+    mao_ui_home_tune(MAO_TUNE_ADJUST, which, s_tune.value);
+}
+
+/* Returns true when the tune owned the event. */
+static bool on_home_tune(const mao_event_t *ev, int64_t now)
+{
+    if (s_tune.adjust >= 0) {
+        s_tune.last_us = now;
+        switch (ev->type) {
+        case MAO_EVENT_INPUT_CW:
+        case MAO_EVENT_INPUT_CCW: {
+            const int d = ev->type == MAO_EVENT_INPUT_CW ? (int)ev->value : -(int)ev->value;
+            const int lo = s_tune.adjust == 1 ? TUNE_SCREEN_MIN : 0;
+            int v = s_tune.value + d * TUNE_STEP;
+            v = v < lo ? lo : (v > 100 ? 100 : v);
+            if (v != s_tune.value) {
+                s_tune.value = v;
+                if (s_tune.adjust == 0) {
+                    mao_audio_set_volume((uint8_t)v);
+                    mao_audio_tick(160);             /* hear the new level */
+                } else {
+                    mao_display_set_brightness((uint8_t)v);   /* see it */
+                }
+                mao_ui_home_tune(MAO_TUNE_ADJUST, s_tune.adjust, v);
+            }
+            return true;
+        }
+        case MAO_EVENT_INPUT_CLICK:
+        case MAO_EVENT_INPUT_LONG_PRESS:
+            mao_audio_confirm();
+            tune_close();
+            return true;
+        default:
+            return true;                          /* press / release / double: nothing more */
+        }
+    }
+    switch (ev->type) {
+    case MAO_EVENT_INPUT_PRESS:
+        s_tune.down = true;
+        s_tune.menu = false;
+        s_tune.acc = 0;
+        return false;                             /* the eyes still answer the finger */
+    case MAO_EVENT_INPUT_CW:
+    case MAO_EVENT_INPUT_CCW: {
+        if (!s_tune.down) {
+            return false;                         /* a plain turn: the eyes follow */
+        }
+        if (!s_tune.menu) {
+            s_tune.menu = true;
+            mao_character_press(false);
+        }
+        const int8_t a = (int8_t)(s_tune.acc + (ev->type == MAO_EVENT_INPUT_CW ? 1 : -1));
+        const int8_t acc = a > 1 ? 1 : (a < -1 ? -1 : a);
+        if (acc != s_tune.acc || !s_tune.menu) {
+            mao_audio_tick(120);
+        }
+        s_tune.acc = acc;
+        mao_ui_home_tune(MAO_TUNE_CHOOSE, acc < 0 ? 0 : acc > 0 ? 1 : -1, 0);
+        return true;
+    }
+    case MAO_EVENT_INPUT_RELEASE: {
+        const bool menu = s_tune.menu;
+        const int8_t acc = s_tune.acc;
+        s_tune.down = false;
+        s_tune.menu = false;
+        if (!menu) {
+            return false;
+        }
+        mao_character_press(false);
+        if (acc == 0) {
+            mao_ui_home_tune(MAO_TUNE_OFF, -1, 0);   /* the middle: nothing */
+        } else {
+            mao_audio_touch();
+            tune_open(acc < 0 ? 0 : 1);
+        }
+        return true;
+    }
+    default:
+        return false;
+    }
+}
+
 static void on_home(const mao_event_t *ev, int64_t now)
 {
     mao_ui_home_hint(home_hint_allowed());   /* any input restarts the hint's wait */
+    if (on_home_tune(ev, now)) {
+        return;
+    }
     switch (ev->type) {
     case MAO_EVENT_INPUT_CW:
     case MAO_EVENT_INPUT_CCW: {
@@ -1296,6 +1428,10 @@ static void on_event(const mao_event_t *ev, void *ctx)
 static void on_page_idle(int64_t now)
 {
     const mao_app_state_t *st = mao_state();
+    if (s_tune.adjust >= 0 && now - s_tune.last_us >= TUNE_CLOSE_US) {
+        tune_close();                             /* set and left alone: done */
+        return;
+    }
     if (mao_state_idle_ms(now) < PAGE_IDLE_MS || now - s_view_since_us < (int64_t)PAGE_IDLE_MS * 1000 ||
         mao_transfer_active() || mao_rel_sheet_open()) {
         return;
