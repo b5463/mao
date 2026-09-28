@@ -153,6 +153,7 @@ typedef enum {
     MAO_UI_FB_FAILED,        /* small lateral misalignment, settles */
     MAO_UI_FB_NUDGE,         /* a press that chose nothing: the answers lean in (turn to choose) */
     MAO_UI_FB_GONE,          /* forgotten: the device's mark comes apart */
+    MAO_UI_FB_UNSURE,        /* no answer came: it may or may not have happened */
 } mao_ui_fb_t;
 void mao_ui_device_feedback(mao_ui_fb_t fb);
 

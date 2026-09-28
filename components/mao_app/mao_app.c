@@ -1365,7 +1365,7 @@ static void on_action_update(int32_t value)
         break;
     case MAO_ACTION_UNKNOWN:
         if (tool) {
-            mao_ui_device_feedback(MAO_UI_FB_REST);
+            mao_ui_device_feedback(MAO_UI_FB_UNSURE);
         }
         show_feedback(MAO_CHAR_REACT_UNSURE, 1500);   /* hold, second look, settle */
         break;

@@ -7,10 +7,10 @@
  *   MAO_EVENT_INPUT_CLICK            release before the long-press threshold
  *   MAO_EVENT_INPUT_LONG_PRESS       held for MAO_INPUT_LONG_PRESS_MS
  *   MAO_EVENT_INPUT_DOUBLE_CLICK     second click within MAO_INPUT_DOUBLE_CLICK_MS
+ *                                    (emitted in addition to that CLICK)
  *   Turning while held (hold-and-turn) cancels that press's CLICK and LONG PRESS;
  *   PRESS / RELEASE still frame it. In the first 200 ms of a press a single
  *   detent is dropped (the nudge of pushing the knob).
- *                                    (emitted in addition to that CLICK)
  */
 #pragma once
 

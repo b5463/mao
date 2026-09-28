@@ -772,6 +772,12 @@ void mao_ui_device_feedback(mao_ui_fb_t fb)
     case MAO_UI_FB_NUDGE:
         s_dp.nudge_at = lv_tick_get();
         break;
+    case MAO_UI_FB_UNSURE:
+        s_panel.cdy.target = 0.0f;
+        mao_focus_mode(MAO_FOCUS_NORMAL);
+        s_dp.word = "NO ANSWER";                /* say so: never let silence look like success or failure */
+        s_dp.word_at = lv_tick_get();
+        break;
     case MAO_UI_FB_GONE:
         s_dp.gone_at = lv_tick_get();
         s_dp.left_kind = s_dp.m.kind != MAO_DOTPAGE_CONTROL ? 0 : s_dp.m.level ? (s_dp.m.power ? 1 : 0) : 2;
