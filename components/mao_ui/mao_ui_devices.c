@@ -122,6 +122,9 @@ static struct {
     mao_spring_t reach;            /* the field follows the brightness */
     mao_spring_t hole;             /* (kept for the page's flinch) */
     mao_spring_t blade[6];         /* the camera's blades, each on its own spring: the iris closes as a ripple */
+    mao_spring_t leave;            /* under FORGET?: 1 staying .. 0 gone (it recedes as FORGET is chosen) */
+    uint8_t left_kind;             /* what was just forgotten: 0 a mark, 1 a light's field, 2 an iris */
+    int32_t left_pct;
     uint8_t shots;                 /* frames taken on this visit (the filmstrip) */
     mao_spring_t optsel;           /* 0 the instrument .. 1 the hold-and-turn options are up */
     uint32_t level_until;          /* the brightness number shows until then */
@@ -249,7 +252,8 @@ static mao_glyph_t core_glyph(uint16_t type)
 #define CAM_AP          30.0f    /* the aperture at rest */
 #define CAM_AP_PRESS    21.0f    /* the finger is on it */
 #define CAM_AP_SHUT     0.0f     /* the frame is being taken */
-#define CAM_PREVIEW_R   30.0f    /* the carousel's small iris: the same size as a light's preview */
+#define CAM_PREVIEW_R   40.0f    /* the carousel's small iris: the size of a light's preview at full */
+#define CAM_PREVIEW_AP  15.0f
 #define CAM_STRIP_R     103.0f   /* the filmstrip's arc */
 #define CAM_STRIP_GAP   0.115f   /* rad between frames */
 #define CAM_STRIP_REACH 2.42f    /* rad from the bottom up each side: to just below the name */
@@ -339,10 +343,18 @@ static void field_request(float reach, float strength, float oy, float hole, flo
 
 #define CAR_R        100.0f    /* the ring the devices sit on */
 #define CAR_STEP     0.62f     /* rad between neighbours */
-#define PREVIEW_Y    -26.0f
-#define CAR_NAME_Y   24.0f
-#define CAR_STATE_Y  48.0f
-#define NAME_PITCH   3.6f
+#define PREVIEW_Y    -20.0f    /* the preview is the hero ... */
+#define CAR_NAME_Y   52.0f     /* ... the name secondary, under it */
+#define CAR_STATE_Y  74.0f
+#define NAME_PITCH   2.6f
+#define SHEET_PREVIEW_Y -16.0f /* a question about a device: its preview, here */
+
+/* A light's preview: its field at its brightness; at full, the size of a
+ * camera's preview iris. */
+static float lamp_preview_reach(float pct01)
+{
+    return 28.0f + 26.0f * pct01;
+}
 
 /* A device as an object on the ring (or anywhere): its disc, its type cut
  * out of it; hollow when away; bigger when chosen. */
@@ -403,8 +415,8 @@ static void list_layout(uint32_t now)
         const float r = CAR_R * grow;
         const float x = r * sinf(an), y = -r * cosf(an);
         const bool on = s_list.model.online[i], known = s_list.model.known[i];
-        const float o = (110.0f + 145.0f * sel) * grow * clampf((2.6f - fabsf(an)) / 0.6f, 0.0f, 1.0f);
-        device_mark(x, y, 6.0f + 4.0f * sel, s_list.model.type[i], on, known, o, t);
+        const float o = (90.0f + 165.0f * sel) * grow * clampf((2.6f - fabsf(an)) / 0.6f, 0.0f, 1.0f);
+        device_mark(x, y, 5.0f + 1.5f * sel, s_list.model.type[i], on, known, o, t);   /* where you are, not what */
     }
 
     if (!empty) {
@@ -412,23 +424,24 @@ static void list_layout(uint32_t now)
         const bool on = s_list.model.online[shown], known = s_list.model.known[shown];
         const int8_t lv = s_list.model.level[shown];
         if (lv >= 0 && on && s_list.model.power[shown]) {
-            field_request((18.0f + 26.0f * (float)lv / 100.0f) * late * change, 1.0f, PREVIEW_Y, 0.0f, p);   /* at full: the iris's size */
+            field_request(lamp_preview_reach((float)lv / 100.0f) * late * change, 1.0f, PREVIEW_Y, 0.0f, p);
         } else if (s_list.model.type[shown] == CAM_TYPE && on && known) {
             /* a camera: its iris, small */
-            const float pap[6] = { 11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f };
-            iris_draw(0.0f, PREVIEW_Y, CAM_PREVIEW_R, pap, (CAM_PREVIEW_R + 20.0f) * late * change,
+            const float pap[6] = { CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP,
+                                   CAM_PREVIEW_AP };
+            iris_draw(0.0f, PREVIEW_Y, CAM_PREVIEW_R, pap, (CAM_PREVIEW_R + 22.0f) * late * change,
                       255.0f * late * change, now);
         } else if (lv >= 0 && on) {
             /* a light that is off: its mark, dim */
-            device_mark(0.0f, PREVIEW_Y, 10.0f, s_list.model.type[shown], true, true, 90.0f * late * change, t);
+            device_mark(0.0f, PREVIEW_Y, 18.0f, s_list.model.type[shown], true, true, 110.0f * late * change, t);
         } else {
-            device_mark(0.0f, PREVIEW_Y, 14.0f * late * (0.5f + 0.5f * change), s_list.model.type[shown], on, known,
+            device_mark(0.0f, PREVIEW_Y, 20.0f * late * (0.5f + 0.5f * change), s_list.model.type[shown], on, known,
                         255.0f * late * change, t);
         }
         const char *nm = s_list.names[shown];
         const int cols = mao_dots_text_cols(nm);
-        const float pitch = cols > 1 ? fminf(NAME_PITCH, 184.0f / (float)(cols - 1)) : NAME_PITCH;
-        mao_dots_text_halo(nm, 0.0f, CAR_NAME_Y, pitch, pitch * 0.85f, (on || !known ? 255.0f : 130.0f) * late * change);
+        const float pitch = cols > 1 ? fminf(NAME_PITCH, 170.0f / (float)(cols - 1)) : NAME_PITCH;
+        mao_dots_text(nm, 0.0f, CAR_NAME_Y, pitch, pitch * 0.85f, (on || !known ? 255.0f : 130.0f) * late * change, -1.0f);
         if (lv >= 0 && on && !s_list.model.power[shown]) {
             mao_dots_text("OFF", 0.0f, CAR_STATE_Y, 2.2f, 1.8f, 150.0f * late * change, -1.0f);
         }
@@ -739,6 +752,8 @@ void mao_ui_device_feedback(mao_ui_fb_t fb)
         break;
     case MAO_UI_FB_GONE:
         s_dp.gone_at = lv_tick_get();
+        s_dp.left_kind = s_dp.m.kind != MAO_DOTPAGE_CONTROL ? 0 : s_dp.m.level ? (s_dp.m.power ? 1 : 0) : 2;
+        s_dp.left_pct = s_dp.m.level_pct;
         break;
     case MAO_UI_FB_REST:
     default:
@@ -917,22 +932,10 @@ static void scan_row(float y, float opa, float t)
     }
 }
 
-/* The device's mark coming apart: its outline flies out and fades.
- * k 0 = whole .. 1 = gone. */
-static void mark_apart(float x, float y, float r, float k, float opa)
-{
-    const int n = 28;
-    for (int i = 0; i < n; i++) {
-        const float an = (float)i * 2.0f * PI_F / (float)n + 0.35f * (float)(i % 3);
-        /* it stays within its own place: nothing it passes over is covered */
-        const float d = r * (0.3f + 0.7f * (float)((i * 7) % 10) / 10.0f) + 22.0f * k * (0.6f + 0.4f * (float)(i % 4) / 3.0f);
-        mao_dots_glyph(x + d * sinf(an), y - d * cosf(an), 4.0f - 2.0f * k, opa * (1.0f - k) * (1.0f - k), MAO_GLYPH_SQUARE, 0);
-    }
-}
-
 /* A relationship page: the device's mark, what state it is in, and the one
- * thing a press does. Just forgotten: the old mark comes apart first, then
- * the new one (calling: NEW) grows in its place. */
+ * thing a press does. Just forgotten: what it was (its field, its iris)
+ * recedes to nothing through its own ragged front, then the new mark
+ * (calling: NEW) grows in its place. */
 static void word_page(float p, float menu, float t, uint32_t now)
 {
     const float keep = p * (1.0f - menu);
@@ -940,7 +943,16 @@ static void word_page(float p, float menu, float t, uint32_t now)
     const float since_gone = s_dp.gone_at ? (float)(now - s_dp.gone_at) : 1e9f;
     float grow = 1.0f;
     if (since_gone < 900.0f) {
-        mark_apart(0.0f, -22.0f, 22.0f, clampf(since_gone / 600.0f, 0.0f, 1.0f), 255.0f * keep);
+        const float k = smooth01(since_gone / 520.0f);
+        if (s_dp.left_kind == 1) {
+            field_request(lamp_preview_reach((float)s_dp.left_pct / 100.0f) * 0.55f * (1.0f - k), 0.6f * (1.0f - k),
+                          SHEET_PREVIEW_Y, 0.0f, 1.0f);
+        } else if (s_dp.left_kind == 2) {
+            const float pap[6] = { CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP,
+                                   CAM_PREVIEW_AP };
+            iris_draw(0.0f, SHEET_PREVIEW_Y, CAM_PREVIEW_R, pap, (CAM_PREVIEW_R + 22.0f) * 0.55f * (1.0f - k),
+                      140.0f * (1.0f - k) * keep, now);
+        }
         grow = smooth01((since_gone - 450.0f) / 450.0f);
     }
     device_mark(s_panel.cdx.x * 0.8f, -22.0f, 22.0f * grow * (1.0f - 0.08f * press), s_dp.m.type, s_dp.m.online,
@@ -985,24 +997,20 @@ static void dot_sheet(float a, float t, uint32_t now)
     }
     const float since = s_dp.sh.since ? (float)(now - s_dp.sh.since) : 0.0f;
     if (s_dp.sh.style == MAO_SHEET_FORGET) {
-        /* The question shows its consequence: the mark breaks as FORGET is
-         * chosen, and comes apart while it happens. */
-        if (s_dp.sh.l1[0]) {
-            mao_dots_text(s_dp.sh.l1, 0.0f, -66.0f, 2.0f, 1.6f, 160.0f * a, -1.0f);
-        }
-        if (s_dp.sh.l2[0]) {
-            const int cols = mao_dots_text_cols(s_dp.sh.l2);
-            const float pitch = cols > 1 ? fminf(2.8f, 150.0f / (float)(cols - 1)) : 2.8f;
-            mao_dots_text(s_dp.sh.l2, 0.0f, -44.0f, pitch, pitch * 0.85f, 255.0f * a, -1.0f);
+        /* The question is the device itself: a control page condenses into
+         * its preview (dotpage_layout), a relationship page's mark stands
+         * here. The page's name stays above; the two answers below. The
+         * preview recedes and dims as FORGET is chosen. */
+        if (s_dp.m.kind == MAO_DOTPAGE_WORD) {
+            const float k = s_dp.sh.n == 0 ? smooth01(since / 600.0f) : s_dp.sh.focus == 0 ? 0.45f : 0.0f;
+            device_mark(0.0f, SHEET_PREVIEW_Y, 22.0f * (1.0f - 0.3f * k), s_dp.m.type, s_dp.m.online, s_dp.m.known,
+                        255.0f * a * (1.0f - 0.7f * k), t);
         }
         if (s_dp.sh.n == 0) {
-            mark_apart(0.0f, 4.0f, 20.0f, clampf(since / 900.0f, 0.0f, 0.85f), 255.0f * a);
-        } else if (s_dp.sh.focus == 0) {
-            mark_apart(0.0f, 4.0f, 20.0f, 0.12f + 0.04f * sinf(t * 9.0f), 255.0f * a);
+            fact_text("FORGETTING", 60.0f, 170.0f * a);
         } else {
-            device_mark(0.0f, 4.0f, 20.0f, s_dp.m.type, true, true, 255.0f * a, t);
+            sheet_answers(a, now, 62.0f);
         }
-        sheet_answers(a, now, 56.0f);
         return;
     }
     if (s_dp.sh.style == MAO_SHEET_CODE) {
@@ -1051,14 +1059,29 @@ static void dotpage_layout(uint32_t now)
     /* The page grows out of the carousel's preview: it starts where the
      * preview was and moves to the centre as it arrives. */
     const float oy = PREVIEW_Y * (1.0f - smooth01(p0));
+    /* FORGET?: the page condenses into its own preview (the thing you would
+     * forget), which recedes as FORGET is chosen and goes as it happens. */
+    const bool forget_q = s_dp.sh.style == MAO_SHEET_FORGET && sh > 0.004f;
+    const bool fsheet = forget_q && s_dp.m.kind == MAO_DOTPAGE_CONTROL;
+    const float fk = fsheet ? smooth01(sh) : 0.0f;
+    s_dp.leave.target = !fsheet ? 1.0f : s_dp.sh.n == 0 ? 0.0f : s_dp.sh.focus == 0 ? 0.55f : 1.0f;
+    const float leave = fsheet ? clampf(s_dp.leave.x, 0.0f, 1.0f) : 1.0f;
+    const float qy = oy + (SHEET_PREVIEW_Y - oy) * fk;
     if (s_dp.m.level) {
-        field_request(s_dp.reach.x * smooth01(p0 / 0.9f), (1.0f - sh) * (1.0f - 0.9f * menu), oy, 0.0f, p0 + 0.01f);
+        float reach = s_dp.reach.x * smooth01(p0 / 0.9f);
+        float strength = (1.0f - sh) * (1.0f - 0.9f * menu);
+        if (fsheet) {
+            const float small = s_dp.m.power && s_dp.m.online ? lamp_preview_reach(pct) : 0.0f;
+            reach += (small * leave - reach) * fk;
+            strength = (1.0f - 0.9f * menu) * (0.45f + 0.55f * leave);
+        }
+        field_request(reach, strength, qy, 0.0f, p0 + 0.01f);
     }
 
     /* The name, small, where the circle is still wide enough for it. */
     const int cols = mao_dots_text_cols(s_dp.name);
     const float npitch = cols > 1 ? fminf(2.4f, 124.0f / (float)(cols - 1)) : 2.4f;
-    const float nopa = (s_dp.m.online ? 170.0f : 100.0f) * p * (1.0f - menu);
+    const float nopa = (s_dp.m.online ? 170.0f : 100.0f) * (forget_q ? p0 : p) * (1.0f - menu);   /* the question keeps it */
     if (s_dp.m.level && s_dp.reach.x > 60.0f) {
         mao_dots_text_halo(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, nopa);   /* over the field */
     } else {
@@ -1094,17 +1117,21 @@ static void dotpage_layout(uint32_t now)
             s_dp.blade[k].target = apt;
         }
         const float arrive = smooth01(p0);
-        const float under = smooth01(p / fmaxf(p0, 0.001f));
-        const float cy = oy;
+        const float under = fsheet ? leave : smooth01(p / fmaxf(p0, 0.001f));
+        const float cy = qy;
         const float jit = s_panel.cdx.x * 0.5f;                    /* failure: a flinch */
-        const float r = CAM_PREVIEW_R + (CAM_R - CAM_PREVIEW_R) * arrive;
+        const float rpage = CAM_PREVIEW_R + (CAM_R - CAM_PREVIEW_R) * arrive;
+        const float r = rpage + (CAM_PREVIEW_R - rpage) * fk;       /* FORGET?: back to its preview's size */
         float ap[6];
         for (int k = 0; k < 6; k++) {
-            ap[k] = fmaxf(0.0f, 11.0f + (s_dp.blade[k].x - 11.0f) * arrive + fabsf(jit) * 0.2f);
+            ap[k] = fmaxf(0.0f, (CAM_PREVIEW_AP + (s_dp.blade[k].x - CAM_PREVIEW_AP) * arrive) * (r / rpage) +
+                                    fabsf(jit) * 0.2f);
         }
         const bool blocked = s_dp.m.fact != NULL;                  /* e.g. FULL: it cannot take a frame */
         iris_draw(jit, cy, r, ap, (r + 22.0f) * smooth01(p0 / 0.85f) * under,
-                  (s_dp.m.online ? (blocked ? 120.0f : 255.0f) : 110.0f) * p0 * (1.0f - 0.8f * menu), now);
+                  (s_dp.m.online ? (blocked ? 120.0f : 255.0f) : 110.0f) * p0 * (1.0f - 0.8f * menu) *
+                      (fsheet ? 0.45f + 0.55f * leave : 1.0f),
+                  now);
         const float since = s_dp.shot_at ? (float)(now - s_dp.shot_at) : 1e9f;
         if (since < 200.0f) {
             /* the exposure: the opening is light for an instant */
@@ -1216,6 +1243,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     for (int k = 0; k < 6; k++) {
         mao_spring_step(&s_dp.blade[k], dt);
     }
+    mao_spring_step(&s_dp.leave, dt);
     mao_spring_step(&s_dp.optsel, dt);
     s_fq.weight = 0.0f;
     s_fq.reach = 0.0f;
@@ -1313,6 +1341,7 @@ void mao_devices_ui_create(lv_obj_t *scr)
     s_panel.online = true;
     mao_spring_init(&s_dp.reach, 0.0f, ((mao_spring_profile_t){ .k = 90.0f, .zeta = 0.92f }));
     mao_spring_init(&s_dp.hole, CAM_AP, ((mao_spring_profile_t){ .k = 240.0f, .zeta = 0.45f }));
+    mao_spring_init(&s_dp.leave, 1.0f, ((mao_spring_profile_t){ .k = 120.0f, .zeta = 0.9f }));
     for (int k = 0; k < 6; k++) {
         /* soft, each a little different: they arrive one after another */
         mao_spring_init(&s_dp.blade[k], CAM_AP,

@@ -470,9 +470,15 @@ press-to-agree cancelled the pairing. The destructive or trusting answer
 still needs a deliberate turn and a press. A long press is back, never a
 decision. FORGET is on the left, the way the menu went.
 
-**FORGET shows its consequence.** The device's mark breaks while FORGET is
-chosen. When it happens, the mark comes apart and the NEW mark forms in its
-place (or the page leaves, if the device is offline).
+**FORGET shows its consequence.** The question is the device itself:
+- The page condenses into its own preview (a light's small field, a
+  camera's small iris). The page name stays above and FORGET / KEEP sit
+  below, with no repeated word.
+- The preview recedes and dims through its own ragged front while FORGET is
+  chosen.
+- When it happens, the preview recedes to nothing and the NEW mark grows in
+  its place (or the page leaves, if the device is offline).
+- A relationship page shows its mark instead.
 
 **PAIR:**
 - While pairing runs there is nothing to press: the word goes, and a ring
@@ -485,8 +491,11 @@ place (or the page leaves, if the device is offline).
   device.
 
 **Surfaces:**
-- DEVICES: a carousel of device marks on the rim. The chosen one is at the
-  top. The centre shows its name in large dot type and a live preview (a
+- DEVICES: a carousel of small device marks on the rim, all one size (the
+  chosen one only brighter, at the top): they say where you are. The live
+  preview is the hero; the name sits under it at a secondary size. A
+  light's preview at full brightness is the size of a camera's preview
+  iris. The centre shows its name in large dot type and a live preview (a
   light as its own field at its brightness, or OFF). A state word appears
   only when the device is not normal.
 - A device page grows out of that preview.
