@@ -25,6 +25,7 @@ typedef struct {
     uint8_t volume;        /* 0..100 % */
     uint8_t brightness;    /* 0..100 % */
     uint8_t devices_opened; /* times DEVICES was opened from HOME, up to MAO_SETTINGS_HINT_UNTIL */
+    uint64_t last_device;   /* the device page opened last (the list starts there after a reboot); 0 = none */
 } mao_settings_t;
 
 #define MAO_SETTINGS_HINT_UNTIL 5   /* HOME shows its PRESS hint until DEVICES was opened this often */
@@ -41,6 +42,8 @@ esp_err_t mao_settings_set_volume(uint8_t percent);
 esp_err_t mao_settings_set_brightness(uint8_t percent);
 /* DEVICES was opened from HOME (counts up to MAO_SETTINGS_HINT_UNTIL, then stops writing). */
 void mao_settings_note_devices_opened(void);
+/* A device page was opened (written only when it is a different device). */
+void mao_settings_note_last_device(uint64_t id);
 
 #ifdef __cplusplus
 }

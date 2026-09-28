@@ -12,6 +12,7 @@ static const char *TAG = "MAO_SYSTEM";
 #define KEY_VOLUME        "volume"
 #define KEY_BRIGHTNESS    "bright"
 #define KEY_DEV_OPENED    "dev_open"
+#define KEY_LAST_DEVICE   "last_dev"
 
 #define DEFAULT_VOLUME       60
 #define DEFAULT_BRIGHTNESS   70
@@ -83,6 +84,12 @@ esp_err_t mao_settings_init(void)
     load_u8(KEY_VOLUME, &s_settings.volume);
     load_u8(KEY_BRIGHTNESS, &s_settings.brightness);
     load_u8(KEY_DEV_OPENED, &s_settings.devices_opened);
+    {
+        uint64_t v;
+        if (nvs_get_u64(s_nvs, KEY_LAST_DEVICE, &v) == ESP_OK) {
+            s_settings.last_device = v;
+        }
+    }
     if (s_settings.volume > 100) {
         s_settings.volume = DEFAULT_VOLUME;
     }
@@ -115,6 +122,17 @@ esp_err_t mao_settings_set_first_boot_done(bool done)
         return err;
     }
     return store_u8(KEY_FIRST_BOOT, 1);
+}
+
+void mao_settings_note_last_device(uint64_t id)
+{
+    if (!s_nvs_ok || id == s_settings.last_device) {
+        return;                              /* the same one again: no write */
+    }
+    s_settings.last_device = id;
+    if (nvs_set_u64(s_nvs, KEY_LAST_DEVICE, id) == ESP_OK) {
+        nvs_commit(s_nvs);
+    }
 }
 
 void mao_settings_note_devices_opened(void)

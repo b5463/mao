@@ -808,6 +808,9 @@ static void on_devices(const mao_event_t *ev, int64_t now)
         if (mao_world_get(list_row_id(st->devices_index, NULL), &dev)) {
             ESP_LOGI(TAG, "open device '%s' (%s)", dev.name, dev.known ? "known" : "new");
             mao_state_set_device(dev.id);
+            if (dev.known) {
+                mao_settings_note_last_device(dev.id);   /* the list starts here after a reboot */
+            }
             mao_app_hold_reset();
             s_dev_focus = 0;   /* the centre: the value, or the primary action */
             s_dev_edit = false;
@@ -903,8 +906,13 @@ static bool on_device_dots(const mao_event_t *ev, int64_t now, const mao_device_
                 const mao_device_cap_t *tc = &dev->caps[ctl->toggle_idx];
                 mao_devices_set_value(dev->info.id, tc->cap.id, tc->cap.max);
             } else if (!off) {
+                /* Slow turns are fine, fast ones travel: 1 % a detent when
+                 * setting it carefully, up to 8 % when sweeping across. */
                 const int32_t span = c->cap.max - c->cap.min;
-                const int32_t step = span / 25 > c->cap.step ? span / 25 : c->cap.step;
+                const int32_t pct = m.detents_per_s < 3.0f ? 1 : m.detents_per_s < 8.0f ? 2
+                                    : m.detents_per_s < 16.0f ? 4 : 8;
+                const int32_t want = span * pct / 100;
+                const int32_t step = want > c->cap.step ? want : (c->cap.step > 0 ? c->cap.step : 1);
                 int32_t v = c->value + d * step;
                 v = v < c->cap.min ? c->cap.min : (v > c->cap.max ? c->cap.max : v);
                 if (v != c->value) {
@@ -1651,6 +1659,7 @@ esp_err_t mao_app_init(void)
     }
 
     mao_audio_set_volume(cfg->volume);
+    s_sel_dev = cfg->last_device;              /* the list opens on the device used last */
     mao_character_set_detents_per_rev(mao_input_detents_per_rev());
     ESP_RETURN_ON_ERROR(mao_ui_init(first_view), TAG, "ui");
     mao_rel_init_dev();
