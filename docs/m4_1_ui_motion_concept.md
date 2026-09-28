@@ -492,12 +492,25 @@ place (or the page leaves, if the device is offline).
 - A device page grows out of that preview.
 - LIGHT: the ODD field is the brightness. A large number shows while it
   changes. OFF is shown when the light is off.
-- CAMERA: the puck. The core closes like an iris while the frame is taken,
-  flashes and sends a wave to the rim when it lands. NOT NOW / NOT TAKEN
-  appear otherwise.
+- CAMERA: an iris made of the field's own marks (`odd_field_mark`). It
+  looks like the same hand as the lamp, but moves as a shutter:
+  - Material: the blade seams and the opening's lip are dense and heavy,
+    and the faces are sparse.
+  - Motion:
+    - The finger narrows it.
+    - The frame being taken shuts it (the seams meet in a star).
+    - A frame taken lights the whole lens for an instant and snaps the
+      iris open past rest.
+    - Failure makes it flinch.
+  - After a capture, the frame number shows large in the opening.
+  - This visit's frames collect as a filmstrip on the lower rim.
+  - The carousel preview is the same iris, small.
+  - NOT NOW / NOT TAKEN appear when a capture does not work.
 - NEW / VERIFY / REPAIR / OFFLINE / INCOMPATIBLE: the device's mark (an
   outline when away, calling when new), a state word, and the press word.
 - Sheets (FORGET?, the pairing code, WAITING) are drawn in dots. The page
-  collapses under them.
+  collapses under them. Anything underway (pairing, waiting on the device)
+  is one short row of dots lighting in sequence, in free space: it never
+  covers another element.
 - Hidden, because the device handles them itself: IDENTIFY, SYNC TEST,
   READY, STORAGE.

@@ -62,6 +62,12 @@ typedef struct {
  * `reach` px at time ms. False if the cell is dark (unlit, or not reached). */
 bool odd_field_cell(const odd_field_geom_t *g, int gx, int gy, float reach, int32_t ms, odd_field_cell_t *out);
 
+/* The field's marks without its shape: whether the cell at (gx, gy) is lit
+ * and which mark and ink it shows at `ms`, for a weight d (0 = the heavy
+ * centre of the field .. 1 = its sparse rim). Other shapes made of the same
+ * material use this (the camera's iris). grow is set to 1. */
+bool odd_field_mark(int gx, int gy, float d, int32_t ms, int32_t cell_ms, odd_field_cell_t *out);
+
 #ifdef __cplusplus
 }
 #endif

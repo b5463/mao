@@ -120,7 +120,8 @@ static struct {
     mao_ui_dotpage_t m;
     char name[20];
     mao_spring_t reach;            /* the field follows the brightness */
-    mao_spring_t burst;            /* a landing pushes the rings out */
+    mao_spring_t hole;             /* the camera's aperture, px */
+    uint8_t shots;                 /* frames taken on this visit (the filmstrip) */
     mao_spring_t optsel;           /* 0 the instrument .. 1 the hold-and-turn options are up */
     uint32_t level_until;          /* the brightness number shows until then */
     uint32_t shot_at;              /* the last capture landed (the flash and the wave) */
@@ -220,36 +221,7 @@ static bool row_recedes(int i)
     return s_list.model.known[i] && !s_list.model.online[i];
 }
 
-/* DEVICES as the puck (M4.1, after the user's references): the eyes have
- * gathered into the centre; that dot grows into the selected device's core
- * disc and rings of glyphs bloom out around it, breathing and turning. The
- * dial turns the rings; changing device collapses the core and blooms the
- * next one. State is carried by the rings (offline: dim, still, a hollow
- * core; new: ripples outwards; needs attention: rings left incomplete).
- * The name sits small under the rings; rim dots say where you are. */
-#define CORE_R          22.0f
-#define NAME_Y          97.0f
-#define STATE_Y         -99.0f
 #define PI_F            3.14159265f
-
-typedef struct {
-    float dr;            /* radius offset from the core's edge */
-    int count;
-    float size;
-    float opa;
-    mao_glyph_t kind;
-    float spin;          /* rad/s, alternating directions */
-} ring_t;
-
-static const ring_t kRings[] = {
-    { 10.0f, 26, 4.0f, 235.0f, MAO_GLYPH_SQUARE,  0.22f },
-    { 18.0f, 96, 2.0f, 150.0f, MAO_GLYPH_DOT,     0.00f },   /* reads as a thin solid line */
-    { 27.0f, 38, 4.0f, 190.0f, MAO_GLYPH_DOT,    -0.16f },
-    { 38.0f, 34, 5.0f, 150.0f, MAO_GLYPH_PLUS,    0.12f },
-    { 50.0f, 44, 4.0f, 105.0f, MAO_GLYPH_DASH,   -0.09f },
-    { 62.0f, 60, 2.0f,  70.0f, MAO_GLYPH_DOT,     0.06f },
-};
-#define RING_COUNT ((int)(sizeof(kRings) / sizeof(kRings[0])))
 
 static mao_glyph_t core_glyph(uint16_t type)
 {
@@ -260,71 +232,40 @@ static mao_glyph_t core_glyph(uint16_t type)
     }
 }
 
-/* The puck: a core disc with a glyph cut out of it and rings of glyphs that
- * breathe outwards and turn. Shared by DEVICES and an action device's page. */
-typedef struct {
-    float x;             /* lateral offset (a failed action's shake) */
-    float core_r;
-    mao_glyph_t glyph;   /* cut out of the core; MAO_GLYPH_DOT = none */
-    bool hollow;         /* offline: the core is an outline */
-    float grow;          /* 0..1 how far the rings have bloomed */
-    float change;        /* 1 settled .. 0 collapsed (changing device) */
-    float opa;           /* ring strength (state) */
-    float fraction;      /* rings left incomplete (needs attention) */
-    float amp;           /* breathing amplitude */
-    float carry;         /* rad the dial has turned them */
-    float extra_r;       /* a landing's burst outwards */
-    float spin;          /* spin speed multiplier (pending) */
-} puck_t;
-
-static void puck_draw(const puck_t *k, float t)
-{
-    const float beat = 1.0f + 0.04f * sinf(t * 2.0f * PI_F / 1.6f) * (k->hollow ? 0.0f : 1.0f);
-    if (k->hollow) {
-        mao_dots_ring(k->core_r, 22, 3.0f, 170.0f * k->grow, MAO_GLYPH_SQUARE, t * 0.1f, 1.0f);
-    } else {
-        mao_dots_glyph(k->x, 0.0f, 2.0f * k->core_r * beat, 255.0f, MAO_GLYPH_DOT, 0);
-        if (k->glyph != MAO_GLYPH_DOT && k->grow > 0.5f) {
-            mao_dots_glyph(k->x, 0.0f, k->core_r * 0.95f, 255.0f * smooth01((k->grow - 0.5f) / 0.5f) * k->change,
-                           k->glyph, 1);
-        }
-    }
-    for (int i = 0; i < RING_COUNT; i++) {
-        const ring_t *rg = &kRings[i];
-        const float base = CORE_R + rg->dr;
-        const float reach = clampf((k->grow * 120.0f - base) / 18.0f, 0.0f, 1.0f);
-        if (reach <= 0.0f) {
-            continue;
-        }
-        const float ripple = k->amp * sinf(t * 2.0f * PI_F / (k->amp > 4.0f ? 1.1f : 2.4f) - base * 0.07f);
-        const float r = (base + ripple + k->extra_r * (0.4f + 0.6f * (float)i / (float)RING_COUNT)) *
-                        (0.55f + 0.45f * k->change);
-        const float spin = rg->spin * t * k->spin;
-        const float dir = (i & 1) ? -1.0f : 1.0f;
-        const float o = rg->opa * reach * k->opa * (0.4f + 0.6f * k->change);
-        if (k->x != 0.0f) {
-            /* shaken: draw the ring displaced (rings are centred otherwise) */
-            const int shown = (int)((float)rg->count * k->fraction + 0.5f);
-            for (int g = 0; g < shown; g++) {
-                const float an = spin + dir * k->carry + (float)g * 2.0f * PI_F / (float)rg->count;
-                mao_dots_glyph(k->x + r * sinf(an), -r * cosf(an), rg->size, o, rg->kind, 0);
-            }
-        } else {
-            mao_dots_ring(r, rg->count, rg->size, o, rg->kind, spin + dir * k->carry, k->fraction);
-        }
-    }
-}
+/* The camera (M4.1): its own instrument - an iris. Six blade edges drawn
+ * as dotted lines tangent to the aperture, inside a ring; they turn as the
+ * aperture opens and closes, as a lens iris does. Taken frames collect as a
+ * filmstrip on the lower rim. */
+#define CAM_TYPE        6        /* ODD_DEVICE_CAMERA */
+#define CAM_R           104.0f   /* the iris on the page */
+#define CAM_AP          34.0f    /* the aperture at rest */
+#define CAM_AP_PRESS    24.0f    /* the finger is on it */
+#define CAM_AP_SHUT     0.0f     /* the frame is being taken */
+#define CAM_PREVIEW_R   44.0f    /* the carousel's small iris */
+#define CAM_PREVIEW_AP  13.0f
+#define CAM_STRIP_R     103.0f   /* the filmstrip's arc */
+#define CAM_STRIP_MAX   11
 
 /* The field is shared by the carousel's lamp preview and the lamp page: each
  * scene asks for it, the tick grants the one with more presence. */
 static struct {
-    float reach, strength, oy, weight;
+    float reach, strength, oy, hole, weight;
+    bool iris;
+    float ap, flash;
 } s_fq;
 
-static void field_request(float reach, float strength, float oy, float weight)
+static void field_request(float reach, float strength, float oy, float hole, float weight)
 {
     if (weight > s_fq.weight) {
-        s_fq = (typeof(s_fq)) { reach, strength, oy, weight };
+        s_fq = (typeof(s_fq)) { reach, strength, oy, hole, weight, false, 0.0f, 0.0f };
+    }
+}
+
+/* The camera's iris, in the field's material (mao_field_iris). */
+static void field_request_iris(float r, float ap, float flash, float strength, float oy, float weight)
+{
+    if (weight > s_fq.weight) {
+        s_fq = (typeof(s_fq)) { r, strength, oy, 0.0f, weight, true, ap, flash };
     }
 }
 
@@ -403,7 +344,10 @@ static void list_layout(uint32_t now)
         const bool on = s_list.model.online[shown], known = s_list.model.known[shown];
         const int8_t lv = s_list.model.level[shown];
         if (lv >= 0 && on && s_list.model.power[shown]) {
-            field_request((30.0f + 34.0f * (float)lv / 100.0f) * late * change, 1.0f, PREVIEW_Y, p);
+            field_request((30.0f + 34.0f * (float)lv / 100.0f) * late * change, 1.0f, PREVIEW_Y, 0.0f, p);
+        } else if (s_list.model.type[shown] == CAM_TYPE && on && known) {
+            /* a camera: its iris, small */
+            field_request_iris(CAM_PREVIEW_R * late * change, CAM_PREVIEW_AP * late, 0.0f, 1.0f, PREVIEW_Y, p);
         } else if (lv >= 0 && on) {
             /* a light that is off: its mark, dim */
             device_mark(0.0f, PREVIEW_Y, 10.0f, s_list.model.type[shown], true, true, 90.0f * late * change, t);
@@ -696,8 +640,11 @@ void mao_ui_device_feedback(mao_ui_fb_t fb)
         s_panel.cdy.v -= 70.0f;                 /* released tension: a tiny overshoot */
         mao_focus_mode(MAO_FOCUS_NORMAL);       /* the line lands back ... */
         mao_focus_event(MAO_COL_YELLOW, 300);   /* ... in yellow, once */
-        s_dp.burst.v += 160.0f;                 /* the puck: the rings are pushed out */
-        s_dp.shot_at = lv_tick_get();           /* ... the core flashes, a wave runs out */
+        s_dp.hole.v += 420.0f;                  /* the iris snaps open past its rest ... */
+        s_dp.shot_at = lv_tick_get();           /* ... after the exposure flash */
+        if (s_dp.m.on && s_dp.m.kind == MAO_DOTPAGE_CONTROL && !s_dp.m.level && s_dp.shots < 99) {
+            s_dp.shots++;                       /* a frame joins the filmstrip */
+        }
         s_dp.word = NULL;
         break;
     case MAO_UI_FB_BUSY:
@@ -888,6 +835,16 @@ static void fact_text(const char *f, float y, float opa)
     mao_dots_text(b, 0.0f, y + 10.0f, 2.2f, 1.8f, opa, -1.0f);
 }
 
+/* Underway: a short row of dots lighting in sequence, in free space. */
+static void scan_row(float y, float opa, float t)
+{
+    for (int i = 0; i < 7; i++) {
+        const float ph = sinf(t * 5.0f - (float)i * 0.75f);
+        const float lit = ph > 0.0f ? ph * ph * ph : 0.0f;
+        mao_dots_glyph((float)(i - 3) * 8.0f, y, 3.0f, opa * (50.0f + 205.0f * lit), MAO_GLYPH_SQUARE, 0);
+    }
+}
+
 /* The device's mark coming apart: its outline flies out and fades.
  * k 0 = whole .. 1 = gone. */
 static void mark_apart(float x, float y, float r, float k, float opa)
@@ -895,8 +852,9 @@ static void mark_apart(float x, float y, float r, float k, float opa)
     const int n = 28;
     for (int i = 0; i < n; i++) {
         const float an = (float)i * 2.0f * PI_F / (float)n + 0.35f * (float)(i % 3);
-        const float d = r * (0.3f + 0.7f * (float)((i * 7) % 10) / 10.0f) + 70.0f * k * (0.6f + 0.4f * (float)(i % 4) / 3.0f);
-        mao_dots_glyph(x + d * sinf(an), y - d * cosf(an), 4.0f - 2.0f * k, opa * (1.0f - k), MAO_GLYPH_SQUARE, 0);
+        /* it stays within its own place: nothing it passes over is covered */
+        const float d = r * (0.3f + 0.7f * (float)((i * 7) % 10) / 10.0f) + 22.0f * k * (0.6f + 0.4f * (float)(i % 4) / 3.0f);
+        mao_dots_glyph(x + d * sinf(an), y - d * cosf(an), 4.0f - 2.0f * k, opa * (1.0f - k) * (1.0f - k), MAO_GLYPH_SQUARE, 0);
     }
 }
 
@@ -916,7 +874,7 @@ static void word_page(float p, float menu, float t, uint32_t now)
     device_mark(s_panel.cdx.x * 0.8f, -22.0f, 22.0f * grow * (1.0f - 0.08f * press), s_dp.m.type, s_dp.m.online,
                 s_dp.m.known, 255.0f * keep * grow * (s_dp.m.online ? 1.0f : 0.8f), t);
     if (s_dp.m.busy) {
-        mao_dots_ring(38.0f, 16, 3.0f, 230.0f * keep, MAO_GLYPH_DOT, -t * 5.0f, 0.35f);   /* underway */
+        scan_row(12.0f, keep, t);                 /* underway: between the mark and its word */
     }
     if (s_dp.m.fact) {
         fact_text(s_dp.m.fact, s_dp.m.busy ? 38.0f : 26.0f, 160.0f * keep * grow);
@@ -987,7 +945,7 @@ static void dot_sheet(float a, float t, uint32_t now)
             mao_dots_text(s_dp.sh.l2, 0.0f, -6.0f, pitch, pitch * 0.85f, 255.0f * a, -1.0f);
         }
         if (s_dp.sh.n == 0) {
-            mao_dots_ring(104.0f, 40, 3.0f, 200.0f * a, MAO_GLYPH_DOT, t * 1.6f, 0.25f);   /* waiting on the device */
+            scan_row(44.0f, a, t);                /* waiting on the device: under the code */
         }
         sheet_answers(a, now, 50.0f);
         return;
@@ -1012,8 +970,7 @@ static void dotpage_layout(uint32_t now)
     const float menu = clampf(s_dp.optsel.x, 0.0f, 1.0f);   /* how far the options are up */
     /* The reach follows the model every frame (brightness, power, presence). */
     const float pct = clampf((float)s_dp.m.level_pct, 0.0f, 100.0f) / 100.0f;
-    s_dp.reach.target = s_dp.m.on && s_dp.m.level && s_dp.m.power && s_dp.m.online &&
-                                s_panel.presence.target > 0.5f
+    s_dp.reach.target = s_panel.presence.target > 0.5f && s_dp.m.on && s_dp.m.level && s_dp.m.power && s_dp.m.online
                             ? DP_SEED + (DP_REACH_MAX - DP_SEED) * pct
                             : 0.0f;
     if (!s_dp.m.on || p0 < 0.004f) {
@@ -1023,14 +980,14 @@ static void dotpage_layout(uint32_t now)
      * preview was and moves to the centre as it arrives. */
     const float oy = PREVIEW_Y * (1.0f - smooth01(p0));
     if (s_dp.m.level) {
-        field_request(s_dp.reach.x * smooth01(p0 / 0.9f), (1.0f - sh) * (1.0f - 0.9f * menu), oy, p0 + 0.01f);
+        field_request(s_dp.reach.x * smooth01(p0 / 0.9f), (1.0f - sh) * (1.0f - 0.9f * menu), oy, 0.0f, p0 + 0.01f);
     }
 
     /* The name, small, where the circle is still wide enough for it. */
     const int cols = mao_dots_text_cols(s_dp.name);
     const float npitch = cols > 1 ? fminf(2.4f, 124.0f / (float)(cols - 1)) : 2.4f;
     const float nopa = (s_dp.m.online ? 170.0f : 100.0f) * p * (1.0f - menu);
-    if (s_dp.m.level && s_dp.reach.x > 60.0f) {
+    if ((s_dp.m.level && s_dp.reach.x > 60.0f) || (s_dp.m.kind == MAO_DOTPAGE_CONTROL && !s_dp.m.level)) {
         mao_dots_text_halo(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, nopa);   /* over the field */
     } else {
         mao_dots_text(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, nopa, -1.0f);
@@ -1053,50 +1010,52 @@ static void dotpage_layout(uint32_t now)
             mao_dots_text_halo(num, 0.0f, 0.0f, 6.0f, 5.0f, 255.0f * p * fade * (1.0f - menu));
         }
     } else {
-        /* An action device: the puck, its core the primary action. */
-        const float press = clampf(s_panel.cdy.x / 3.0f, 0.0f, 1.0f);
+        /* An action device (the camera): the iris, in the field's own marks.
+         * The finger narrows it; the frame being taken shuts it; a frame
+         * taken lights the whole lens for an instant and snaps it open past
+         * its rest; failure makes it flinch. Its number, large in the
+         * opening, says which frame that was. */
         const bool pending = s_panel.cdy.target > 1.0f && s_panel.cdy.target < 2.0f;
-        const float big = smooth01(p0);            /* grows from the preview's size */
-        const float under = smooth01(p / fmaxf(p0, 0.001f));   /* 0 under a sheet: it collapses to the centre */
-        /* The shot: the core closes like an iris while the frame is taken,
-         * flashes solid when it is, and a wave runs out to the rim. */
-        const float shot = clampf((float)(now - s_dp.shot_at) / 620.0f, 0.0f, 1.0f);
-        const bool flash = s_dp.shot_at && shot < 0.22f;
-        const float iris = pending ? 0.70f : 1.0f;
-        const puck_t pk = {
-            .x = s_panel.cdx.x * 0.8f,
-            .core_r = ((14.0f + (30.0f - 14.0f) * big) * (1.0f - 0.10f * press) * (1.0f - 0.35f * menu) * iris +
-                       (flash ? 7.0f * (1.0f - shot / 0.22f) : 0.0f)) * under,
-            .glyph = flash ? MAO_GLYPH_DOT : core_glyph(s_dp.m.type),
-            .hollow = !s_dp.m.online,
-            .grow = big * under,
-            .change = 1.0f,
-            .opa = (s_dp.m.online ? 1.0f : 0.35f) * (1.0f - 0.7f * menu),
-            .fraction = 1.0f,
-            .amp = s_dp.m.online ? 2.2f : 0.0f,
-            .carry = 0.0f,
-            .extra_r = s_dp.burst.x + 8.0f * big,
-            .spin = !s_dp.m.online ? 0.0f : (pending ? 4.0f : 1.0f),
-        };
-        /* At rest the rings move in 12 Hz steps: the same breath for a
-         * fraction of the redraws. Full rate while something happens. */
-        const bool lively = pending || press > 0.01f || (s_dp.shot_at && shot < 1.0f) || menu > 0.01f ||
-                            under < 0.99f || big < 0.99f;
-        puck_draw(&pk, lively ? t : floorf(t * 12.0f) / 12.0f);
+        const bool pressed = s_panel.cdy.target > 2.5f;
+        s_dp.hole.target = pending ? CAM_AP_SHUT : pressed ? CAM_AP_PRESS : CAM_AP;
+        const float arrive = smooth01(p0);
+        const float cy = oy;
+        const float jit = s_panel.cdx.x * 0.5f;                    /* failure: a flinch */
+        const float r = CAM_PREVIEW_R + (CAM_R - CAM_PREVIEW_R) * arrive;
+        const float ap = s_dp.m.online ? fmaxf(0.0f, CAM_PREVIEW_AP + (s_dp.hole.x - CAM_PREVIEW_AP) * arrive +
+                                                   fabsf(jit) * 0.3f)
+                                       : 0.0f;
+        const float since = s_dp.shot_at ? (float)(now - s_dp.shot_at) : 1e9f;
+        const float flash = since < 240.0f ? 1.0f - since / 240.0f : 0.0f;
+        field_request_iris(r * smooth01(p0 / 0.9f), ap, flash,
+                           (s_dp.m.online ? 1.0f : 0.4f) * (1.0f - sh) * (1.0f - 0.9f * menu), cy, p0 + 0.01f);
+        if (since >= 240.0f && since < 1500.0f && s_dp.shots > 0 && s_dp.m.online) {
+            char num[4];
+            snprintf(num, sizeof(num), "%u", (unsigned)s_dp.shots);
+            const float f = clampf((1500.0f - since) / 300.0f, 0.0f, 1.0f);
+            mao_dots_text_halo(num, 0.0f, cy, 5.0f, 4.4f, 255.0f * p * f * (1.0f - menu));
+        }
+        /* The filmstrip: this visit's frames along the lower rim, the newest
+         * dropping from the aperture into its place. */
+        const int n = s_dp.shots < CAM_STRIP_MAX ? s_dp.shots : CAM_STRIP_MAX;
+        const float land = s_dp.shot_at ? clampf((float)(now - s_dp.shot_at - 120) / 380.0f, 0.0f, 1.0f) : 1.0f;
+        for (int i = 0; i < n; i++) {
+            const float a = PI_F * 0.5f + ((float)i - (float)(n - 1) * 0.5f) * 0.115f;   /* centred at the bottom */
+            float x = CAM_STRIP_R * cosf(a), y = CAM_STRIP_R * sinf(a);
+            float sz = 6.0f;
+            if (i == n - 1 && land < 1.0f) {
+                const float e = smooth01(land);
+                x = jit + (x - jit) * e;
+                y = cy + (y - cy) * e;
+                sz = 9.0f - 4.0f * e;
+            }
+            mao_dots_glyph(x, y, sz, (i == n - 1 ? 255.0f : 170.0f) * p * (1.0f - menu), MAO_GLYPH_SQUARE, 0);
+        }
         if (!s_dp.m.online) {
-            mao_dots_text_halo("OFFLINE", 0.0f, 58.0f, 2.6f, 2.1f, 170.0f * p);
+            mao_dots_text_halo("OFFLINE", 0.0f, 0.0f, 2.6f, 2.1f, 170.0f * p);
         } else if (s_dp.word && now - s_dp.word_at < 1400) {
             const float f = clampf((float)(1400 - (now - s_dp.word_at)) / 300.0f, 0.0f, 1.0f);
-            mao_dots_text_halo(s_dp.word, 0.0f, 62.0f, 2.4f, 2.0f, 220.0f * p * f * (1.0f - menu));
-        }
-    }
-
-    /* Something landed (a capture, a pairing): a wave runs out to the rim. */
-    {
-        const float shot = clampf((float)(now - s_dp.shot_at) / 620.0f, 0.0f, 1.0f);
-        if (s_dp.shot_at && shot < 1.0f) {
-            const float e = 1.0f - (1.0f - shot) * (1.0f - shot);
-            mao_dots_ring(34.0f + 80.0f * e, 52, 5.0f, 255.0f * sqrtf(1.0f - shot) * p, MAO_GLYPH_SQUARE, 0.0f, 1.0f);
+            mao_dots_text_halo(s_dp.word, 0.0f, cy, 2.2f, 1.9f, 230.0f * p * f * (1.0f - menu));
         }
     }
 
@@ -1134,6 +1093,9 @@ void mao_ui_device_dots(const mao_ui_dotpage_t *m)
     if (m->on && m->level && s_dp.m.on && m->level_pct != s_dp.m.level_pct && m->power) {
         s_dp.level_until = lv_tick_get() + 1200;   /* the number shows while the knob moves */
     }
+    if (m->on && (!s_dp.m.on || strcmp(s_dp.name, m->name ? m->name : "") != 0)) {
+        s_dp.shots = 0;                           /* a new visit: an empty filmstrip */
+    }
     s_dp.m = *m;
     snprintf(s_dp.name, sizeof(s_dp.name), "%s", m->name ? m->name : "");
     s_dp.m.name = s_dp.name;
@@ -1159,15 +1121,17 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     mao_spring_step(&s_panel.fdy, dt);
     mao_spring_step(&s_panel.sh, dt);
     mao_spring_step(&s_dp.reach, dt);
-    mao_spring_step(&s_dp.burst, dt);
+    mao_spring_step(&s_dp.hole, dt);
     mao_spring_step(&s_dp.optsel, dt);
     s_fq.weight = 0.0f;
     s_fq.reach = 0.0f;
+    s_fq.iris = false;
     mao_dots_begin();
     list_layout(now);
     dotpage_layout(now);
     mao_dots_end();
-    mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now);
+    mao_field_iris(s_fq.iris, s_fq.ap, s_fq.flash);
+    mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, s_fq.hole, now);
     panel_layout();
 
     /* One focus line: the surface with the most presence owns it. */
@@ -1256,6 +1220,6 @@ void mao_devices_ui_create(lv_obj_t *scr)
     s_panel.value_opa = 255.0f;
     s_panel.online = true;
     mao_spring_init(&s_dp.reach, 0.0f, ((mao_spring_profile_t){ .k = 90.0f, .zeta = 0.92f }));
-    mao_spring_init(&s_dp.burst, 0.0f, ((mao_spring_profile_t){ .k = 160.0f, .zeta = 0.55f }));
+    mao_spring_init(&s_dp.hole, CAM_AP, ((mao_spring_profile_t){ .k = 240.0f, .zeta = 0.45f }));
     mao_spring_init(&s_dp.optsel, 0.0f, MAO_UI_SELECT);
 }
