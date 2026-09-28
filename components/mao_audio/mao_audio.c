@@ -45,6 +45,7 @@ typedef enum {
     SOUND_BUMP2,
     SOUND_THUNK,
     SOUND_DEPART,
+    SOUND_SHUTTER,
     SOUND_COUNT,
 } sound_id_t;
 
@@ -102,6 +103,12 @@ static const tone_seg_t kThunk[] = {
     { .freq_hz = 290, .dur_ms = 46, .attack_ms = 1, .release_ms = 36, .amp_q15 = 17500 },
     { .freq_hz = 210, .dur_ms = 70, .attack_ms = 2, .release_ms = 62, .amp_q15 = 11000 },
 };
+/* A frame taken: a mechanical shutter's two quick clicks - the blades
+ * open high and bright, close lower. Short enough never to crowd a burst. */
+static const tone_seg_t kShutter[] = {
+    { .freq_hz = 2600, .dur_ms = 9,  .attack_ms = 1, .release_ms = 7,  .amp_q15 = 12000 },
+    { .freq_hz = 1500, .dur_ms = 14, .attack_ms = 1, .release_ms = 12, .amp_q15 = 10000 },
+};
 /* Departure: a tiny soft rising pair, quieter than confirm. */
 static const tone_seg_t kDepart[] = {
     { .freq_hz = 740,  .dur_ms = 30, .attack_ms = 3, .release_ms = 18, .amp_q15 = 7000 },
@@ -121,6 +128,7 @@ static const sound_t kSounds[SOUND_COUNT] = {
     [SOUND_BUMP2]   = SOUND(kBump2),
     [SOUND_THUNK]   = SOUND(kThunk),
     [SOUND_DEPART]  = SOUND(kDepart),
+    [SOUND_SHUTTER] = SOUND(kShutter),
 };
 
 static i2s_chan_handle_t s_tx;
@@ -294,6 +302,11 @@ void mao_audio_back(void)
 void mao_audio_bump(uint8_t strength)
 {
     enqueue(strength >= 3 ? SOUND_THUNK : (strength == 2 ? SOUND_BUMP2 : SOUND_BUMP1));
+}
+
+void mao_audio_shutter(void)
+{
+    enqueue(SOUND_SHUTTER);
 }
 
 void mao_audio_depart(void)

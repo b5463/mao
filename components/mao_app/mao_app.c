@@ -1553,6 +1553,9 @@ static void on_action_update(int32_t value)
             mao_ui_device_feedback(MAO_UI_FB_DONE);
         }
         if (capture) {
+            mao_audio_shutter();                 /* heard as well as seen: it was taken */
+        }
+        if (capture) {
             const int64_t now = esp_timer_get_time();
             s_cap_streak = (s_cap_last_done_us && now - s_cap_last_done_us < CAPTURE_RHYTHM_US)
                                ? (uint8_t)(s_cap_streak < 9 ? s_cap_streak + 1 : 9) : 0;

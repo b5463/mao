@@ -41,6 +41,8 @@ void mao_audio_back(void);
 /* strength 1 = soft bump, 2 = firmer, 3 = the decisive THUNK. */
 void mao_audio_bump(uint8_t strength);
 void mao_audio_depart(void);
+/* A frame was taken (the camera's shutter). */
+void mao_audio_shutter(void);
 
 #ifdef __cplusplus
 }
