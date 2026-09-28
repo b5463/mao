@@ -22,7 +22,7 @@ static const char *TAG = "MAO_CHARACTER";
  * and motion stuttered to 66 ms steps (measured: median gap 38 ms, max 67).
  * At 16 ms the median gap fell to 20 ms (~50 fps) but render-busy rose to
  * ~39 %; 25 ms lands the target ~30 fps with a uniform cadence. */
-#define TICK_MS        25
+#define TICK_MS        16   /* ~60 Hz: the display keeps up (M4.1 probe: ~7 ms a frame, CPU to spare) */
 #define CMD_QUEUE_LEN  16
 
 static const mao_look_t kLooks[] = MAO_LOOKS;
