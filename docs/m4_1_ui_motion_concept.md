@@ -460,8 +460,29 @@ LONG PRESS once the knob turned while it was held (`mao_input.c`). Helper:
 `mao_app_hold()`.
 
 **INFO is gone** (relationship layout A). Its details sheet only said
-PAIRED and the type. FORGET leads straight to "FORGET <name>?" with NO / YES,
-NO focused. A long press there is back, never a decision.
+PAIRED and the type. FORGET leads straight to "FORGET <name>?".
+
+**Two-answer questions start with the knob in the middle.** This covers
+FORGET / KEEP and the pairing code's CANCEL / MATCH. Neither answer is a
+press away, and a press in the middle only makes the answers lean in
+("turn"). Before, CANCEL was focused on the code screen, so the natural
+press-to-agree cancelled the pairing. The destructive or trusting answer
+still needs a deliberate turn and a press. A long press is back, never a
+decision. FORGET is on the left, the way the menu went.
+
+**FORGET shows its consequence.** The device's mark breaks while FORGET is
+chosen. When it happens, the mark comes apart and the NEW mark forms in its
+place (or the page leaves, if the device is offline).
+
+**PAIR:**
+- While pairing runs there is nothing to press: the word goes, and a ring
+  turns.
+- A refusal says what is missing: NOT IN PAIRING MODE, or REFUSED ON THE
+  DEVICE.
+- The code screen asks "SAME ON <name>?".
+- Waiting says "CONFIRM ON <name>" and keeps the code.
+- Success lands like a capture: a wave to the rim, and the page becomes the
+  device.
 
 **Surfaces:**
 - DEVICES: a carousel of device marks on the rim. The chosen one is at the

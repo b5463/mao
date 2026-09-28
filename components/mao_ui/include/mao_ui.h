@@ -88,15 +88,22 @@ typedef struct {
 
 /* A sheet over the device page: the page recedes, a question or a detail
  * appears with at most two words. Plain typography, near-black, no card. */
+typedef enum {
+    MAO_SHEET_TEXT = 0,      /* a line and a subject */
+    MAO_SHEET_FORGET,        /* the device's mark: whole, breaking (FORGET chosen), dissolving (no words) */
+    MAO_SHEET_CODE,          /* a pairing code, large */
+} mao_sheet_style_t;
+
 typedef struct {
     bool on;
+    uint8_t style;           /* mao_sheet_style_t */
     bool hide_title;         /* a question replaces the page heading */
     const char *line1;       /* small, quiet */
     const char *line2;       /* the subject */
     bool line2_big;          /* large type (a pairing code to compare) */
-    const char *words[2];
+    const char *words[2];    /* two answers: [0] to the left, [1] to the right */
     int8_t word_count;
-    int8_t focus;            /* index into words */
+    int8_t focus;            /* index into words; -1 = neither (the knob starts in the middle) */
 } mao_ui_sheet_t;
 void mao_ui_device_sheet(const mao_ui_sheet_t *sheet);
 
@@ -143,6 +150,8 @@ typedef enum {
     MAO_UI_FB_DONE,          /* released: tiny overshoot, settle */
     MAO_UI_FB_BUSY,          /* could not move: barely yields, springs back */
     MAO_UI_FB_FAILED,        /* small lateral misalignment, settles */
+    MAO_UI_FB_NUDGE,         /* a press that chose nothing: the answers lean in (turn to choose) */
+    MAO_UI_FB_GONE,          /* forgotten: the device's mark comes apart */
 } mao_ui_fb_t;
 void mao_ui_device_feedback(mao_ui_fb_t fb);
 

@@ -129,8 +129,12 @@ static struct {
     struct {                       /* the sheet, in dots: copies of its words */
         char l1[24], l2[24], w[2][12];
         bool big;
+        uint8_t style;
         int8_t n, focus;
+        uint32_t since;            /* when this sheet (or its kind) appeared */
     } sh;
+    uint32_t nudge_at;             /* a press chose nothing */
+    uint32_t gone_at;              /* a device was just forgotten */
 } s_dp;
 
 static float clampf(float v, float lo, float hi)
@@ -655,11 +659,18 @@ void mao_ui_device_sheet(const mao_ui_sheet_t *sheet)
                      i < sheet->word_count && sheet->words[i] ? sheet->words[i] : "");
         }
         s_dp.sh.big = sheet->line2_big;
+        if (!s_dp.sh.since || sheet->style != s_dp.sh.style || sheet->word_count != s_dp.sh.n) {
+            s_dp.sh.since = lv_tick_get();
+        }
+        s_dp.sh.style = sheet->style;
         s_dp.sh.n = sheet->word_count;
         s_dp.sh.focus = sheet->focus;
         /* the text lives in the labels; keep no pointers to the caller's strings */
         s_panel.sheet.line1 = s_panel.sheet.line2 = NULL;
         s_panel.sheet.words[0] = s_panel.sheet.words[1] = NULL;
+    }
+    if (!sheet->on) {
+        s_dp.sh.since = 0;
     }
     s_panel.sh.target = sheet->on ? 1.0f : 0.0f;
     mao_ui_wake();
@@ -703,6 +714,12 @@ void mao_ui_device_feedback(mao_ui_fb_t fb)
         s_dp.word_at = lv_tick_get();
         mao_focus_mode(MAO_FOCUS_NORMAL);
         mao_focus_event(MAO_COL_RED, 240);
+        break;
+    case MAO_UI_FB_NUDGE:
+        s_dp.nudge_at = lv_tick_get();
+        break;
+    case MAO_UI_FB_GONE:
+        s_dp.gone_at = lv_tick_get();
         break;
     case MAO_UI_FB_REST:
     default:
@@ -844,32 +861,135 @@ void mao_ui_device_update(const mao_ui_device_t *m)
 #define DP_REACH_MAX     150.0f    /* past the rim: the field fills the circle */
 
 
+/* A short state line, wrapped once at a space when it does not fit. */
+static void fact_text(const char *f, float y, float opa)
+{
+    const int cols = mao_dots_text_cols(f);
+    if ((float)cols * 2.2f <= 176.0f) {
+        mao_dots_text(f, 0.0f, y, 2.2f, 1.8f, opa, -1.0f);
+        return;
+    }
+    char a[24], b[24];
+    const int n = (int)strlen(f);
+    int cut = -1;
+    for (int i = 0; i < n; i++) {                /* the space nearest the middle */
+        if (f[i] == ' ' && (cut < 0 || abs(i - n / 2) < abs(cut - n / 2))) {
+            cut = i;
+        }
+    }
+    if (cut < 0 || cut >= (int)sizeof(a) || n - cut - 1 >= (int)sizeof(b)) {
+        mao_dots_text(f, 0.0f, y, 176.0f / (float)cols, 1.6f, opa, -1.0f);
+        return;
+    }
+    memcpy(a, f, (size_t)cut);
+    a[cut] = '\0';
+    snprintf(b, sizeof(b), "%s", f + cut + 1);
+    mao_dots_text(a, 0.0f, y - 10.0f, 2.2f, 1.8f, opa, -1.0f);
+    mao_dots_text(b, 0.0f, y + 10.0f, 2.2f, 1.8f, opa, -1.0f);
+}
+
+/* The device's mark coming apart: its outline flies out and fades.
+ * k 0 = whole .. 1 = gone. */
+static void mark_apart(float x, float y, float r, float k, float opa)
+{
+    const int n = 28;
+    for (int i = 0; i < n; i++) {
+        const float an = (float)i * 2.0f * PI_F / (float)n + 0.35f * (float)(i % 3);
+        const float d = r * (0.3f + 0.7f * (float)((i * 7) % 10) / 10.0f) + 70.0f * k * (0.6f + 0.4f * (float)(i % 4) / 3.0f);
+        mao_dots_glyph(x + d * sinf(an), y - d * cosf(an), 4.0f - 2.0f * k, opa * (1.0f - k), MAO_GLYPH_SQUARE, 0);
+    }
+}
+
 /* A relationship page: the device's mark, what state it is in, and the one
- * thing a press does. */
-static void word_page(float p, float menu, float t)
+ * thing a press does. Just forgotten: the old mark comes apart first, then
+ * the new one (calling: NEW) grows in its place. */
+static void word_page(float p, float menu, float t, uint32_t now)
 {
     const float keep = p * (1.0f - menu);
     const float press = clampf(s_panel.cdy.x / 3.0f, 0.0f, 1.0f);
-    device_mark(s_panel.cdx.x * 0.8f, -22.0f, 22.0f * (1.0f - 0.08f * press), s_dp.m.type, s_dp.m.online,
-                s_dp.m.known, 255.0f * keep * (s_dp.m.online ? 1.0f : 0.8f), t);
+    const float since_gone = s_dp.gone_at ? (float)(now - s_dp.gone_at) : 1e9f;
+    float grow = 1.0f;
+    if (since_gone < 900.0f) {
+        mark_apart(0.0f, -22.0f, 22.0f, clampf(since_gone / 600.0f, 0.0f, 1.0f), 255.0f * keep);
+        grow = smooth01((since_gone - 450.0f) / 450.0f);
+    }
+    device_mark(s_panel.cdx.x * 0.8f, -22.0f, 22.0f * grow * (1.0f - 0.08f * press), s_dp.m.type, s_dp.m.online,
+                s_dp.m.known, 255.0f * keep * grow * (s_dp.m.online ? 1.0f : 0.8f), t);
     if (s_dp.m.busy) {
         mao_dots_ring(38.0f, 16, 3.0f, 230.0f * keep, MAO_GLYPH_DOT, -t * 5.0f, 0.35f);   /* underway */
     }
     if (s_dp.m.fact) {
-        const int cols = mao_dots_text_cols(s_dp.m.fact);
-        const float pitch = cols > 1 ? fminf(2.2f, 170.0f / (float)(cols - 1)) : 2.2f;
-        mao_dots_text(s_dp.m.fact, 0.0f, 22.0f, pitch, pitch * 0.8f, 150.0f * keep, -1.0f);
+        fact_text(s_dp.m.fact, s_dp.m.busy ? 38.0f : 26.0f, 160.0f * keep * grow);
     }
-    if (s_dp.m.word) {
-        mao_dots_text_halo(s_dp.m.word, s_panel.cdx.x * 0.8f, 50.0f + s_panel.cdy.x, 3.0f, 2.6f, 255.0f * keep);
+    if (s_dp.m.word && !s_dp.m.busy) {
+        /* nothing to press while something is underway */
+        mao_dots_text_halo(s_dp.m.word, s_panel.cdx.x * 0.8f, 62.0f + s_panel.cdy.x, 3.0f, 2.6f, 255.0f * keep * grow);
     }
 }
 
-/* A sheet over the page, in dots: a quiet line, its subject (large for a
- * pairing code) and at most two answers - the chosen one bright and larger. */
-static void dot_sheet(float a, float t)
+/* Two answers on the lower band: neither chosen at first (the knob starts in
+ * the middle); the chosen one comes forward, the other steps back. A press
+ * that chose nothing makes them lean in: turn. */
+static void sheet_answers(float a, uint32_t now, float y)
+{
+    const float nudge = s_dp.nudge_at && now - s_dp.nudge_at < 420 ? (float)(now - s_dp.nudge_at) / 420.0f : 1.0f;
+    const float lean = nudge < 1.0f ? 9.0f * sinf(nudge * 3.0f * PI_F) * (1.0f - nudge) : 0.0f;
+    for (int i = 0; i < s_dp.sh.n && i < 2; i++) {
+        const bool chosen = s_dp.sh.focus == i;
+        const bool other = s_dp.sh.focus >= 0 && !chosen;
+        const float side = s_dp.sh.n == 2 ? (i == 0 ? -1.0f : 1.0f) : 0.0f;
+        const float x = side * (chosen ? 44.0f : 56.0f) - side * lean;
+        mao_dots_text_halo(s_dp.sh.w[i], x, y, chosen ? 2.8f : 2.0f, chosen ? 2.4f : 1.6f,
+                           (chosen ? 255.0f : other ? 70.0f : 160.0f) * a);
+    }
+    if (s_dp.sh.n == 2 && s_dp.sh.focus < 0) {
+        mao_dots_glyph(0.0f, y, 4.0f, 200.0f * a, MAO_GLYPH_DOT, 0);   /* the knob, in the middle */
+    }
+}
+
+/* A sheet over the page, in dots. */
+static void dot_sheet(float a, float t, uint32_t now)
 {
     if (a < 0.004f) {
+        return;
+    }
+    const float since = s_dp.sh.since ? (float)(now - s_dp.sh.since) : 0.0f;
+    if (s_dp.sh.style == MAO_SHEET_FORGET) {
+        /* The question shows its consequence: the mark breaks as FORGET is
+         * chosen, and comes apart while it happens. */
+        if (s_dp.sh.l1[0]) {
+            mao_dots_text(s_dp.sh.l1, 0.0f, -66.0f, 2.0f, 1.6f, 160.0f * a, -1.0f);
+        }
+        if (s_dp.sh.l2[0]) {
+            const int cols = mao_dots_text_cols(s_dp.sh.l2);
+            const float pitch = cols > 1 ? fminf(2.8f, 150.0f / (float)(cols - 1)) : 2.8f;
+            mao_dots_text(s_dp.sh.l2, 0.0f, -44.0f, pitch, pitch * 0.85f, 255.0f * a, -1.0f);
+        }
+        if (s_dp.sh.n == 0) {
+            mark_apart(0.0f, 4.0f, 20.0f, clampf(since / 900.0f, 0.0f, 0.85f), 255.0f * a);
+        } else if (s_dp.sh.focus == 0) {
+            mark_apart(0.0f, 4.0f, 20.0f, 0.12f + 0.04f * sinf(t * 9.0f), 255.0f * a);
+        } else {
+            device_mark(0.0f, 4.0f, 20.0f, s_dp.m.type, true, true, 255.0f * a, t);
+        }
+        sheet_answers(a, now, 56.0f);
+        return;
+    }
+    if (s_dp.sh.style == MAO_SHEET_CODE) {
+        if (s_dp.sh.l1[0]) {
+            const int cols = mao_dots_text_cols(s_dp.sh.l1);
+            const float pitch = cols > 1 ? fminf(2.2f, 176.0f / (float)(cols - 1)) : 2.2f;
+            mao_dots_text(s_dp.sh.l1, 0.0f, -48.0f, pitch, pitch * 0.8f, 170.0f * a, -1.0f);
+        }
+        if (s_dp.sh.l2[0]) {
+            const int cols = mao_dots_text_cols(s_dp.sh.l2);
+            const float pitch = cols > 1 ? fminf(4.6f, 184.0f / (float)(cols - 1)) : 4.6f;
+            mao_dots_text(s_dp.sh.l2, 0.0f, -6.0f, pitch, pitch * 0.85f, 255.0f * a, -1.0f);
+        }
+        if (s_dp.sh.n == 0) {
+            mao_dots_ring(104.0f, 40, 3.0f, 200.0f * a, MAO_GLYPH_DOT, t * 1.6f, 0.25f);   /* waiting on the device */
+        }
+        sheet_answers(a, now, 50.0f);
         return;
     }
     if (s_dp.sh.l1[0]) {
@@ -877,19 +997,10 @@ static void dot_sheet(float a, float t)
     }
     if (s_dp.sh.l2[0]) {
         const int cols = mao_dots_text_cols(s_dp.sh.l2);
-        const float want = s_dp.sh.big ? 5.0f : 3.0f;
-        const float pitch = cols > 1 ? fminf(want, 196.0f / (float)(cols - 1)) : want;
+        const float pitch = cols > 1 ? fminf(3.0f, 196.0f / (float)(cols - 1)) : 3.0f;
         mao_dots_text(s_dp.sh.l2, 0.0f, -8.0f, pitch, pitch * 0.85f, 255.0f * a, -1.0f);
     }
-    if (s_dp.sh.n == 0 && s_dp.sh.l2[0] && s_dp.sh.big) {
-        mao_dots_ring(0.0f + 104.0f, 40, 3.0f, 200.0f * a, MAO_GLYPH_DOT, t * 1.6f, 0.25f);   /* waiting */
-    }
-    for (int i = 0; i < s_dp.sh.n && i < 2; i++) {
-        const bool chosen = s_dp.sh.focus == i;
-        const float x = s_dp.sh.n == 2 ? (i == 0 ? -52.0f : 52.0f) : 0.0f;
-        mao_dots_text_halo(s_dp.sh.w[i], x, 46.0f, chosen ? 2.8f : 2.0f, chosen ? 2.4f : 1.6f,
-                           (chosen ? 255.0f : 110.0f) * a);
-    }
+    sheet_answers(a, now, 46.0f);
 }
 
 static void dotpage_layout(uint32_t now)
@@ -912,16 +1023,21 @@ static void dotpage_layout(uint32_t now)
      * preview was and moves to the centre as it arrives. */
     const float oy = PREVIEW_Y * (1.0f - smooth01(p0));
     if (s_dp.m.level) {
-        field_request(s_dp.reach.x * smooth01(p0 / 0.9f), (1.0f - sh) * (1.0f - 0.75f * menu), oy, p0 + 0.01f);
+        field_request(s_dp.reach.x * smooth01(p0 / 0.9f), (1.0f - sh) * (1.0f - 0.9f * menu), oy, p0 + 0.01f);
     }
 
     /* The name, small, where the circle is still wide enough for it. */
     const int cols = mao_dots_text_cols(s_dp.name);
     const float npitch = cols > 1 ? fminf(2.4f, 124.0f / (float)(cols - 1)) : 2.4f;
-    mao_dots_text(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, (s_dp.m.online ? 170.0f : 100.0f) * p * (1.0f - menu), -1.0f);
+    const float nopa = (s_dp.m.online ? 170.0f : 100.0f) * p * (1.0f - menu);
+    if (s_dp.m.level && s_dp.reach.x > 60.0f) {
+        mao_dots_text_halo(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, nopa);   /* over the field */
+    } else {
+        mao_dots_text(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, nopa, -1.0f);
+    }
 
     if (s_dp.m.kind == MAO_DOTPAGE_WORD) {
-        word_page(p, menu, t);
+        word_page(p, menu, t, now);
     } else if (s_dp.m.level) {
         if (!s_dp.m.online) {
             mao_dots_text_halo("OFFLINE", 0.0f, 0.0f, 3.0f, 2.4f, 170.0f * p);
@@ -967,10 +1083,6 @@ static void dotpage_layout(uint32_t now)
         const bool lively = pending || press > 0.01f || (s_dp.shot_at && shot < 1.0f) || menu > 0.01f ||
                             under < 0.99f || big < 0.99f;
         puck_draw(&pk, lively ? t : floorf(t * 12.0f) / 12.0f);
-        if (s_dp.shot_at && shot < 1.0f) {
-            const float e = 1.0f - (1.0f - shot) * (1.0f - shot);
-            mao_dots_ring(34.0f + 80.0f * e, 52, 5.0f, 255.0f * sqrtf(1.0f - shot) * p, MAO_GLYPH_SQUARE, 0.0f, 1.0f);
-        }
         if (!s_dp.m.online) {
             mao_dots_text_halo("OFFLINE", 0.0f, 58.0f, 2.6f, 2.1f, 170.0f * p);
         } else if (s_dp.word && now - s_dp.word_at < 1400) {
@@ -979,8 +1091,17 @@ static void dotpage_layout(uint32_t now)
         }
     }
 
-    /* Hold-and-turn: MAO's options, either side of the centre - CONNECT to
-     * the right (towards the world), INFO to the left. */
+    /* Something landed (a capture, a pairing): a wave runs out to the rim. */
+    {
+        const float shot = clampf((float)(now - s_dp.shot_at) / 620.0f, 0.0f, 1.0f);
+        if (s_dp.shot_at && shot < 1.0f) {
+            const float e = 1.0f - (1.0f - shot) * (1.0f - shot);
+            mao_dots_ring(34.0f + 80.0f * e, 52, 5.0f, 255.0f * sqrtf(1.0f - shot) * p, MAO_GLYPH_SQUARE, 0.0f, 1.0f);
+        }
+    }
+
+    /* Holding: MAO's options, either side of the centre - CONNECT to the
+     * right (towards the world), FORGET to the left; BACK in the middle. */
     if (menu > 0.01f) {
         /* Pointing at one: it takes the centre, large; the other goes. In
          * the middle: both, small, each on its own side. */
@@ -1002,7 +1123,7 @@ static void dotpage_layout(uint32_t now)
             mao_dots_text_halo("BACK", 0.0f, 0.0f, 2.2f, 1.8f, 255.0f * p * menu);
         }
     }
-    dot_sheet(p0 * sh, t);
+    dot_sheet(p0 * sh, t, now);
 }
 
 void mao_ui_device_dots(const mao_ui_dotpage_t *m)
