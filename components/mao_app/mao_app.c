@@ -181,6 +181,21 @@ static void refresh_devices_list(void)
         model.online[model.count] = devs[i].online;
         model.type[model.count] = devs[i].device_type;
         model.known[model.count] = devs[i].known;
+        model.level[model.count] = -1;
+        {
+            mao_device_t d;
+            mao_device_controls_t c;
+            const int slot = mao_devices_find(devs[i].id);
+            if (slot >= 0 && mao_devices_get(slot, &d)) {
+                mao_device_controls(&d, &c);
+                if (c.level_idx >= 0) {
+                    const mao_device_cap_t *lc = &d.caps[c.level_idx];
+                    const int32_t span = lc->cap.max - lc->cap.min;
+                    model.level[model.count] = (int8_t)(span > 0 ? (lc->value - lc->cap.min) * 100 / span : 0);
+                    model.power[model.count] = c.toggle_idx < 0 || d.caps[c.toggle_idx].value != 0;
+                }
+            }
+        }
         const bool cannot_operate = devs[i].has_cred && devs[i].online &&
                                     (devs[i].compat == ODD_COMPAT_INCOMPATIBLE || devs[i].compat == ODD_COMPAT_INVALID);
         model.note[model.count] = devs[i].auth_failed ? 2
@@ -228,6 +243,18 @@ static bool open_device(mao_device_t *dev, mao_device_controls_t *ctl)
     return true;
 }
 
+/* Hold-and-turn on a device page (M4.1): the press is held and the knob
+ * turned - MAO's own options come up. Right = CONNECT, left = INFO, back to
+ * the middle = nothing; letting go chooses. The input layer cancels that
+ * press's CLICK and LONG PRESS once it turned. */
+#define HOLD_DETENTS 2
+static struct {
+    bool down;      /* the button is held */
+    bool menu;      /* it turned while held: the options are up */
+    int32_t acc;    /* detents turned while held */
+    int8_t sel;     /* -1 none, 0 CONNECT, 1 INFO */
+} s_hold = { .sel = -1 };
+
 static void refresh_device_panel(void)
 {
     mao_world_entry_t w;
@@ -263,9 +290,6 @@ static void refresh_device_panel(void)
             const int32_t span = c->cap.max - c->cap.min;
             pct = span > 0 ? (c->value - c->cap.min) * 100 / span : 0;
         }
-        if (s_dev_focus > 2) {
-            s_dev_focus = 0;
-        }
         const mao_ui_dotpage_t dm = {
             .on = true,
             .level = level,
@@ -274,7 +298,8 @@ static void refresh_device_panel(void)
             .online = dev.online,
             .described = dev.described,
             .type = dev.info.device_type,
-            .sel = (int8_t)(s_dev_focus - 1),
+            .menu = s_hold.menu,
+            .menu_sel = s_hold.sel,
             .name = dev.info.name,
         };
         mao_ui_device_dots(&dm);
@@ -611,70 +636,89 @@ static bool centre_is_action(const mao_device_controls_t *ctl)
     return ctl->level_idx < 0 && ctl->primary_action >= 0 && s_dev_focus == 0;
 }
 
-/* The dot page (M4.1). Focus: 0 the primary, 1 CONNECT, 2 INFO.
- *   LEVEL device: the dial is the brightness (up from off switches it on);
- *                 past the lowest brightness it moves out onto the rim
- *                 (CONNECT, then INFO) and back. Press: on / off, or the
- *                 chosen rim option.
- *   action device: the dial moves between the primary and the rim; press
- *                 acts. Returns true when it handled the event. */
+/* The dot page (M4.1, reworked from use): the page is the device, nothing
+ * else.
+ *   LIGHT: turn = brightness (turning up a light that is off switches it
+ *          on); press = on / off.
+ *   action device: press = its primary action (the capture).
+ *   hold-and-turn: MAO's options (s_hold). Long press = back (as before).
+ * Returns true when it handled the event. */
 static bool on_device_dots(const mao_event_t *ev, int64_t now, const mao_device_t *dev,
                            const mao_device_controls_t *ctl, const mao_world_entry_t *w)
 {
     const bool level = ctl->level_idx >= 0;
+    const bool action = !level && ctl->primary_action >= 0;
+    s_dev_focus = 0;
     switch (ev->type) {
     case MAO_EVENT_INPUT_CW:
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
         const mao_dial_motion_t m = dial_motion(d, now);
-        if (!dev->described) {
+        if (s_hold.down) {
+            if (!s_hold.menu && action) {
+                mao_ui_device_feedback(MAO_UI_FB_REST);   /* not a capture after all */
+            }
+            s_hold.menu = true;
+            s_hold.acc += d;
+            s_hold.acc = s_hold.acc > 4 ? 4 : (s_hold.acc < -4 ? -4 : s_hold.acc);
+            const int8_t sel = s_hold.acc >= HOLD_DETENTS ? 0 : (s_hold.acc <= -HOLD_DETENTS ? 1 : -1);
+            if (sel != s_hold.sel) {
+                s_hold.sel = sel;
+                mao_audio_tick(120);
+            }
+            refresh_device_panel();
             return true;
         }
-        if (level && s_dev_focus == 0 && dev->online) {
+        if (level && dev->described && dev->online) {
             const mao_device_cap_t *c = &dev->caps[ctl->level_idx];
             const bool off = ctl->toggle_idx >= 0 && dev->caps[ctl->toggle_idx].value == 0;
             if (d > 0 && off) {
                 /* turning up a light that is off: it comes on */
                 const mao_device_cap_t *tc = &dev->caps[ctl->toggle_idx];
                 mao_devices_set_value(dev->info.id, tc->cap.id, tc->cap.max);
-            }
-            const int32_t step = (c->cap.max - c->cap.min) / 25 > c->cap.step ? (c->cap.max - c->cap.min) / 25
-                                                                                 : c->cap.step;
-            if (d < 0 && c->value <= c->cap.min) {
-                s_dev_focus = 1;                 /* past the lowest: out onto the rim */
-            } else {
+            } else if (!off) {
+                const int32_t span = c->cap.max - c->cap.min;
+                const int32_t step = span / 25 > c->cap.step ? span / 25 : c->cap.step;
                 int32_t v = c->value + d * step;
                 v = v < c->cap.min ? c->cap.min : (v > c->cap.max ? c->cap.max : v);
                 if (v != c->value) {
                     mao_devices_set_value(dev->info.id, c->cap.id, v);
                 }
             }
-        } else if (level) {
-            /* on the rim: further down goes to INFO, back up returns to the light */
-            int f = s_dev_focus + (d < 0 ? 1 : -1) * (int)(d < 0 ? -d : d);
-            f = f < 0 ? 0 : (f > 2 ? 2 : f);
-            s_dev_focus = (int8_t)f;
-        } else {
-            int f = s_dev_focus + (int)d;
-            f = f < 0 ? 0 : (f > 2 ? 2 : f);
-            s_dev_focus = (int8_t)f;
+            refresh_device_panel();
+            dial_tick(&m);
         }
-        refresh_device_panel();
-        dial_tick(&m);
         return true;
     }
     case MAO_EVENT_INPUT_PRESS:
-        if (!level && s_dev_focus == 0 && ctl->primary_action >= 0) {
+        s_hold = (typeof(s_hold)) { .down = true, .sel = -1 };
+        if (action && dev->online) {
             mao_ui_device_feedback(MAO_UI_FB_PRESS);
         }
         return true;
-    case MAO_EVENT_INPUT_RELEASE:
-        if (!level && s_dev_focus == 0 && ctl->primary_action >= 0) {
+    case MAO_EVENT_INPUT_RELEASE: {
+        const bool was_menu = s_hold.menu;
+        const int8_t sel = s_hold.sel;
+        s_hold = (typeof(s_hold)) { .sel = -1 };
+        if (was_menu) {
+            if (sel == 0) {
+                ESP_LOGI(TAG, "connect requested: '%s'", dev->info.name);
+                mao_ui_device_connect_hot(1.0f);
+                mao_audio_confirm();
+                mao_transfer_connect();
+            } else if (sel == 1) {
+                mao_rel_word_activate(w);
+            }
+            refresh_device_panel();
+            return true;
+        }
+        if (action) {
             const mao_action_state_t st = mao_devices_action_state(dev->info.id);
             mao_ui_device_feedback(st == MAO_ACTION_SENDING || st == MAO_ACTION_ACCEPTED ? MAO_UI_FB_PENDING
                                                                                           : MAO_UI_FB_REST);
         }
         return true;
+    }
     case MAO_EVENT_INPUT_CLICK:
         if (!dev->described) {
             return true;
@@ -683,14 +727,7 @@ static bool on_device_dots(const mao_event_t *ev, int64_t now, const mao_device_
             ESP_LOGI(TAG, "click ignored: page just opened");
             return true;
         }
-        if (s_dev_focus == 1) {
-            ESP_LOGI(TAG, "connect requested: '%s'", dev->info.name);
-            mao_ui_device_connect_hot(1.0f);
-            mao_audio_confirm();
-            mao_transfer_connect();
-        } else if (s_dev_focus == 2) {
-            mao_rel_word_activate(w);
-        } else if (level) {
+        if (level) {
             if (ctl->toggle_idx >= 0 && dev->online) {
                 const mao_device_cap_t *tc = &dev->caps[ctl->toggle_idx];
                 const int32_t v = tc->value ? tc->cap.min : tc->cap.max;
@@ -702,7 +739,7 @@ static bool on_device_dots(const mao_event_t *ev, int64_t now, const mao_device_
                 }
                 mao_led_pulse(MAO_LED_PULSE_CONFIRM);
             }
-        } else if (ctl->primary_action >= 0) {
+        } else if (action) {
             interrupt_feedback();
             const esp_err_t err = invoke_action_checked(dev, ctl, ctl->primary_action);
             if (err == ESP_OK && mao_devices_find(dev->info.id) >= 0) {
@@ -714,8 +751,10 @@ static bool on_device_dots(const mao_event_t *ev, int64_t now, const mao_device_
         }
         refresh_device_panel();
         return true;
+    case MAO_EVENT_INPUT_DOUBLE_CLICK:
+        return true;                         /* nothing: a double press means nothing here */
     default:
-        return false;                        /* long press (BACK), double press: as before */
+        return false;                        /* long press: BACK, as before */
     }
 }
 

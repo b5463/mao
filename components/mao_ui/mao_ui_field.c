@@ -30,6 +30,7 @@ static struct {
     uint8_t opa[SIDE][SIDE];            /* 0 = dark */
     lv_color_t ink_col[4];
     float reach;
+    int16_t oy;                         /* the field's centre, px below the screen centre */
     bool any;
 } s_f;
 
@@ -67,7 +68,7 @@ static void cell_area(const lv_area_t *o, int gx, int gy, lv_area_t *a)
 {
     const int32_t cx = (o->x1 + o->x2 + 1) / 2, cy = (o->y1 + o->y2 + 1) / 2;
     a->x1 = cx + gx * kGeom.pitch - GLYPH_PX / 2;
-    a->y1 = cy + gy * kGeom.pitch - GLYPH_PX / 2;
+    a->y1 = cy + s_f.oy + gy * kGeom.pitch - GLYPH_PX / 2;
     a->x2 = a->x1 + GLYPH_PX - 1;
     a->y2 = a->y1 + GLYPH_PX - 1;
 }
@@ -81,7 +82,7 @@ static void draw_cb(lv_event_t *e)
     lv_area_t o;
     lv_obj_get_coords(s_f.obj, &o);
     const lv_area_t *clip = &layer->_clip_area;
-    const int32_t cx = (o.x1 + o.x2 + 1) / 2, cy = (o.y1 + o.y2 + 1) / 2;
+    const int32_t cx = (o.x1 + o.x2 + 1) / 2, cy = (o.y1 + o.y2 + 1) / 2 + s_f.oy;
     const float pit = (float)kGeom.pitch;
     /* Only the cells this area touches. */
     int j0 = (int)floorf((float)(clip->y1 - cy - GLYPH_PX) / pit), j1 = (int)ceilf((float)(clip->y2 - cy + GLYPH_PX) / pit);
@@ -125,10 +126,17 @@ void mao_field_create(lv_obj_t *scr)
     lv_obj_add_event_cb(s_f.obj, draw_cb, LV_EVENT_DRAW_MAIN, NULL);
 }
 
-void mao_field_set(float reach, float strength, uint32_t now_ms)
+void mao_field_set(float reach, float strength, float oy, uint32_t now_ms)
 {
     if (reach <= 0.0f && !s_f.any) {
         return;                        /* dark and staying dark: nothing to do */
+    }
+    const int16_t noy = (int16_t)lrintf(oy);
+    if (noy != s_f.oy) {
+        /* The field moved: everything it covered and will cover is dirty. */
+        lv_obj_invalidate(s_f.obj);
+        s_f.oy = noy;
+        memset(s_f.opa, 0, sizeof(s_f.opa));
     }
     s_f.reach = reach;
     lv_area_t o;
@@ -144,7 +152,7 @@ void mao_field_set(float reach, float strength, uint32_t now_ms)
     for (int gy = -N; gy <= N; gy++) {
         for (int gx = -N; gx <= N; gx++) {
             uint8_t g = 0, k = 0, a = 0;
-            const float px = (float)(gx * kGeom.pitch), py = (float)(gy * kGeom.pitch);
+            const float px = (float)(gx * kGeom.pitch), py = (float)(gy * kGeom.pitch) + (float)s_f.oy;
             if (px * px + py * py <= 116.0f * 116.0f) {   /* inside the circle */
                 odd_field_cell_t c;
                 if (odd_field_cell(&kGeom, gx, gy, reach, (int32_t)now_ms, &c)) {

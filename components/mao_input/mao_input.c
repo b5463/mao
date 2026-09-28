@@ -218,6 +218,12 @@ static void encoder_flush(void)
     portENTER_CRITICAL(&s_lock);
     int32_t detents = s_pending_detents;
     s_pending_detents = 0;
+    if (detents != 0 && s_btn.pressed) {
+        /* Turned while held (M4.1: hold-and-turn): this press is a gesture of
+         * its own - it must not also become a CLICK or a LONG PRESS. */
+        s_btn.long_fired = true;
+        s_btn.last_click_us = 0;
+    }
     portEXIT_CRITICAL(&s_lock);
 
     if (detents == 0) {

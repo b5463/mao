@@ -47,6 +47,8 @@ typedef struct {
     bool online[MAO_UI_DEVICES_MAX];
     bool known[MAO_UI_DEVICES_MAX];     /* part of MAO's setup (else merely nearby: NEW) */
     uint16_t type[MAO_UI_DEVICES_MAX];  /* odd_device_type_t: only picks the core glyph (description) */
+    int8_t level[MAO_UI_DEVICES_MAX];   /* a light's brightness 0..100 for its preview, -1 = none */
+    bool power[MAO_UI_DEVICES_MAX];     /* a light that is on */
     uint8_t note[MAO_UI_DEVICES_MAX];   /* 0 none, 1 VERIFY (remembered, not yet secured), 2 NOT VERIFIED,
                                          * 3 INCOMPATIBLE, 4 INVALID (M4.0: trusted, not operable) */
     int selected;
@@ -111,7 +113,8 @@ typedef struct {
     bool online;
     bool described;
     uint16_t type;           /* core glyph (description only) */
-    int8_t sel;              /* -1 the primary, 0 CONNECT, 1 INFO */
+    bool menu;               /* hold-and-turn: MAO's options are up */
+    int8_t menu_sel;         /* -1 none (centre), 0 CONNECT (turned right), 1 INFO (turned left) */
     const char *name;
 } mao_ui_dotpage_t;
 void mao_ui_device_dots(const mao_ui_dotpage_t *m);

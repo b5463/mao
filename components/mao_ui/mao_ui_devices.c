@@ -121,7 +121,8 @@ static struct {
     char name[20];
     mao_spring_t reach;            /* the field follows the brightness */
     mao_spring_t burst;            /* a landing pushes the rings out */
-    mao_spring_t optsel;           /* 0 primary .. 1 on the rim (how much the page yields) */
+    mao_spring_t optsel;           /* 0 the instrument .. 1 the hold-and-turn options are up */
+    uint32_t level_until;          /* the brightness number shows until then */
 } s_dp;
 
 static float clampf(float v, float lo, float hi)
@@ -302,6 +303,48 @@ static void puck_draw(const puck_t *k, float t)
     }
 }
 
+/* The field is shared by the carousel's lamp preview and the lamp page: each
+ * scene asks for it, the tick grants the one with more presence. */
+static struct {
+    float reach, strength, oy, weight;
+} s_fq;
+
+static void field_request(float reach, float strength, float oy, float weight)
+{
+    if (weight > s_fq.weight) {
+        s_fq = (typeof(s_fq)) { reach, strength, oy, weight };
+    }
+}
+
+#define CAR_R        100.0f    /* the ring the devices sit on */
+#define CAR_STEP     0.62f     /* rad between neighbours */
+#define PREVIEW_Y    -26.0f
+#define CAR_NAME_Y   24.0f
+#define CAR_STATE_Y  48.0f
+#define NAME_PITCH   3.6f
+
+/* A device as an object on the ring (or anywhere): its disc, its type cut
+ * out of it; hollow when away; bigger when chosen. */
+static void device_mark(float x, float y, float r, uint16_t type, bool online, bool known, float opa, float t)
+{
+    if (known && !online) {
+        const int n = 10;
+        for (int k = 0; k < n; k++) {
+            const float an = (float)k * 2.0f * PI_F / (float)n;
+            mao_dots_glyph(x + r * sinf(an), y - r * cosf(an), 2.5f, opa * 0.55f, MAO_GLYPH_SQUARE, 0);
+        }
+        return;
+    }
+    const float pulse = known ? 1.0f : 1.0f + 0.12f * sinf(t * 2.0f * PI_F / 1.1f);   /* new: it calls */
+    mao_dots_glyph(x, y, 2.0f * r * pulse, opa, MAO_GLYPH_DOT, 0);
+    mao_dots_glyph(x, y, r * 1.0f, opa, core_glyph(type), 1);
+}
+
+/* DEVICES as a carousel (M4.1 rework, user review): every device is an
+ * object on the rim; the knob turns the ring, the chosen one comes to the
+ * top and grows. The centre says which device, large, and shows it live: a
+ * light as its own little field at its brightness, anything else as its
+ * core. A state word appears only when something is not normal. */
 static void list_layout(uint32_t now)
 {
     for (int i = 0; i < MAO_UI_DEVICES_MAX; i++) {
@@ -315,59 +358,58 @@ static void list_layout(uint32_t now)
     }
     const float t = (float)now / 1000.0f;
     const float grow = smooth01(p / 0.85f);
+    const float late = smooth01((p - 0.45f) / 0.55f);
     const int count = s_list.model.count;
     const bool empty = count == 0;
-    /* Which device the puck shows, and how far through a change it is. */
     const float pos = s_list.pos.x;
     const int shown = empty ? -1 : (int)clampf(lrintf(pos), 0.0f, (float)(count - 1));
-    const float between = empty ? 0.0f : fabsf(pos - (float)shown);            /* 0 settled .. 0.5 halfway */
-    const float change = 1.0f - smooth01(between * 2.2f);                       /* 1 settled, 0 collapsed */
-    const bool online = !empty && s_list.model.online[shown];
-    const bool fresh = !empty && !s_list.model.known[shown];
-    const bool noted = !empty && s_list.model.note[shown] != 0;
-    const bool offline = !empty && !online && s_list.model.known[shown];
+    const float change = empty ? 1.0f : 1.0f - smooth01(fabsf(pos - (float)shown) * 2.2f);
 
-    /* A burst of the turning lattice while the puck opens or closes. */
-    const float surge = sinf(PI_F * clampf(p / 0.95f, 0.0f, 1.0f));
-    mao_dots_field(118.0f * grow, 0.75f * surge * surge, t * 0.35f, now);
+    /* The ring: objects fly out from the gathered dot to their places. */
+    if (empty) {
+        const float an = t * 1.4f;                   /* looking: one mark goes round */
+        mao_dots_glyph(CAR_R * grow * sinf(an), -CAR_R * grow * cosf(an), 4.0f, 200.0f * grow, MAO_GLYPH_DOT, 0);
+        mao_dots_glyph(0.0f, 0.0f, 6.0f + 2.0f * sinf(t * 3.0f), 200.0f * grow, MAO_GLYPH_DOT, 0);
+    }
+    for (int i = 0; i < count; i++) {
+        const float an = ((float)i - pos) * CAR_STEP;
+        if (fabsf(an) > 2.6f) {
+            continue;
+        }
+        const float sel = 1.0f - smooth01(fabsf((float)i - pos) / 0.8f);
+        const float r = CAR_R * grow;
+        const float x = r * sinf(an), y = -r * cosf(an);
+        const bool on = s_list.model.online[i], known = s_list.model.known[i];
+        const float o = (110.0f + 145.0f * sel) * grow * clampf((2.6f - fabsf(an)) / 0.6f, 0.0f, 1.0f);
+        device_mark(x, y, 6.0f + 4.0f * sel, s_list.model.type[i], on, known, o, t);
+    }
 
-    /* The core (the gathered dot, grown) and its rings. */
-    const puck_t pk = {
-        .core_r = (3.0f + (CORE_R - 3.0f) * grow) * (0.30f + 0.70f * change),
-        .glyph = empty ? MAO_GLYPH_DOT : core_glyph(s_list.model.type[shown]),
-        .hollow = offline,
-        .grow = grow,
-        .change = change,
-        .opa = offline ? 0.35f : (noted ? 0.6f : 1.0f),
-        .fraction = noted ? 0.72f : 1.0f,
-        .amp = offline ? 0.0f : (fresh ? 5.0f : 2.2f),
-        .carry = pos * 0.9f,
-        .spin = offline ? 0.0f : 1.0f,
-    };
-    puck_draw(&pk, t);
-
-    /* The name, small, under the rings; rim dots for the position. */
-    const float late = smooth01((p - 0.55f) / 0.45f);
     if (!empty) {
+        /* The centre: which device, and how it is. */
+        const bool on = s_list.model.online[shown], known = s_list.model.known[shown];
+        const int8_t lv = s_list.model.level[shown];
+        if (lv >= 0 && on && s_list.model.power[shown]) {
+            field_request((30.0f + 34.0f * (float)lv / 100.0f) * late * change, 1.0f, PREVIEW_Y, p);
+        } else if (lv >= 0 && on) {
+            /* a light that is off: its mark, dim */
+            device_mark(0.0f, PREVIEW_Y, 10.0f, s_list.model.type[shown], true, true, 90.0f * late * change, t);
+        } else {
+            device_mark(0.0f, PREVIEW_Y, 14.0f * late * (0.5f + 0.5f * change), s_list.model.type[shown], on, known,
+                        255.0f * late * change, t);
+        }
         const char *nm = s_list.names[shown];
         const int cols = mao_dots_text_cols(nm);
-        const float pitch = cols > 1 ? fminf(2.2f, 118.0f / (float)(cols - 1)) : 2.2f;
-        mao_dots_text(nm, 0.0f, NAME_Y, pitch, 1.9f, (online || fresh ? 235.0f : 120.0f) * late * change, -1.0f);
-        s_list.sel_x = 0.0f;
-        s_list.sel_y = NAME_Y;       /* the page picks the name up here */
-        if (count > 1) {
-            for (int i = 0; i < count; i++) {
-                const float a = ((float)i - (float)(count - 1) * 0.5f) * 0.10f;
-                const bool is = i == shown;
-                mao_dots_glyph(110.0f * sinf(a), -110.0f * cosf(a), is ? 5.0f : 3.0f, (is ? 255.0f : 90.0f) * late,
-                               is ? MAO_GLYPH_SQUARE : MAO_GLYPH_DOT, 0);
-            }
+        const float pitch = cols > 1 ? fminf(NAME_PITCH, 184.0f / (float)(cols - 1)) : NAME_PITCH;
+        mao_dots_text_halo(nm, 0.0f, CAR_NAME_Y, pitch, pitch * 0.85f, (on || !known ? 255.0f : 130.0f) * late * change);
+        if (lv >= 0 && on && !s_list.model.power[shown]) {
+            mao_dots_text("OFF", 0.0f, CAR_STATE_Y, 2.2f, 1.8f, 150.0f * late * change, -1.0f);
         }
+        s_list.sel_x = 0.0f;
+        s_list.sel_y = PREVIEW_Y;    /* the page grows out of the preview */
     }
     const char *st = list_state(now);
     if (st) {
-        mao_dots_text(st, 0.0f, empty ? NAME_Y : STATE_Y + (count > 1 ? 12.0f : 0.0f), 2.0f, 1.7f,
-                      150.0f * late, -1.0f);
+        mao_dots_text(st, 0.0f, empty ? 30.0f : CAR_STATE_Y, 2.2f, 1.8f, 170.0f * late * change, -1.0f);
     }
 }
 
@@ -773,29 +815,9 @@ void mao_ui_device_update(const mao_ui_device_t *m)
 /* The device page in dots (M4.1)                                         */
 /* ---------------------------------------------------------------------- */
 
-#define DP_NAME_Y        -100.0f
-#define DP_OPT_R         104.0f
 #define DP_SEED          14.0f     /* the field at the lowest brightness: a small cluster */
 #define DP_REACH_MAX     150.0f    /* past the rim: the field fills the circle */
 
-
-/* MAO's own options on the lower rim: CONNECT (towards the world, right)
- * and INFO (left). Small marks; the word appears only when chosen. */
-static void option_mark(int which, float opa, bool chosen)
-{
-    const float a = which == 0 ? 2.45f : 3.83f;   /* rad from the top, clockwise */
-    const float x = DP_OPT_R * sinf(a), y = -DP_OPT_R * cosf(a);
-    const float s = chosen ? 1.6f : 1.0f;
-    if (which == 0) {                             /* > of three squares */
-        mao_dots_glyph(x - 3.0f * s, y - 4.0f * s, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
-        mao_dots_glyph(x + 1.0f * s, y, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
-        mao_dots_glyph(x - 3.0f * s, y + 4.0f * s, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
-    } else {                                      /* i: a dot and a bar */
-        mao_dots_glyph(x, y - 5.0f * s, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
-        mao_dots_glyph(x, y + 1.0f * s, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
-        mao_dots_glyph(x, y + 4.5f * s, 3.0f * s, opa, MAO_GLYPH_SQUARE, 0);
-    }
-}
 
 static void dotpage_layout(uint32_t now)
 {
@@ -803,58 +825,82 @@ static void dotpage_layout(uint32_t now)
     const float sh = clampf(s_panel.sh.x, 0.0f, 1.0f);
     const float p = s_dp.m.on ? p0 * (1.0f - sh) : 0.0f;
     const float t = (float)now / 1000.0f;
-    const float yield = clampf(s_dp.optsel.x, 0.0f, 1.0f);
+    const float menu = clampf(s_dp.optsel.x, 0.0f, 1.0f);   /* how far the options are up */
     /* The reach follows the model every frame (brightness, power, presence). */
     const float pct = clampf((float)s_dp.m.level_pct, 0.0f, 100.0f) / 100.0f;
     s_dp.reach.target = s_dp.m.on && s_dp.m.level && s_dp.m.power && s_dp.m.online &&
                                 s_panel.presence.target > 0.5f
                             ? DP_SEED + (DP_REACH_MAX - DP_SEED) * pct
                             : 0.0f;
-    if (s_dp.m.on && s_dp.m.level) {
-        const float r = s_dp.reach.x * smooth01(p0 / 0.9f);
-        mao_field_set(r, (1.0f - sh) * (1.0f - 0.65f * yield), now);
-        if (!s_dp.m.power && p > 0.02f) {
-            mao_dots_add(0.0f, 0.0f, 5.0f, 110.0f * p);     /* off: the light is still here */
-        }
-    } else {
-        mao_field_set(0.0f, 0.0f, now);
-    }
-    if (p < 0.004f) {
+    if (!s_dp.m.on || p < 0.004f) {
         return;
     }
-    /* The name travels in from its row and stays at the top, small. */
-    const float ny = s_panel.ty.x < -60.0f ? DP_NAME_Y : s_panel.ty.x;
-    const int cols = mao_dots_text_cols(s_dp.name);
-    const float pitch = cols > 1 ? fminf(2.2f, 120.0f / (float)(cols - 1)) : 2.2f;
-    mao_dots_text(s_dp.name, 0.0f, ny, pitch, 1.9f, (s_dp.m.online ? 200.0f : 110.0f) * p, -1.0f);
+    /* The page grows out of the carousel's preview: it starts where the
+     * preview was and moves to the centre as it arrives. */
+    const float oy = PREVIEW_Y * (1.0f - smooth01(p0));
+    if (s_dp.m.level) {
+        field_request(s_dp.reach.x * smooth01(p0 / 0.9f), (1.0f - sh) * (1.0f - 0.75f * menu), oy, p0 + 0.01f);
+    }
 
-    if (!s_dp.m.level) {
+    /* The name, small, where the circle is still wide enough for it. */
+    const int cols = mao_dots_text_cols(s_dp.name);
+    const float npitch = cols > 1 ? fminf(2.4f, 124.0f / (float)(cols - 1)) : 2.4f;
+    mao_dots_text(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, (s_dp.m.online ? 170.0f : 100.0f) * p * (1.0f - menu), -1.0f);
+
+    if (s_dp.m.level) {
+        if (!s_dp.m.online) {
+            mao_dots_text_halo("OFFLINE", 0.0f, 0.0f, 3.0f, 2.4f, 170.0f * p);
+        } else if (!s_dp.m.power) {
+            mao_dots_add(0.0f, oy, 5.0f, 110.0f * p);
+            mao_dots_text_halo("OFF", 0.0f, 34.0f, 3.0f, 2.4f, 150.0f * p * (1.0f - menu));
+        } else if (now < s_dp.level_until) {
+            /* While the knob moves: how much, large, over the field. */
+            char num[8];
+            snprintf(num, sizeof(num), "%ld", (long)s_dp.m.level_pct);
+            const float left = (float)(s_dp.level_until - now);
+            const float fade = clampf(left / 300.0f, 0.0f, 1.0f);
+            mao_dots_text_halo(num, 0.0f, 0.0f, 6.0f, 5.0f, 255.0f * p * fade * (1.0f - menu));
+        }
+    } else {
         /* An action device: the puck, its core the primary action. */
         const float press = clampf(s_panel.cdy.x / 3.0f, 0.0f, 1.0f);
         const bool pending = s_panel.cdy.target > 1.0f && s_panel.cdy.target < 2.0f;
+        const float big = smooth01(p0);            /* grows from the preview's size */
         const puck_t pk = {
             .x = s_panel.cdx.x * 0.8f,
-            .core_r = CORE_R * (1.0f - 0.10f * press) * (1.0f - 0.25f * yield),
+            .core_r = (14.0f + (30.0f - 14.0f) * big) * (1.0f - 0.10f * press) * (1.0f - 0.35f * menu),
             .glyph = core_glyph(s_dp.m.type),
             .hollow = !s_dp.m.online,
-            .grow = smooth01(p / 0.85f),
+            .grow = big,
             .change = 1.0f,
-            .opa = (s_dp.m.online ? 1.0f : 0.35f) * (1.0f - 0.55f * yield),
+            .opa = (s_dp.m.online ? 1.0f : 0.35f) * (1.0f - 0.7f * menu),
             .fraction = 1.0f,
             .amp = s_dp.m.online ? 2.2f : 0.0f,
             .carry = 0.0f,
-            .extra_r = s_dp.burst.x,
+            .extra_r = s_dp.burst.x + 8.0f * big,
             .spin = !s_dp.m.online ? 0.0f : (pending ? 4.0f : 1.0f),
         };
         puck_draw(&pk, t);
+        if (!s_dp.m.online) {
+            mao_dots_text_halo("OFFLINE", 0.0f, 58.0f, 2.6f, 2.1f, 170.0f * p);
+        }
     }
-    /* The rim options. */
-    for (int i = 0; i < 2; i++) {
-        const bool chosen = s_dp.m.sel == i;
-        option_mark(i, (chosen ? 255.0f : 90.0f) * p, chosen);
-    }
-    if (s_dp.m.sel >= 0) {
-        mao_dots_text(s_dp.m.sel == 0 ? "CONNECT" : "INFO", 0.0f, 70.0f, 2.0f, 1.7f, 220.0f * p * yield, -1.0f);
+
+    /* Hold-and-turn: MAO's options, either side of the centre - CONNECT to
+     * the right (towards the world), INFO to the left. */
+    if (menu > 0.01f) {
+        /* Pointing at one: it takes the centre, large; the other goes. In
+         * the middle: both, small, each on its own side. */
+        const int8_t ms = s_dp.m.menu_sel;
+        for (int i = 0; i < 2; i++) {
+            const char *wd = i == 0 ? "CONNECT" : "INFO";
+            if (ms == i) {
+                mao_dots_text_halo(wd, 0.0f, 0.0f, 3.0f, 2.6f, 255.0f * p * menu);
+            } else if (ms < 0) {
+                const float x = (i == 0 ? 52.0f : -52.0f);
+                mao_dots_text_halo(wd, x, 0.0f, 1.9f, 1.6f, 150.0f * p * menu);
+            }
+        }
     }
 }
 
@@ -863,10 +909,13 @@ void mao_ui_device_dots(const mao_ui_dotpage_t *m)
     if (!mao_display_lock(0)) {
         return;
     }
+    if (m->on && m->level && s_dp.m.on && m->level_pct != s_dp.m.level_pct && m->power) {
+        s_dp.level_until = lv_tick_get() + 1200;   /* the number shows while the knob moves */
+    }
     s_dp.m = *m;
     snprintf(s_dp.name, sizeof(s_dp.name), "%s", m->name ? m->name : "");
     s_dp.m.name = s_dp.name;
-    s_dp.optsel.target = m->sel >= 0 ? 1.0f : 0.0f;
+    s_dp.optsel.target = m->menu ? 1.0f : 0.0f;
     mao_ui_wake();
     mao_display_unlock();
 }
@@ -890,10 +939,13 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     mao_spring_step(&s_dp.reach, dt);
     mao_spring_step(&s_dp.burst, dt);
     mao_spring_step(&s_dp.optsel, dt);
+    s_fq.weight = 0.0f;
+    s_fq.reach = 0.0f;
     mao_dots_begin();
     list_layout(now);
     dotpage_layout(now);
     mao_dots_end();
+    mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now);
     panel_layout();
 
     /* One focus line: the surface with the most presence owns it. */

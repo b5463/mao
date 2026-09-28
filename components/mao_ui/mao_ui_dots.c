@@ -248,6 +248,20 @@ void mao_dots_text(const char *s, float cx, float cy, float pitch, float d, floa
     }
 }
 
+void mao_dots_text_halo(const char *s, float cx, float cy, float pitch, float d, float opa)
+{
+    const int cols = mao_dots_text_cols(s);
+    /* A black block behind the whole word first, then the word. */
+    const float w = (float)(cols + 2) * pitch, h = 9.0f * pitch;
+    for (float y = cy - h * 0.5f + pitch * 0.5f; y < cy + h * 0.5f; y += pitch * 2.0f) {
+        for (float x = cx - w * 0.5f + pitch * 0.5f; x < cx + w * 0.5f; x += pitch * 2.0f) {
+            mao_dots_glyph(x + pitch * 0.5f, y + pitch * 0.5f, pitch * 2.0f + 1.0f, 235.0f * (opa / 255.0f),
+                           MAO_GLYPH_SQUARE, 1);
+        }
+    }
+    mao_dots_text(s, cx, cy, pitch, d, opa, -1.0f);
+}
+
 /* The lattice field: a diagonal grid that turns slowly; glyphs are busy
  * near the core, plain in the middle, fine dashes towards the edge. */
 void mao_dots_field(float radius, float strength, float angle, uint32_t now_ms)
