@@ -305,6 +305,29 @@ static void scenario(const char *name)
             mao_character_return(); run_ms(2500);
         }
     }
+    else if (IS("homelook")) { /* M4.1: HOME's lamp scale - the eyes follow its end, fast and slow */
+        const float arc = 2.30f;
+        for (int pass = 0; pass < 3; pass++) {
+            for (int p = 0; p <= 100; p += pass == 1 ? 25 : 4) {     /* sweeps, and big jumps */
+                const float an = -arc + 2.0f * arc * (float)p / 100.0f;
+                mao_character_look((int)(104.0f * sinf(an)), (int)(-104.0f * cosf(an)), true);
+                run_ms(pass == 1 ? 500 : 40);
+            }
+            for (int p = 100; p >= 0; p -= 8) {
+                const float an = -arc + 2.0f * arc * (float)p / 100.0f;
+                mao_character_look((int)(104.0f * sinf(an)), (int)(-104.0f * cosf(an)), true);
+                run_ms(30);
+            }
+            if (pass == 2) {
+                mao_character_debug_expression(34);                  /* a mood plays while it looks */
+                for (int k = 0; k < 40; k++) {
+                    mao_character_look(k & 1 ? 80 : -80, -60, true);
+                    run_ms(60);
+                }
+            }
+            mao_character_look(0, 0, false); run_ms(1500);
+        }
+    }
     else if (IS("names")) {    /* tool: index -> expression name (not part of the baseline) */
         for (int k = 0; k < mao_character_expression_count(); k++) {
             printf("%d %s\n", k, mao_character_expression_name(k));

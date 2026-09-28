@@ -72,6 +72,9 @@ bool mao_dots_end(void);
 
 /* The ODD JOBS field (mao_ui_field.c): reach in px from the centre. */
 void mao_field_create(lv_obj_t *scr);
+/* MAO's accent (mao_character_accent): the field's one hue, and the dots'. */
+void mao_field_set_accent(uint32_t color);
+void mao_dots_set_accent(uint32_t color);
 void mao_field_set(float reach, float strength, float oy, uint32_t now_ms);   /* oy: centre, px down */
 
 /* The focus line (mao_ui_focus.c). */

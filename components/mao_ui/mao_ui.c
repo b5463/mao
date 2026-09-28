@@ -176,6 +176,10 @@ static void tick_body(lv_timer_t *t)
         mao_character_appear(s_appear_dir);
     }
     busy |= s_return_at != 0 || s_appear_at != 0;
+    /* One colour for the whole screen: the dots and the field follow MAO's. */
+    const uint32_t accent = mao_character_accent();
+    mao_dots_set_accent(accent);
+    mao_field_set_accent(accent);
     busy |= mao_home_tick(dt, now);
     busy |= mao_overlay_tick(dt, now);
     busy |= mao_devices_ui_tick(dt, now);

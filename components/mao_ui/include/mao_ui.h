@@ -160,6 +160,10 @@ void mao_ui_home_hint(bool allowed);
 typedef enum { MAO_TUNE_OFF = 0, MAO_TUNE_CHOOSE, MAO_TUNE_ADJUST } mao_tune_mode_t;
 void mao_ui_home_tune(mao_tune_mode_t mode, int8_t sel, int value);
 
+/* HOME's light: a plain turn set it to `pct` (0..100; `on` false = it is
+ * off). An arc along the rim with its name; it leaves on its own. */
+void mao_ui_home_lamp(const char *name, int pct, bool on);
+
 /* Tool feedback on the centre word: the word itself answers the physical
  * button, before and regardless of the character (no network latency). */
 typedef enum {

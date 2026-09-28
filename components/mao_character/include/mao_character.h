@@ -122,6 +122,16 @@ void mao_character_peek(bool on);
  * composition, not a pointer. Ignored at the centre (HOME owns the gaze). */
 void mao_character_attend(int x, int y);
 
+/* HOME (M4.1): the eyes look towards a screen point (px from the centre,
+ * + = right / down) - the lit end of the lamp scale on the rim - and no part
+ * of them comes within the rim while they do. on = false lets go (it also
+ * lets go on its own ~2.5 s after the last call). */
+void mao_character_look(int x, int y, bool on);
+
+/* MAO's colour now (0xRRGGBB): pink at rest, leaning with the mood. The
+ * whole screen uses it - the dot UI and the field follow the eyes. */
+uint32_t mao_character_accent(void);
+
 mao_character_state_t mao_character_get_state(void);
 const char *mao_character_state_name(mao_character_state_t state);
 

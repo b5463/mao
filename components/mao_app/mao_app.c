@@ -638,6 +638,83 @@ static bool on_home_tune(const mao_event_t *ev, int64_t now)
     }
 }
 
+/* One turn on a light - its page, or HOME's plain turn. Turning up a light
+ * that is off switches it on. Slow turns are fine, fast ones travel: 1 % a
+ * detent when setting it carefully, up to 8 % when sweeping across. */
+static void lamp_turn(const mao_device_t *dev, const mao_device_controls_t *ctl, int32_t d,
+                      const mao_dial_motion_t *m)
+{
+    const mao_device_cap_t *c = &dev->caps[ctl->level_idx];
+    const bool off = ctl->toggle_idx >= 0 && dev->caps[ctl->toggle_idx].value == 0;
+    if (d > 0 && off) {
+        const mao_device_cap_t *tc = &dev->caps[ctl->toggle_idx];
+        mao_devices_set_value(dev->info.id, tc->cap.id, tc->cap.max);
+        return;
+    }
+    if (off) {
+        return;
+    }
+    const int32_t span = c->cap.max - c->cap.min;
+    /* the speed window is 250 ms: one detent in it reads 4 /s */
+    const int32_t pct = m->detents_per_s <= 4.5f ? 1 : m->detents_per_s <= 8.5f ? 2
+                        : m->detents_per_s < 20.0f ? 4 : 8;
+    const int32_t want = span * pct / 100;
+    const int32_t step = want > c->cap.step ? want : (c->cap.step > 0 ? c->cap.step : 1);
+    int32_t v = c->value + d * step;
+    v = v < c->cap.min ? c->cap.min : (v > c->cap.max ? c->cap.max : v);
+    if (v != c->value) {
+        mao_devices_set_value(dev->info.id, c->cap.id, v);
+    }
+}
+
+/* HOME's light (M4.1): the light used last - or, before any was, the first
+ * one in the setup - when it is here and answering. */
+static bool home_lamp(mao_device_t *dev, mao_device_controls_t *ctl)
+{
+    mao_world_entry_t devs[MAO_UI_DEVICES_MAX];
+    uint64_t want = mao_settings_get()->last_lamp;
+    for (int pass = 0; pass < 2; pass++) {
+        const int n = mao_world_list(devs);
+        for (int i = 0; i < n; i++) {
+            if ((want && devs[i].id != want) || !devs[i].known) {
+                continue;
+            }
+            mao_world_entry_t w;
+            const int slot = mao_devices_find(devs[i].id);
+            if (mao_devpage(devs[i].id, &w) != MAO_DEVPAGE_CONTROL || slot < 0 || !mao_devices_get(slot, dev)) {
+                continue;
+            }
+            mao_device_controls(dev, ctl);
+            if (dev->described && dev->online && ctl->level_idx >= 0) {
+                return true;
+            }
+        }
+        if (!want) {
+            break;
+        }
+        want = 0;                                 /* the last one is away: any light in the setup */
+    }
+    return false;
+}
+
+static void home_lamp_show(uint64_t id)
+{
+    mao_device_t dev;
+    mao_device_controls_t ctl;
+    const int slot = mao_devices_find(id);
+    if (slot < 0 || !mao_devices_get(slot, &dev)) {
+        return;
+    }
+    mao_device_controls(&dev, &ctl);
+    if (ctl.level_idx < 0) {
+        return;
+    }
+    const mao_device_cap_t *c = &dev.caps[ctl.level_idx];
+    const int32_t span = c->cap.max - c->cap.min;
+    const int pct = span > 0 ? (int)((c->value - c->cap.min) * 100 / span) : 0;
+    mao_ui_home_lamp(dev.info.name, pct, ctl.toggle_idx < 0 || dev.caps[ctl.toggle_idx].value != 0);
+}
+
 static void on_home(const mao_event_t *ev, int64_t now)
 {
     mao_ui_home_hint(home_hint_allowed());   /* any input restarts the hint's wait */
@@ -649,7 +726,16 @@ static void on_home(const mao_event_t *ev, int64_t now)
     case MAO_EVENT_INPUT_CCW: {
         const int32_t d = ev->type == MAO_EVENT_INPUT_CW ? ev->value : -ev->value;
         const mao_dial_motion_t m = dial_motion(d, now);
-        mao_character_dial(d);
+        mao_device_t dev;
+        mao_device_controls_t ctl;
+        if (home_lamp(&dev, &ctl)) {
+            /* a plain turn is the light: the eyes stay, the rim answers */
+            lamp_turn(&dev, &ctl, d, &m);
+            mao_settings_note_last_lamp(dev.info.id);
+            home_lamp_show(dev.info.id);
+        } else {
+            mao_character_dial(d);                /* no light here: the eyes follow */
+        }
         dial_tick(&m);
         break;
     }
@@ -862,27 +948,8 @@ static bool on_device_dots(const mao_event_t *ev, int64_t now, const mao_device_
             mao_ui_device_turn(d);                   /* turning does nothing here: the iris still answers */
         }
         if (level && dev->described && dev->online) {
-            const mao_device_cap_t *c = &dev->caps[ctl->level_idx];
-            const bool off = ctl->toggle_idx >= 0 && dev->caps[ctl->toggle_idx].value == 0;
-            if (d > 0 && off) {
-                /* turning up a light that is off: it comes on */
-                const mao_device_cap_t *tc = &dev->caps[ctl->toggle_idx];
-                mao_devices_set_value(dev->info.id, tc->cap.id, tc->cap.max);
-            } else if (!off) {
-                /* Slow turns are fine, fast ones travel: 1 % a detent when
-                 * setting it carefully, up to 8 % when sweeping across. */
-                const int32_t span = c->cap.max - c->cap.min;
-                /* the speed window is 250 ms: one detent in it reads 4 /s */
-                const int32_t pct = m.detents_per_s <= 4.5f ? 1 : m.detents_per_s <= 8.5f ? 2
-                                    : m.detents_per_s < 20.0f ? 4 : 8;
-                const int32_t want = span * pct / 100;
-                const int32_t step = want > c->cap.step ? want : (c->cap.step > 0 ? c->cap.step : 1);
-                int32_t v = c->value + d * step;
-                v = v < c->cap.min ? c->cap.min : (v > c->cap.max ? c->cap.max : v);
-                if (v != c->value) {
-                    mao_devices_set_value(dev->info.id, c->cap.id, v);
-                }
-            }
+            lamp_turn(dev, ctl, d, &m);
+            mao_settings_note_last_lamp(dev->info.id);   /* HOME's turn sets this one */
             refresh_device_panel();
             dial_tick(&m);
         }
@@ -1326,15 +1393,55 @@ static bool is_input(mao_event_type_t t)
     return t >= MAO_EVENT_INPUT_CW && t <= MAO_EVENT_INPUT_DOUBLE_CLICK;
 }
 
+/* A dimmed MAO (M4.1): the first touch only wakes it. A press is eaten
+ * whole - held, turned while held, its release and the click that comes
+ * with it - so it can never open a list or change a light in the dark by
+ * accident; the waking turn is eaten too. Everything after that acts. */
+static uint8_t s_wake_eat;               /* 0 none; 1 the waking press is down; 2 released */
+static int64_t s_wake_release_us;
+#define WAKE_CLICK_US (150 * 1000)        /* a click belongs to that release only if it comes with it */
+
+static bool wake_gesture(mao_event_type_t t, bool dimmed)
+{
+    if (dimmed && s_wake_eat == 0) {
+        if (t == MAO_EVENT_INPUT_PRESS) {
+            s_wake_eat = 1;
+            ESP_LOGI(TAG, "press woke MAO (not acted on)");
+        } else {
+            ESP_LOGI(TAG, "turn woke MAO (not acted on)");
+        }
+        return true;
+    }
+    if (s_wake_eat == 1) {
+        if (t == MAO_EVENT_INPUT_RELEASE) {
+            s_wake_eat = 2;
+            s_wake_release_us = esp_timer_get_time();
+        }
+        return true;
+    }
+    if (s_wake_eat == 2) {
+        if ((t == MAO_EVENT_INPUT_CLICK || t == MAO_EVENT_INPUT_DOUBLE_CLICK) &&
+            esp_timer_get_time() - s_wake_release_us < WAKE_CLICK_US) {
+            return true;                      /* posted with that release */
+        }
+        s_wake_eat = 0;
+    }
+    return false;
+}
+
 static void on_event(const mao_event_t *ev, void *ctx)
 {
     (void)ctx;
     const int64_t now = esp_timer_get_time();
 
     if (is_input(ev->type)) {
+        const bool dimmed = !mao_state()->awake;
         mao_state_note_input(now);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
         wake();
+        if (wake_gesture(ev->type, dimmed)) {
+            return;   /* the touch that woke MAO only woke it */
+        }
         if (mao_transfer_input(ev)) {
             return;   /* a transfer is running; it decides what input means */
         }

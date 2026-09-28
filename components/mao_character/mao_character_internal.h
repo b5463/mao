@@ -11,6 +11,7 @@
 #include "mao_character_priv.h"
 #include "mao_lark.h"
 #include "mao_life.h"
+#include "mao_character_accent.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 
@@ -22,6 +23,7 @@ typedef enum { PRIO_IDLE = 0, PRIO_SYSTEM, PRIO_DIAL, PRIO_PRESS, PRIO_NAV } pri
 typedef enum {
     CMD_DIAL, CMD_PRESS, CMD_REACT, CMD_APPEAR, CMD_SLEEPY, CMD_LEAVE, CMD_RETURN,
     CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION, CMD_TRANSFER, CMD_MIND, CMD_PEEK, CMD_ATTEND, CMD_GATHER,
+    CMD_LOOK_AT,
 } cmd_type_t;
 
 typedef struct {
@@ -40,6 +42,9 @@ typedef struct {
     mao_lark_t lark;
     mao_life_t life;
     mao_transfer_t transfer;
+    mao_accent_t accent;        /* the mood colour, fading between moods */
+    uint32_t accent_ms;
+    volatile uint32_t accent_pub;   /* read by the UI (mao_character_accent) */
     int fb_pending;             /* controller feedback state waiting to play (-1 = none) */
     uint32_t fb_until;          /* feedback playing: full layer gain */
     uint32_t fb_play_at;        /* verdicts wait for the mind's EVALUATE phase */
@@ -54,6 +59,10 @@ typedef struct {
     bool peek;                  /* rim presence (below the lower rim, watching the UI) */
     float attend_gx, attend_gy; /* rim gaze towards the UI's attention, px */
     float attend_fx;            /* the face drifts a little towards it, px */
+    bool look_on;               /* HOME: the eyes follow a UI point (the lamp scale) */
+    float look_gx, look_gy;     /* gaze towards it, px */
+    uint32_t look_until;        /* it lets go on its own */
+    uint32_t contain_until;     /* containment stays while the eyes come back */
     bool sleepy;
     bool pressed;
     mao_mouth_t mouth;

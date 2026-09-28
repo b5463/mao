@@ -1441,6 +1441,71 @@ static bool home_tune_layout(uint32_t now, float dt)
     return true;
 }
 
+/* HOME's light (mao_ui_home_lamp): a plain turn sets the light used last
+ * without opening it. The level is an arc of dots along the rim, open at the
+ * bottom where the light's name sits; the eyes look towards its lit end and
+ * are held well inside it (mao_character_look), never touching it. It
+ * leaves on its own shortly after. */
+#define HOME_LAMP_HOLD_MS 1600
+#define HOME_LAMP_R       104.0f
+#define HOME_LAMP_ARC     2.30f            /* half the arc, rad from the top */
+
+static struct {
+    char name[24];
+    bool on;
+    uint32_t last;                         /* the last turn */
+    mao_spring_t shown;                    /* the drawn level follows the set one softly */
+    mao_spring_t vis;                      /* 0..1 */
+} s_hl;
+
+void mao_ui_home_lamp(const char *name, int pct, bool on)
+{
+    if (!mao_display_lock(0)) {
+        return;
+    }
+    if (s_hl.vis.target < 0.5f) {
+        s_hl.shown.x = (float)pct;         /* it appears at its level, not from zero */
+    }
+    snprintf(s_hl.name, sizeof(s_hl.name), "%s", name ? name : "");
+    s_hl.on = on;
+    s_hl.shown.target = (float)pct;
+    s_hl.vis.target = 1.0f;
+    s_hl.last = lv_tick_get();
+    /* the eyes look where the scale ends - and keep clear of it */
+    const float an = -HOME_LAMP_ARC + 2.0f * HOME_LAMP_ARC * (on ? (float)pct / 100.0f : 0.0f);
+    mao_character_look((int)(HOME_LAMP_R * sinf(an)), (int)(-HOME_LAMP_R * cosf(an)), true);
+    mao_ui_wake();
+    mao_display_unlock();
+}
+
+static bool home_lamp_layout(uint32_t now, float dt)
+{
+    if (s_hl.vis.target > 0.5f && now - s_hl.last > HOME_LAMP_HOLD_MS) {
+        s_hl.vis.target = 0.0f;
+        mao_character_look(0, 0, false);
+    }
+    mao_spring_step(&s_hl.vis, dt);
+    mao_spring_step(&s_hl.shown, dt);
+    const float in = clampf(s_hl.vis.x, 0.0f, 1.0f);
+    if (in < 0.01f && s_hl.vis.target < 0.5f) {
+        return false;
+    }
+    const float v = clampf(s_hl.shown.x, 0.0f, 100.0f);
+    const int n = 48;
+    for (int i = 0; i < n; i++) {
+        const float f = (float)i / (float)(n - 1);
+        const float an = -HOME_LAMP_ARC + 2.0f * HOME_LAMP_ARC * f;
+        const bool lit = s_hl.on && f * 100.0f <= v + 0.01f;
+        /* the arc arrives from the name outwards, like the lamp page's field grows */
+        const float arrive = clampf(in * 1.6f - fabsf(f - 0.5f) * 1.2f + 0.2f, 0.0f, 1.0f);
+        mao_dots_glyph(HOME_LAMP_R * sinf(an), -HOME_LAMP_R * cosf(an), lit ? 4.0f : 2.4f,
+                       (lit ? 255.0f : 60.0f) * arrive, MAO_GLYPH_SQUARE, 0);
+    }
+    const float nw = mao_dots_text_arc_width(s_hl.name, 1.0f);
+    const float pitch = nw > 1.0f ? fminf(2.2f, 120.0f / nw) : 2.2f;
+    mao_dots_text_arc(s_hl.name, HOME_LAMP_R, true, pitch, 1.8f, 200.0f * in, false);
+    return true;
+}
 /* Boot (M4.1): KINO D4's boot in MAO's field - it blooms from the centre
  * through its ragged front, MAO's name arrives in dots over it, then the
  * field draws back into the centre, where the eyes open (mao_home.c). */
@@ -1474,7 +1539,7 @@ static bool boot_layout(uint32_t now)
 /* HOME, left alone for a moment by someone new to it: a quiet PRESS. */
 static void home_hint_layout(uint32_t now)
 {
-    if (!s_hint.allowed || now - s_hint.since < 6000 || s_tune.mode != MAO_TUNE_OFF) {
+    if (!s_hint.allowed || now - s_hint.since < 6000 || s_tune.mode != MAO_TUNE_OFF || s_hl.vis.x > 0.02f) {
         return;
     }
     const float t = (float)(now - s_hint.since - 6000) / 1000.0f;
@@ -1546,6 +1611,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     const bool intro_up = intro_layout(now);
     const bool boot_up = boot_layout(now);
     const bool tune_up = home_tune_layout(now, dt);
+    const bool lamp_up = home_lamp_layout(now, dt);
     ST(2, mao_dots_end());
     ST(3, mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now));
     ST(4, panel_layout());
@@ -1576,7 +1642,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
                          (now - s_list.shown_at_ms) < LOOKING_MS + 100;
     const bool field_alive = s_list.presence.x > 0.004f ||   /* the dots shimmer while they are there */
                              (s_dp.m.on && s_panel.presence.x > 0.004f) || s_dp.reach.x > 0.5f;
-    return field_alive || waiting || s_hint.allowed || intro_up || tune_up || boot_up || s_list.show_at != 0 || s_panel.show_at != 0 ||
+    return field_alive || waiting || s_hint.allowed || intro_up || tune_up || lamp_up || boot_up || s_list.show_at != 0 || s_panel.show_at != 0 ||
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
            !mao_spring_settled(&s_list.side, 0.05f) ||
            !mao_spring_settled(&s_panel.presence, 0.002f) || !mao_spring_settled(&s_panel.ty, 0.05f) ||
@@ -1646,6 +1712,8 @@ void mao_devices_ui_create(lv_obj_t *scr)
     mao_spring_init(&s_dp.leave, 1.0f, ((mao_spring_profile_t){ .k = 120.0f, .zeta = 0.9f }));
     mao_spring_init(&s_dp.twist, 0.0f, ((mao_spring_profile_t){ .k = 70.0f, .zeta = 0.75f }));
     mao_spring_init(&s_tune.shown, 0.0f, ((mao_spring_profile_t){ .k = 180.0f, .zeta = 0.9f }));
+    mao_spring_init(&s_hl.shown, 0.0f, ((mao_spring_profile_t){ .k = 180.0f, .zeta = 0.9f }));
+    mao_spring_init(&s_hl.vis, 0.0f, MAO_UI_PAGE);
     for (int k = 0; k < 6; k++) {
         /* soft, each a little different: they arrive one after another */
         mao_spring_init(&s_dp.blade[k], CAM_AP,

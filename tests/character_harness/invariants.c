@@ -20,6 +20,7 @@ static void inv_frame(void);
 enum { P_EYE, P_IRIS, P_PUPIL, P_SHINE, P_SHINE2, P_STAR, P_LID, P_LOWER, P_COVER, PARTS };
 #define EYE_OBJ(i, part) (&s_objs[(i) * PARTS + (part)])
 #define OFFSCREEN 185
+#define MAO_ACCENT_SLEEP_Q (0xC7A6F7u & 0xF8FCF8u)   /* the lavender, as drawn */
 
 static const char *s_scn;
 static int s_bad;
@@ -108,6 +109,38 @@ static void inv_frame(void)
     if (both && EYE_OBJ(0, P_EYE)->bg != EYE_OBJ(1, P_EYE)->bg) {
         fail("eyes in different colours", -1);
     }
+    /* I9: the accent (M4.1) - the pink egg's colour only ever leans within
+     * MAO's mood palette (no black, no stray hue), and asleep it is the
+     * lavender. Not in "looks", which switches to the other looks. */
+    if (both && strcmp(s_scn, "looks") != 0) {
+        const uint32_t c = EYE_OBJ(0, P_EYE)->bg;
+        const int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
+        if (r < 0xA0 || r > 0xF8 || g < 0x5C || g > 0xC8 || b < 0x66 || b > 0xF8) {
+            fail("eye colour outside the accent palette", -1);
+        }
+        if (!strcmp(s_scn, "sleep") && s_now >= 4000 && s_now < 21000 && c != (MAO_ACCENT_SLEEP_Q)) {
+            fail("asleep but not lavender", -1);
+        }
+    }
+    /* I10: HOME's lamp scale (M4.1) - while the eyes look at it, no part of
+     * either eye reaches the rim where it is drawn (inner edge 102 px). */
+    if (!strcmp(s_scn, "homelook")) {
+        for (int i = 0; i < 2; i++) {
+            const lv_obj_t *e = EYE_OBJ(i, P_EYE);
+            if (!visible(e)) {
+                continue;
+            }
+            const float x1 = (float)e->x - (float)e->w * 0.5f, y1 = (float)e->y - (float)e->h * 0.5f;   /* centre-aligned */
+            const float x2 = x1 + (float)e->w, y2 = y1 + (float)e->h;
+            const float rr = fminf((float)e->w, (float)e->h) * 0.5f;
+            for (int k = 0; k < 4; k++) {
+                const float cx = (k & 1) ? x2 - rr : x1 + rr, cy = (k & 2) ? y2 - rr : y1 + rr;
+                if (sqrtf(cx * cx + cy * cy) + rr > 99.0f) {
+                    fail("an eye reaches the lamp scale", i);
+                }
+            }
+        }
+    }
     (void)both;
 }
 
@@ -119,7 +152,7 @@ static float jump_limit(const char *s)
     static const struct { const char *s; float px; } k[] = {
         { "idle", 14 }, { "press", 12 }, { "dial", 42 }, { "react", 22 }, { "sleep", 16 }, { "mind", 22 },
         { "looks", 26 }, { "states", 44 }, { "previews", 64 }, { "menu", 70 }, { "peek", 60 },
-        { "transfer", 115 }, { "gather", 40 },
+        { "transfer", 115 }, { "gather", 40 }, { "homelook", 40 },
     };
     for (size_t i = 0; i < sizeof(k) / sizeof(k[0]); i++) {
         if (!strcmp(k[i].s, s)) {

@@ -122,6 +122,19 @@ static void rect(lv_layer_t *layer, lv_draw_rect_dsc_t *r, int32_t x1, int32_t y
     lv_draw_rect(layer, r, &a);
 }
 
+static uint32_t s_accent = MAO_COL_DOT;
+
+void mao_dots_set_accent(uint32_t color)
+{
+    if ((color & 0xF8FCF8u) == (s_accent & 0xF8FCF8u)) {
+        return;                             /* the same on the panel: no redraw */
+    }
+    s_accent = color;
+    if (s_d.obj && s_d.n > 0) {
+        lv_obj_invalidate(s_d.obj);
+    }
+}
+
 static void draw_cb(lv_event_t *e)
 {
     lv_layer_t *layer = lv_event_get_layer(e);
@@ -134,7 +147,7 @@ static void draw_cb(lv_event_t *e)
     lv_draw_rect_dsc_init(&r);
     lv_draw_line_dsc_t ln;
     lv_draw_line_dsc_init(&ln);
-    const lv_color_t cols[2] = { lv_color_hex(MAO_COL_DOT), lv_color_hex(MAO_COL_BG) };
+    const lv_color_t cols[2] = { lv_color_hex(s_accent), lv_color_hex(MAO_COL_BG) };
     for (int i = 0; i < s_d.n; i++) {
         const dot_t *d = &s_d.dot[i];
         const int32_t s = d->d, h = s / 2;

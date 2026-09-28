@@ -90,11 +90,36 @@ void mao_char_attention_update(mao_char_t *mc, uint32_t now)
     if (mc->peek) {
         gain *= MAO_PEEK_LAYER_GAIN;   /* the page is in charge; MAO observes */
     }
+    /* HOME's look (the lamp scale): the knob is in charge, the eyes show it. */
+    if (mc->look_on && !before(now, mc->look_until)) {
+        mc->look_on = false;
+        mc->contain_until = now + 900u;
+    }
+    if (!mc->look_on && (mc->look_gx != 0.0f || mc->look_gy != 0.0f)) {
+        mc->look_gx = mc->look_gy = 0.0f;       /* let go: back to the centre */
+        mao_motion_set(&mc->m, CH_GAZE_X, 0.0f);
+        mao_motion_set(&mc->m, CH_GAZE_Y, 0.0f);
+    }
+    const bool looking = mc->look_on && !mc->peek && mc->transfer.phase == MAO_TR_NONE;
+    if (looking) {
+        gain *= 0.25f;
+        mao_motion_set(&mc->m, CH_GAZE_X, mc->look_gx);
+        mao_motion_set(&mc->m, CH_GAZE_Y, mc->look_gy);
+    }
+    mc->m.contain_r = looking || before(now, mc->contain_until) ? MAO_HOME_CONTAIN_R : 0.0f;
     mao_lark_update(&mc->lark, now, mc->visible && prio == PRIO_IDLE, mc->sleepy, gain, mc->m.layer);
+    /* The accent leans with what plays, as strongly as it plays. */
+    const float adt = mc->accent_ms ? (float)(now - mc->accent_ms) / 1000.0f : 0.0f;
+    mc->accent_ms = now;
+    mao_accent_step(&mc->accent,
+                    mao_accent_target(mao_lark_state(mc->lark.cur)->name, mc->sleepy, clampf(mc->lark.gain.x, 0.0f, 1.0f)),
+                    adt > 0.1f ? 0.1f : adt);
+    mc->m.accent = mao_accent_color(&mc->accent);
+    mc->accent_pub = mc->m.accent;
     float life[CH_COUNT] = { 0 };
     mao_life_update(&mc->life, &mc->lark, &mc->m, now, mc->visible && prio == PRIO_IDLE, mc->sleepy, life);
     if (prio != PRIO_NAV) {
-        const float lg = mc->peek ? MAO_PEEK_LAYER_GAIN : 1.0f;
+        const float lg = mc->peek ? MAO_PEEK_LAYER_GAIN : (looking ? 0.25f : 1.0f);
         for (int i = 0; i < CH_COUNT; i++) {
             mc->m.layer[i] += life[i] * lg;
         }

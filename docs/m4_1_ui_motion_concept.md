@@ -574,8 +574,48 @@ decision. FORGET is on the left, the way the menu went.
 - A press, or about 5 s without input, finishes. The value is saved once, at
   the end, and the eyes return.
 - A long press without a turn is still MAO's warm reaction.
-- A plain turn still moves the eyes, and a press still opens DEVICES.
+- A press still opens DEVICES.
 
+**HOME's light (plain turn, 2026-09-29):**
+- A plain turn on HOME sets the light used last, without opening it. "Used
+  last" is the last light whose page was turned or pressed, and it is saved
+  across reboots (`last_lamp`). If that light is away, any light in the
+  setup is used.
+- The steps are the lamp page's: 1 % a detent when turned slowly, up to 8 %
+  when sweeping. Turning up a light that is off switches it on.
+- The level shows as an arc of dots along the rim, open at the bottom, where
+  the light's name sits. The eyes stay where they are, so nothing covers the
+  arc. It leaves about 1.6 s after the last turn.
+- With no light in the setup, a plain turn moves the eyes as before.
+
+**A dimmed MAO wakes first (2026-09-29):**
+- While MAO is dimmed (sleepy or deep sleep), the first touch only wakes it.
+- A press is eaten whole: the hold, any turn while held, the release and the
+  click that comes with it. It can never open DEVICES or change a light in
+  the dark by accident.
+- A waking turn is eaten too. Everything after it acts normally.
+
+**The accent follows the mood (2026-09-29):**
+- MAO has one colour for the whole screen: the eyes, the dot UI and the ODD
+  field. It is pink at rest (`MAO_ACCENT_BASE`, 0xF3A2C4, unchanged).
+- It leans with the expression playing, as strongly as that expression
+  plays (the layer gain), and fades with a 0.45 s time constant:
+
+  | Family | Colour | States |
+  |---|---|---|
+  | mad | red 0xF2646E | mad, dizzy_mad, sinister |
+  | cross | rose 0xF58C84 | glare, cat_glare, tsk, hmph, sulky, pout, contempt, eyeroll, grumpywake |
+  | warm | peach 0xF7B58C | hum, purr, happy, pleased, content, relief |
+  | bright | gold 0xF5C870 | excited, glint, proud, giggle |
+  | sad | blue 0xA8B0F2 | sad, lonely, sigh, worry, anxious |
+  | asleep | lavender 0xC7A6F7 | dimmed MAO, asleep, doze, drowsy, yawn |
+  | blank | grey 0xBCAFB8 | zoned, cat_blank, deadpan, bored, daydream |
+
+- The event colours (cobalt spin, yellow warmth, red failure) stay events
+  on top of the accent.
+- The dots and the field redraw only when the colour changes on the panel
+  (RGB565).
+- Code: `mao_character_accent.c`, which is pure and host-tested.
 **Tests added in M4.1:**
 - `tests/character_harness/invariants.c`: every frame of every scenario
   and seed must keep these properties (39 runs):
@@ -587,8 +627,16 @@ decision. FORGET is on the left, the way the menu went.
   - one MAO colour
   - per-scenario motion limits
 
-  They run in `check.sh` before the hash diff. The hash baseline itself
-  waits for approval (s133).
+  - (I9) the accent stays within the mood palette, and is lavender asleep.
+    A copy with a pink lavender is caught.
+
+  They run in `check.sh` before the hash diff. The baseline was re-approved
+  for the accent (2026-09-29): only the press, sleep, states and previews
+  scenarios changed. idle, dial, react, menu, transfer, peek, mind and looks
+  are bit-identical.
+- `tests/accent`: the accent module against the real expression library (26
+  checks). Every state it names exists, the fade is monotone and lands
+  exactly, and rest is exactly pink.
 - `tests/relationships/test_rel_fuzz.c`: model-based fuzz of the
   relationship table (pair, re-pair, forget, rename, credential drop,
   reboots, injected failures). After every step, the table, the fake flash

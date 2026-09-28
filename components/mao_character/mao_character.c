@@ -46,6 +46,11 @@ mao_character_state_t mao_character_get_state(void)
     return s_c.state;
 }
 
+uint32_t mao_character_accent(void)
+{
+    return s_c.accent_pub ? s_c.accent_pub : MAO_ACCENT_BASE;
+}
+
 int mao_character_look_count(void)
 {
     return LOOK_COUNT;
@@ -88,6 +93,24 @@ static void apply(mao_char_t *mc, const cmd_t *c, uint32_t now)
     }
     case CMD_PEEK:       mao_char_peek_set(mc, c->flag, now); break;
     case CMD_GATHER:     mao_char_gather(mc, now); break;
+    case CMD_LOOK_AT: {
+        /* HOME (M4.1): look towards a screen point, inside a circle. */
+        const float x = (float)(int16_t)(c->value >> 16), y = (float)(int16_t)(c->value & 0xFFFF);
+        const float d = sqrtf(x * x + y * y);
+        mc->look_on = c->flag;
+        if (!c->flag) {
+            mc->contain_until = now + 900u;
+            break;                              /* the tick lets the gaze go */
+        }
+        mc->look_gx = c->flag && d > 1.0f ? MAO_GAZE_MAX * x / d : 0.0f;
+        mc->look_gy = c->flag && d > 1.0f ? MAO_GAZE_MAX * 0.8f * y / d : 0.0f;
+        mc->look_until = c->flag ? now + 2500u : 0u;
+        mc->contain_until = now + 900u;
+        if (c->flag) {
+            mao_char_wake(mc, now);
+        }
+        break;
+    }
     case CMD_ATTEND: {
         /* Screen target -> gaze within the face. The eyes sit near the rim,
          * so a target above them means looking up. */
@@ -285,6 +308,12 @@ void mao_character_set_sleepy(bool sleepy)      { post((cmd_t){ .type = CMD_SLEE
 void mao_character_leave(void)                  { post((cmd_t){ .type = CMD_LEAVE }); }
 void mao_character_return(void)                 { post((cmd_t){ .type = CMD_RETURN }); }
 void mao_character_gather(void)                 { post((cmd_t){ .type = CMD_GATHER }); }
+void mao_character_look(int x, int y, bool on)
+{
+    post((cmd_t){ .type = CMD_LOOK_AT, .flag = on,
+                  .value = (int32_t)(((uint32_t)(uint16_t)(int16_t)x << 16) | (uint16_t)(int16_t)y) });
+}
+
 void mao_character_peek(bool on)                { post((cmd_t){ .type = CMD_PEEK, .flag = on }); }
 
 void mao_character_attend(int x, int y)

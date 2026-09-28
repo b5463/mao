@@ -56,13 +56,27 @@ static const uint8_t kRects[ODD_FIELD_GLYPHS][8][4] = {
     [ODD_FIELD_DOT]    = { {2,2,1,1} },
 };
 
+static uint32_t s_accent = MAO_COL_DOT;
+
 static void build_inks(void)
 {
     /* One hue, four strengths: pale lead, the colour, dim, faint. */
-    s_f.ink_col[0] = lv_color_hex(mix_rgb(MAO_COL_DOT, 0xFFFFFF, 0.45f));
-    s_f.ink_col[1] = lv_color_hex(MAO_COL_DOT);
-    s_f.ink_col[2] = lv_color_hex(mix_rgb(MAO_COL_DOT, MAO_COL_BG, 0.45f));
-    s_f.ink_col[3] = lv_color_hex(mix_rgb(MAO_COL_DOT, MAO_COL_BG, 0.72f));
+    s_f.ink_col[0] = lv_color_hex(mix_rgb(s_accent, 0xFFFFFF, 0.45f));
+    s_f.ink_col[1] = lv_color_hex(s_accent);
+    s_f.ink_col[2] = lv_color_hex(mix_rgb(s_accent, MAO_COL_BG, 0.45f));
+    s_f.ink_col[3] = lv_color_hex(mix_rgb(s_accent, MAO_COL_BG, 0.72f));
+}
+
+void mao_field_set_accent(uint32_t color)
+{
+    if ((color & 0xF8FCF8u) == (s_accent & 0xF8FCF8u)) {
+        return;                             /* the same on the panel: no redraw */
+    }
+    s_accent = color;
+    build_inks();
+    if (s_f.obj && s_f.any) {
+        lv_obj_invalidate(s_f.obj);         /* every lit cell changes ink */
+    }
 }
 
 static void cell_area(const lv_area_t *o, int gx, int gy, lv_area_t *a)

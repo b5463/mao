@@ -6,6 +6,7 @@
 #include <math.h>
 #include <string.h>
 #include "mao_character_priv.h"
+#include "mao_character_accent.h"
 
 #define TWO_PI 6.28318531f
 
@@ -234,6 +235,38 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
         }
         out->front = fabsf(th[1]) < fabsf(th[0]) ? 1 : 0;
     }
+    /* Containment (M4.1): while the rim carries a scale, the whole face is
+     * pushed back inside a circle - both eyes together, so they keep their
+     * spacing. The eye is a rounded rect of radius min(w, h) / 2: its
+     * farthest point is a corner-circle centre plus that radius. */
+    if (m->contain_r > 0.0f) {
+        for (int it = 0; it < 3; it++) {
+            float worst = 0.0f, dx = 0.0f, dy = 0.0f;
+            for (int e = 0; e < 2; e++) {
+                const float cx = e ? out->rx : out->lx, cy = e ? out->ry : out->ly;
+                const float ew2 = (e ? out->rw : out->lw) * 0.5f, eh2 = (e ? out->rh : out->lh) * 0.5f;
+                const float rr = fminf(ew2, eh2);
+                for (int k = 0; k < 4; k++) {
+                    const float px = cx + ((k & 1) ? 1.0f : -1.0f) * (ew2 - rr);
+                    const float py = cy + ((k & 2) ? 1.0f : -1.0f) * (eh2 - rr);
+                    const float d = sqrtf(px * px + py * py);
+                    const float over = d + rr - m->contain_r;
+                    if (over > worst && d > 0.01f) {
+                        worst = over;
+                        dx = px / d;
+                        dy = py / d;
+                    }
+                }
+            }
+            if (worst <= 0.0f) {
+                break;
+            }
+            out->lx -= dx * worst;
+            out->rx -= dx * worst;
+            out->ly -= dy * worst;
+            out->ry -= dy * worst;
+        }
+    }
     /* Transfer travel: applied after the head clamp, so MAO really can move
      * through the edge of the circle (everything downstream - pupils, lids,
      * covers, catchlights - derives from the eye centres and follows). */
@@ -252,9 +285,12 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
         return;
     }
 
-    /* Eyes keep their colour; colour events land on the pupils. */
-    out->color = L->eye_color;
-    uint32_t pc = mix(L->pupil_color, MAO_TINT_MOVE_COLOR, MAO_TINT_PUPIL_MAX * tm);
+    /* Eyes keep their colour - MAO's accent on the pink egg, which leans
+     * with the mood (mao_character_accent.c); colour events land on the pupils. */
+    const bool accented = m->accent && L->eye_color == MAO_ACCENT_BASE;
+    out->color = accented ? m->accent : L->eye_color;
+    uint32_t pc = accented ? mao_accent_disc(m->accent, L->pupil_color) : L->pupil_color;
+    pc = mix(pc, MAO_TINT_MOVE_COLOR, MAO_TINT_PUPIL_MAX * tm);
     pc = mix(pc, MAO_TINT_WARM_COLOR, clampf(tw, 0.0f, 1.0f));   /* the UI's event yellow (M4.1) */
     pc = mix(pc, MAO_TINT_RED_COLOR, MAO_TINT_PUPIL_MAX * clampf(v[CH_TINT_RED], 0.0f, 1.0f));
     const float dark = clampf(v[CH_DARK], 0.0f, 1.0f);

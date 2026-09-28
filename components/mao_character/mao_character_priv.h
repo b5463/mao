@@ -65,6 +65,8 @@ typedef struct {
     float breath_phase;
     float layer[CH_COUNT];   /* additive expression layer (mao_lark.c) */
     mao_spring_t head_yaw, head_pitch;   /* the head follows the gaze, slower */
+    uint32_t accent;         /* MAO's mood colour for the pink egg look (0 = the look's own) */
+    float contain_r;         /* > 0: no part of either eye beyond this radius (HOME's rim scale) */
 } mao_motion_t;
 
 typedef struct {
