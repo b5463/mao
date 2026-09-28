@@ -173,7 +173,9 @@ static void draw_cb(lv_event_t *e)
             break;
         case MAO_GLYPH_DOT:
         default:
-            r.radius = LV_RADIUS_CIRCLE;
+            /* A circle is the renderer's dearest shape; at a few px it reads
+             * the same as a square with its corners eased. */
+            r.radius = s <= 3 ? 0 : (s <= 6 ? 1 : LV_RADIUS_CIRCLE);
             rect(layer, &r, x0, y0, s, s);
             break;
         }

@@ -336,10 +336,12 @@ static void field_request(float reach, float strength, float oy, float weight)
 static void device_mark(float x, float y, float r, uint16_t type, bool online, bool known, float opa, float t)
 {
     if (known && !online) {
-        const int n = 10;
+        /* away: its outline only */
+        const int n = r > 12.0f ? 20 : 10;
+        const float sz = r > 12.0f ? 3.5f : 2.5f;
         for (int k = 0; k < n; k++) {
             const float an = (float)k * 2.0f * PI_F / (float)n;
-            mao_dots_glyph(x + r * sinf(an), y - r * cosf(an), 2.5f, opa * 0.55f, MAO_GLYPH_SQUARE, 0);
+            mao_dots_glyph(x + r * sinf(an), y - r * cosf(an), sz, opa * 0.7f, MAO_GLYPH_SQUARE, 0);
         }
         return;
     }
@@ -960,7 +962,11 @@ static void dotpage_layout(uint32_t now)
             .extra_r = s_dp.burst.x + 8.0f * big,
             .spin = !s_dp.m.online ? 0.0f : (pending ? 4.0f : 1.0f),
         };
-        puck_draw(&pk, t);
+        /* At rest the rings move in 12 Hz steps: the same breath for a
+         * fraction of the redraws. Full rate while something happens. */
+        const bool lively = pending || press > 0.01f || (s_dp.shot_at && shot < 1.0f) || menu > 0.01f ||
+                            under < 0.99f || big < 0.99f;
+        puck_draw(&pk, lively ? t : floorf(t * 12.0f) / 12.0f);
         if (s_dp.shot_at && shot < 1.0f) {
             const float e = 1.0f - (1.0f - shot) * (1.0f - shot);
             mao_dots_ring(34.0f + 80.0f * e, 52, 5.0f, 255.0f * sqrtf(1.0f - shot) * p, MAO_GLYPH_SQUARE, 0.0f, 1.0f);
@@ -987,7 +993,7 @@ static void dotpage_layout(uint32_t now)
             if (ms == i) {
                 mao_dots_text_halo(wd, 0.0f, 0.0f, 3.0f, 2.6f, 255.0f * p * menu);
             } else if (ms < 0) {
-                const float x = (i == 0 ? 66.0f : -62.0f);
+                const float x = (i == 0 ? 70.0f : -70.0f);
                 mao_dots_text_halo(wd, x, 0.0f, 1.7f, 1.4f, 150.0f * p * menu);
             }
         }
