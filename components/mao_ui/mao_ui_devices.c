@@ -1191,15 +1191,12 @@ static void dotpage_layout(uint32_t now)
         field_request(reach, strength, qy, 0.0f, p0 + 0.01f);
     }
 
-    /* The name, small, where the circle is still wide enough for it. */
+    /* The name follows the rim at the top: set along the circle, it reads
+     * as part of the round screen rather than a line cut across it. */
     const int cols = mao_dots_text_cols(s_dp.name);
-    const float npitch = cols > 1 ? fminf(2.4f, 124.0f / (float)(cols - 1)) : 2.4f;
+    const float npitch = cols > 1 ? fminf(2.4f, 150.0f / (float)(cols - 1)) : 2.4f;
     const float nopa = (s_dp.m.online ? 170.0f : 100.0f) * (forget_q ? p0 : p) * (1.0f - menu);   /* the question keeps it */
-    if (s_dp.m.level && s_dp.reach.x > 60.0f) {
-        mao_dots_text_halo(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, nopa);   /* over the field */
-    } else {
-        mao_dots_text(s_dp.name, 0.0f, -92.0f, npitch, 1.9f, nopa, -1.0f);
-    }
+    mao_dots_text_arc(s_dp.name, 98.0f, false, npitch, 1.9f, nopa, s_dp.m.level && s_dp.reach.x > 60.0f);
 
     if (s_dp.m.kind == MAO_DOTPAGE_WORD) {
         word_page(p, menu, t, now);
@@ -1251,7 +1248,9 @@ static void dotpage_layout(uint32_t now)
             /* the exposure: the opening is light for an instant */
             const float k = since / 200.0f;
             mao_dots_glyph(jit, cy, 2.0f * fmaxf(ap[0], 10.0f) + 6.0f, 255.0f * p * (1.0f - k * k), MAO_GLYPH_DOT, 0);
-        } else if (since < 1500.0f && s_dp.shots > 0 && s_dp.m.online) {
+        } else if (since < 1500.0f && s_dp.shots > 0 && s_dp.m.online && !pressed && !pending) {
+            /* which frame that was - gone the moment the finger goes down,
+             * before the shutter starts to close */
             char num[4];
             snprintf(num, sizeof(num), "%u", (unsigned)s_dp.shots);
             const float f = clampf((1500.0f - since) / 300.0f, 0.0f, 1.0f);
