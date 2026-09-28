@@ -305,6 +305,11 @@ static void scenario(const char *name)
             mao_character_return(); run_ms(2500);
         }
     }
+    else if (IS("names")) {    /* tool: index -> expression name (not part of the baseline) */
+        for (int k = 0; k < mao_character_expression_count(); k++) {
+            printf("%d %s\n", k, mao_character_expression_name(k));
+        }
+    }
     else if (IS("previews")) {
         for (int k = 0; k < MAO_CHAR_PREVIEW_COUNT - 1; k++) { mao_character_debug_preview((mao_character_preview_t)k); run_ms(3500); }
     }
