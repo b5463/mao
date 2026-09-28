@@ -875,6 +875,7 @@ void mao_ui_device_feedback(mao_ui_fb_t fb)
 void mao_devpanel_show(bool show, uint32_t delay_ms)
 {
     if (show) {
+        s_dp.shots = 0;                          /* a new visit: an empty filmstrip */
         /* Arrive from the selected row's place in the list. */
         s_panel.ty.x = s_list.sel_y;
         s_panel.ty.v = 0.0f;
