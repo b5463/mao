@@ -101,7 +101,9 @@ struct lv_obj_t {
     int32_t radius, border_w;
     lv_event_cb_t cb;
     void *user;
+    int align;           /* centre-aligned (make_part); custom parts are absolute */
 };
+static FILE *s_dump;     /* HARNESS_DUMP: every frame's drawn shapes, for tools/char_preview.py */
 #define MAXO 64
 static lv_obj_t s_objs[MAXO];
 static int s_order[MAXO];
@@ -121,7 +123,7 @@ lv_obj_t *lv_obj_create(lv_obj_t *parent)
 void lv_obj_remove_style_all(lv_obj_t *o) { (void)o; }
 void lv_obj_add_flag(lv_obj_t *o, uint32_t f) { o->flags |= f; }
 void lv_obj_remove_flag(lv_obj_t *o, uint32_t f) { o->flags &= ~f; }
-void lv_obj_set_align(lv_obj_t *o, int a) { (void)o; (void)a; }
+void lv_obj_set_align(lv_obj_t *o, int a) { o->align = 1; (void)a; }
 void lv_obj_set_pos(lv_obj_t *o, int32_t x, int32_t y) { o->x = x; o->y = y; }
 void lv_obj_set_size(lv_obj_t *o, int32_t w, int32_t h) { o->w = w; o->h = h; }
 void lv_obj_set_style_radius(lv_obj_t *o, int32_t r, int s) { (void)s; o->radius = r; }
@@ -140,9 +142,10 @@ void lv_obj_move_foreground(lv_obj_t *o)
 }
 void lv_obj_get_coords(const lv_obj_t *o, lv_area_t *a)
 {
-    /* LV_ALIGN_CENTER on a 240 x 240 screen, as on the device. */
-    a->x1 = (240 - o->w) / 2 + o->x;
-    a->y1 = (240 - o->h) / 2 + o->y;
+    /* LV_ALIGN_CENTER on a 240 x 240 screen, as on the device; custom-drawn
+     * parts are positioned absolutely. */
+    a->x1 = o->align ? (240 - o->w) / 2 + o->x : o->x;
+    a->y1 = o->align ? (240 - o->h) / 2 + o->y : o->y;
     a->x2 = a->x1 + o->w - 1;
     a->y2 = a->y1 + o->h - 1;
 }
@@ -154,9 +157,13 @@ lv_layer_t *lv_event_get_layer(lv_event_t *e) { (void)e; return NULL; }
 void lv_draw_triangle_dsc_init(lv_draw_triangle_dsc_t *d) { memset(d, 0, sizeof(*d)); }
 void lv_draw_rect_dsc_init(lv_draw_rect_dsc_t *d) { memset(d, 0, sizeof(*d)); d->bg_opa = 255; }
 void lv_draw_line_dsc_init(lv_draw_line_dsc_t *d) { memset(d, 0, sizeof(*d)); d->opa = 255; }
-void lv_draw_triangle(lv_layer_t *l, const lv_draw_triangle_dsc_t *d) { (void)l; uint32_t t = 0x7A1; HV(t); hb(d->p, sizeof(d->p)); HV(d->color.full); }
-void lv_draw_rect(lv_layer_t *l, const lv_draw_rect_dsc_t *d, const lv_area_t *a) { (void)l; uint32_t t = 0x7EC; HV(t); hb(a, sizeof(*a)); HV(d->bg_color.full); }
-void lv_draw_line(lv_layer_t *l, const lv_draw_line_dsc_t *d) { (void)l; uint32_t t = 0x11E; HV(t); HV(d->p1); HV(d->p2); HV(d->width); }
+static lv_area_t s_clip;   /* the custom part being drawn: its own box clips it, as on the device */
+void lv_draw_triangle(lv_layer_t *l, const lv_draw_triangle_dsc_t *d) { (void)l; uint32_t t = 0x7A1; HV(t); hb(d->p, sizeof(d->p)); HV(d->color.full);
+    if (s_dump) fprintf(s_dump, "t %.1f %.1f %.1f %.1f %.1f %.1f %06x %d %d %d %d\n", d->p[0].x, d->p[0].y, d->p[1].x, d->p[1].y, d->p[2].x, d->p[2].y, d->color.full & 0xFFFFFF, s_clip.x1, s_clip.y1, s_clip.x2, s_clip.y2); }
+void lv_draw_rect(lv_layer_t *l, const lv_draw_rect_dsc_t *d, const lv_area_t *a) { (void)l; uint32_t t = 0x7EC; HV(t); hb(a, sizeof(*a)); HV(d->bg_color.full);
+    if (s_dump) fprintf(s_dump, "r %d %d %d %d %d %06x %d %d %d %d\n", a->x1, a->y1, a->x2, a->y2, d->radius, d->bg_color.full & 0xFFFFFF, s_clip.x1, s_clip.y1, s_clip.x2, s_clip.y2); }
+void lv_draw_line(lv_layer_t *l, const lv_draw_line_dsc_t *d) { (void)l; uint32_t t = 0x11E; HV(t); HV(d->p1); HV(d->p2); HV(d->width);
+    if (s_dump) fprintf(s_dump, "l %.1f %.1f %.1f %.1f %d %06x\n", d->p1.x, d->p1.y, d->p2.x, d->p2.y, d->width, d->color.full & 0xFFFFFF); }
 
 /* ---------------- timers ---------------- */
 struct lv_timer_t { lv_timer_cb_t cb; uint32_t period, next; };
@@ -175,6 +182,7 @@ static uint32_t s_frames;
 static int s_trace;
 static void frame_hash(void)
 {
+    if (s_dump) fprintf(s_dump, "F %u\n", s_now);
     for (int i = 0; i < s_n; i++) {
         lv_obj_t *o = &s_objs[s_order[i]];
         HV(o->id); HV(o->flags);
@@ -183,7 +191,13 @@ static void frame_hash(void)
         HV(o->border_w); HV(o->border_c);
         if (o->cb) {
             lv_event_t e = { o };
+            lv_obj_get_coords(o, &s_clip);
             o->cb(&e);   /* the custom draw output is part of the frame */
+        } else if (s_dump) {
+            lv_area_t a;
+            lv_obj_get_coords(o, &a);
+            fprintf(s_dump, "R %d %d %d %d %d %06x %d %d %06x\n", a.x1, a.y1, a.x2, a.y2, o->radius, o->bg & 0xFFFFFF,
+                    o->bg_opa, o->border_w, o->border_c & 0xFFFFFF);
         }
     }
     s_frames++;
@@ -302,6 +316,7 @@ int main(int argc, char **argv)
     s_rng = (uint32_t)strtoul(argv[2], NULL, 10) | 1u;
     s_trace = argc > 3 && strcmp(argv[3], "trace") == 0;
     if (argc > 4) s_logf = fopen(argv[4], "w");
+    if (getenv("HARNESS_DUMP")) s_dump = fopen(getenv("HARNESS_DUMP"), "w");
     s_now = 1000;
     s_next_refresh = s_now;
     if (mao_character_create(&s_screen) != 0) { fprintf(stderr, "create failed\n"); return 1; }
