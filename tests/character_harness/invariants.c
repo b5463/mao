@@ -11,7 +11,9 @@
 #include <string.h>
 
 static void inv_frame(void);
+static void inv_log(const char *tag, const char *line);
 #define FRAME_HOOK inv_frame()
+#define LOG_HOOK(tag, line) inv_log(tag, line)
 #define main harness_main
 #include "harness.c"
 #undef main
@@ -141,7 +143,41 @@ static void inv_frame(void)
             }
         }
     }
+    /* I11: a grudge (M4.1) - once annoyed, MAO wears it through the
+     * fiddling and well after (the sulky rose, not pink), then really lets
+     * it go. Annoyed at 4500 (after the 1.5 s appearance), fiddling until
+     * 10500, a hold of 11 s after: over at 21500. */
+    if (!strcmp(s_scn, "grudge") && both) {
+        const uint32_t c = EYE_OBJ(0, P_EYE)->bg;
+        const uint32_t base = 0xF3A2C4u & 0xF8FCF8u;
+        if (getenv("INV_TRACE") && s_now % 500 < 34) {
+            printf("  t=%u colour=%06x\n", s_now, c);
+        }
+        if (s_now >= 5000 && s_now < 21000 && (c & 0xF8FCF8u) == base) {
+            fail("the grudge let go too soon", -1);
+        }
+        if (s_now >= 30000 && (c & 0xF8FCF8u) != base) {
+            fail("the grudge never ended", -1);
+        }
+    }
     (void)both;
+}
+
+/* I12: a grudge is not dropped half way - its mood never goes back to
+ * neutral until it is over, whatever reaches the eyes meanwhile. */
+static bool s_grudge_over;
+
+static void inv_log(const char *tag, const char *line)
+{
+    (void)tag;
+    if (strcmp(s_scn, "grudge") != 0) {
+        return;
+    }
+    if (strstr(line, "grudge over")) {
+        s_grudge_over = true;
+    } else if (!s_grudge_over && s_now > 5200 && strstr(line, "-> neutral")) {
+        fail("the grudge's mood dropped before it was over", -1);
+    }
 }
 
 /* I8: motion limits per scenario - the measured maxima plus a margin. They
@@ -152,7 +188,7 @@ static float jump_limit(const char *s)
     static const struct { const char *s; float px; } k[] = {
         { "idle", 14 }, { "press", 12 }, { "dial", 42 }, { "react", 22 }, { "sleep", 16 }, { "mind", 22 },
         { "looks", 26 }, { "states", 44 }, { "previews", 64 }, { "menu", 70 }, { "peek", 60 },
-        { "transfer", 115 }, { "gather", 40 }, { "homelook", 40 },
+        { "transfer", 115 }, { "gather", 40 }, { "homelook", 40 }, { "grudge", 40 },
     };
     for (size_t i = 0; i < sizeof(k) / sizeof(k[0]); i++) {
         if (!strcmp(k[i].s, s)) {

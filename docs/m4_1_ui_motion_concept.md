@@ -597,6 +597,22 @@ decision. FORGET is on the left, the way the menu went.
   - At 8 MAO gives a suspicious look, at 14 a tsk, and at 22 it is mad.
     "Mad" repeats every 8 s if it goes on.
   - 4 s without scoring ends the bout.
+  - Each reaction is followed by a **grudge**: a held mood at full strength
+    that outlasts the fiddling. Levels: wary (`suspicious`, 7 s), sulky
+    (`sulky` in rose, 11 s), glaring (`cat_glare` in red, 16 s).
+    - The mood wears its level's colour.
+    - While the fiddling goes on, each turn extends the grudge (at most
+      twice a second), and the hold counts from the last of it.
+    - Nothing ends it early: the mind's mood fades are held off, and so is
+      its "any input ends a held mood" rule. Only a dimmed MAO ends it.
+    - Afterwards the colour calms back to pink slowly (a 1.4 s time
+      constant, against 0.45 s into a mood).
+    - Harness: I11 checks the colour holds until the grudge ends and is
+      pink again after; I12 checks the mood never drops to neutral midway,
+      even when dial input reaches the eyes. Each is shown to catch a
+      broken copy.
+    - Bench: fed up at 9.3 s, glaring until 30.3 s, 16 s after the last
+      turn, with no flicker.
   - The light still follows every detent. MAO only lets it show, and the mind's
     irritation stays untouched.
   - Setting a light carefully never triggers it: overshoots and corrections,

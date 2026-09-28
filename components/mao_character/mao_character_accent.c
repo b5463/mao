@@ -82,7 +82,8 @@ void mao_accent_step(mao_accent_t *a, uint32_t target, float dt_s)
         return;
     }
     a->landed = 0;
-    const float k = dt_s <= 0.0f ? 0.0f : 1.0f - expf(-dt_s / MAO_ACCENT_FADE_S);
+    const float tau = target == MAO_ACCENT_BASE ? MAO_ACCENT_CALM_S : MAO_ACCENT_FADE_S;
+    const float k = dt_s <= 0.0f ? 0.0f : 1.0f - expf(-dt_s / tau);
     a->r += (tr - a->r) * k;
     a->g += (tg - a->g) * k;
     a->b += (tb - a->b) * k;

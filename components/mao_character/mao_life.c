@@ -181,6 +181,9 @@ void mao_life_event(mao_life_t *l, mao_lark_t *lark, life_event_t ev, uint32_t n
     case LIFE_EV_INPUT:
         l->last_input_ms = now;
         /* Any stimulus ends a held mood (doze, sulk, drowsy...). */
+        if (l->hold_locked) {
+            break;                          /* a grudge outlasts the turning that caused it */
+        }
         if (l->holding >= 0 || (lark->cur != 0 && !(mao_lark_state(lark->cur)->flags & LARK_ONESHOT))) {
             mao_lark_switch(lark, 0, now);
             l->holding = -1;

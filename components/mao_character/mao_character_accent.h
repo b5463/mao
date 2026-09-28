@@ -13,7 +13,8 @@
 #include <stdint.h>
 
 #define MAO_ACCENT_BASE      0xF3A2C4u   /* MAO's pink (= the egg look, the dot colour) */
-#define MAO_ACCENT_FADE_S    0.45f       /* time constant of a change */
+#define MAO_ACCENT_FADE_S    0.45f       /* time constant of a change into a mood */
+#define MAO_ACCENT_CALM_S    1.40f       /* ... and of calming back to pink: the feeling lingers */
 
 typedef struct {
     float r, g, b;                       /* the colour now, 0..255 */
@@ -28,7 +29,8 @@ uint32_t mao_accent_for_state(const char *state);
  * expression layer's gain, 0..1); asleep is lavender whatever plays. */
 uint32_t mao_accent_target(const char *state, bool sleepy, float weight);
 
-/* Move towards `target` (exponential, MAO_ACCENT_FADE_S). */
+/* Move towards `target`: quickly into a mood (MAO_ACCENT_FADE_S), slowly
+ * back to pink (MAO_ACCENT_CALM_S). */
 void mao_accent_step(mao_accent_t *a, uint32_t target, float dt_s);
 
 /* The colour now. Drawing quantises to the panel's RGB565, so a fade

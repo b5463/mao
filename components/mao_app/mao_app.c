@@ -701,6 +701,7 @@ static bool home_lamp(mao_device_t *dev, mao_device_controls_t *ctl)
 /* Fiddling with HOME's light (mao_fiddle.h): the light has already
  * followed the knob; MAO only lets it show. */
 static mao_fiddle_t s_fiddle;
+static uint32_t s_fiddle_told_ms;
 
 static void home_fiddle(uint64_t id, int32_t d, int64_t now)
 {
@@ -729,6 +730,11 @@ static void home_fiddle(uint64_t id, int32_t d, int64_t now)
                  l == MAO_FIDDLE_NOTICE ? "noticed" : l == MAO_FIDDLE_ANNOYED ? "annoyed" : "fed up",
                  mao_fiddle_score(&s_fiddle, ms));
         mao_character_react(kReact[l]);
+        s_fiddle_told_ms = ms;
+    } else if (s_fiddle.level > 0 && s_fiddle.last_event_ms == ms && ms - s_fiddle_told_ms >= 500u) {
+        /* still at it: the mood it is in lasts (at most twice a second) */
+        mao_character_react(MAO_CHAR_REACT_FIDDLE_ONGOING);
+        s_fiddle_told_ms = ms;
     }
 }
 

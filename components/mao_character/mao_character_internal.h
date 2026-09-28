@@ -63,6 +63,11 @@ typedef struct {
     float look_gx, look_gy;     /* gaze towards it, px */
     uint32_t look_until;        /* it lets go on its own */
     uint32_t contain_until;     /* containment stays while the eyes come back */
+    /* A grudge (fiddling with HOME's light): after its reaction MAO stays in
+     * a mood, at full strength, until well after the fiddling stops. */
+    int grudge_state;           /* lark state held (-1 none) */
+    uint8_t grudge_level;       /* 1 wary, 2 sulky, 3 glaring */
+    uint32_t grudge_until;
     bool sleepy;
     bool pressed;
     mao_mouth_t mouth;

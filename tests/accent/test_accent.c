@@ -75,11 +75,15 @@ int main(void)
     /* landed: holding still costs nothing and stays exact */
     mao_accent_step(&a, mad, 0.016f);
     CHECK(mao_accent_color(&a) == mad);
-    /* and back to rest, exactly */
-    for (int i = 0; i < 200; i++) {
+    /* and back to rest, exactly - but slower than it came: the feeling lingers */
+    int back = 0;
+    while (mao_accent_color(&a) != MAO_ACCENT_BASE && back < 2000) {
         mao_accent_step(&a, MAO_ACCENT_BASE, 0.016f);
+        back++;
     }
     CHECK(mao_accent_color(&a) == MAO_ACCENT_BASE);
+    CHECK(back > frames * 2);                          /* calming takes over twice as long */
+    CHECK(back * 16 <= 10000);                         /* ... but it does calm down */
     /* a stalled tick (dt 0) moves nothing */
     mao_accent_step(&a, sad, 0.0f);
     CHECK(mao_accent_color(&a) == MAO_ACCENT_BASE);

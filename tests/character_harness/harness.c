@@ -56,6 +56,9 @@ void harness_log(const char *tag, const char *fmt, ...)
     va_end(ap);
     hb(tag, strlen(tag));
     hb(buf, strlen(buf));
+#ifdef LOG_HOOK
+    LOG_HOOK(tag, buf);
+#endif
     if (s_logf) {
         fprintf(s_logf, "%6u %s: %s\n", s_now, tag, buf);
     }
@@ -332,6 +335,19 @@ static void scenario(const char *name)
             }
             mao_character_look(0, 0, false); run_ms(1500);
         }
+    }
+    else if (IS("grudge")) {   /* M4.1: fiddled with - annoyed, kept at it for 6 s, then left alone */
+        run_ms(2000);                                           /* t = 4500 */
+        mao_character_react(MAO_CHAR_REACT_FIDDLE_ANNOYED);
+        for (int k = 0; k < 12; k++) {                          /* still at it, until t = 10500 */
+            run_ms(500);
+            mao_character_react(MAO_CHAR_REACT_FIDDLE_ONGOING);
+        }
+        for (int k = 0; k < 6; k++) {                           /* a few turns reach the eyes, not the light */
+            mao_character_dial(k & 1 ? -2 : 2);
+            run_ms(250);
+        }
+        run_ms(24000);                                          /* left alone, until t = 34500 */
     }
     else if (IS("names")) {    /* tool: index -> expression name (not part of the baseline) */
         for (int k = 0; k < mao_character_expression_count(); k++) {

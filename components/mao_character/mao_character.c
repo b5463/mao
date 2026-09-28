@@ -265,6 +265,7 @@ esp_err_t mao_character_create(lv_obj_t *parent)
 {
     mao_char_t *const mc = &s_c;
     mc->fb_pending = -1;
+    mc->grudge_state = -1;
     mc->present = true;
     mc->cmds = xQueueCreate(CMD_QUEUE_LEN, sizeof(cmd_t));
     if (!mc->cmds) {
@@ -387,6 +388,7 @@ const char *mao_character_reaction_name(mao_character_reaction_t r)
     static const char *const kNames[MAO_CHAR_REACT_COUNT] = {
         "notice", "attend", "warm", "wake", "ack", "busy", "done", "fail", "back", "device_on", "device_off",
         "unsure", "idle", "fiddle_notice", "fiddle_annoyed", "fiddle_fed_up",
+        "fiddle_ongoing",
     };
     return r < MAO_CHAR_REACT_COUNT ? kNames[r] : "?";
 }

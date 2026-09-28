@@ -16,7 +16,7 @@ done
 # scenario and seed - they make a new baseline safe to approve.
 $CC -O1 -std=gnu11 -w -Ishim -Ishim/freertos -I$COMP -I$COMP/include -DCONFIG_MAO_DEV_CONSOLE=1     invariants.c $COMP/*.c -lm -o invariants.exe
 inv_bad=0; inv_runs=0
-for s in idle dial press react sleep menu transfer peek mind states looks previews gather homelook; do
+for s in idle dial press react sleep menu transfer peek mind states looks previews gather homelook grudge; do
   for seed in 1 7 42; do inv_runs=$((inv_runs + 1)); ./invariants.exe $s $seed > inv.txt || { cat inv.txt; inv_bad=$((inv_bad + 1)); }; done
 done
 rm -f inv.txt

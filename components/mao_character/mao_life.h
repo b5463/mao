@@ -97,6 +97,7 @@ typedef struct {
     /* Behaviours. */
     uint32_t refract[LIFE_B_COUNT]; /* earliest next time for each */
     int8_t holding;                 /* a looping behaviour is being held (-1 none) */
+    bool hold_locked;               /* the character core holds it (a grudge): input does not end it */
     const char *doing;
 
     /* Cat mode (caused: deep contentment after affection). */

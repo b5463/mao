@@ -63,6 +63,7 @@ typedef enum {
     MAO_CHAR_REACT_FIDDLE_NOTICE,  /* "what are you doing": a suspicious look */
     MAO_CHAR_REACT_FIDDLE_ANNOYED, /* tsk */
     MAO_CHAR_REACT_FIDDLE_FED_UP,  /* mad */
+    MAO_CHAR_REACT_FIDDLE_ONGOING, /* still at it: the mood it is in lasts longer (no new reaction) */
     MAO_CHAR_REACT_COUNT,
 } mao_character_reaction_t;
 

@@ -13,6 +13,8 @@
 
 static const char *TAG = "MAO_CHARACTER";
 
+static void grudge(mao_char_t *mc, mao_character_reaction_t r, uint32_t now);
+
 void mao_char_feedback(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
 {
     /* Controller feedback: queued, and played as soon as MAO is on
@@ -65,8 +67,69 @@ void mao_char_feedback(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
     default:
         break;
     }
+    if (r >= MAO_CHAR_REACT_FIDDLE_NOTICE && r <= MAO_CHAR_REACT_FIDDLE_ONGOING) {
+        grudge(mc, r, now);
+        if (r == MAO_CHAR_REACT_FIDDLE_ONGOING) {
+            return;                           /* the mood lasts; nothing new plays */
+        }
+    }
     mc->fb_pending = mao_lark_find(kFb[r]);
     mc->fb_hold = r == MAO_CHAR_REACT_BUSY;
+}
+
+/* The grudge: which mood follows each reaction, how long it outlasts the
+ * fiddling, and the colour it wears. */
+static const struct {
+    const char *state, *accent;
+    uint32_t hold_ms;
+} kGrudge[4] = {
+    [1] = { "suspicious", "suspicious", 7000 },
+    [2] = { "sulky", "tsk", 11000 },
+    [3] = { "cat_glare", "mad", 16000 },
+};
+
+static void grudge(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
+{
+    if (r != MAO_CHAR_REACT_FIDDLE_ONGOING) {
+        const uint8_t lv = (uint8_t)(r - MAO_CHAR_REACT_FIDDLE_NOTICE + 1);
+        if (lv > mc->grudge_level || mc->grudge_state < 0) {
+            mc->grudge_level = lv;
+            mc->grudge_state = mao_lark_find(kGrudge[lv].state);
+        }
+    } else if (mc->grudge_state < 0) {
+        return;                               /* nothing to prolong */
+    }
+    const uint32_t until = now + kGrudge[mc->grudge_level].hold_ms;
+    if (!before(until, mc->grudge_until) || !mc->grudge_until) {
+        mc->grudge_until = until;
+    }
+}
+
+/* Keep the grudge's mood on screen; end it when it has run out. */
+static void grudge_update(mao_char_t *mc, bool feedback, uint32_t now)
+{
+    if (mc->grudge_state < 0) {
+        return;
+    }
+    if (!before(now, mc->grudge_until) || mc->sleepy) {
+        ESP_LOGI(TAG, "grudge over");
+        if (mc->life.holding == mc->grudge_state) {
+            mc->life.holding = -1;
+        }
+        mc->life.hold_locked = false;
+        if (mc->lark.cur == mc->grudge_state) {
+            mao_lark_switch(&mc->lark, 0, now);   /* back to her own face, through its transition */
+        }
+        mc->grudge_state = -1;
+        mc->grudge_level = 0;
+        mc->grudge_until = 0;
+        return;
+    }
+    mc->life.holding = (int8_t)mc->grudge_state;   /* the mind leaves it alone ... */
+    mc->life.hold_locked = true;                   /* ... and so does turning */
+    if (!feedback && mc->fb_pending < 0 && mc->lark.cur != mc->grudge_state) {
+        mao_lark_switch(&mc->lark, mc->grudge_state, now);
+    }
 }
 
 void mao_char_attention_update(mao_char_t *mc, uint32_t now)
@@ -88,7 +151,9 @@ void mao_char_attention_update(mao_char_t *mc, uint32_t now)
                                         [PRIO_PRESS] = 0.45f, [PRIO_NAV] = 0.0f };
     const prio_t prio = mao_char_current_prio(mc, now);
     const bool feedback = mc->fb_hold || before(now, mc->fb_until);
-    float gain = feedback ? 1.0f : kLayerGain[prio];
+    grudge_update(mc, feedback, now);
+    const bool sulking = mc->grudge_state >= 0;
+    float gain = feedback || sulking ? 1.0f : kLayerGain[prio];
     if (mc->peek) {
         gain *= MAO_PEEK_LAYER_GAIN;   /* the page is in charge; MAO observes */
     }
@@ -104,7 +169,7 @@ void mao_char_attention_update(mao_char_t *mc, uint32_t now)
     }
     const bool looking = mc->look_on && !mc->peek && mc->transfer.phase == MAO_TR_NONE;
     if (looking) {
-        gain *= feedback ? 1.0f : 0.25f;          /* its own reaction to the fiddling plays in full */
+        gain *= feedback || sulking ? 1.0f : 0.25f;   /* its reaction to the fiddling, and the mood after, in full */
         mao_motion_set(&mc->m, CH_GAZE_X, mc->look_gx);
         mao_motion_set(&mc->m, CH_GAZE_Y, mc->look_gy);
     }
@@ -114,7 +179,8 @@ void mao_char_attention_update(mao_char_t *mc, uint32_t now)
     const float adt = mc->accent_ms ? (float)(now - mc->accent_ms) / 1000.0f : 0.0f;
     mc->accent_ms = now;
     mao_accent_step(&mc->accent,
-                    mao_accent_target(mao_lark_state(mc->lark.cur)->name, mc->sleepy, clampf(mc->lark.gain.x, 0.0f, 1.0f)),
+                    mao_accent_target(sulking && !feedback ? kGrudge[mc->grudge_level].accent : mao_lark_state(mc->lark.cur)->name,
+                                      mc->sleepy, clampf(mc->lark.gain.x, 0.0f, 1.0f)),
                     adt > 0.1f ? 0.1f : adt);
     mc->m.accent = mao_accent_color(&mc->accent);
     mc->accent_pub = mc->m.accent;
