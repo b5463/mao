@@ -7,7 +7,6 @@
 #define ACC_MAD     0xF2646Eu   /* mad, dizzy-mad, sinister */
 #define ACC_CROSS   0xF58C84u   /* glare, tsk, hmph, sulky, pout, contempt, grumpy */
 #define ACC_WARM    0xF7B58Cu   /* hum, purr, happy, pleased, content */
-#define ACC_BRIGHT  0xF5C870u   /* excited, glint, proud, giggle */
 #define ACC_SAD     0xA8B0F2u   /* sad, lonely, sigh, worry, anxious */
 #define ACC_SLEEP   0xC7A6F7u   /* asleep, doze, drowsy, yawn (= the lavender egg) */
 #define ACC_BLANK   0xBCAFB8u   /* zoned, blank, deadpan, bored, daydream */
@@ -22,7 +21,6 @@ static const struct {
     { "grumpywake", ACC_CROSS }, { "eyeroll", ACC_CROSS },
     { "hum", ACC_WARM }, { "purr", ACC_WARM }, { "cat_purr", ACC_WARM }, { "happy", ACC_WARM },
     { "pleased", ACC_WARM }, { "cat_content", ACC_WARM }, { "relief", ACC_WARM }, { "cat_slowblink", ACC_WARM },
-    { "excited", ACC_BRIGHT }, { "glint", ACC_BRIGHT }, { "proud", ACC_BRIGHT }, { "giggle", ACC_BRIGHT },
     { "sad", ACC_SAD }, { "lonely", ACC_SAD }, { "sigh", ACC_SAD }, { "worry", ACC_SAD }, { "anxious", ACC_SAD },
     { "asleep", ACC_SLEEP }, { "doze", ACC_SLEEP }, { "drowsy", ACC_SLEEP }, { "nodoff", ACC_SLEEP },
     { "yawn", ACC_SLEEP },

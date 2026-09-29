@@ -85,9 +85,9 @@ typedef struct {
 /* Colour: off-white at rest; colour only as an event. */
 #define MAO_EYE_COLOR        0xF1ECE2
 #define MAO_TINT_MOVE_COLOR  0x3D63FF   /* cobalt: fast motion */
-#define MAO_TINT_WARM_COLOR  0xF2C94C   /* yellow: acknowledged attention */
+
 #define MAO_TINT_MOVE_MAX    0.45f      /* at most 45 % cobalt at full spin */
-#define MAO_TINT_WARM_MAX    0.45f      /* at most 45 % yellow on a long press */
+
 
 /* ---------------------------------------------------------------------- */
 /* Eye geometry responses                                                 */
@@ -242,7 +242,7 @@ typedef struct {
 #define MAO_P_PRESS          MAO_SPRING_SNAP
 #define MAO_P_TINT           MAO_SPRING_SOFT
 #define MAO_SLIT_MIN         0.18f   /* core width left at a full slit */
-#define MAO_STAR_COLOR       0xF5D24A   /* the greedy gold star */
+#define MAO_STAR_COLOR       0xFCE4EE   /* the greedy star, in the eye's own pale disc colour (no yellow) */
 #define MAO_SLIT_MIN         0.18f   /* core width left at a full slit */
 #define MAO_SMILE_MAX        0.92f   /* how far the lower lids can rise, x eye height */
 #define MAO_P_SHAPE          ((mao_spring_profile_t){ .k = 160.0f, .zeta = 0.75f })

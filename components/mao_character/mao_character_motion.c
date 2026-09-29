@@ -295,7 +295,8 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     out->has_pupils = orb;
     if (!orb) {
         const uint32_t c = mix(L->eye_color, MAO_TINT_MOVE_COLOR, MAO_TINT_MOVE_MAX * tm);
-        out->color = mix(c, MAO_TINT_WARM_COLOR, MAO_TINT_WARM_MAX * tw);
+        out->color = c;                       /* no yellow warmth (removed from MAO's palette) */
+        (void)tw;
         return;
     }
 
@@ -305,7 +306,7 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     out->color = accented ? m->accent : L->eye_color;
     uint32_t pc = accented ? mao_accent_disc(m->accent, L->pupil_color) : L->pupil_color;
     pc = mix(pc, MAO_TINT_MOVE_COLOR, MAO_TINT_PUPIL_MAX * tm);
-    pc = mix(pc, MAO_TINT_WARM_COLOR, clampf(tw, 0.0f, 1.0f));   /* the UI's event yellow (M4.1) */
+    (void)tw;                                  /* warmth carries no colour: no yellow in MAO's palette */
     pc = mix(pc, MAO_TINT_RED_COLOR, MAO_TINT_PUPIL_MAX * clampf(v[CH_TINT_RED], 0.0f, 1.0f));
     const float dark = clampf(v[CH_DARK], 0.0f, 1.0f);
     out->pupil_color = mix(pc, L->core_color ? L->core_color : 0x101014, 0.85f * dark);

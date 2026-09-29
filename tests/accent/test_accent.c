@@ -93,6 +93,20 @@ int main(void)
     const uint32_t d = mao_accent_disc(sad, 0xFCE4EE);
     CHECK(R(d) >= R(sad) && G(d) >= G(sad) && B(d) >= B(sad) && d != sad);
 
+    /* no yellow in MAO's palette (removed on request): nothing leans gold -
+     * excited / glint / proud / giggle are MAO's own pink */
+    for (int i = 0; mao_accent_mapped_state(i); i++) {
+        const uint32_t c = mao_accent_for_state(mao_accent_mapped_state(i));
+        /* yellow / gold: green nearly as strong as red, blue well below both (peach is not) */
+        const int yellowish = (int)G(c) * 100 >= (int)R(c) * 78 && (int)B(c) * 100 <= (int)G(c) * 65;
+        if (yellowish) {
+            printf("  %s leans yellow (%06x)\n", mao_accent_mapped_state(i), c);
+        }
+        CHECK(!yellowish);
+    }
+    CHECK(mao_accent_for_state("glint") == MAO_ACCENT_BASE);
+    CHECK(mao_accent_for_state("excited") == MAO_ACCENT_BASE);
+
     /* every state the accent names is one MAO can actually play */
     int named = 0, missing = 0;
     for (int i = 0; mao_accent_mapped_state(i); i++) {
