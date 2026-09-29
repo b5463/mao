@@ -24,6 +24,7 @@
 #include "mao_rel.h"
 #include "mao_world.h"
 #include "mao_quirks.h"
+#include "mao_power.h"
 
 static const char *TAG = "MAO_APP";
 
@@ -33,12 +34,8 @@ static const char *TAG = "MAO_APP";
 #define MENU_BUMP_GAP_US      (250 * 1000)
 #define SLEEPY_FADE_MS        2500        /* the light goes down slowly ... */
 #define WAKE_FADE_MS          150         /* ... and comes back at once */
-/* Deep sleep (M4.1): long after dozing off - a night on the bedside table -
- * the screen all but goes out; the sleeping eyes stay drawn, and any touch
- * brings the light back at once (wake). */
-#define DEEP_SLEEP_IDLE_MS    (30u * 60u * 1000u)
-#define DEEP_BRIGHTNESS_PCT   3
-#define DEEP_FADE_MS          8000
+/* Longer rest - the sleeping screen, light sleep, the night - is
+ * mao_app_power.c (the ladder: mao_power.h). */
 #define TICK_FULL_DPS         60.0f       /* dial speed at which ticks are softest */
 
 /* DEVICE page control focus: 0 = the value (LEVEL), 1 = POWER, 2 = ACTION.
@@ -1018,6 +1015,15 @@ static void on_idle_timeout(void)
         return;
     }
     mao_state_note_idle();
+    if (st->awake) {
+        ESP_LOGI(TAG, "sleepy after %d s without input", CONFIG_MAO_SLEEPY_TIMEOUT_S);
+    }
+    mao_app_doze();
+}
+
+void mao_app_doze(void)
+{
+    const mao_app_state_t *st = mao_state();
     if (st->view != MAO_VIEW_HOME) {
         mao_app_go_view(MAO_VIEW_HOME);
     }
@@ -1026,8 +1032,14 @@ static void on_idle_timeout(void)
         mao_character_set_sleepy(true);
         mao_app_apply_brightness(true);
         mao_led_set_state(MAO_LED_STATE_OFF);
-        ESP_LOGI(TAG, "sleepy after %d s without input", CONFIG_MAO_SLEEPY_TIMEOUT_S);
     }
+}
+
+void mao_app_wake_now(int64_t now)
+{
+    mao_state_note_input(now);
+    mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
+    wake();
 }
 
 static void on_dev_command(int32_t value, int64_t now)
@@ -1165,41 +1177,10 @@ static bool is_input(mao_event_type_t t)
     return t >= MAO_EVENT_INPUT_CW && t <= MAO_EVENT_INPUT_DOUBLE_CLICK;
 }
 
-/* A dimmed MAO (M4.1): the first touch only wakes it. A press is eaten
- * whole - held, turned while held, its release and the click that comes
- * with it - so it can never open a list or change a light in the dark by
- * accident; the waking turn is eaten too. Everything after that acts. */
-static uint8_t s_wake_eat;               /* 0 none; 1 the waking press is down; 2 released */
-static int64_t s_wake_release_us;
-#define WAKE_CLICK_US (150 * 1000)        /* a click belongs to that release only if it comes with it */
-
-static bool wake_gesture(mao_event_type_t t, bool dimmed)
-{
-    if (dimmed && s_wake_eat == 0) {
-        if (t == MAO_EVENT_INPUT_PRESS) {
-            s_wake_eat = 1;
-            ESP_LOGI(TAG, "press woke MAO (not acted on)");
-        } else {
-            ESP_LOGI(TAG, "turn woke MAO (not acted on)");
-        }
-        return true;
-    }
-    if (s_wake_eat == 1) {
-        if (t == MAO_EVENT_INPUT_RELEASE) {
-            s_wake_eat = 2;
-            s_wake_release_us = esp_timer_get_time();
-        }
-        return true;
-    }
-    if (s_wake_eat == 2) {
-        if ((t == MAO_EVENT_INPUT_CLICK || t == MAO_EVENT_INPUT_DOUBLE_CLICK) &&
-            esp_timer_get_time() - s_wake_release_us < WAKE_CLICK_US) {
-            return true;                      /* posted with that release */
-        }
-        s_wake_eat = 0;
-    }
-    return false;
-}
+/* A dimmed or resting MAO (M4.1): the first touch only wakes it - a press
+ * is eaten whole (held, turned while held, its release and click), the
+ * waking turn is eaten - so it can never open a list or change a light in
+ * the dark by accident (mao_power.h: mao_wake_eat). */
 
 static void on_event(const mao_event_t *ev, void *ctx)
 {
@@ -1210,8 +1191,9 @@ static void on_event(const mao_event_t *ev, void *ctx)
         const bool dimmed = !mao_state()->awake;
         mao_state_note_input(now);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
+        mao_app_power_input();
         wake();
-        if (wake_gesture(ev->type, dimmed)) {
+        if (mao_app_power_eat(ev->type, dimmed)) {
             return;   /* the touch that woke MAO only woke it */
         }
         if (mao_transfer_input(ev)) {
@@ -1235,7 +1217,11 @@ static void on_event(const mao_event_t *ev, void *ctx)
         mao_led_set_state(MAO_LED_STATE_OFF);   /* the LED is off at rest */
         mao_state_note_input(now);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
-        if (mao_state()->view == MAO_VIEW_HOME) {
+        if (mao_state()->view == MAO_VIEW_HOME && mao_app_power_from_deep()) {
+            mao_ui_wake_boot();                   /* MAO's own deep sleep ended: the short wake */
+            mao_app_apply_brightness(false);
+            mao_ui_home_hint(mao_app_home_hint_allowed());
+        } else if (mao_state()->view == MAO_VIEW_HOME) {
             mao_ui_boot();
             mao_ui_home_hint(mao_app_home_hint_allowed());
         }
@@ -1277,6 +1263,15 @@ static void on_event(const mao_event_t *ev, void *ctx)
             mao_app_home_quiet(now);
         }
         break;
+    case MAO_EVENT_POWER_RESTED:
+        mao_app_power_rested();
+        break;
+    case MAO_EVENT_POWER_WAKE:
+        mao_app_power_woken(ev->value, now);
+        break;
+    case MAO_EVENT_POWER_DEEP:
+        mao_app_power_deep((uint32_t)ev->value);
+        break;
     default:
         break;
     }
@@ -1288,20 +1283,13 @@ static void on_event(const mao_event_t *ev, void *ctx)
  * or mid-transfer. */
 #define PAGE_IDLE_MS 60000
 
-static bool s_deep_sleep;
-
 static void on_page_idle(int64_t now)
 {
     const mao_app_state_t *st = mao_state();
+    mao_app_power_tick(now);                      /* the longer rest */
     if (!st->awake) {
-        if (!s_deep_sleep && mao_state_idle_ms(now) >= DEEP_SLEEP_IDLE_MS) {
-            s_deep_sleep = true;
-            mao_display_fade_brightness(DEEP_BRIGHTNESS_PCT, DEEP_FADE_MS);
-            ESP_LOGI(TAG, "deep sleep after %u min without input", (unsigned)(DEEP_SLEEP_IDLE_MS / 60000u));
-        }
         return;                                   /* asleep: nothing else to tidy */
     }
-    s_deep_sleep = false;
     if (mao_app_tune_idle(now)) {
         return;
     }
@@ -1556,11 +1544,14 @@ esp_err_t mao_app_init(void)
     ESP_RETURN_ON_ERROR(mao_ui_init(first_view), TAG, "ui");
     mao_rel_init_dev();
     mao_quirks_reset(&s_quirks);
+    const bool from_deep = mao_app_power_init();
+    mao_app_power_register();
 #if CONFIG_MAO_DEV_CONSOLE
     mao_devcmd_register("quirk", dev_quirk);   /* test hook: a quirk now, past its rarity */
 #endif
     ESP_RETURN_ON_ERROR(mao_event_subscribe(on_event, NULL), TAG, "subscribe");
-    ESP_RETURN_ON_ERROR(mao_display_start(cfg->brightness), TAG, "display start");
+    /* after MAO's own deep sleep the light comes up from the sleeping level */
+    ESP_RETURN_ON_ERROR(mao_display_start(from_deep ? MAO_PWR_SLEEP_PCT : cfg->brightness), TAG, "display start");
     ESP_LOGI(TAG, "app ready: view %s, sleepy after %d s", mao_ui_view_name(first_view),
              CONFIG_MAO_SLEEPY_TIMEOUT_S);
     return ESP_OK;

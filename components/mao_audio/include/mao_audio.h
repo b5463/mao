@@ -29,6 +29,13 @@ esp_err_t mao_audio_init(void);
 
 /* Output level 0..100 %. 60 % equals the M0 level. */
 void mao_audio_set_volume(uint8_t percent);
+/* Sleep (M4.1): park the stream on its silent floor and stop the channel /
+ * start it again from the floor - no click either way. Sounds requested
+ * while suspended are dropped. */
+esp_err_t mao_audio_suspend(void);
+esp_err_t mao_audio_resume(void);
+/* DEV: the PDM gain stages (0 /2, 1 x1, 2 x2, 3 x4). */
+esp_err_t mao_audio_debug_scale(int hp, int sd);
 
 /* intensity 0 (slow) .. 255 (fastest spin). */
 void mao_audio_tick(uint8_t intensity);

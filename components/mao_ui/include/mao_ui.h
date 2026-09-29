@@ -185,6 +185,13 @@ esp_err_t mao_ui_init(mao_view_t initial_view);
 
 /* HOME boot sequence: the "MAO" wordmark contracts into the eyes. */
 void mao_ui_boot(void);
+/* The short wake after MAO's own (DEV) deep sleep: the resting mark, then
+ * the eyes open from the centre - no brand boot. */
+void mao_ui_wake_boot(void);
+/* Asleep (M4.1 power): true - the eyes gather into the centre and go, the
+ * ODD JOBS symbol rests there, dim; false - it gives way and the eyes open
+ * from the centre. */
+void mao_ui_sleep_mark(bool on);
 
 /* First encounter done: the prompt leaves towards the turn direction and
  * MAO appears there (direction -1 / +1). The view becomes HOME. */

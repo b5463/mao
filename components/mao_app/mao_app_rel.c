@@ -49,6 +49,11 @@ static int8_t s_off_focus;          /* OFFLINE page: 0 CONNECT, 1 relationship w
 static volatile uint8_t s_layout = 0;
 static uint64_t s_forget_dev;       /* a revocation in flight for this device */
 static bool s_forget_online;
+
+bool mao_app_rel_forgetting(void)
+{
+    return s_forget_dev != 0;             /* a FORGET is being committed: MAO stays awake */
+}
 static int8_t s_cer_focus;          /* SAS screen: the knob's place, -1 CANCEL / 0 middle / +1 MATCH */
 
 /* A two-answer question starts with the knob in the middle: neither answer

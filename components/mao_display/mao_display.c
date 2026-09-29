@@ -332,3 +332,12 @@ esp_err_t mao_display_fade_brightness(uint8_t percent, uint32_t fade_ms)
 {
     return mao_board_backlight_fade(percent, fade_ms);
 }
+
+/* The panel's own sleep (M4.1 NIGHT / DEV deep sleep): the GC9A01 keeps its
+ * picture in GRAM and stops scanning (SLPIN needs 5 ms before the next command, SLPOUT 120 ms). Call with the display lock held (the
+ * SPI panel IO must not be used by two tasks at once). Waking takes ~120 ms. */
+esp_err_t mao_display_panel_sleep(bool sleep)
+{
+    /* the GC9A01 driver has no disp_sleep: SLPIN (0x10) / SLPOUT (0x11) */
+    return esp_lcd_panel_io_tx_param(s_lvgl.io, sleep ? 0x10 : 0x11, NULL, 0);
+}

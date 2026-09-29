@@ -33,6 +33,20 @@ void mao_home_boot(uint32_t now_ms)
     mao_devices_boot_bloom(s_boot_at);
 }
 
+/* The short wake (after MAO's own deep sleep): the resting frame - the
+ * mark in lavender - then the eyes open from the centre. */
+#define WAKE_EYES_MS 450
+static bool s_short;
+
+void mao_home_wake_boot(uint32_t now_ms)
+{
+    s_boot_at = now_ms ? now_ms : 1;
+    s_short = true;
+    s_eyes_opened = false;
+    mao_ui_sleep_mark_now(true);
+    mao_character_set_sleepy(true);           /* lavender, eyes closed: where it fell asleep */
+}
+
 void mao_home_replay(uint32_t now_ms)
 {
     /* Development: rerun the boot. */
@@ -43,9 +57,15 @@ void mao_home_replay(uint32_t now_ms)
 bool mao_home_tick(float dt, uint32_t now_ms)
 {
     (void)dt;
-    if (!s_eyes_opened && s_boot_at && (int32_t)(now_ms - s_boot_at) >= EYES_OPEN_MS) {
+    if (!s_eyes_opened && s_boot_at && (int32_t)(now_ms - s_boot_at) >= (s_short ? WAKE_EYES_MS : EYES_OPEN_MS)) {
         s_eyes_opened = true;
         s_boot_at = 0;
+        if (s_short) {
+            s_short = false;
+            mao_character_set_sleepy(false);   /* stirs: the colour eases from lavender */
+            mao_home_sleep_mark_set(false);    /* poke, gulp - and the eyes pop out of the mark */
+            return true;
+        }
         mao_character_appear(0);           /* the eyes open from the centre point */
     }
     return !s_eyes_opened && s_boot_at != 0;

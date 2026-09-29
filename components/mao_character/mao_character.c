@@ -322,7 +322,7 @@ void mao_character_quirk(mao_character_quirk_t q)
 const char *mao_character_quirk_name(mao_character_quirk_t q)
 {
     static const char *const k[MAO_QUIRK_COUNT] = { "hold", "forgive", "curious", "delight", "offscreen-left",
-                                                    "offscreen-right", "grumpy" };
+                                                    "offscreen-right", "grumpy", "wakepop" };
     return q < MAO_QUIRK_COUNT ? k[q] : "?";
 }
 

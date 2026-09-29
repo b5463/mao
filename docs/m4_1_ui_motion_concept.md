@@ -912,3 +912,95 @@ the "long silence" idea; nothing new was added for it.
 ### 9.13 Future (documented only, not built in M4.1)
 - KINO D4 could follow MAO's active colour and state. That needs a new ODD
   protocol message, and a KINO bench target to validate it on.
+
+## 10. Sleep and power (M4.1, 2026-09-29)
+
+### 10.1 The ladder
+The pure state machine is `components/mao_app/mao_power.c`, tested on the
+host in `tests/power` (57 checks). The hardware side is `mao_app_power.c`.
+
+| State | When | What |
+|---|---|---|
+| ACTIVE | input | Normal MAO. |
+| IDLE (sleepy) | 10 min idle (`CONFIG_MAO_SLEEPY_TIMEOUT_S`) | The approved sleeping eyes, dimmed. |
+| SLEEP DISPLAY | `MAO_PWR_SLEEP_MS` (10 min) | Sleeping eyes while the backlight fades to 3 % (3 s). The eyes then gather into the centre and go, and the ODD JOBS symbol rests there, dim and lavender, at 0.8 of its startup size. The chip then enters light sleep: radio and audio are stopped, and the knob is the wake source. |
+| NIGHT | `MAO_PWR_NIGHT_MS` (30 min) | A timer wake inside light sleep. The backlight goes off and the panel sleeps (GC9A01 SLPIN 0x10 / SLPOUT 0x11). The knob still wakes MAO. |
+| TRUE DEEP SLEEP | DEV only: `mao deepsleep <s>` | The last frame (the mark), the light fading out, the panel asleep, and IO5 / IO3 held low. A timer or reset wakes it. |
+
+- **Blockers.** Nothing on the ladder is entered during pairing or its SAS
+  question, a FORGET being committed, a pending device action, or
+  CONNECT / AWAY. User inactivity is not system idle.
+- **No NVS writes.** Sleeping and waking cause none. The only persisted
+  bit is an RTC-memory marker (`MAO_PWR_RTC_MAGIC`) for MAO's own deep
+  sleep.
+
+### 10.2 Wake
+- **Knob wake.** A turn or press wakes MAO. That first touch never acts:
+  a press is eaten whole, and so is the turn (`mao_wake_eat`). Verified on
+  the bench: after the waking turn, the lamp stayed at 63 and no command
+  was sent; the next turn set it to 75.
+- **The wake act.** The mark is poked (squash), wobbles like jelly,
+  stretches tall with a hop, hangs for a beat, and is swallowed into a
+  point (0.64 s). The eyes burst out of that point (`wakepop`): wide
+  eyes, a double bounce, a double blink, a head-tilted "who, me?" look
+  left and right, and a small pleased squint. The colour eases from
+  lavender back to MAO's accent.
+- **After MAO's own deep sleep.** The boot is the short wake: the mark,
+  then the same pop. There is no brand boot. It is detected from
+  `esp_sleep_get_wakeup_causes()` plus the RTC marker.
+- **Relationships after deep sleep, verified.** CAMERA 01 and LAMP 01 came
+  back SECURE with fresh sessions and the same keys (fp 7857a462 /
+  afb03270). There was no re-pair and 0 relationship writes.
+
+### 10.3 Current-board constraints (ESP32-C3-LCDkit)
+- **Deep-sleep wake.** The C3 wakes from deep sleep only on RTC IOs
+  (GPIO0–5). The encoder is on IO10 / IO6 / IO9, so the knob cannot wake
+  a true deep sleep. That is why deep sleep is DEV-only (timer or reset
+  wake).
+- **Light-sleep hang.** With `CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP` on
+  (the IDF default), the chip never came back from light sleep. Neither
+  the timer, the knob nor an RTC watchdog armed through the sleep brought
+  it back. The option is now off in `sdkconfig.defaults`, which costs
+  about 100 µA of sleep current according to IDF.
+- **USB console.** USB-Serial-JTAG does not survive light sleep on the C3:
+  IDF turns its pad off, and the host loses the port until a reset. With
+  a USB host attached, MAO therefore shows the sleep display and the
+  night, but keeps the chip awake. This is IDF's own rule for automatic
+  light sleep (`CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION`). On a charger it
+  light-sleeps. DEV: `mao power rest force` sleeps it anyway.
+- **Backlight in sleep.** The backlight stays lit in light sleep: LEDC
+  `KEEP_ALIVE` on the RC_FAST clock, 9-bit at 30 kHz.
+- **Speaker clicks.** The C3's PDM modulator cannot make a still line.
+  Its "floor" is a pulse train high 38.2 % of the time, measured on the
+  pad, and no gain setting goes below about 25 %. The NS4150 has no
+  enable pin, so it hears that as a DC level, and stopping or starting
+  the stream was a loud click. The line is now handed to an LEDC PWM at
+  the same level and faded in hardware to still, and back, over 0.8 s.
+  The stream starts on boot the same way. Result on the bench: no clicks
+  in sleep, wake or boot, only a soft mechanical whir during the glide.
+  The instant of a hard reset still clicks, since the pin lets go.
+- **Safety net.** An RTC watchdog, not paused in sleep, is armed through
+  every light sleep: planned wake + 15 s, with a heartbeat of at most
+  10 min. An RTC breadcrumb records whether the last sleep came back.
+
+### 10.4 Power measurements
+No current meter was on the bench, so no measured values are claimed.
+In each state, the following stays powered:
+- **ACTIVE.** CPU, radio (no power save), panel, backlight at the user
+  level, PDM stream.
+- **SLEEP DISPLAY + light sleep.** The panel shows its last frame, the
+  backlight is at 3 %, and RC_FAST keeps LEDC alive. The radio, audio
+  stream and CPU are stopped (the CPU stays powered, see above).
+- **NIGHT.** The same, with the backlight off and the panel asleep.
+- **TRUE DEEP SLEEP.** The RTC domain, the panel asleep, and IO5 / IO3
+  held low.
+
+These still need measuring with a meter: ACTIVE HOME, SLEEP DISPLAY
+awake (USB host), light sleep, NIGHT, and deep sleep.
+
+### 10.5 Future MAO board: hardware requirements
+1. A deliberate user wake source on an RTC-capable GPIO (GPIO0–5 on the
+   C3), so that the knob or button can wake a true deep sleep.
+2. An amplifier enable (shutdown) pin, so that the speaker path is
+   switched off before its input moves. That removes the remaining glide
+   sound and the reset click.

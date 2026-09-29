@@ -50,6 +50,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("source")
     ap.add_argument("--height", type=int, default=64, help="display height in px (the mark's rows)")
+    ap.add_argument("--name", default="mao_mark_odd_jobs", help="C symbol and file name of the mask")
     a = ap.parse_args()
     src = Image.open(a.source).convert("RGBA")
     alpha = src.getchannel("A")
@@ -80,17 +81,17 @@ def main():
         " */",
         "#include \"mao_ui_priv.h\"",
         "",
-        "static const uint8_t kMark[%d * %d] = {" % (w, h),
+        "static const uint8_t kMark_%s[%d * %d] = {" % (a.name, w, h),
         *lines,
         "};",
         "",
-        "const lv_image_dsc_t mao_mark_odd_jobs = {",
+        "const lv_image_dsc_t %s = {" % a.name,
         "    .header = { .magic = LV_IMAGE_HEADER_MAGIC, .cf = LV_COLOR_FORMAT_A8, .w = %d, .h = %d, .stride = %d }," % (w, h, w),
-        "    .data_size = sizeof(kMark),",
-        "    .data = kMark,",
+        "    .data_size = sizeof(kMark_%s)," % a.name,
+        "    .data = kMark_%s," % a.name,
         "};",
         ""])
-    out_c = os.path.join(ROOT, "components", "mao_ui", "mao_mark_odd_jobs.c")
+    out_c = os.path.join(ROOT, "components", "mao_ui", a.name + ".c")
     with open(out_c, "w", newline="\n") as f:
         f.write(c)
     print("source %dx%d; symbol box %s = %dx%d; mask %dx%d (%d bytes)" % (

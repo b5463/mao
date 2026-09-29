@@ -32,6 +32,9 @@ typedef struct {
 
 /* Bring up Wi-Fi STA on a fixed channel and ESP-NOW. */
 esp_err_t mao_radio_init(uint8_t channel);
+/* Light sleep: stop the radio before the chip sleeps (true), restart it on
+ * the same channel after (false). Peers and keys are kept. */
+esp_err_t mao_radio_sleep(bool sleep);
 
 /* Register the receive handler (one). */
 void mao_radio_set_rx_handler(mao_radio_rx_handler_t handler, void *ctx);

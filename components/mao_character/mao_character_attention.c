@@ -194,6 +194,9 @@ void mao_char_quirk(mao_char_t *mc, mao_character_quirk_t q, uint32_t now)
     case MAO_QUIRK_GRUMPY:
         st = "grumpywake";
         break;
+    case MAO_QUIRK_WAKEPOP:
+        st = "wakepop";
+        break;
     default:
         return;
     }

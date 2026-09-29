@@ -202,7 +202,11 @@ static bool home_lamp_layout(uint32_t now, float dt)
  * (mao_home.c, MAO_BOOT_EYES_MS). The wordmark is never drawn. */
 static uint32_t s_boot_t0;
 static lv_obj_t *s_mark;
-#define MARK_OX   0                  /* centred on its box: equal margins read as centred in the round frame */
+/* Optical centring: the symbol's mass sits right of its box (the solid block
+ * right, the thin tail left: centroid +13.6 px at 96 px tall), so a box
+ * centred on the screen reads as off to the right. Moved left by ~60 % of
+ * that - the tail still belongs to the shape, a full shift overcorrects. */
+#define MARK_OX   (-8)
 
 static uint32_t s_mark_col;
 static lv_opa_t s_mark_opa;
@@ -313,7 +317,8 @@ bool mao_home_dots_layout(uint32_t now, float dt)
     const bool boot_up = boot_layout(now);
     const bool tune_up = home_tune_layout(now, dt);
     const bool lamp_up = home_lamp_layout(now, dt);
-    return s_hint.allowed || intro_up || tune_up || lamp_up || boot_up;
+    const bool smark_up = mao_home_rest_mark_layout(dt);
+    return s_hint.allowed || intro_up || tune_up || lamp_up || boot_up || smark_up;
 }
 
 void mao_home_dots_init(void)

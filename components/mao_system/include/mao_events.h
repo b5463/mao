@@ -45,6 +45,9 @@ typedef enum {
     MAO_EVENT_LINK_CHANGED,      /* link security: session state, pairing or revocation (mao_link.h) */
     MAO_EVENT_PAGE_IDLE,         /* periodic check: a device page or the list left alone */
     MAO_EVENT_HOME_QUIET,        /* one-shot: HOME's light has not been turned for a moment */
+    MAO_EVENT_POWER_WAKE,        /* the knob woke the chip from light sleep; value 1 = the button is held */
+    MAO_EVENT_POWER_RESTED,      /* the sleeping screen has settled: the chip may sleep now */
+    MAO_EVENT_POWER_DEEP,        /* DEV: deep sleep for value seconds */
 
     MAO_EVENT_COUNT,
 } mao_event_type_t;

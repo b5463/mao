@@ -328,6 +328,7 @@ esp_err_t mao_ui_init(mao_view_t initial_view)
     mao_dots_create(scr);
     mao_focus_create(scr);
     mao_home_mark_create(scr);   /* the maker's mark, over everything, only at boot */
+    mao_home_sleep_mark_create(scr);   /* ... and its small stamp on the sleeping screen */
     s_shown = initial_view;
     /* Lay out the first frame now (it is rendered before the panel lights). */
     mao_home_tick(0.0f, s_last_ms);
@@ -343,6 +344,17 @@ void mao_ui_boot(void)
     if (mao_display_lock(0)) {
         if (s_shown == MAO_VIEW_HOME) {
             mao_home_boot(lv_tick_get());
+            mao_ui_wake();
+        }
+        mao_display_unlock();
+    }
+}
+
+void mao_ui_wake_boot(void)
+{
+    if (mao_display_lock(0)) {
+        if (s_shown == MAO_VIEW_HOME) {
+            mao_home_wake_boot(lv_tick_get());
             mao_ui_wake();
         }
         mao_display_unlock();

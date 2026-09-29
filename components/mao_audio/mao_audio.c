@@ -3,8 +3,10 @@
 #include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "driver/i2s_common.h"
+#include "driver/i2s_pdm.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -23,7 +25,6 @@ static const char *TAG = "MAO_AUDIO";
  * stream cracks. So the stream never stops, idles at this floor, and every
  * sound rides up from it inside its own soft envelope. */
 #define FLOOR                (-32768)       /* the very bottom: no PDM pulses at all */
-#define BOOT_RAMP_MS         600            /* mid scale -> floor, once, at start */
 #define TICK_MIN_GAP_MS      35             /* hard ceiling for tick rate */
 
 /* volume 100 % -> gain 0.58, so the 60 % default equals the M0 level (0.35).
@@ -183,24 +184,58 @@ static void write_chunk(uint32_t frames)
     i2s_channel_write(s_tx, s_chunk, frames * sizeof(int16_t), &written, portMAX_DELAY);
 }
 
+/* Suspend / resume (M4.1 sleep): the stream is parked at the floor (no PDM
+ * pulses: the line low, the amplifier silent) before the channel stops, and
+ * the DMA is preloaded with the floor before it starts again, so neither
+ * edge can reach the speaker as a click. The task waits on s_resume while
+ * suspended; it never writes to a disabled channel. */
+static SemaphoreHandle_t s_parked, s_resume;
+static volatile bool s_suspend;
+
+static void park_if_asked(void)
+{
+    if (!s_suspend) {
+        return;
+    }
+    for (int i = 0; i < CHUNK_FRAMES; i++) {
+        s_chunk[i] = FLOOR;
+    }
+    for (int k = 0; k < 4; k++) {
+        write_chunk(CHUNK_FRAMES);            /* the whole DMA ring is floor now */
+    }
+    xSemaphoreGive(s_parked);
+    xSemaphoreTake(s_resume, portMAX_DELAY);
+}
+
+static void start_on_floor(void)
+{
+    for (int i = 0; i < CHUNK_FRAMES; i++) {
+        s_chunk[i] = FLOOR;
+    }
+    size_t loaded = 1;
+    for (int k = 0; k < 8 && loaded; k++) {   /* the DMA ring holds the floor before it runs */
+        loaded = 0;
+        i2s_channel_preload_data(s_tx, s_chunk, CHUNK_FRAMES * sizeof(int16_t), &loaded);
+    }
+    mao_board_audio_line_rise();              /* the line glides up to the floor's level ... */
+    i2s_channel_enable(s_tx);
+    vTaskDelay(pdMS_TO_TICKS(20));            /* ... the stream runs on its floor ... */
+    mao_board_audio_line_attach();            /* ... and takes the line */
+}
+
 static void audio_task(void *arg)
 {
     (void)arg;
-    /* Once: glide from mid scale (where the stream starts) down to the floor. */
-    const uint32_t ramp = BOOT_RAMP_MS * SAMPLE_RATE_HZ / 1000;
-    for (uint32_t n = 0; n < ramp;) {
-        uint32_t i = 0;
-        for (; i < CHUNK_FRAMES && n < ramp; i++, n++) {
-            const float u = 0.5f - 0.5f * cosf((float)M_PI * (float)n / (float)ramp);
-            s_chunk[i] = (int16_t)(FLOOR * u);
-        }
-        write_chunk(i);
-    }
+    /* Once, at start: the line glides up from still to the floor's level
+     * (the stream would otherwise begin at mid scale - a jump the speaker
+     * hears as a click), and the stream takes it over on its floor. */
+    start_on_floor();
     play_t p;
     for (;;) {
         /* Keep the DMA fed with the floor: if it ever ran dry it would play
          * mid-scale zeros, a jump the speaker hears. */
         if (xQueueReceive(s_queue, &p, 0) != pdTRUE) {
+            park_if_asked();
             for (int i = 0; i < CHUNK_FRAMES; i++) {
                 s_chunk[i] = FLOOR;
             }
@@ -222,17 +257,61 @@ esp_err_t mao_audio_init(void)
     }
 
     ESP_RETURN_ON_ERROR(mao_board_audio_init(SAMPLE_RATE_HZ, &s_tx), TAG, "board audio");
-    /* The channel stays enabled for the lifetime of the firmware and the
-     * task keeps it fed with the idle floor between sounds. */
-    ESP_RETURN_ON_ERROR(i2s_channel_enable(s_tx), TAG, "enable");
+    /* The channel runs for the lifetime of the firmware (the task starts it
+     * on its floor, then keeps it fed between sounds; only a rest stops it). */
 
     s_queue = xQueueCreate(AUDIO_QUEUE_LEN, sizeof(play_t));
     ESP_RETURN_ON_FALSE(s_queue, ESP_ERR_NO_MEM, TAG, "queue");
+    s_parked = xSemaphoreCreateBinary();
+    s_resume = xSemaphoreCreateBinary();
+    ESP_RETURN_ON_FALSE(s_parked && s_resume, ESP_ERR_NO_MEM, TAG, "sems");
     if (xTaskCreate(audio_task, "mao_audio", AUDIO_TASK_STACK, NULL, AUDIO_TASK_PRIO, NULL) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
     ESP_LOGI(TAG, "tone engine ready: %d Hz mono, %d ms chunks, sounds: tick touch release confirm back notice warm",
              SAMPLE_RATE_HZ, CHUNK_FRAMES * 1000 / SAMPLE_RATE_HZ);
+    return ESP_OK;
+}
+
+esp_err_t mao_audio_suspend(void)
+{
+    if (!s_tx || s_suspend) {
+        return ESP_OK;
+    }
+    xQueueReset(s_queue);                     /* nothing new starts; a sound playing finishes */
+    s_suspend = true;
+    if (xSemaphoreTake(s_parked, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        s_suspend = false;
+        return ESP_ERR_TIMEOUT;
+    }
+    mao_board_audio_line_rest();              /* the line glides from the floor's level to still ... */
+    return i2s_channel_disable(s_tx);         /* ... and the stream stops behind it, off the pin */
+}
+
+/* DEV: the PDM path's gain stages (i2s_pdm_sig_scale_t: 0 /2, 1 x1, 2 x2,
+ * 3 x4), reconfigured live - to find where the floor reaches a still line. */
+esp_err_t mao_audio_debug_scale(int hp, int sd)
+{
+    ESP_RETURN_ON_ERROR(mao_audio_suspend(), TAG, "park");
+    i2s_pdm_tx_slot_config_t slot = I2S_PDM_TX_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO);
+    slot.hp_en = false;
+    slot.sd_dither = 0;
+    slot.sd_dither2 = 0;
+    slot.hp_scale = (i2s_pdm_sig_scale_t)hp;
+    slot.sd_scale = (i2s_pdm_sig_scale_t)sd;
+    const esp_err_t err = i2s_channel_reconfig_pdm_tx_slot(s_tx, &slot);
+    mao_audio_resume();
+    return err;
+}
+
+esp_err_t mao_audio_resume(void)
+{
+    if (!s_tx || !s_suspend) {
+        return ESP_OK;
+    }
+    start_on_floor();
+    s_suspend = false;
+    xSemaphoreGive(s_resume);
     return ESP_OK;
 }
 

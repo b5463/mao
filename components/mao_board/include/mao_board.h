@@ -68,6 +68,25 @@ esp_err_t mao_board_backlight_fade(uint8_t percent, uint32_t fade_ms);
 /* Configure encoder/switch GPIOs as inputs with pull-ups (no ISR installed). */
 esp_err_t mao_board_input_init(mao_board_encoder_t *out);
 
+/* Light sleep (M4.1): arm (or disarm) the knob as the wake source - any
+ * movement or a press. Not a deep-sleep source on this board (not RTC IOs). */
+esp_err_t mao_board_knob_wake_arm(bool arm);
+/* The encoder's button is held down now. */
+bool mao_board_switch_down(void);
+/* Light sleep: hold the PDM line (to the always-on amplifier) as it is. */
+void mao_board_audio_hold(bool hold);
+/* The PDM line's rest and return (M4.1): glide it to still (after the stream
+ * is parked on its floor), up again (before it restarts), and hand it back. */
+void mao_board_audio_line_rest(void);
+void mao_board_audio_line_rise(void);
+void mao_board_audio_line_attach(void);
+void mao_board_audio_line_idle(int permille);   /* DEV: the floor's density */
+/* DEV: the PDM line's measured pulse density, per mille. */
+int mao_board_audio_duty_permille(void);
+/* DEV deep sleep: hold the backlight and the PDM line low (true), or release
+ * them after the wake (false). */
+void mao_board_deep_sleep_hold(bool hold);
+
 /* Create and initialise the speaker I2S PDM TX channel (not yet enabled). */
 esp_err_t mao_board_audio_init(uint32_t sample_rate_hz, i2s_chan_handle_t *out);
 

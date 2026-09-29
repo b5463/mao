@@ -314,3 +314,32 @@ esp_err_t mao_input_init(void)
              MAO_INPUT_DEBOUNCE_MS, MAO_INPUT_LONG_PRESS_MS, MAO_INPUT_DOUBLE_CLICK_MS);
     return ESP_OK;
 }
+
+/* Light sleep (M4.1 power): the knob's pins become level wake sources while
+ * the chip sleeps, so their edge interrupts are paused first (a level
+ * interrupt still enabled at wake would fire without end). At resume the
+ * decoder takes the lines as they are now - the waking movement is not a
+ * turn - and the button catches up through its normal debounce, so a press
+ * that woke MAO still arrives as PRESS / RELEASE (the app eats it). */
+void mao_input_sleep(bool sleep)
+{
+    const gpio_num_t pins[3] = { s_enc.gpio_a, s_enc.gpio_b, s_enc.gpio_switch };
+    if (sleep) {
+        for (int i = 0; i < 3; i++) {
+            gpio_intr_disable(pins[i]);
+        }
+        return;
+    }
+    for (int i = 0; i < 3; i++) {
+        gpio_set_intr_type(pins[i], GPIO_INTR_ANYEDGE);   /* the wake arm left a level type */
+    }
+    portENTER_CRITICAL(&s_lock);
+    s_prev_ab = read_ab();
+    s_accum = 0;
+    s_synced = (s_enc.rest_mask & (1u << s_prev_ab)) != 0;
+    portEXIT_CRITICAL(&s_lock);
+    for (int i = 0; i < 3; i++) {
+        gpio_intr_enable(pins[i]);
+    }
+    xTaskNotify(s_task, NOTIFY_BUTTON, eSetBits);
+}

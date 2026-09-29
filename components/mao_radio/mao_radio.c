@@ -16,6 +16,7 @@
 static const char *TAG = "MAO_RADIO";
 
 static uint8_t s_mac[6];
+static uint8_t s_channel;
 
 esp_err_t mao_radio_init(uint8_t channel)
 {
@@ -34,6 +35,7 @@ esp_err_t mao_radio_init(uint8_t channel)
     /* ESP-NOW latency matters more than radio power for a desk controller. */
     ESP_RETURN_ON_ERROR(esp_wifi_set_ps(WIFI_PS_NONE), TAG, "ps");
     ESP_RETURN_ON_ERROR(esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE), TAG, "channel");
+    s_channel = channel;
     mao_system_log_heap(TAG, "after wifi start");
 
     ESP_RETURN_ON_ERROR(esp_read_mac(s_mac, ESP_MAC_WIFI_STA), TAG, "mac");
@@ -43,6 +45,19 @@ esp_err_t mao_radio_init(uint8_t channel)
     ESP_LOGI(TAG, "radio up: Wi-Fi STA (unassociated) + ESP-NOW, channel %u, mac " MACSTR,
              channel, MAC2STR(s_mac));
     return ESP_OK;
+}
+
+/* Light sleep (M4.1 power): the radio is powered down while the chip sleeps
+ * (ESP-IDF: Wi-Fi must be stopped first). ESP-NOW and its peer table stay;
+ * the links notice the silence and start fresh sessions after. */
+esp_err_t mao_radio_sleep(bool sleep)
+{
+    if (sleep) {
+        return esp_wifi_stop();
+    }
+    ESP_RETURN_ON_ERROR(esp_wifi_start(), TAG, "wifi start");
+    ESP_RETURN_ON_ERROR(esp_wifi_set_ps(WIFI_PS_NONE), TAG, "ps");
+    return esp_wifi_set_channel(s_channel, WIFI_SECOND_CHAN_NONE);
 }
 
 void mao_radio_get_mac(uint8_t mac[6])

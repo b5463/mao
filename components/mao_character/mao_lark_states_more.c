@@ -232,6 +232,25 @@ static const lark_key_t grumpywake_la[] = { K(0, 0.40f, LINEAR) };
 static const lark_track_t grumpywake[] = { TRACK(CH_LID_ANGLE, grumpywake_la), TRACK(CH_NARROW, gw_lid), TRACK(CH_CLOSE, gw_cl), TRACK(CH_PUPIL, gw_pu),
                                            TRACK(CH_FACE_Y, gw_fy) };
 
+/* wakepop (one-shot): out of the resting mark - the eyes burst open wide
+ * and bounce twice, blink twice as if they cannot believe it, tilt and check
+ * left and right - "who, me?" - and settle on a small pleased squint. */
+static const lark_key_t wp_open[] = { K(0, 0.30f, OUT), K(180, 0.36f, OUT), K(480, 0.04f, IN_OUT), K(620, 0.14f, OUT),
+                                      K(900, 0, IN_OUT) };
+static const lark_key_t wp_lid[] = { K(0, -0.28f, LINEAR), K(900, 0, IN_OUT) };
+static const lark_key_t wp_fy[] = { K(0, -12.0f, OUT), K(200, -16.0f, OUT), K(430, 4.0f, IN), K(560, -6.0f, OUT),
+                                    K(720, 2.0f, IN), K(860, 0, OUT) };
+static const lark_key_t wp_cl[] = { K(0, 0, LINEAR), K(1000, 0, LINEAR), K(1060, 1.0f, IN), K(1140, 0, OUT), K(1240, 0, LINEAR),
+                                    K(1300, 1.0f, IN), K(1390, 0, OUT) };
+static const lark_key_t wp_gx[] = { K(0, 0, LINEAR), K(1450, 0, LINEAR), K(1560, -10.0f, OUT), K(1800, -10.0f, LINEAR),
+                                    K(1900, 9.0f, OUT), K(2120, 9.0f, LINEAR), K(2220, -3.0f, OUT), K(2500, 0, IN_OUT) };
+static const lark_key_t wp_tilt[] = { K(0, 0, LINEAR), K(1450, 0, LINEAR), K(1560, -3.0f, OUT), K(1800, -3.0f, LINEAR),
+                                      K(1900, 3.0f, OUT), K(2120, 3.0f, LINEAR), K(2400, 0, IN_OUT) };
+static const lark_key_t wp_sm[] = { K(0, 0, LINEAR), K(2250, 0, LINEAR), K(2420, 0.45f, OUT), K(2700, 0, IN_OUT) };
+static const lark_track_t wakepop[] = { TRACK(CH_OPEN, wp_open), TRACK(CH_NARROW, wp_lid), TRACK(CH_FACE_Y, wp_fy),
+                                        TRACK(CH_CLOSE, wp_cl), TRACK(CH_GAZE_X, wp_gx), TRACK(CH_TILT, wp_tilt),
+                                        TRACK(CH_SMILE, wp_sm) };
+
 /* giggle (one-shot): smiling eyes that shake a little. */
 static const lark_key_t gi_sm[] = { K(0, 0, LINEAR), K(150, 0.6f, OUT), K(1300, 0.6f, LINEAR), K(1700, 0, IN_OUT) };
 static const lark_key_t gi_fy[] = { K(0, 0, LINEAR), K(120, -4.0f, OUT), K(240, 0, IN), K(360, -4.0f, OUT), K(480, 0, IN),
@@ -273,5 +292,6 @@ const lark_state_t kLarkMore[] = {
     STATE("grumpywake",      2600, 200, IN_OUT, EVT,    0,   0,   0,  0, NULL,   grumpywake),
     STATE("giggle",          1700, 150, OUT,    ONE,    0,   0,   0,  6, NULL,   giggle),
     STATE("stare",           6000, 700, IN_OUT, 0,      3,   2,   2,  0, NULL,   stare),
+    STATE("wakepop",         2700,  40, OUT,    EVT,    0,   0,   0,  0, NULL,   wakepop),
 };
 const int kLarkMoreCount = (int)(sizeof(kLarkMore) / sizeof(kLarkMore[0]));

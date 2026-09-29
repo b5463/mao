@@ -102,6 +102,12 @@ void mao_devices_boot_bloom(uint32_t now_ms);
 #define MAO_BOOT_EYES_MS  (1050 + 620) /* the eyes open as the field draws back */
 void mao_home_mark_create(lv_obj_t *scr);
 extern const lv_image_dsc_t mao_mark_odd_jobs;   /* A8 mask, symbol only (mao_mark_odd_jobs.c) */
+extern const lv_image_dsc_t mao_mark_odd_jobs_rest;   /* the same at 0.8, for the resting screen */
+void mao_home_sleep_mark_create(lv_obj_t *scr);   /* the resting mark (asleep) */
+void mao_ui_sleep_mark_now(bool on);
+void mao_home_sleep_mark_set(bool on);   /* eased */
+bool mao_home_rest_mark_layout(float dt);   /* mao_ui_rest_mark.c: true while it moves */
+void mao_home_wake_boot(uint32_t now_ms);
 
 /* HOME's dots (mao_ui_home_dots.c): drawn inside the dot layer's frame,
  * which mao_ui_devices.c owns. Layout returns true while anything moves. */

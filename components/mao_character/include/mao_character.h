@@ -146,6 +146,7 @@ typedef enum {
     MAO_QUIRK_OFFSCREEN_LEFT, /* a look past the rim, at something that is not on the screen */
     MAO_QUIRK_OFFSCREEN_RIGHT,
     MAO_QUIRK_GRUMPY,         /* just woken and already fiddled with */
+    MAO_QUIRK_WAKEPOP,        /* out of the resting mark: pop and bounce, blink twice, "who, me?", a pleased squint */
     MAO_QUIRK_COUNT,
 } mao_character_quirk_t;
 void mao_character_quirk(mao_character_quirk_t q);

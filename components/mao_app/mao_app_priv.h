@@ -152,3 +152,20 @@ void mao_app_lamp_turn(const mao_device_t *dev, const mao_device_controls_t *ctl
 mao_hold_t mao_app_hold(const mao_event_t *ev, bool has_right, bool has_left);
 bool mao_app_hold_menu(int8_t *sel);   /* the options are up (sel: -1 BACK, 0 right, 1 left) */
 void mao_app_hold_reset(void);
+
+/* Rest (mao_app_power.c, M4.1): the sleeping screen, light sleep, the DEV
+ * deep sleep, and the first touch after resting. */
+bool mao_app_power_init(void);                /* true = this boot is MAO waking from its own deep sleep */
+bool mao_app_power_from_deep(void);
+void mao_app_power_register(void);
+void mao_app_power_tick(int64_t now);
+void mao_app_power_rested(void);
+void mao_app_power_woken(int32_t value, int64_t now);
+void mao_app_power_input(void);
+bool mao_app_power_eat(mao_event_type_t t, bool dimmed);
+void mao_app_power_deep(uint32_t seconds);
+void mao_app_power_dev_rest(bool night, bool force, uint32_t wake_s);   /* DEV */
+void mao_app_power_dev_status(void);                                     /* DEV */
+bool mao_app_rel_forgetting(void);            /* a FORGET is being committed */
+void mao_app_doze(void);                      /* HOME, the sleepy state (as after the idle timeout) */
+void mao_app_wake_now(int64_t now);           /* awake, as after an input */

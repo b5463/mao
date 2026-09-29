@@ -36,7 +36,7 @@ static const char *TAG = "MAO_SYSTEM";
 #define DEVCMD_TASK_PRIO   1
 #define DEVCMD_POLL_MS     50
 #define DEVCMD_LINE_MAX    64
-#define DEVCMD_HOOKS_MAX   4
+#define DEVCMD_HOOKS_MAX   8
 
 static struct {
     const char *name;

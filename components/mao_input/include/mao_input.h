@@ -14,6 +14,7 @@
  */
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
 
@@ -40,6 +41,10 @@ void mao_input_get_stats(mao_input_stats_t *out);
 
 /* Mechanical detents per knob revolution (valid after init). */
 uint8_t mao_input_detents_per_rev(void);
+
+/* Light sleep: pause the knob's interrupts (true) before the chip sleeps
+ * with the knob as its wake source; resume and resync after (false). */
+void mao_input_sleep(bool sleep);
 
 #ifdef __cplusplus
 }
