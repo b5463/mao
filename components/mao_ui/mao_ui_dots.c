@@ -13,6 +13,7 @@
  */
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "mao_ui_priv.h"
 
@@ -37,6 +38,34 @@ static struct {
     dot_t prev[DOTS_MAX];      /* the last frame drawn: only what changed is redrawn */
     int prev_n;
 } s_d;
+
+/* An internal kind: a pre-rendered image (the name on the rim), x / y its
+ * centre, d its cache slot, col its generation (so a new name redraws). */
+#define DOT_IMAGE 200
+
+#define ARC_DOTS 260
+#define ARC_TRACK 1.5f      /* extra columns between letters on the curve: the inner rows crowd otherwise */
+
+float mao_dots_text_arc_width(const char *s, float pitch)
+{
+    const int n = (int)strlen(s);
+    return n > 0 ? ((float)n * (6.0f + ARC_TRACK) - (1.0f + ARC_TRACK)) * pitch : 0.0f;
+}
+typedef struct {
+    char s[24];
+    float r, pitch;
+    bool bottom;
+    int n;
+    float x[ARC_DOTS], y[ARC_DOTS], th[ARC_DOTS];
+    uint32_t used;
+    float d;                   /* the dot size the mask was rendered at */
+    uint8_t *px;               /* the name, rendered once: an anti-aliased A8 mask */
+    lv_image_dsc_t img;
+    int16_t cx, cy;            /* the mask's centre, px from the screen centre */
+    uint8_t gen;
+} arc_text_t;
+static arc_text_t s_arc[2];
+static uint32_t s_arc_clock;
 
 #define DIRTY_MAX 16           /* more changed dots than this: one full redraw (LVGL keeps 32 areas, shared) */
 
@@ -107,7 +136,7 @@ static uint32_t hash_step(uint32_t h, uint32_t v)
 
 float mao_dots_noise(int i, int j, uint32_t t)
 {
-    uint32_t h = (uint32_t)(i * 73856093) ^ (uint32_t)(j * 19349663) ^ (t * 83492791u);
+    uint32_t h = ((uint32_t)i * 73856093u) ^ ((uint32_t)j * 19349663u) ^ (t * 83492791u);   /* unsigned: wraps, never overflows */
     h ^= h >> 13;
     h *= 0x5bd1e995u;
     h ^= h >> 15;
@@ -152,12 +181,29 @@ static void draw_cb(lv_event_t *e)
         const dot_t *d = &s_d.dot[i];
         const int32_t s = d->d, h = s / 2;
         const int32_t x0 = cx + d->x - h, y0 = cy + d->y - h;
-        if (y0 + s < clip->y1 || y0 > clip->y2) {
+        if (d->kind != DOT_IMAGE && (y0 + s < clip->y1 || y0 > clip->y2)) {
             continue;                  /* not in the strip being rendered */
         }
         r.bg_color = cols[d->col & 1];
         r.bg_opa = d->opa;
         const int32_t t = s >= 7 ? 2 : 1;   /* stroke of the line glyphs */
+        if (d->kind == DOT_IMAGE) {
+            const arc_text_t *at = &s_arc[d->d & 1];
+            if (!at->px) {
+                continue;
+            }
+            lv_draw_image_dsc_t id;
+            lv_draw_image_dsc_init(&id);
+            id.src = &at->img;
+            id.recolor = cols[0];
+            id.recolor_opa = LV_OPA_COVER;
+            id.opa = d->opa;
+            const lv_area_t ia = { cx + d->x - (int32_t)at->img.header.w / 2, cy + d->y - (int32_t)at->img.header.h / 2,
+                                   cx + d->x - (int32_t)at->img.header.w / 2 + (int32_t)at->img.header.w - 1,
+                                   cy + d->y - (int32_t)at->img.header.h / 2 + (int32_t)at->img.header.h - 1 };
+            lv_draw_image(layer, &id, &ia);
+            continue;
+        }
         switch (d->kind) {
         case MAO_GLYPH_SQUARE:
             r.radius = s >= 5 ? 1 : 0;
@@ -303,24 +349,6 @@ void mao_dots_text_front(const char *s, float cx, float cy, float pitch, float d
  * counter-clockwise with their tops towards the centre - so it reads left
  * to right either way. r is the radius of the middle row. The positions are
  * cached per text (a sine and a cosine per column otherwise, every frame). */
-#define ARC_DOTS 260
-#define ARC_TRACK 1.5f      /* extra columns between letters on the curve: the inner rows crowd otherwise */
-
-float mao_dots_text_arc_width(const char *s, float pitch)
-{
-    const int n = (int)strlen(s);
-    return n > 0 ? ((float)n * (6.0f + ARC_TRACK) - (1.0f + ARC_TRACK)) * pitch : 0.0f;
-}
-typedef struct {
-    char s[24];
-    float r, pitch;
-    bool bottom;
-    int n;
-    float x[ARC_DOTS], y[ARC_DOTS];
-    uint32_t used;
-} arc_text_t;
-static arc_text_t s_arc[2];
-static uint32_t s_arc_clock;
 
 static const arc_text_t *arc_layout(const char *s, float r, bool bottom, float pitch)
 {
@@ -339,6 +367,7 @@ static const arc_text_t *arc_layout(const char *s, float r, bool bottom, float p
     a->bottom = bottom;
     a->used = s_arc_clock;
     a->n = 0;
+    a->d = -1.0f;                                    /* the mask is rendered on first use */
     const float width = mao_dots_text_arc_width(s, pitch) / pitch;   /* in columns */
     for (int k = 0; s[k]; k++) {
         const uint8_t *g = glyph_bits(s[k]);
@@ -356,6 +385,7 @@ static const arc_text_t *arc_layout(const char *s, float r, bool bottom, float p
                 const float rr = bottom ? r - up : r + up;
                 a->x[a->n] = rr * sn;
                 a->y[a->n] = bottom ? rr * cs : -rr * cs;
+                a->th[a->n] = bottom ? -th : th;
                 a->n++;
             }
         }
@@ -363,20 +393,95 @@ static const arc_text_t *arc_layout(const char *s, float r, bool bottom, float p
     return a;
 }
 
+/* The name on the rim as one image: each of its dots a square turned with
+ * the curve, at its exact place, anti-aliased (4 x 4 samples a pixel). Drawn
+ * dot by dot, every dot was rounded to a pixel on its own - neighbours in
+ * one stroke went different ways, and the letters looked hand-scratched. */
+static void arc_render(arc_text_t *a, float d)
+{
+    free(a->px);
+    a->px = NULL;
+    a->d = d;
+    if (a->n == 0) {
+        return;
+    }
+    float x1 = 1e9f, y1 = 1e9f, x2 = -1e9f, y2 = -1e9f;
+    for (int i = 0; i < a->n; i++) {
+        x1 = fminf(x1, a->x[i]);
+        y1 = fminf(y1, a->y[i]);
+        x2 = fmaxf(x2, a->x[i]);
+        y2 = fmaxf(y2, a->y[i]);
+    }
+    const int pad = (int)ceilf(d) + 1;
+    const int ox = (int)floorf(x1) - pad, oy = (int)floorf(y1) - pad;
+    const int w = (int)ceilf(x2) + pad - ox + 1, h = (int)ceilf(y2) + pad - oy + 1;
+    a->px = calloc((size_t)w * (size_t)h, 1);
+    if (!a->px) {
+        return;
+    }
+    const float half = d * 0.5f;
+    for (int i = 0; i < a->n; i++) {
+        const float cs = cosf(a->th[i]), sn = sinf(a->th[i]);
+        const int bx0 = (int)floorf(a->x[i] - d) - ox, bx1 = (int)ceilf(a->x[i] + d) - ox;
+        const int by0 = (int)floorf(a->y[i] - d) - oy, by1 = (int)ceilf(a->y[i] + d) - oy;
+        for (int py = by0; py <= by1; py++) {
+            for (int px = bx0; px <= bx1; px++) {
+                if (px < 0 || py < 0 || px >= w || py >= h) {
+                    continue;
+                }
+                int hit = 0;
+                for (int sy = 0; sy < 4; sy++) {
+                    for (int sx = 0; sx < 4; sx++) {
+                        const float qx = (float)(px + ox) + ((float)sx + 0.5f) * 0.25f - 0.5f - a->x[i];
+                        const float qy = (float)(py + oy) + ((float)sy + 0.5f) * 0.25f - 0.5f - a->y[i];
+                        const float u = qx * cs + qy * sn, v = -qx * sn + qy * cs;   /* into the dot's own frame */
+                        hit += fabsf(u) <= half && fabsf(v) <= half;
+                    }
+                }
+                const int val = a->px[py * w + px] + hit * 21;   /* a little over full: the small dots keep their weight */
+                a->px[py * w + px] = (uint8_t)(val > 255 ? 255 : val);
+            }
+        }
+    }
+    a->img = (lv_image_dsc_t){ .header = { .magic = LV_IMAGE_HEADER_MAGIC, .cf = LV_COLOR_FORMAT_A8,
+                                           .w = (uint32_t)w, .h = (uint32_t)h, .stride = (uint32_t)w },
+                               .data_size = (uint32_t)(w * h), .data = a->px };
+    a->cx = (int16_t)(ox + w / 2);
+    a->cy = (int16_t)(oy + h / 2);
+    a->gen++;
+}
+
+static void push_image(int slot, const arc_text_t *a, float opa)
+{
+    if (s_d.n >= DOTS_MAX || opa < 6.0f || !a->px) {
+        return;
+    }
+    dot_t *o = &s_d.dot[s_d.n++];
+    o->x = a->cx;
+    o->y = a->cy;
+    o->d = (uint8_t)slot;
+    o->opa = (uint8_t)(opa > 255.0f ? 255 : opa);
+    o->kind = DOT_IMAGE;
+    o->col = a->gen;
+    s_d.hash = hash_step(s_d.hash, ((uint32_t)(uint16_t)o->x << 16) | (uint16_t)o->y);
+    s_d.hash = hash_step(s_d.hash, ((uint32_t)o->d << 24) | ((uint32_t)o->opa << 16) | ((uint32_t)o->kind << 8) | o->col);
+}
+
 void mao_dots_text_arc(const char *s, float r, bool bottom, float pitch, float d, float opa, bool halo)
 {
     if (opa < 6.0f || !s[0]) {
         return;
     }
-    const arc_text_t *a = arc_layout(s, r, bottom, pitch);
+    arc_text_t *a = (arc_text_t *)arc_layout(s, r, bottom, pitch);
     if (halo) {
         for (int i = 0; i < a->n; i++) {
             mao_dots_glyph(a->x[i], a->y[i], pitch * 2.6f, 235.0f * (opa / 255.0f), MAO_GLYPH_SQUARE, 1);
         }
     }
-    for (int i = 0; i < a->n; i++) {
-        mao_dots_glyph(a->x[i], a->y[i], d, opa, MAO_GLYPH_SQUARE, 0);
+    if (a->d != d) {
+        arc_render(a, d);
     }
+    push_image((int)(a - s_arc), a, opa);
 }
 
 void mao_dots_text_halo(const char *s, float cx, float cy, float pitch, float d, float opa)
@@ -456,6 +561,15 @@ static bool same_dot(const dot_t *a, const dot_t *b)
 static void dot_area(const lv_area_t *o, const dot_t *d, lv_area_t *a)
 {
     const int32_t cx = (o->x1 + o->x2 + 1) / 2, cy = (o->y1 + o->y2 + 1) / 2;
+    if (d->kind == DOT_IMAGE) {
+        const arc_text_t *at = &s_arc[d->d & 1];
+        const int32_t hw = (int32_t)at->img.header.w / 2 + 1, hh = (int32_t)at->img.header.h / 2 + 1;
+        a->x1 = cx + d->x - hw;
+        a->y1 = cy + d->y - hh;
+        a->x2 = cx + d->x + hw;
+        a->y2 = cy + d->y + hh;
+        return;
+    }
     const int32_t h = d->d / 2 + 2;            /* the glyph and its strokes */
     a->x1 = cx + d->x - h;
     a->y1 = cy + d->y - h;

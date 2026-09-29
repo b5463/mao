@@ -2,6 +2,7 @@
 #include "mao_app_priv.h"
 
 #include <inttypes.h>
+#include <stdlib.h>
 #include <string.h>
 #include "sdkconfig.h"
 #include "esp_check.h"

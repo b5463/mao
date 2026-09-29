@@ -1004,3 +1004,65 @@ awake (USB host), light sleep, NIGHT, and deep sleep.
 2. An amplifier enable (shutdown) pin, so that the speaker path is
    switched off before its input moves. That removes the remaining glide
    sound and the reset click.
+
+## 11. MAO's light field (M4.1, 2026-09-29)
+
+The field used on the LAMP page, in the lamp's carousel preview and in the
+boot bloom used to be KINO D4's boot field, taken from another project.
+It has been replaced by an original field (`components/mao_ui/mao_ui_field.c`),
+and MAO no longer uses the `odd_field` component.
+
+### Marks
+The marks are cut from the ODD JOBS symbol by `tools/odd_field_marks.py`,
+reading `assets/sprites/odd_jobs_symbol.png`. There are ten 14×11 crisp
+pixel-art masks:
+- the whole mark, with a deliberate one-pixel slit;
+- its block and its tail;
+- a single slit and a double slit;
+- the symbol's hexagon form, solid and as a ring;
+- three dots along the tail's slant;
+- a dash and a dot.
+
+The symbol is thickened slightly at full size before it's reduced, so its
+strokes survive at 14 px, and the slit is re-cut so it stays open.
+
+### Layout and life
+- **Lattice:** offset rows, 16 px along and 14 px down.
+- **Arrival:** a cell comes up as the reach passes it. The arrival is ragged
+  toward the edge and tight at the heart, and each cell rises over 18 px of
+  travel.
+- **Occupancy is procedural.** Every cell decides again about every 1.4 s,
+  on its own clock, whether it is lit. So the gaps wander instead of sitting
+  in fixed places. The chance of being lit runs from 95 % at the heart to
+  35 % at the edge.
+- **Marks change** every 260 ms, on each cell's own clock.
+  - **The heart** (inner half of the reach) uses full-weight marks: the
+    hexagon carries it, and the whole mark is kept to about one in eight so
+    it stays special.
+  - **The body** uses all nine marks.
+  - **The outer quarter** uses only slits, dots and dashes.
+- **Colour:** four inks of MAO's one hue, from the pale lead to the faint.
+  A light's brightness sets their strength, from 28 % to 100 %, and the pale
+  lead appears only when the light is bright.
+
+### Motion on the LAMP page
+- **Ripple:** each ring follows the brightness about 1.3 ms per px later than
+  the centre, so a change ripples outward.
+- **Waves:** the start of a turn (after 0.6 s still) sends a wave of the pale
+  lead through the light, outward for up and inward for down. It crosses in
+  about 350 ms, with at most one more every 0.9 s while turning.
+- **ON:** a spark at the centre, then the bloom.
+- **OFF:** an ember that cools to the resting dot in about 1.4 s.
+
+### Device names on the rim
+The name along the rim (CAMERA 01, LAMP 01) is now rendered once into an
+anti-aliased A8 mask. Each of its dots is a square turned with the curve at
+its exact sub-pixel position. Drawn dot by dot, every dot had been rounded
+to a pixel on its own, and the letters came out uneven. It is also cheaper
+per frame, since it's one image instead of about 150 dots.
+
+### Known
+- The LAMP page redraws much of the screen while its level moves, which is
+  unchanged from before (about 15 fps).
+- `mao_ui_dots.c` and `mao_ui_devices.c` are over the 500-line guideline;
+  splitting them is left for a separate change.

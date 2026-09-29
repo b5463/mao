@@ -128,6 +128,9 @@ static struct {
     mao_spring_t leave;            /* under FORGET?: 1 staying .. 0 gone (it recedes as FORGET is chosen) */
     uint8_t left_kind;             /* what was just forgotten: 0 a mark, 1 a light's field, 2 an iris */
     mao_spring_t twist;            /* the knob turned on the camera: the iris answers with a small turn */
+    uint32_t spark_at;             /* the light went on: a spark at the centre, then the bloom */
+    uint32_t ember_at;             /* the light went off: it collapses to an ember that cools */
+    uint32_t turn_at, wave_at;     /* the last detent, the last wave (waves are rare: a turn's start) */
     uint8_t nudges;                /* presses in a row that chose nothing (then: TURN) */
     int32_t left_pct;
     uint8_t shots;                 /* frames taken on this visit (the filmstrip) */
@@ -407,12 +410,22 @@ static void iris_draw(float x, float y, float r, const float ap[6], float front,
  * scene asks for it, the tick grants the one with more presence. */
 static struct {
     float reach, strength, oy, hole, weight;
+    float level;                      /* a light's brightness 0..1: how strong its field's marks are (1 = full) */
 } s_fq;
+static float s_fq_lamp;               /* the weight the LAMP page asked with (its field moves like the iris) */
 
 void mao_ui_field_request(float reach, float strength, float oy, float hole, float weight)
 {
     if (weight > s_fq.weight) {
-        s_fq = (typeof(s_fq)) { reach, strength, oy, hole, weight };
+        s_fq = (typeof(s_fq)) { reach, strength, oy, hole, weight, 1.0f };
+    }
+}
+
+/* The same for a light: its marks as strong as it is bright. */
+static void field_request_light(float reach, float strength, float oy, float weight, float level01)
+{
+    if (weight > s_fq.weight) {
+        s_fq = (typeof(s_fq)) { reach, strength, oy, 0.0f, weight, level01 };
     }
 }
 
@@ -472,7 +485,8 @@ static void device_preview(uint16_t type, int pct, int state, float y, float sca
     if (type == LIGHT_TYPE) {
         const float reach = lamp_preview_reach(pct >= 0 ? (float)pct / 100.0f : 0.6f) * scale *
                             (state == PREV_FAINT ? 0.7f : 1.0f) * (state == PREV_CALL ? 0.86f + 0.14f * breathe : 1.0f);
-        mao_ui_field_request(reach, (state == PREV_FAINT ? 0.35f : 1.0f) * opa / 255.0f, y, 0.0f, weight);
+        field_request_light(reach, (state == PREV_FAINT ? 0.35f : 1.0f) * opa / 255.0f, y, weight,
+                            pct >= 0 ? (float)pct / 100.0f : 0.6f);
     } else if (type == CAM_TYPE) {
         const float a = state == PREV_FAINT ? 0.0f : CAM_PREVIEW_AP * (state == PREV_CALL ? 0.55f + 0.45f * breathe : 1.0f);
         const float ap[6] = { a, a, a, a, a, a };
@@ -1189,7 +1203,8 @@ static void dotpage_layout(uint32_t now)
             reach += (small * leave - reach) * fk;
             strength = (1.0f - 0.9f * menu) * (0.45f + 0.55f * leave);
         }
-        mao_ui_field_request(reach, strength, qy, 0.0f, p0 + 0.01f);
+        field_request_light(reach, strength, qy, p0 + 0.01f, pct);
+        s_fq_lamp = p0 + 0.01f;
     }
 
     /* The name follows the rim at the top: set along the circle, it reads
@@ -1206,8 +1221,20 @@ static void dotpage_layout(uint32_t now)
         if (!s_dp.m.online) {
             mao_dots_text_halo("OFFLINE", 0.0f, 0.0f, 3.0f, 2.4f, 170.0f * p);
         } else if (!s_dp.m.power) {
-            mao_dots_add(0.0f, oy, 5.0f, 110.0f * p);
+            /* the light drew in to an ember that cools to the resting dot */
+            const float e = s_dp.ember_at ? clampf((float)(int32_t)(now - s_dp.ember_at) / 1400.0f, 0.0f, 1.0f) : 1.0f;
+            const float hot = (1.0f - e) * (1.0f - e);
+            mao_dots_add(0.0f, oy, 5.0f + 5.0f * hot, (110.0f + 145.0f * hot) * p);
             mao_dots_text_halo("OFF", 0.0f, 34.0f, 3.0f, 2.4f, 150.0f * p * (1.0f - menu));
+        }
+        if (s_dp.m.online && s_dp.m.power && s_dp.spark_at) {
+            /* switched on: a spark at the centre, the light blooming out of it */
+            const float k = clampf((float)(int32_t)(now - s_dp.spark_at) / 280.0f, 0.0f, 1.0f);
+            if (k < 1.0f) {
+                mao_dots_glyph(0.0f, oy, 6.0f + 16.0f * (1.0f - k), 255.0f * p * (1.0f - k * k), MAO_GLYPH_STAR, 0);
+            }
+        }
+        if (!s_dp.m.online || !s_dp.m.power) {
         } else if (now < s_dp.level_until) {
             /* While the knob moves: how much, large, over the field. */
             char num[8];
@@ -1342,6 +1369,21 @@ void mao_ui_device_dots(const mao_ui_dotpage_t *m)
     }
     if (m->on && m->level && s_dp.m.on && m->level_pct != s_dp.m.level_pct && m->power) {
         s_dp.level_until = lv_tick_get() + 1200;   /* the number shows while the knob moves */
+        /* a wave through the light when a turn begins, and at most one a
+         * second while it goes on - not one per detent */
+        const uint32_t now = lv_tick_get();
+        if ((int32_t)(now - s_dp.turn_at) > 600 || (int32_t)(now - s_dp.wave_at) > 900) {
+            mao_field_pulse(m->level_pct > s_dp.m.level_pct ? 1 : -1);
+            s_dp.wave_at = now;
+        }
+        s_dp.turn_at = now;
+    }
+    if (m->on && m->level && s_dp.m.on && m->online && s_dp.m.online && m->power != s_dp.m.power) {
+        if (m->power) {
+            s_dp.spark_at = lv_tick_get() | 1u;    /* on: a spark, then the bloom */
+        } else {
+            s_dp.ember_at = lv_tick_get() | 1u;    /* off: in to an ember */
+        }
     }
     if (m->on && (!s_dp.m.on || strcmp(s_dp.name, m->name ? m->name : "") != 0)) {
         s_dp.shots = 0;                           /* a new visit: an empty filmstrip */
@@ -1391,11 +1433,14 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     mao_spring_step(&s_dp.optsel, dt);
     s_fq.weight = 0.0f;
     s_fq.reach = 0.0f;
+    s_fq_lamp = -1.0f;
     mao_dots_begin();
     ST(0, list_layout(now));
     ST(1, dotpage_layout(now));
     const bool home_up = mao_home_dots_layout(now, dt);   /* HOME's dots: hint, intro, boot, tune, light */
     ST(2, mao_dots_end());
+    mao_field_motion(s_fq.weight > 0.0f && s_fq.weight == s_fq_lamp);
+    mao_field_level(s_fq.weight > 0.0f ? s_fq.level : 1.0f);
     ST(3, mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now));
     ST(4, panel_layout());
     if (ST_ON && ++s_st_n >= 300) {

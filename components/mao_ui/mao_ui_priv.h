@@ -70,12 +70,20 @@ void mao_dots_ring(float r, int count, float size, float opa, mao_glyph_t kind, 
 float mao_dots_noise(int i, int j, uint32_t t);  /* 0..1, deterministic */
 bool mao_dots_end(void);
 
-/* The ODD JOBS field (mao_ui_field.c): reach in px from the centre. */
+/* MAO's light field (mao_ui_field.c): reach in px from the centre. Its
+ * marks are cut from the ODD JOBS symbol (mao_field_marks.c). */
+enum { MAO_FM_MARK = 0, MAO_FM_BLOCK, MAO_FM_TAIL, MAO_FM_SLIT, MAO_FM_DASH, MAO_FM_DOT,
+       MAO_FM_HEX, MAO_FM_RING, MAO_FM_SLIT2, MAO_FM_DOTS3, MAO_FIELD_MARKS };
+extern const lv_image_dsc_t mao_field_mark[MAO_FIELD_MARKS];
 void mao_field_create(lv_obj_t *scr);
 /* MAO's accent (mao_character_accent): the field's one hue, and the dots'. */
 void mao_field_set_accent(uint32_t color);
 void mao_dots_set_accent(uint32_t color);
 void mao_field_set(float reach, float strength, float oy, uint32_t now_ms);   /* oy: centre, px down */
+/* The LAMP page owns this frame's field: its rings ripple and detents send waves. */
+void mao_field_motion(bool on);
+void mao_field_pulse(int dir);
+void mao_field_level(float level01);             /* a light's brightness: the marks' strength (1 = full) */                   /* a detent: +1 a wave outward, -1 inward */
 
 /* The focus line (mao_ui_focus.c). */
 typedef enum {
