@@ -125,6 +125,13 @@ typedef struct {
 #define MAO_CONTAIN_IN_S     0.06f   /* the scale arrives: in at once */
 #define MAO_CONTAIN_OUT_S    0.35f   /* it leaves: the eyes glide back to their own pose, never a jump */
 #define MAO_LOOK_EASE_S      0.30f   /* the expression layers quieten / return around a look at the scale */
+/* Character depth (M4.1 finishing pass) */
+#define MAO_TEASE_SQUEEZE    3.0f    /* glaring and teased: the lids tighten a little (a kick on CH_NARROW) */
+#define MAO_STILL_IN_S       0.20f   /* stillness arrives quickly ... */
+#define MAO_STILL_OUT_S      0.80f   /* ... and leaves slowly */
+#define MAO_QUIRK_HOLD_MS    1800u   /* the held look when fiddling stops just before the tsk */
+#define MAO_QUIRK_WATCH_MS   900u    /* it watches a clean setting, then forgives */
+#define MAO_QUIRK_OFFSCREEN_MS 1500u /* a look past the rim */
 #define MAO_GAZE_LAG_ORBIT   -3.0f   /* eyes trail the motion while orbiting */
 #define MAO_FACE_MIN         4.0f
 #define MAO_FACE_MAX         20.0f

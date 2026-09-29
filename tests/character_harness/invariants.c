@@ -167,10 +167,37 @@ static void inv_frame(void)
 /* I12: a grudge is not dropped half way - its mood never goes back to
  * neutral until it is over, whatever reaches the eyes meanwhile. */
 static bool s_grudge_over;
+static int s_glare_mads, s_glare_ladder, s_quirks_seen;
+static uint32_t s_quirk_over_at;
 
 static void inv_log(const char *tag, const char *line)
 {
     (void)tag;
+    /* I14: glaring and teased - it does not start over: "mad" plays once; it
+     * eases down the ladder (sulky, then wary) before it is over */
+    if (!strcmp(s_scn, "glare")) {
+        if (strstr(line, "-> mad")) {
+            s_glare_mads++;
+        }
+        if (strstr(line, "grudge eases to sulky")) {
+            s_glare_ladder |= 1;
+        }
+        if (strstr(line, "grudge eases to suspicious")) {
+            s_glare_ladder |= (s_glare_ladder & 1) ? 2 : 4;   /* 4: out of order */
+        }
+        if (strstr(line, "grudge over")) {
+            s_glare_ladder |= (s_glare_ladder & 2) ? 8 : 16;  /* 16: over without the ladder */
+        }
+    }
+    /* I15: every quirk says it is playing, and a forgiven grudge ends at once */
+    if (!strcmp(s_scn, "quirks")) {
+        if (strstr(line, "quirk: ")) {
+            s_quirks_seen++;
+        }
+        if (strstr(line, "grudge over")) {
+            s_quirk_over_at = s_now;
+        }
+    }
     if (strcmp(s_scn, "grudge") != 0) {
         return;
     }
@@ -189,7 +216,7 @@ static float jump_limit(const char *s)
     static const struct { const char *s; float px; } k[] = {
         { "idle", 14 }, { "press", 12 }, { "dial", 42 }, { "react", 22 }, { "sleep", 16 }, { "mind", 22 },
         { "looks", 26 }, { "states", 44 }, { "previews", 64 }, { "menu", 70 }, { "peek", 60 },
-        { "transfer", 115 }, { "gather", 40 }, { "homelook", 40 }, { "grudge", 40 },
+        { "transfer", 115 }, { "gather", 40 }, { "homelook", 40 }, { "grudge", 40 }, { "glare", 30 }, { "quirks", 40 },
     };
     for (size_t i = 0; i < sizeof(k) / sizeof(k[0]); i++) {
         if (!strcmp(k[i].s, s)) {
@@ -217,6 +244,40 @@ int main(int argc, char **argv)
     }
     mao_character_set_detents_per_rev(30);
     scenario(argv[1]);
+    if (!strcmp(s_scn, "glare")) {
+        if (s_glare_mads != 1) {
+            printf("  VIOLATION mad played %d times while glaring (once expected)\n", s_glare_mads);
+            s_bad++;
+        }
+        if (s_glare_ladder != (1 | 2 | 8)) {
+            printf("  VIOLATION the glare did not ease down its ladder (flags %d)\n", s_glare_ladder);
+            s_bad++;
+        }
+        const uint32_t c = EYE_OBJ(0, P_EYE)->bg & 0xF8FCF8u;
+        if (c != (0xF3A2C4u & 0xF8FCF8u)) {
+            printf("  VIOLATION still not pink after the glare (%06x)\n", c);
+            s_bad++;
+        }
+    }
+    if (!strcmp(s_scn, "quirks")) {
+        if (s_quirks_seen != 7) {
+            printf("  VIOLATION %d quirks played (7 expected; the 8th is refused)\n", s_quirks_seen);
+            s_bad++;
+        }
+        /* forgiven at 23100: over within its watch (0.9 s), not 11 s later */
+        if (!s_quirk_over_at || s_quirk_over_at > 23100 + 1500) {
+            printf("  VIOLATION the forgiven grudge ended at %u\n", s_quirk_over_at);
+            s_bad++;
+        }
+        /* everything settled: the eyes back at rest, pink */
+        for (int i = 0; i < 2; i++) {
+            const lv_obj_t *e = EYE_OBJ(i, P_EYE);
+            if (abs(e->y) > 14 || abs(abs(e->x) - 42) > 14) {
+                printf("  VIOLATION eye %d not back at rest (%d,%d)\n", i, e->x, e->y);
+                s_bad++;
+            }
+        }
+    }
     if (s_max_jump > jump_limit(s_scn)) {
         printf("  VIOLATION a jump of %.1f px in one frame (limit %.0f)\n", s_max_jump, jump_limit(s_scn));
         s_bad++;

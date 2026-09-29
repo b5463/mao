@@ -2,6 +2,7 @@
 #include "mao_app_priv.h"
 
 #include <inttypes.h>
+#include <string.h>
 #include "sdkconfig.h"
 #include "esp_check.h"
 #include "esp_log.h"
@@ -22,6 +23,7 @@
 #include "mao_link.h"
 #include "mao_rel.h"
 #include "mao_world.h"
+#include "mao_quirks.h"
 
 static const char *TAG = "MAO_APP";
 
@@ -451,9 +453,31 @@ void mao_app_apply_brightness(bool sleepy)
     mao_display_fade_brightness(pct, sleepy ? SLEEPY_FADE_MS : WAKE_FADE_MS);
 }
 
+/* Quirks (M4.1): the moments for MAO's small hidden behaviours are found
+ * here and in mao_app_home.c; mao_quirks decides whether one happens. */
+static mao_quirks_t s_quirks;
+static int64_t s_woke_us;
+static uint8_t s_visit_caps;          /* frames taken on this device-page visit */
+
+mao_quirks_t *mao_app_quirks(void)
+{
+    return &s_quirks;
+}
+
+int64_t mao_app_woke_us(void)
+{
+    return s_woke_us;
+}
+
+bool mao_app_quirk_roll(mao_qk_t k)
+{
+    return mao_quirks_roll(&s_quirks, k, (uint32_t)(esp_timer_get_time() / 1000), esp_random() % 1000u);
+}
+
 static void wake(void)
 {
     if (!mao_state()->awake) {
+        s_woke_us = esp_timer_get_time();
         mao_state_set_awake(true);
         mao_character_set_sleepy(false);
         mao_app_apply_brightness(false);
@@ -601,6 +625,10 @@ static void on_devices(const mao_event_t *ev, int64_t now)
                 mao_settings_note_last_device(dev.id);   /* the list starts here after a reboot */
             }
             mao_app_hold_reset();
+            s_visit_caps = 0;
+            if (mao_quirks_opened(&s_quirks, dev.id, (uint32_t)(now / 1000)) && mao_app_quirk_roll(MAO_QK_REVISIT)) {
+                mao_character_quirk(MAO_QUIRK_CURIOUS);   /* this one again? */
+            }
             s_dev_focus = 0;   /* the centre: the value, or the primary action */
             s_dev_edit = false;
             s_page_kind = mao_devpage(dev.id, &dev);
@@ -954,6 +982,10 @@ static void on_device_event(const mao_event_t *ev, int64_t now_us)
         if (mao_state()->awake) {
             if (!known) {
                 mao_character_react(MAO_CHAR_REACT_DEVICE_ON);    /* analytical curiosity */
+            } else if (mao_state()->view == MAO_VIEW_HOME && mao_state_idle_ms(now_us) > 15000 &&
+                       mao_app_quirk_roll(MAO_QK_OFFSCREEN)) {
+                /* idle at HOME, a known device returns: MAO looks past the rim, towards it */
+                mao_character_quirk((esp_random() & 1) ? MAO_QUIRK_OFFSCREEN_LEFT : MAO_QUIRK_OFFSCREEN_RIGHT);
             } else if (gone > BACK_IS_NEWS_MS) {
                 mao_character_react(MAO_CHAR_REACT_ATTEND);       /* a glance: "you again" */
             } else {
@@ -1240,6 +1272,11 @@ static void on_event(const mao_event_t *ev, void *ctx)
     case MAO_EVENT_PAGE_IDLE:
         on_page_idle(now);
         break;
+    case MAO_EVENT_HOME_QUIET:
+        if (mao_state()->view == MAO_VIEW_HOME && mao_state()->awake) {
+            mao_app_home_quiet(now);
+        }
+        break;
     default:
         break;
     }
@@ -1381,7 +1418,17 @@ static void on_action_update(int32_t value)
             s_cap_streak = (s_cap_last_done_us && now - s_cap_last_done_us < CAPTURE_RHYTHM_US)
                                ? (uint8_t)(s_cap_streak < 9 ? s_cap_streak + 1 : 9) : 0;
             s_cap_last_done_us = now;
-            if (s_cap_streak == 0) {
+            s_visit_caps = s_visit_caps < 255 ? (uint8_t)(s_visit_caps + 1) : 255;
+            if (s_visit_caps == MAO_QK_SERIES_N && mao_app_quirk_roll(MAO_QK_SERIES)) {
+                /* a whole strip of them: it looks at the frames, pleased */
+                show_feedback(MAO_CHAR_REACT_DONE, 1400);
+                mao_character_attend(0, 118);
+                mao_character_quirk(MAO_QUIRK_DELIGHT);
+            } else if (mao_app_quirk_roll(MAO_QK_DELIGHT)) {
+                show_feedback(MAO_CHAR_REACT_DONE, 1000);   /* rare: a golden glint instead of the nod */
+                mao_character_quirk(MAO_QUIRK_DELIGHT);
+                mao_audio_notice();                         /* and, for once, a note */
+            } else if (s_cap_streak == 0) {
                 show_feedback(MAO_CHAR_REACT_DONE, 800);     /* "Yes. Done." */
             } else if (s_cap_streak == 1) {
                 show_feedback(MAO_CHAR_REACT_DONE, 480);     /* shorter */
@@ -1478,6 +1525,22 @@ void mao_app_go_home(void)
     }
 }
 
+#if CONFIG_MAO_DEV_CONSOLE
+/* Development: "quirk <name>" plays a quirk now (its rarity and cooldown are
+ * the app's; this only asks the face) - for review and tests. */
+static void dev_quirk(char *arg)
+{
+    for (int q = 0; q < MAO_QUIRK_COUNT; q++) {
+        if (arg && strcmp(arg, mao_character_quirk_name((mao_character_quirk_t)q)) == 0) {
+            ESP_LOGI(TAG, "dev: quirk %s", arg);
+            mao_character_quirk((mao_character_quirk_t)q);
+            return;
+        }
+    }
+    ESP_LOGW(TAG, "quirk <hold|forgive|curious|delight|offscreen-left|offscreen-right|grumpy>");
+}
+#endif
+
 esp_err_t mao_app_init(void)
 {
     const mao_settings_t *cfg = mao_settings_get();
@@ -1492,6 +1555,10 @@ esp_err_t mao_app_init(void)
     mao_character_set_detents_per_rev(mao_input_detents_per_rev());
     ESP_RETURN_ON_ERROR(mao_ui_init(first_view), TAG, "ui");
     mao_rel_init_dev();
+    mao_quirks_reset(&s_quirks);
+#if CONFIG_MAO_DEV_CONSOLE
+    mao_devcmd_register("quirk", dev_quirk);   /* test hook: a quirk now, past its rarity */
+#endif
     ESP_RETURN_ON_ERROR(mao_event_subscribe(on_event, NULL), TAG, "subscribe");
     ESP_RETURN_ON_ERROR(mao_display_start(cfg->brightness), TAG, "display start");
     ESP_LOGI(TAG, "app ready: view %s, sleepy after %d s", mao_ui_view_name(first_view),

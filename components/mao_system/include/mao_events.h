@@ -44,6 +44,7 @@ typedef enum {
     MAO_EVENT_REL_CHANGED,       /* a device relationship was created, removed or re-described */
     MAO_EVENT_LINK_CHANGED,      /* link security: session state, pairing or revocation (mao_link.h) */
     MAO_EVENT_PAGE_IDLE,         /* periodic check: a device page or the list left alone */
+    MAO_EVENT_HOME_QUIET,        /* one-shot: HOME's light has not been turned for a moment */
 
     MAO_EVENT_COUNT,
 } mao_event_type_t;

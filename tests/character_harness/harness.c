@@ -407,6 +407,28 @@ static void scenario(const char *name)
         }
         run_ms(24000);                                          /* left alone, until t = 34500 */
     }
+    else if (IS("glare")) {    /* M4.1: glared at, teased again and again, then left: the ladder down */
+        mao_character_react(MAO_CHAR_REACT_FIDDLE_FED_UP);     /* t = 2500 */
+        run_ms(1000);
+        for (int k = 0; k < 12; k++) {                          /* teased on while glaring, until 8500 */
+            mao_character_react(k % 4 == 3 ? MAO_CHAR_REACT_FIDDLE_FED_UP : MAO_CHAR_REACT_FIDDLE_ONGOING);
+            run_ms(500);
+        }
+        run_ms(30000);                                          /* left alone: glare 16 s, sulky 3, wary 2.5 */
+    }
+    else if (IS("quirks")) {   /* M4.1: every quirk, each allowed to finish */
+        mao_character_quirk(MAO_QUIRK_DELIGHT);        run_ms(3000);
+        mao_character_quirk(MAO_QUIRK_CURIOUS);        run_ms(3000);
+        mao_character_quirk(MAO_QUIRK_OFFSCREEN_LEFT); run_ms(3000);
+        mao_character_quirk(MAO_QUIRK_OFFSCREEN_RIGHT);run_ms(3000);
+        mao_character_quirk(MAO_QUIRK_GRUMPY);         run_ms(3500);
+        mao_character_react(MAO_CHAR_REACT_FIDDLE_NOTICE); run_ms(600);
+        mao_character_quirk(MAO_QUIRK_HOLD);           run_ms(3000);   /* wary: the held look */
+        mao_character_react(MAO_CHAR_REACT_FIDDLE_ANNOYED); run_ms(1500);
+        mao_character_quirk(MAO_QUIRK_FORGIVE);        run_ms(4000);   /* forgiven: over at once */
+        mao_character_quirk(MAO_QUIRK_HOLD);           run_ms(500);    /* nothing to hold: ignored */
+        run_ms(6000);                                                  /* and everything has settled */
+    }
     else if (IS("names")) {    /* tool: index -> expression name (not part of the baseline) */
         for (int k = 0; k < mao_character_expression_count(); k++) {
             printf("%d %s\n", k, mao_character_expression_name(k));

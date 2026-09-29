@@ -97,6 +97,7 @@ const char *mao_event_name(mao_event_type_t type)
     case MAO_EVENT_REL_CHANGED:        return "REL_CHANGED";
     case MAO_EVENT_LINK_CHANGED:       return "LINK_CHANGED";
     case MAO_EVENT_PAGE_IDLE:          return "PAGE_IDLE";
+    case MAO_EVENT_HOME_QUIET:         return "HOME_QUIET";
     default:                           break;
     }
     ESP_LOGD(TAG, "unknown event %d", (int)type);

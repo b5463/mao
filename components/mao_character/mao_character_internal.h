@@ -23,7 +23,7 @@ typedef enum { PRIO_IDLE = 0, PRIO_SYSTEM, PRIO_DIAL, PRIO_PRESS, PRIO_NAV } pri
 typedef enum {
     CMD_DIAL, CMD_PRESS, CMD_REACT, CMD_APPEAR, CMD_SLEEPY, CMD_LEAVE, CMD_RETURN,
     CMD_PREVIEW, CMD_DEBUG_DIAL, CMD_LOOK, CMD_EXPRESSION, CMD_TRANSFER, CMD_MIND, CMD_PEEK, CMD_ATTEND, CMD_GATHER,
-    CMD_LOOK_AT,
+    CMD_LOOK_AT, CMD_QUIRK,
 } cmd_type_t;
 
 typedef struct {
@@ -71,6 +71,12 @@ typedef struct {
     int grudge_state;           /* lark state held (-1 none) */
     uint8_t grudge_level;       /* 1 wary, 2 sulky, 3 glaring */
     uint32_t grudge_until;
+    bool grudge_forgiven;       /* a clean setting: it ends without easing down the ladder */
+    /* Stillness (M4.1): 0 alive .. 1 a held, unmoving look; eased */
+    float still, still_target;
+    uint32_t still_until;       /* a quirk's held stillness until */
+    uint32_t offscreen_until;   /* a look past the rim until ... */
+    int8_t offscreen_dir;       /* ... to this side */
     bool sleepy;
     bool pressed;
     mao_mouth_t mouth;
@@ -132,6 +138,7 @@ void mao_char_dial_update(mao_char_t *mc, float dt, uint32_t now);
 /* Attention (mao_character_attention.c) */
 void mao_char_feedback(mao_char_t *mc, mao_character_reaction_t r, uint32_t now);
 void mao_char_attention_update(mao_char_t *mc, uint32_t now);
+void mao_char_quirk(mao_char_t *mc, mao_character_quirk_t q, uint32_t now);
 
 /* Reactions and state (mao_character_react.c) */
 prio_t mao_char_current_prio(mao_char_t *mc, uint32_t now);

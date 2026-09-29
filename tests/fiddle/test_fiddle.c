@@ -154,11 +154,89 @@ int main(void)
         }
         SW(300);
         CHECK(max >= MAO_FIDDLE_NOTICE);
-        /* and a quiet spell ends it */
+        /* and a quiet spell ends it - remembering it for a while */
         t += FIDDLE_QUIET_MS + 100;
         SW(0);
-        CHECK(mao_fiddle_score(&f, t) == FIDDLE_SWITCH_SCORE);
+        CHECK(mao_fiddle_score(&f, t) > FIDDLE_SWITCH_SCORE);
+        t += FIDDLE_CARRY_MS + FIDDLE_QUIET_MS;
+        SW(0);
+        CHECK(mao_fiddle_score(&f, t) == FIDDLE_SWITCH_SCORE);          /* ... and forgotten after */
         #undef SW
+    }
+
+    /* --- memory: teasing a MAO that is still moody --- */
+    {
+        /* how many quick flicks a fresh MAO needs to be annoyed */
+        int fresh_n = 0, moody_n = 0, calm_n = 0;
+        sim_init(&s, 50);
+        for (int k = 0; k < 40 && !s.fired[MAO_FIDDLE_ANNOYED]; k++) { run(&s, 2, k & 1 ? -1 : 1, 80); fresh_n++; }
+        /* glare it, stop for 5 s, then the same flicks */
+        sim_init(&s, 50);
+        for (int k = 0; k < 24; k++) { run(&s, 13, k & 1 ? -8 : 8, 25); }
+        CHECK(s.max_level == MAO_FIDDLE_FED_UP);
+        s.t += 5000;
+        s.v = 50;                                           /* the same place as the fresh run */
+        s.fired[MAO_FIDDLE_ANNOYED] = 0;
+        for (int k = 0; k < 40 && !s.fired[MAO_FIDDLE_ANNOYED]; k++) { run(&s, 2, k & 1 ? -1 : 1, 80); moody_n++; }
+        CHECK(moody_n < fresh_n);                           /* it gets there sooner */
+        /* ... but long after, it starts fresh again */
+        s.t += FIDDLE_CARRY_MS + 1000;
+        s.v = 50;
+        s.fired[MAO_FIDDLE_ANNOYED] = 0;
+        for (int k = 0; k < 40 && !s.fired[MAO_FIDDLE_ANNOYED]; k++) { run(&s, 2, k & 1 ? -1 : 1, 80); calm_n++; }
+        CHECK(calm_n == fresh_n);
+        /* one calm turn right after a bout is still only a turn */
+        sim_init(&s, 50);
+        for (int k = 0; k < 24; k++) { run(&s, 13, k & 1 ? -8 : 8, 25); }
+        s.t += 5000;
+        s.v = 50;                                           /* the same place as the fresh run */
+        s.max_level = 0; s.fired[1] = s.fired[2] = s.fired[3] = 0;
+        run(&s, 3, 1, 200);
+        CHECK(s.max_level == 0);
+    }
+
+    /* --- what a stop means --- */
+    {
+        /* stopping just short of the tsk: MAO was waiting for it */
+        sim_init(&s, 50);
+        int held = 0;
+        for (int k = 0; k < 40 && mao_fiddle_score(&s.f, s.t) < FIDDLE_L2 - 2; k++) { run(&s, 2, k & 1 ? -1 : 1, 80); }
+        CHECK(s.max_level == MAO_FIDDLE_NOTICE);
+        held = mao_fiddle_quiet(&s.f, s.t + 1200) == MAO_FIDDLE_QUIET_HELD;
+        CHECK(held);
+        CHECK(mao_fiddle_quiet(&s.f, s.t + 1400) == MAO_FIDDLE_QUIET_NONE);   /* once per run */
+        /* stopping early in a notice (far from the tsk): nothing special */
+        sim_init(&s, 50);
+        for (int k = 0; k < 40 && s.max_level == 0; k++) { run(&s, 2, k & 1 ? -1 : 1, 80); }
+        if (mao_fiddle_score(&s.f, s.t) < FIDDLE_L2 - FIDDLE_HELD_MARGIN) {
+            CHECK(mao_fiddle_quiet(&s.f, s.t + 1200) == MAO_FIDDLE_QUIET_NONE);
+        }
+        /* not yet stopped: nothing */
+        CHECK(mao_fiddle_quiet(&s.f, s.t + 100) == MAO_FIDDLE_QUIET_NONE);
+
+        /* after real annoyance, one clean deliberate move: MAO softens */
+        sim_init(&s, 50);
+        for (int k = 0; k < 6; k++) { run(&s, 13, k & 1 ? -8 : 8, 25); }
+        CHECK(s.max_level >= MAO_FIDDLE_ANNOYED && s.max_level < MAO_FIDDLE_FED_UP);
+        s.t += 1500;
+        run(&s, 4, -1, 150);                                 /* slow, one way, stops short of the end */
+        CHECK(mao_fiddle_quiet(&s.f, s.t + 1200) == MAO_FIDDLE_QUIET_CLEAN);
+        /* a move that changes its mind is not clean */
+        sim_init(&s, 50);
+        for (int k = 0; k < 6; k++) { run(&s, 13, k & 1 ? -8 : 8, 25); }
+        s.t += 1500;
+        run(&s, 3, -1, 150); run(&s, 1, 1, 150);
+        CHECK(mao_fiddle_quiet(&s.f, s.t + 1200) != MAO_FIDDLE_QUIET_CLEAN);
+        /* a clean move with nothing to forgive is just a move */
+        sim_init(&s, 50);
+        run(&s, 4, -1, 150);
+        CHECK(mao_fiddle_quiet(&s.f, s.t + 1200) == MAO_FIDDLE_QUIET_NONE);
+        /* a single detent is not a deliberate setting */
+        sim_init(&s, 50);
+        for (int k = 0; k < 6; k++) { run(&s, 13, k & 1 ? -8 : 8, 25); }
+        s.t += 1500;
+        run(&s, 1, -1, 150);
+        CHECK(mao_fiddle_quiet(&s.f, s.t + 1200) == MAO_FIDDLE_QUIET_NONE);
     }
 
     printf("fiddle: %d checks passed, %d failed\n", s_pass, s_fail);

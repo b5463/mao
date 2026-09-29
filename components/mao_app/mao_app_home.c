@@ -214,6 +214,49 @@ static mao_fiddle_t s_fiddle;
 static uint32_t s_fiddle_told_ms;
 static bool fiddle_says(const char *name, mao_fiddle_level_t l, uint32_t ms);
 
+/* A moment after the last turn of HOME's light: the stop is read
+ * (mao_fiddle_quiet) - MAO waiting for the tsk that did not come, or a clean
+ * setting it forgives. A one-shot timer, re-armed by every turn. */
+#define HOME_QUIET_US (1200 * 1000)
+static esp_timer_handle_t s_quiet_timer;
+
+static void quiet_cb(void *arg)
+{
+    (void)arg;
+    mao_event_post(MAO_EVENT_HOME_QUIET, 0);
+}
+
+static void home_quiet_arm(void)
+{
+    if (!s_quiet_timer) {
+        const esp_timer_create_args_t args = { .callback = quiet_cb, .name = "mao_homequiet" };
+        if (esp_timer_create(&args, &s_quiet_timer) != ESP_OK) {
+            return;
+        }
+    }
+    esp_timer_stop(s_quiet_timer);
+    esp_timer_start_once(s_quiet_timer, HOME_QUIET_US);
+}
+
+void mao_app_home_quiet(int64_t now)
+{
+    const uint32_t ms = (uint32_t)(now / 1000);
+    switch (mao_fiddle_quiet(&s_fiddle, ms)) {
+    case MAO_FIDDLE_QUIET_HELD:
+        if (mao_app_quirk_roll(MAO_QK_HOLD)) {
+            mao_character_quirk(MAO_QUIRK_HOLD);   /* it was waiting to see what you would do */
+        }
+        break;
+    case MAO_FIDDLE_QUIET_CLEAN:
+        if (mao_app_quirk_roll(MAO_QK_FORGIVE)) {
+            mao_character_quirk(MAO_QUIRK_FORGIVE);   /* that was a proper setting: fine */
+        }
+        break;
+    default:
+        break;
+    }
+}
+
 static void home_fiddle(uint64_t id, int32_t d, int64_t now)
 {
     mao_device_t dev;
@@ -249,6 +292,11 @@ static bool fiddle_says(const char *name, mao_fiddle_level_t l, uint32_t ms)
                  mao_fiddle_score(&s_fiddle, ms));
         mao_character_react(kReact[l]);
         s_fiddle_told_ms = ms;
+        if (l == MAO_FIDDLE_NOTICE && mao_app_woke_us() &&
+            (uint32_t)(ms - (uint32_t)(mao_app_woke_us() / 1000)) < MAO_QK_GRUMPY_MS &&
+            mao_app_quirk_roll(MAO_QK_GRUMPY)) {
+            mao_character_quirk(MAO_QUIRK_GRUMPY);   /* barely awake, and already this */
+        }
         return true;
     }
     if (s_fiddle.level > 0 && s_fiddle.last_event_ms == ms && ms - s_fiddle_told_ms >= 500u) {
@@ -360,6 +408,7 @@ void mao_app_on_home(const mao_event_t *ev, int64_t now)
             mao_settings_note_last_lamp(dev.info.id);
             home_lamp_show(dev.info.id);
             home_fiddle(dev.info.id, d, now);
+            home_quiet_arm();
         } else {
             mao_character_dial(d);                /* no light here: the eyes follow */
         }

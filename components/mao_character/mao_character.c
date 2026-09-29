@@ -93,6 +93,9 @@ static void apply(mao_char_t *mc, const cmd_t *c, uint32_t now)
     }
     case CMD_PEEK:       mao_char_peek_set(mc, c->flag, now); break;
     case CMD_GATHER:     mao_char_gather(mc, now); break;
+    case CMD_QUIRK:
+        mao_char_quirk(mc, (mao_character_quirk_t)c->arg, now);
+        break;
     case CMD_LOOK_AT: {
         /* HOME (M4.1): look towards a screen point, inside a circle. */
         const float x = (float)(int16_t)(c->value >> 16), y = (float)(int16_t)(c->value & 0xFFFF);
@@ -309,6 +312,20 @@ void mao_character_set_sleepy(bool sleepy)      { post((cmd_t){ .type = CMD_SLEE
 void mao_character_leave(void)                  { post((cmd_t){ .type = CMD_LEAVE }); }
 void mao_character_return(void)                 { post((cmd_t){ .type = CMD_RETURN }); }
 void mao_character_gather(void)                 { post((cmd_t){ .type = CMD_GATHER }); }
+void mao_character_quirk(mao_character_quirk_t q)
+{
+    if (q < MAO_QUIRK_COUNT) {
+        post((cmd_t){ .type = CMD_QUIRK, .arg = (int8_t)q });
+    }
+}
+
+const char *mao_character_quirk_name(mao_character_quirk_t q)
+{
+    static const char *const k[MAO_QUIRK_COUNT] = { "hold", "forgive", "curious", "delight", "offscreen-left",
+                                                    "offscreen-right", "grumpy" };
+    return q < MAO_QUIRK_COUNT ? k[q] : "?";
+}
+
 void mao_character_look(int x, int y, bool on)
 {
     post((cmd_t){ .type = CMD_LOOK_AT, .flag = on,

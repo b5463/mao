@@ -68,8 +68,15 @@ void mao_char_feedback(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
         break;
     }
     if (r >= MAO_CHAR_REACT_FIDDLE_NOTICE && r <= MAO_CHAR_REACT_FIDDLE_ONGOING) {
+        const uint8_t lv = r == MAO_CHAR_REACT_FIDDLE_ONGOING ? 0 : (uint8_t)(r - MAO_CHAR_REACT_FIDDLE_NOTICE + 1);
+        /* already this cross (or crosser): it does not start over - it holds on */
+        const bool teasing = mc->grudge_state >= 0 && lv <= mc->grudge_level;
         grudge(mc, r, now);
-        if (r == MAO_CHAR_REACT_FIDDLE_ONGOING) {
+        if (teasing && mc->grudge_level == 3) {
+            /* glaring and teased again: it barely moves - only the lids tighten */
+            mao_motion_kick(&mc->m, CH_NARROW, MAO_TEASE_SQUEEZE);
+        }
+        if (r == MAO_CHAR_REACT_FIDDLE_ONGOING || teasing) {
             return;                           /* the mood lasts; nothing new plays */
         }
     }
@@ -78,14 +85,20 @@ void mao_char_feedback(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
 }
 
 /* The grudge: which mood follows each reaction, how long it outlasts the
- * fiddling, and the colour it wears. */
+ * fiddling, the colour it wears, and - when it runs out - how long it holds
+ * as the next milder mood on the way down (glaring -> sulky -> wary ->
+ * itself), so it never ends in one step. gaze: how much the eyes follow the
+ * scale in that mood (wary tracks closely, sulky withdraws, glaring stares
+ * at you instead); still: how much of the mind's idle motion it suppresses. */
 static const struct {
     const char *state, *accent;
-    uint32_t hold_ms;
+    uint32_t hold_ms, ease_ms;
+    float gaze, still;
 } kGrudge[4] = {
-    [1] = { "suspicious", "suspicious", 7000 },
-    [2] = { "sulky", "tsk", 11000 },
-    [3] = { "cat_glare", "mad", 16000 },
+    [0] = { NULL, NULL, 0, 0, 1.00f, 0.0f },
+    [1] = { "suspicious", "suspicious", 7000, 2500, 1.25f, 0.2f },
+    [2] = { "sulky", "tsk", 11000, 3000, 0.55f, 0.35f },
+    [3] = { "cat_glare", "mad", 16000, 0, 0.30f, 0.75f },
 };
 
 static void grudge(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
@@ -93,6 +106,7 @@ static void grudge(mao_char_t *mc, mao_character_reaction_t r, uint32_t now)
     if (r != MAO_CHAR_REACT_FIDDLE_ONGOING) {
         const uint8_t lv = (uint8_t)(r - MAO_CHAR_REACT_FIDDLE_NOTICE + 1);
         if (lv > mc->grudge_level || mc->grudge_state < 0) {
+            mc->grudge_forgiven = mc->grudge_state >= 0 && mc->grudge_forgiven && lv <= mc->grudge_level;
             mc->grudge_level = lv;
             mc->grudge_state = mao_lark_find(kGrudge[lv].state);
         }
@@ -111,8 +125,16 @@ static void grudge_update(mao_char_t *mc, bool feedback, uint32_t now)
     if (mc->grudge_state < 0) {
         return;
     }
+    if (!before(now, mc->grudge_until) && !mc->sleepy && !mc->grudge_forgiven && mc->grudge_level > 1) {
+        /* it eases down a step: the next milder mood, held a little */
+        mc->grudge_level--;
+        mc->grudge_state = mao_lark_find(kGrudge[mc->grudge_level].state);
+        mc->grudge_until = now + kGrudge[mc->grudge_level].ease_ms;
+        ESP_LOGI(TAG, "grudge eases to %s", kGrudge[mc->grudge_level].state);
+    }
     if (!before(now, mc->grudge_until) || mc->sleepy) {
         ESP_LOGI(TAG, "grudge over");
+        mc->grudge_forgiven = false;
         if (mc->life.holding == mc->grudge_state) {
             mc->life.holding = -1;
         }
@@ -130,6 +152,55 @@ static void grudge_update(mao_char_t *mc, bool feedback, uint32_t now)
     if (!feedback && mc->fb_pending < 0 && mc->lark.cur != mc->grudge_state) {
         mao_lark_switch(&mc->lark, mc->grudge_state, now);
     }
+}
+
+/* Quirks: the app says when (mao_quirks.c); here is what they look like.
+ * Each is bounded - a timed stillness, a look, or one expression. */
+void mao_char_quirk(mao_char_t *mc, mao_character_quirk_t q, uint32_t now)
+{
+    if (!mc->visible || !mc->present || mc->sleepy || mc->transfer.phase != MAO_TR_NONE) {
+        return;
+    }
+    const char *st = NULL;
+    switch (q) {
+    case MAO_QUIRK_HOLD:
+        if (mc->grudge_state < 0 || mc->grudge_level != 1) {
+            return;                           /* only while wary: it was waiting for the next move */
+        }
+        mc->still_until = now + MAO_QUIRK_HOLD_MS;   /* waiting to see what you do next */
+        break;
+    case MAO_QUIRK_FORGIVE:
+        if (mc->grudge_state < 0) {
+            return;
+        }
+        mc->still_until = now + MAO_QUIRK_WATCH_MS;  /* it watches that clean move ... */
+        mc->grudge_until = now + MAO_QUIRK_WATCH_MS; /* ... and lets it go, without the ladder */
+        mc->grudge_forgiven = true;
+        break;
+    case MAO_QUIRK_CURIOUS:
+        st = "curious";
+        break;
+    case MAO_QUIRK_DELIGHT:
+        st = "glint";
+        break;
+    case MAO_QUIRK_OFFSCREEN_LEFT:
+    case MAO_QUIRK_OFFSCREEN_RIGHT:
+        if (mc->peek || mc->grudge_state >= 0 || mc->look_on) {
+            return;                           /* only an idle MAO has attention to spare */
+        }
+        mc->offscreen_dir = q == MAO_QUIRK_OFFSCREEN_LEFT ? -1 : 1;
+        mc->offscreen_until = now + MAO_QUIRK_OFFSCREEN_MS;
+        break;
+    case MAO_QUIRK_GRUMPY:
+        st = "grumpywake";
+        break;
+    default:
+        return;
+    }
+    if (st) {
+        mc->fb_pending = mao_lark_find(st);
+    }
+    ESP_LOGI(TAG, "quirk: %s", mao_character_quirk_name(q));
 }
 
 void mao_char_attention_update(mao_char_t *mc, uint32_t now)
@@ -169,8 +240,36 @@ void mao_char_attention_update(mao_char_t *mc, uint32_t now)
     }
     const bool looking = mc->look_on && !mc->peek && mc->transfer.phase == MAO_TR_NONE;
     if (looking) {
-        mao_motion_set(&mc->m, CH_GAZE_X, mc->look_gx);
-        mao_motion_set(&mc->m, CH_GAZE_Y, mc->look_gy);
+        /* how closely it follows the scale depends on its mood */
+        const float gz = kGrudge[mc->grudge_state >= 0 ? mc->grudge_level : 0].gaze;
+        mao_motion_set(&mc->m, CH_GAZE_X, mc->look_gx * gz);
+        mao_motion_set(&mc->m, CH_GAZE_Y, mc->look_gy * gz);
+    }
+    /* A look past the rim: far to one side, the head turned so the far eye
+     * tucks away, as if at something off the screen - then back. */
+    if (mc->offscreen_until) {
+        if (before(now, mc->offscreen_until) && !mc->look_on && mc->grudge_state < 0) {
+            mao_motion_set(&mc->m, CH_GAZE_X, (float)mc->offscreen_dir * MAO_GAZE_MAX * 1.6f);
+            mao_motion_set(&mc->m, CH_HEAD_YAW, (float)mc->offscreen_dir * 0.75f);
+        } else {
+            mc->offscreen_until = 0;
+            mao_motion_set(&mc->m, CH_HEAD_YAW, 0.0f);
+            if (!mc->look_on) {
+                mao_motion_set(&mc->m, CH_GAZE_X, 0.0f);
+            }
+        }
+    }
+    {
+        /* Stillness: a glare, or a held look, takes the mind's small idle
+         * motion and blinks away; eased in quickly and out slowly. */
+        const float sdt = mc->contain_ms ? fminf((float)(now - mc->contain_ms) / 1000.0f, 0.1f) : 0.0f;
+        mc->still_target = fmaxf(mc->grudge_state >= 0 ? kGrudge[mc->grudge_level].still : 0.0f,
+                                 before(now, mc->still_until) ? 1.0f : 0.0f);
+        const float tau = mc->still_target > mc->still ? MAO_STILL_IN_S : MAO_STILL_OUT_S;
+        mc->still += (mc->still_target - mc->still) * (1.0f - expf(-sdt / tau));
+        if (mc->still > 0.6f && mc->life.next_blink_ms < now + 400u) {
+            mc->life.next_blink_ms = now + 400u;    /* no blink in a stare */
+        }
     }
     {
         /* While the eyes follow the scale the layers are quieter (the knob is
@@ -217,7 +316,7 @@ void mao_char_attention_update(mao_char_t *mc, uint32_t now)
     float life[CH_COUNT] = { 0 };
     mao_life_update(&mc->life, &mc->lark, &mc->m, now, mc->visible && prio == PRIO_IDLE, mc->sleepy, life);
     if (prio != PRIO_NAV) {
-        const float lg = mc->peek ? MAO_PEEK_LAYER_GAIN : mc->look_k[1];
+        const float lg = (mc->peek ? MAO_PEEK_LAYER_GAIN : mc->look_k[1]) * (1.0f - 0.85f * mc->still);
         for (int i = 0; i < CH_COUNT; i++) {
             mc->m.layer[i] += life[i] * lg;
         }

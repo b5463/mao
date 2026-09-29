@@ -134,6 +134,23 @@ void mao_character_attend(int x, int y);
  * lets go on its own ~2.5 s after the last call). */
 void mao_character_look(int x, int y, bool on);
 
+/* Quirks (M4.1): small, rare, undocumented behaviours the app asks for when
+ * their moment comes (the app decides when, and how rarely - mao_quirks.h).
+ * Each is bounded: it plays out, or eases into an existing mood. None of them
+ * touches anything but the face. */
+typedef enum {
+    MAO_QUIRK_HOLD = 0,       /* stopped just before the tsk: an unusually long, still look, then it relaxes */
+    MAO_QUIRK_FORGIVE,        /* a clean setting after fiddling: watches, then the grudge softens early */
+    MAO_QUIRK_CURIOUS,        /* the same device again and again: a curious look */
+    MAO_QUIRK_DELIGHT,        /* a rare golden glint after something went well */
+    MAO_QUIRK_OFFSCREEN_LEFT, /* a look past the rim, at something that is not on the screen */
+    MAO_QUIRK_OFFSCREEN_RIGHT,
+    MAO_QUIRK_GRUMPY,         /* just woken and already fiddled with */
+    MAO_QUIRK_COUNT,
+} mao_character_quirk_t;
+void mao_character_quirk(mao_character_quirk_t q);
+const char *mao_character_quirk_name(mao_character_quirk_t q);
+
 /* MAO's colour now (0xRRGGBB): pink at rest, leaning with the mood. The
  * whole screen uses it - the dot UI and the field follow the eyes. */
 uint32_t mao_character_accent(void);
