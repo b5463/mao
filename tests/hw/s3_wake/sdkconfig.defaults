@@ -1,0 +1,2 @@
+# MAO Rev A wake test: see main/s3_wake_test.c
+CONFIG_IDF_TARGET="esp32s3"
