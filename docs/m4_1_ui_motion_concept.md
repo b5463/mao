@@ -597,6 +597,13 @@ decision. FORGET is on the left, the way the menu went.
     never a dark "on".
   - The lamp page is unchanged.
   - Bench-checked on LAMP 01, step by step (power and level read back).
+  - **The mood behaviour applies to switching too.** Flicking the light
+    is fiddling like sweeping it: each switch scores 3 on the same bout,
+    so three quick switches are noticed, five annoy, eight make MAO mad,
+    and the grudge follows. A single switch just gets MAO's quiet `done`.
+    Switching now and then never adds up (`tests/fiddle`, 25 checks).
+    Bench: a nod on the first switch; noticed / annoyed / mad at switches
+    4, 6 and 9; the glare held 16 s after the last.
 - Fixes from use (2026-09-29):
   - **The lids no longer paint over the scale.** When the nearer eye
     changed in a head turn, its stack was moved to the screen's foreground,

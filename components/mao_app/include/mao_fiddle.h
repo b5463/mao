@@ -53,5 +53,12 @@ void mao_fiddle_reset(mao_fiddle_t *f);
  * it (and FED_UP again every FIDDLE_REPEAT_MS while it goes on), else NONE. */
 mao_fiddle_level_t mao_fiddle_turn(mao_fiddle_t *f, int32_t d, int8_t edge, uint32_t now_ms);
 
+/* The light was switched on or off (a press, or a turn past the bottom).
+ * Flicking it scores FIDDLE_SWITCH_SCORE a time: a few switches in a few
+ * seconds is fiddling; one switch, or two a while apart, never is. Same
+ * return as mao_fiddle_turn. */
+#define FIDDLE_SWITCH_SCORE 3
+mao_fiddle_level_t mao_fiddle_switch(mao_fiddle_t *f, uint32_t now_ms);
+
 /* The score now (for logs and tests). */
 int mao_fiddle_score(const mao_fiddle_t *f, uint32_t now_ms);

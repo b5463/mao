@@ -212,6 +212,7 @@ static bool home_lamp(mao_device_t *dev, mao_device_controls_t *ctl)
  * followed the knob; MAO only lets it show. */
 static mao_fiddle_t s_fiddle;
 static uint32_t s_fiddle_told_ms;
+static bool fiddle_says(const char *name, mao_fiddle_level_t l, uint32_t ms);
 
 static void home_fiddle(uint64_t id, int32_t d, int64_t now)
 {
@@ -229,23 +230,34 @@ static void home_fiddle(uint64_t id, int32_t d, int64_t now)
     const bool off = ctl.toggle_idx >= 0 && dev.caps[ctl.toggle_idx].value == 0;
     const int8_t edge = off || c->value <= c->cap.min ? -1 : (c->value >= c->cap.max ? 1 : 0);
     const uint32_t ms = (uint32_t)(now / 1000);
+    fiddle_says(dev.info.name, mao_fiddle_turn(&s_fiddle, d, edge, ms), ms);
+}
+
+/* What the fiddling detector found becomes MAO's mood: a new level is its
+ * reaction (and the grudge after it); still at it keeps the mood going.
+ * Returns true when MAO reacted. */
+static bool fiddle_says(const char *name, mao_fiddle_level_t l, uint32_t ms)
+{
     static const mao_character_reaction_t kReact[] = {
         [MAO_FIDDLE_NOTICE] = MAO_CHAR_REACT_FIDDLE_NOTICE,
         [MAO_FIDDLE_ANNOYED] = MAO_CHAR_REACT_FIDDLE_ANNOYED,
         [MAO_FIDDLE_FED_UP] = MAO_CHAR_REACT_FIDDLE_FED_UP,
     };
-    const mao_fiddle_level_t l = mao_fiddle_turn(&s_fiddle, d, edge, ms);
     if (l != MAO_FIDDLE_NONE) {
-        ESP_LOGI(TAG, "fiddling with '%s': %s (score %d)", dev.info.name,
+        ESP_LOGI(TAG, "fiddling with '%s': %s (score %d)", name,
                  l == MAO_FIDDLE_NOTICE ? "noticed" : l == MAO_FIDDLE_ANNOYED ? "annoyed" : "fed up",
                  mao_fiddle_score(&s_fiddle, ms));
         mao_character_react(kReact[l]);
         s_fiddle_told_ms = ms;
-    } else if (s_fiddle.level > 0 && s_fiddle.last_event_ms == ms && ms - s_fiddle_told_ms >= 500u) {
+        return true;
+    }
+    if (s_fiddle.level > 0 && s_fiddle.last_event_ms == ms && ms - s_fiddle_told_ms >= 500u) {
         /* still at it: the mood it is in lasts (at most twice a second) */
         mao_character_react(MAO_CHAR_REACT_FIDDLE_ONGOING);
         s_fiddle_told_ms = ms;
+        return true;
     }
+    return s_fiddle.level > 0;                /* in a mood: no cheerful nod on top */
 }
 
 /* While the light's arc is up (it stays ~1.6 s after the last turn - the
@@ -280,6 +292,12 @@ static void home_lamp_switch(const mao_device_t *dev, const mao_device_controls_
         mao_audio_back();
     }
     mao_led_pulse(MAO_LED_PULSE_CONFIRM);
+    /* The mood behaviour: flicking the light is fiddling like any other;
+     * a single switch just gets MAO's quiet "done" (no waiting for a result). */
+    const uint32_t ms = (uint32_t)(esp_timer_get_time() / 1000);
+    if (!fiddle_says(dev->info.name, mao_fiddle_switch(&s_fiddle, ms), ms)) {
+        mao_character_react(MAO_CHAR_REACT_DONE);
+    }
 }
 
 static void home_lamp_show(uint64_t id)

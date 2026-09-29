@@ -26,11 +26,11 @@ static void score(mao_fiddle_t *f, uint8_t w, uint32_t now_ms)
     f->last_event_ms = now_ms;
 }
 
-mao_fiddle_level_t mao_fiddle_turn(mao_fiddle_t *f, int32_t d, int8_t edge, uint32_t now_ms)
+static mao_fiddle_level_t judge(mao_fiddle_t *f, uint32_t now_ms);
+
+/* A quiet spell ends a bout; a calm spell ends its level. */
+static void settle(mao_fiddle_t *f, uint32_t now_ms)
 {
-    if (d == 0) {
-        return MAO_FIDDLE_NONE;
-    }
     if (f->any && now_ms - f->last_event_ms >= FIDDLE_QUIET_MS && now_ms - f->last_turn_ms >= FIDDLE_QUIET_MS) {
         const int8_t e = f->edge;
         mao_fiddle_reset(f);                  /* a new bout */
@@ -39,6 +39,23 @@ mao_fiddle_level_t mao_fiddle_turn(mao_fiddle_t *f, int32_t d, int8_t edge, uint
     if (f->level > 0 && now_ms - f->last_event_ms >= FIDDLE_QUIET_MS) {
         f->level = 0;                         /* turning on, but calmly again */
     }
+}
+
+mao_fiddle_level_t mao_fiddle_switch(mao_fiddle_t *f, uint32_t now_ms)
+{
+    settle(f, now_ms);
+    score(f, FIDDLE_SWITCH_SCORE, now_ms);
+    f->last_turn_ms = now_ms;
+    f->any = true;
+    return judge(f, now_ms);
+}
+
+mao_fiddle_level_t mao_fiddle_turn(mao_fiddle_t *f, int32_t d, int8_t edge, uint32_t now_ms)
+{
+    if (d == 0) {
+        return MAO_FIDDLE_NONE;
+    }
+    settle(f, now_ms);
     const int8_t dir = d > 0 ? 1 : -1;
     if (f->any && dir != f->last_dir && now_ms - f->last_turn_ms < FIDDLE_GAP_MS) {
         score(f, 1, now_ms);
@@ -50,7 +67,13 @@ mao_fiddle_level_t mao_fiddle_turn(mao_fiddle_t *f, int32_t d, int8_t edge, uint
     f->last_dir = dir;
     f->last_turn_ms = now_ms;
     f->any = true;
+    return judge(f, now_ms);
+}
 
+/* The level the score has reached: said the first time a bout reaches it,
+ * and "fed up" again every FIDDLE_REPEAT_MS while it goes on. */
+static mao_fiddle_level_t judge(mao_fiddle_t *f, uint32_t now_ms)
+{
     const int s = mao_fiddle_score(f, now_ms);
     const uint8_t want = s >= FIDDLE_L3 ? MAO_FIDDLE_FED_UP : s >= FIDDLE_L2 ? MAO_FIDDLE_ANNOYED
                          : s >= FIDDLE_L1 ? MAO_FIDDLE_NOTICE : MAO_FIDDLE_NONE;

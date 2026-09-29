@@ -120,6 +120,47 @@ int main(void)
     sim_init(&s, 50);
     CHECK(mao_fiddle_turn(&s.f, 0, 0, 1000) == MAO_FIDDLE_NONE);
 
+    /* --- switching the light --- */
+    {
+        mao_fiddle_t f;
+        int max = 0, fired[4] = { 0 };
+        uint32_t t = 10000;
+        #define SW(gap) do { t += (gap); const mao_fiddle_level_t l_ = mao_fiddle_switch(&f, t); \
+                             if (l_) { fired[l_]++; max = (int)l_ > max ? (int)l_ : max; } } while (0)
+        /* on, and off again later: never */
+        mao_fiddle_reset(&f); max = 0;
+        SW(0); SW(3000); SW(6000); SW(9000);
+        CHECK(max == 0);
+        /* off and on to check it works: never */
+        mao_fiddle_reset(&f); max = 0;
+        SW(0); SW(1200);
+        CHECK(max == 0);
+        /* flicking it: noticed, then annoyed, then mad - each said once */
+        mao_fiddle_reset(&f); max = 0; fired[1] = fired[2] = fired[3] = 0;
+        for (int k = 0; k < 3; k++) { SW(400); }
+        CHECK(max == MAO_FIDDLE_NOTICE);
+        for (int k = 0; k < 2; k++) { SW(400); }
+        CHECK(max == MAO_FIDDLE_ANNOYED);
+        for (int k = 0; k < 3; k++) { SW(400); }
+        CHECK(max == MAO_FIDDLE_FED_UP);
+        CHECK(fired[1] == 1 && fired[2] == 1 && fired[3] == 1);
+        /* switching and sweeping add up: one bout */
+        mao_fiddle_reset(&f); max = 0;
+        SW(0);
+        for (int k = 0; k < 6; k++) {
+            t += 60;
+            const mao_fiddle_level_t l = mao_fiddle_turn(&f, k & 1 ? -2 : 2, 0, t);
+            max = (int)l > max ? (int)l : max;
+        }
+        SW(300);
+        CHECK(max >= MAO_FIDDLE_NOTICE);
+        /* and a quiet spell ends it */
+        t += FIDDLE_QUIET_MS + 100;
+        SW(0);
+        CHECK(mao_fiddle_score(&f, t) == FIDDLE_SWITCH_SCORE);
+        #undef SW
+    }
+
     printf("fiddle: %d checks passed, %d failed\n", s_pass, s_fail);
     return s_fail ? 1 : 0;
 }
