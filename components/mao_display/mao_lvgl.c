@@ -8,10 +8,14 @@
 
 static const char *TAG = "MAO_DISPLAY";
 
-/* Partial rendering: two 240 x 20-line RGB565 buffers (9600 B each) in
+/* Partial rendering: two 240 x 40-line RGB565 buffers (19200 B each) in
  * DMA-capable internal RAM. LVGL renders into one while the other is being
- * sent over SPI. A full frame would be 115200 B, so this is ~17 % of that. */
-#define MAO_LVGL_BUF_LINES      20
+ * sent over SPI. A full frame would be 115200 B, so this is a third of that.
+ * The LCDkit's panel has no TE line, so a write can never be synced to the
+ * panel's scan: the fewer strips a moving area takes, the smaller the chance
+ * the scan catches it half-written (a torn band when the eyes swing fast) -
+ * 40 lines puts the eyes in about half as many strips as 20 did. */
+#define MAO_LVGL_BUF_LINES      40
 #define MAO_LVGL_DOUBLE_BUFFER  true
 
 #define MAO_LVGL_TASK_STACK     6144

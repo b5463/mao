@@ -1004,6 +1004,11 @@ awake (USB host), light sleep, NIGHT, and deep sleep.
 2. An amplifier enable (shutdown) pin, so that the speaker path is
    switched off before its input moves. That removes the remaining glide
    sound and the reset click.
+3. The display's TE (tearing-effect) line wired to a GPIO. Without it a
+   frame can't be synced to the panel's scan, so fast motion can tear. On
+   the LCDkit the LVGL strips were doubled to 40 lines, which puts the
+   moving eyes in half as many bursts. The tear is much rarer and the orbit
+   now holds 50 fps, but only TE removes it.
 
 ## 11. MAO's light field (M4.1, 2026-09-29)
 
