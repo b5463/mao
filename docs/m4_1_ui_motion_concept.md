@@ -677,13 +677,18 @@ decision. FORGET is on the left, the way the menu went.
   | mad | red 0xF2646E | mad, dizzy_mad, sinister |
   | cross | rose 0xF58C84 | glare, cat_glare, tsk, hmph, sulky, pout, contempt, eyeroll, grumpywake |
   | warm | peach 0xF7B58C | hum, purr, happy, pleased, content, relief |
-  | bright | gold 0xF5C870 | excited, glint, proud, giggle |
   | sad | blue 0xA8B0F2 | sad, lonely, sigh, worry, anxious |
   | asleep | lavender 0xC7A6F7 | dimmed MAO, asleep, doze, drowsy, yawn |
   | blank | grey 0xBCAFB8 | zoned, cat_blank, deadpan, bored, daydream |
 
-- The event colours (cobalt spin, yellow warmth, red failure) stay events
-  on top of the accent.
+- **No yellow (2026-09-29, on request):** the gold "delighted" family
+  (excited, glint, proud, giggle) was removed; those states stay pink. The
+  warmth tint no longer colours the eyes yellow, and the greedy star is
+  drawn in the eye's pale disc colour. `tests/accent` guards it: no mapped
+  state may lean yellow.
+- The event colours (cobalt spin, red failure) stay events on top of the
+  accent. The one yellow left is the UI focus line's flash after a capture:
+  an interface event, not a mood.
 - The dots and the field redraw only when the colour changes on the panel
   (RGB565).
 - Code: `mao_character_accent.c`, which is pure and host-tested.
@@ -713,3 +718,197 @@ decision. FORGET is on the left, the way the menu went.
   reboots, injected failures). After every step, the table, the fake flash
   and the model must agree, and an erase or write may only touch its own
   device's slot. Two deliberately broken copies are both caught.
+
+## 9. M4.1 final: as built and validated (2026-09-29)
+
+This section describes MAO as it now runs. It supersedes anything above
+that disagrees with it. Screens of each state are in `docs/m4_1_screens/`,
+captured from the device over USB.
+
+### 9.1 Visual language
+- One colour, MAO's pink (0xF3A2C4), runs through the eyes, the dots and
+  the ODD field, and leans with the mood (§8, colour table).
+- Flat, bold egg-shaped eyes with anti-aliased lids. Sizes are even, so the
+  eyes scale about their centre; they keep their sides and never cross.
+- A dot-matrix language, round compositions, device names running along
+  the rim, and almost no text: FULL, NO ANSWER, BACK, CONNECT, FORGET,
+  KEEP, SOUND, SCREEN, PRESS, TURN.
+
+### 9.2 HOME
+- **Boot.** The ODD JOBS maker's mark (symbol only, in MAO's colour,
+  118x96, centred) shows for a moment on black: in 0.08-0.26 s, out
+  0.56-0.76 s. The approved bloom follows 0.62 s later and takes it from
+  the centre, then MAO in dots, and the field draws back. The eyes open at
+  1.67 s. The mark is never shown anywhere else, and the wordmark is never
+  drawn. Asset: `assets/sprites/odd_jobs_symbol.png` (678x550, from the
+  official `oddjobs.png`, not modified), embedded as an 11,328-byte A8 mask
+  (`components/mao_ui/mao_mark_odd_jobs.c`, `tools/odd_jobs_mark.py`).
+- **Idle.** The character with its mind: gaze, blinks, rare expressions.
+- **Hold and turn.** SOUND to the left, SCREEN to the right. Let go on one
+  to adjust it live; a press or 5 s of quiet saves it.
+- **Plain turn.** Sets the light used last:
+  - An arc of dots on the rim, with the light's name, arriving from the
+    name upwards.
+  - The eyes look towards its lit end, contained inside 96 px, so the
+    coloured eye never reaches the arc (inner edge 102 px).
+  - The lids draw under the dot layer, so they cannot erase the arc.
+  - Containment eases in over 60 ms and out over 350 ms, and the layers
+    ease back over 0.3 s, so nothing jumps when the arc goes.
+- **Dimmer.** While the arc is up, a press switches the light. Turning
+  down stops at 0 %; after a 300 ms pause, one more turn down is off.
+  Turning up is on, at least 10 %.
+- **Dim and sleep.**
+  - Sleepy (dimmed) after 10 min; deep sleep (3 %) after 30 min.
+  - The first touch of a dimmed MAO only wakes it: a press is eaten whole,
+    and so is the waking turn.
+
+### 9.3 DEVICES
+- The carousel ("the puck"). Each device's preview is the same drawing
+  everywhere it appears, from one function (`device_preview`).
+- It reopens on the last-used device, also after a reboot (`last_dev` in
+  NVS).
+
+### 9.4 LAMP
+- The ODD/KINO field's size is the brightness.
+- Steps: 1 % a detent when slow, 2 % at up to 8.5 detents/s, 4 % below
+  20 /s, and 8 % beyond. The speed window is 250 ms.
+
+### 9.5 CAMERA
+- **Iris:** dots and six blades that close in a ripple; the knob gives it a
+  small turn.
+- **A capture:**
+  1. the shot number disappears the moment you press;
+  2. exposure flash;
+  3. the frame drops into the filmstrip along the rim (fixed slots, up to
+     the name, empty on every visit);
+  4. the shutter sound plays on DONE.
+- **FULL:** the iris dims and FREE UP SPACE shows while storage is zero.
+- **NO ANSWER:** shown when a result never comes, at the 8 s deadline. The
+  unanswered frame is not added to the strip.
+
+### 9.6 The hold gesture (every device page)
+- Hold, or hold and turn: FORGET to the left, BACK in the middle, CONNECT to
+  the right; let go to choose.
+- FORGET opens a question whose knob starts in the middle. Only a
+  deliberate turn to FORGET and then a press forgets; a long press is BACK.
+
+### 9.7 Fiddling and moods
+- **The detector** (`mao_fiddle.c`, pure) works from behaviour, not a
+  single speed:
+  - a flick back within 450 ms scores 1;
+  - arriving at an end scores 2;
+  - switching the light scores 3.
+  - Scores are summed over 5 s. Level 1 at 8 (noticed, a suspicious look),
+    level 2 at 14 (tsk), level 3 at 22 (mad).
+  - Careful setting, fine-tuning and full sweeps never reach level 1.
+  - A 4 s quiet ends a bout.
+- **Memory:** a bout's peak is carried into the next as a fading bonus (4
+  per level over 20 s), so teasing a still-moody MAO escalates sooner. It
+  only counts once the new bout has begun.
+- **Moods after a reaction (the grudge).** They hold at full strength and
+  outlast the fiddling:
+
+  | Mood | State | Colour | Holds after the last fiddle | Then eases (as the next) | Gaze while following the scale | Stillness |
+  |---|---|---|---|---|---|---|
+  | wary | suspicious | pink | 7 s | ends | 1.25 (tracks closely) | 0.2 |
+  | sulky | sulky | rose | 11 s | 2.5 s as wary | 0.55 (withdrawn) | 0.35 |
+  | glaring | cat_glare | red | 16 s | 3 s as sulky | 0.30 (a direct stare) | 0.75, no blinks |
+
+- **Recovery is a ladder** (glaring, then sulky, then wary, then itself).
+  The colour softens through rose to pink, calming with a 1.4 s time
+  constant (0.45 s into a mood).
+- **Teased while glaring:** it does not start over. Mad plays once; each new
+  tease only tightens the lids a little. A milder reaction during a
+  stronger mood only extends it.
+- The light always follows the knob; moods never block control.
+- The mind's own "any input ends a held mood" rule leaves a grudge alone.
+
+### 9.8 Hidden behaviour: developer reference (internal, not user-facing)
+These are never announced, counted or shown. `mao_quirks.c` (pure,
+`tests/quirks`) decides when; `mao_character_quirk()` plays. Each is bounded:
+it plays out, or eases into an existing mood. None of them touches anything
+but the face (and, for delight, one note). Dev hook: `quirk <name>` plays
+one now.
+
+| Internal name | Moment (trigger) | Chance | Cooldown | What happens (channels) | Duration | Audio | Tests |
+|---|---|---|---|---|---|---|---|
+| hold | fiddling stopped just short of the tsk (level 1, score within 4 of level 2), 1.2 s after the last turn | always | 60 s | a still stare: the mind damped, no blinks | 1.8 s, then relaxes over ~0.8 s | no | fiddle (HELD), quirks, harness `quirks` |
+| forgive | a clean setting (one direction, 2+ detents, no end reached) soon after real annoyance | always | 45 s | watches (still), then the grudge ends without the ladder | 0.9 s | no | fiddle (CLEAN), harness I15 |
+| curious | the same device page opened 3 times within 25 s | always | 3 min | the `curious` expression on the rim | ~3 s | no | quirks (revisit) |
+| delight | a capture is DONE | 9 % | 8 min | the `glint` expression instead of the nod | ~1.1 s | the notice note | quirks (rarity) |
+| series | the 5th frame of one camera visit | 60 % | 10 min | looks down at the filmstrip, `glint` | ~1.4 s | no | quirks |
+| offscreen | a known device returns while MAO idles at HOME (15 s+ without input) | 25 % | 20 min | a look past the rim: gaze and head yaw far to one side | 1.5 s | no | harness `quirks` |
+| grumpy | the fiddling is noticed within 15 s of waking | always | 5 min | `grumpywake` instead of the suspicious look | ~2.6 s | no | harness `quirks` |
+| tease | glaring, and teased again | always | none (per tease) | only the lids tighten (a CH_NARROW kick); no replay of mad | a blink's length | no | harness I14 |
+
+Existing rare states of the mind (bored, daydream, zoned, near-sleep) cover
+the "long silence" idea; nothing new was added for it.
+
+### 9.9 Audio
+- **Punctuation:** touch, release, confirm, back, warm, notice, the
+  shutter, the transfer depart and bump, and the dial tick (thinned by
+  speed).
+- **Background events:**
+  - a device coming back online plays notice on any screen;
+  - a device going away is silent;
+  - background re-keys and state refreshes are silent;
+  - link events only sound during a pairing you started.
+- **Tsk** has no sound; it is a look. **Delight** is the only quirk with a
+  note.
+
+### 9.10 Performance (dev build, perf probe on, measured 2026-09-29)
+
+| Activity | fps | Frame avg | Frame worst |
+|---|---|---|---|
+| Character orbit | 40.2 | 7.97 ms | 17.8 ms |
+| HOME lamp arc, fiddling | 42.1 | 8.57 ms | 24.3 ms |
+| DEVICES carousel | 33.8 | 8.08 ms | 23.8 ms |
+| CAMERA iris and captures | 23-31 | 6.8-7.8 ms | 18.8-43.5 ms |
+| LAMP page, idle | 18.9 | 7.65 ms | 25.7 ms |
+| LAMP page, level moving | 15.6-16.5 | 21.5-43.7 ms | 34-73 ms |
+
+- The LAMP page is the one heavy case: while the level moves, the field's
+  growth front and shimmer change most cells each frame, so most of the
+  screen is redrawn. Its CPU-side layout stays small (page 1.4-1.8 ms,
+  field 1.0-2.6 ms). See §9.12.
+- **Image size:** dev 1,272,804 bytes (the maker's mark adds 12,900);
+  release 1,194,702 bytes.
+- **Heap:** about 110 KB free, 102.5 KB minimum.
+
+### 9.11 Hardware (Espressif ESP32-C3-LCDkit, official user guide)
+- **Board:** ESP32-C3-MINI-1, 4 MB flash, 400 KB SRAM, and a 1.28" round
+  240x240 GC9A01 display.
+- **GPIO:**
+
+  | Function | Pin |
+  |---|---|
+  | LCD MOSI | IO0 |
+  | LCD SCLK | IO1 |
+  | LCD D/C | IO2 |
+  | Audio PA | IO3 |
+  | IR | IO4 |
+  | Backlight | IO5 |
+  | Encoder B | IO6 |
+  | LCD CS | IO7 |
+  | RGB LED | IO8 |
+  | Encoder switch | IO9 (boot strapping) |
+  | Encoder A | IO10 |
+  | USB | IO18 / IO19 |
+
+- No hardware-facing change was made in this pass.
+
+### 9.12 Known limitations
+- The LAMP page redraws most of the screen while its level moves (16 fps),
+  measured above. It was not compared against an earlier build in this
+  pass.
+- Physical observation belongs to the owner. That covers idle watching,
+  listening on the real speaker, and a walk with the real knob. The checks
+  here used USB snapshots, logs and injected input.
+- The first three historical relationship losses (before the history
+  recorder) remain unexplained. No unexplained loss has occurred since.
+- INCOMPATIBLE / INVALID pages are validated through the view-model
+  preview only (there is no such real device).
+
+### 9.13 Future (documented only, not built in M4.1)
+- KINO D4 could follow MAO's active colour and state. That needs a new ODD
+  protocol message, and a KINO bench target to validate it on.
