@@ -587,6 +587,16 @@ decision. FORGET is on the left, the way the menu went.
   the light's name sits. The eyes stay where they are, so nothing covers the
   arc. It leaves about 1.6 s after the last turn.
 - With no light in the setup, a plain turn moves the eyes as before.
+- **On / off from HOME (2026-09-29), like a dimmer:**
+  - While the arc is up (about 1.6 s after the last turn), a press is the
+    light's switch; the arc answers, lit or dark. A press at any other time
+    opens DEVICES, as before.
+  - Turning down stops at 0 %. After a pause of 300 ms at the bottom, one
+    more turn down switches the light off, so a fast sweep never does.
+  - Turning up switches it on again. From the bottom it comes on at 10 %,
+    never a dark "on".
+  - The lamp page is unchanged.
+  - Bench-checked on LAMP 01, step by step (power and level read back).
 - Fixes from use (2026-09-29):
   - **The lids no longer paint over the scale.** When the nearer eye
     changed in a head turn, its stack was moved to the screen's foreground,

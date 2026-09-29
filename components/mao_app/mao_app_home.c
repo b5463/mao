@@ -248,8 +248,43 @@ static void home_fiddle(uint64_t id, int32_t d, int64_t now)
     }
 }
 
+/* While the light's arc is up (it stays ~1.6 s after the last turn - the
+ * UI's HOME_LAMP_HOLD_MS), a press is the light's switch. */
+#define HOME_ARC_UP_US (1600 * 1000)
+static int64_t s_arc_until_us;
+
+static bool light_off(const mao_device_t *dev, const mao_device_controls_t *ctl)
+{
+    return ctl->toggle_idx >= 0 && dev->caps[ctl->toggle_idx].value == 0;
+}
+
+#define HOME_OFF_REST_US   (300 * 1000)   /* stopped at the bottom this long, then one more turn down: off */
+#define HOME_ON_MIN_PCT    10             /* switched on from the bottom: this much, not a dark "on" */
+static bool s_at_bottom;                  /* the level is at the bottom (and the light on) */
+static int64_t s_last_turn_us;            /* the previous turn: a sweep never pauses */
+
+/* Switch the light: off, or on at the level it had - at least a little. */
+static void home_lamp_switch(const mao_device_t *dev, const mao_device_controls_t *ctl, bool on)
+{
+    const mao_device_cap_t *tc = &dev->caps[ctl->toggle_idx];
+    mao_devices_set_value(dev->info.id, tc->cap.id, on ? tc->cap.max : tc->cap.min);
+    const mao_device_cap_t *lc = &dev->caps[ctl->level_idx];
+    const int32_t floor_v = lc->cap.min + (lc->cap.max - lc->cap.min) * HOME_ON_MIN_PCT / 100;
+    if (on && lc->value < floor_v) {
+        mao_devices_set_value(dev->info.id, lc->cap.id, floor_v);
+    }
+    ESP_LOGI(TAG, "'%s' switched %s from HOME", dev->info.name, on ? "on" : "off");
+    if (on) {
+        mao_audio_confirm();
+    } else {
+        mao_audio_back();
+    }
+    mao_led_pulse(MAO_LED_PULSE_CONFIRM);
+}
+
 static void home_lamp_show(uint64_t id)
 {
+    s_arc_until_us = esp_timer_get_time() + HOME_ARC_UP_US;
     mao_device_t dev;
     mao_device_controls_t ctl;
     const int slot = mao_devices_find(id);
@@ -280,8 +315,30 @@ void mao_app_on_home(const mao_event_t *ev, int64_t now)
         mao_device_t dev;
         mao_device_controls_t ctl;
         if (home_lamp(&dev, &ctl)) {
-            /* a plain turn is the light: the eyes follow the scale's end */
-            mao_app_lamp_turn(&dev, &ctl, d, &m);
+            /* a plain turn is the light: the eyes follow the scale's end.
+             * Like a dimmer: turning down at the bottom switches it off,
+             * turning up switches it on again at its level. */
+            const mao_device_cap_t *lc = &dev.caps[ctl.level_idx];
+            const bool was_off = light_off(&dev, &ctl);
+            const bool paused = now - s_last_turn_us >= HOME_OFF_REST_US;
+            s_last_turn_us = now;
+            if (d < 0 && ctl.toggle_idx >= 0 && !was_off && lc->value <= lc->cap.min && s_at_bottom && paused) {
+                home_lamp_switch(&dev, &ctl, false);      /* stopped at the bottom, turned once more: off */
+                s_at_bottom = false;
+            } else if (d > 0 && was_off && ctl.toggle_idx >= 0) {
+                home_lamp_switch(&dev, &ctl, true);       /* on again, never a dark "on" */
+            } else {
+                mao_app_lamp_turn(&dev, &ctl, d, &m);
+            }
+            {
+                mao_device_t after;                       /* where the level is now */
+                const int slot = mao_devices_find(dev.info.id);
+                if (slot >= 0 && mao_devices_get(slot, &after)) {
+                    const mao_device_cap_t *ac = &after.caps[ctl.level_idx];
+                    /* a sweep that reaches the bottom stops there; only a turn after a pause goes past it */
+                    s_at_bottom = ac->value <= ac->cap.min && !light_off(&after, &ctl);
+                }
+            }
             mao_settings_note_last_lamp(dev.info.id);
             home_lamp_show(dev.info.id);
             home_fiddle(dev.info.id, d, now);
@@ -300,13 +357,22 @@ void mao_app_on_home(const mao_event_t *ev, int64_t now)
         mao_character_press(false);
         mao_audio_release();
         break;
-    case MAO_EVENT_INPUT_CLICK:
+    case MAO_EVENT_INPUT_CLICK: {
+        /* The light's arc is up: this press is its switch. */
+        mao_device_t dev;
+        mao_device_controls_t ctl;
+        if (now < s_arc_until_us && home_lamp(&dev, &ctl) && ctl.toggle_idx >= 0) {
+            home_lamp_switch(&dev, &ctl, light_off(&dev, &ctl));
+            home_lamp_show(dev.info.id);          /* the arc answers: lit, or dark */
+            break;
+        }
         /* M4.1 (D1): one press - MAO makes room and the world arrives. */
         mao_settings_note_devices_opened();
         mao_audio_confirm();
         mao_app_note_list_opened(now);
         mao_app_go_view(MAO_VIEW_DEVICES);
         break;
+    }
     case MAO_EVENT_INPUT_DOUBLE_CLICK:
         break;   /* no meaning anywhere: every CLICK has already acted */
     case MAO_EVENT_INPUT_LONG_PRESS:
