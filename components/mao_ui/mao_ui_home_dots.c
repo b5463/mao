@@ -202,7 +202,7 @@ static bool home_lamp_layout(uint32_t now, float dt)
  * (mao_home.c, MAO_BOOT_EYES_MS). The wordmark is never drawn. */
 static uint32_t s_boot_t0;
 static lv_obj_t *s_mark;
-#define MARK_OX   -5                 /* optical centre: the mark's weight sits right of its box */
+#define MARK_OX   -7                 /* optical centre: the mark's weight sits right of its box (half its centroid offset) */
 
 static uint32_t s_mark_col;
 static lv_opa_t s_mark_opa;
