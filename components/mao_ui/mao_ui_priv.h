@@ -95,8 +95,13 @@ void mao_home_create(lv_obj_t *scr, bool visible);
 void mao_home_boot(uint32_t now_ms);
 void mao_home_replay(uint32_t now_ms);
 bool mao_home_tick(float dt, uint32_t now_ms);
-/* The boot bloom (mao_ui_home_dots.c): the field from the centre, MAO in dots, back into the centre. */
+/* The boot (mao_ui_home_dots.c): the ODD JOBS maker's mark for a moment,
+ * then the field from the centre, MAO in dots, back into the centre. */
 void mao_devices_boot_bloom(uint32_t now_ms);
+#define MAO_BOOT_MARK_S   0.62f       /* the mark's moment before the bloom */
+#define MAO_BOOT_EYES_MS  (1050 + 620) /* the eyes open as the field draws back */
+void mao_home_mark_create(lv_obj_t *scr);
+extern const lv_image_dsc_t mao_mark_odd_jobs;   /* A8 mask, symbol only (mao_mark_odd_jobs.c) */
 
 /* HOME's dots (mao_ui_home_dots.c): drawn inside the dot layer's frame,
  * which mao_ui_devices.c owns. Layout returns true while anything moves. */

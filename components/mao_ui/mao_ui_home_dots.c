@@ -195,14 +195,74 @@ static bool home_lamp_layout(uint32_t now, float dt)
     mao_dots_text_arc(s_hl.name, HOME_LAMP_R, true, pitch, 1.8f, 200.0f * in, false);
     return true;
 }
-/* Boot (M4.1): KINO D4's boot in MAO's field - it blooms from the centre
- * through its ragged front, MAO's name arrives in dots over it, then the
- * field draws back into the centre, where the eyes open (mao_home.c). */
+/* Boot (M4.1): first the maker's mark - the ODD JOBS symbol, alone, in MAO's
+ * colour, a moment on black - then KINO D4's boot in MAO's field: it blooms
+ * from the centre through the mark and over it, MAO's name arrives in dots,
+ * then the field draws back into the centre, where the eyes open
+ * (mao_home.c, MAO_BOOT_EYES_MS). The wordmark is never drawn. */
 static uint32_t s_boot_t0;
+static lv_obj_t *s_mark;
+#define MARK_OX   -5                 /* optical centre: the mark's weight sits right of its box */
+
+static uint32_t s_mark_col;
+static lv_opa_t s_mark_opa;
+
+/* The mask drawn with the core image draw (no image widget in this build):
+ * coverage from the asset, colour from MAO. */
+static void mark_draw_cb(lv_event_t *e)
+{
+    lv_obj_t *o = lv_event_get_target_obj(e);
+    lv_area_t a;
+    lv_obj_get_coords(o, &a);
+    lv_draw_image_dsc_t d;
+    lv_draw_image_dsc_init(&d);
+    d.src = &mao_mark_odd_jobs;
+    d.opa = s_mark_opa;
+    d.recolor = lv_color_hex(s_mark_col);
+    d.recolor_opa = LV_OPA_COVER;
+    lv_draw_image(lv_event_get_layer(e), &d, &a);
+}
+
+void mao_home_mark_create(lv_obj_t *scr)
+{
+    s_mark = lv_obj_create(scr);
+    lv_obj_remove_style_all(s_mark);
+    lv_obj_remove_flag(s_mark, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_size(s_mark, mao_mark_odd_jobs.header.w, mao_mark_odd_jobs.header.h);
+    lv_obj_set_align(s_mark, LV_ALIGN_CENTER);
+    lv_obj_set_pos(s_mark, MARK_OX, 0);
+    lv_obj_add_event_cb(s_mark, mark_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
+    lv_obj_add_flag(s_mark, LV_OBJ_FLAG_HIDDEN);
+}
 
 void mao_devices_boot_bloom(uint32_t now_ms)
 {
     s_boot_t0 = now_ms ? now_ms : 1;
+}
+
+static void mark_show(float opa)
+{
+    if (!s_mark) {
+        return;
+    }
+    static lv_opa_t last;
+    const lv_opa_t o = (lv_opa_t)clampf(opa, 0.0f, 255.0f);
+    if (o < 4) {
+        if (last >= 4) {
+            lv_obj_add_flag(s_mark, LV_OBJ_FLAG_HIDDEN);
+        }
+        last = 0;
+        return;
+    }
+    if (last < 4) {
+        s_mark_col = mao_character_accent();       /* MAO's own colour */
+        lv_obj_remove_flag(s_mark, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (o != last) {
+        s_mark_opa = o;
+        lv_obj_invalidate(s_mark);
+        last = o;
+    }
 }
 
 static bool boot_layout(uint32_t now)
@@ -210,10 +270,17 @@ static bool boot_layout(uint32_t now)
     if (!s_boot_t0) {
         return false;
     }
-    const float t = (float)(now - s_boot_t0) / 1000.0f;
+    const float tm = (float)(now - s_boot_t0) / 1000.0f;
+    /* the maker's mark: in, a held beat, and the bloom takes it from the centre */
+    mark_show(255.0f * smooth01((tm - 0.08f) / 0.18f) * (1.0f - smooth01((tm - 0.56f) / 0.2f)));
+    const float t = tm - MAO_BOOT_MARK_S;          /* the approved bloom, after the mark */
     if (t > 1.5f) {
         s_boot_t0 = 0;
+        mark_show(0.0f);
         return false;
+    }
+    if (t < 0.0f) {
+        return true;
     }
     const float grow = smooth01(t / 0.6f);                  /* out ... */
     const float back = smooth01((t - 0.8f) / 0.32f);        /* ... and back into the centre */

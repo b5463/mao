@@ -12,7 +12,7 @@
 #include "mao_character.h"
 #include "mao_ui_priv.h"
 
-#define EYES_OPEN_MS 1050            /* as the field draws back into the centre */
+#define EYES_OPEN_MS MAO_BOOT_EYES_MS   /* as the field draws back into the centre (after the maker's mark) */
 
 static lv_obj_t *s_word;
 static mao_text_cache_t s_cache;

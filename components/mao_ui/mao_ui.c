@@ -327,6 +327,7 @@ esp_err_t mao_ui_init(mao_view_t initial_view)
     mao_field_create(scr);
     mao_dots_create(scr);
     mao_focus_create(scr);
+    mao_home_mark_create(scr);   /* the maker's mark, over everything, only at boot */
     s_shown = initial_view;
     /* Lay out the first frame now (it is rendered before the panel lights). */
     mao_home_tick(0.0f, s_last_ms);
