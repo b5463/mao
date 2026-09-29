@@ -43,6 +43,8 @@ void lv_obj_set_style_bg_opa(lv_obj_t *o, lv_opa_t a, int sel);
 void lv_obj_set_style_border_width(lv_obj_t *o, int32_t w, int sel);
 void lv_obj_set_style_border_color(lv_obj_t *o, lv_color_t c, int sel);
 void lv_obj_move_foreground(lv_obj_t *o);
+int32_t lv_obj_get_index(const lv_obj_t *o);
+void lv_obj_move_to_index(lv_obj_t *o, int32_t index);
 void lv_obj_invalidate(lv_obj_t *o);
 void lv_obj_get_coords(const lv_obj_t *o, lv_area_t *a);
 void lv_obj_add_event_cb(lv_obj_t *o, lv_event_cb_t cb, int code, void *user);

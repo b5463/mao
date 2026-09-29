@@ -95,8 +95,16 @@ void mao_home_create(lv_obj_t *scr, bool visible);
 void mao_home_boot(uint32_t now_ms);
 void mao_home_replay(uint32_t now_ms);
 bool mao_home_tick(float dt, uint32_t now_ms);
-/* The boot bloom (mao_ui_devices.c): the field from the centre, MAO in dots, back into the centre. */
+/* The boot bloom (mao_ui_home_dots.c): the field from the centre, MAO in dots, back into the centre. */
 void mao_devices_boot_bloom(uint32_t now_ms);
+
+/* HOME's dots (mao_ui_home_dots.c): drawn inside the dot layer's frame,
+ * which mao_ui_devices.c owns. Layout returns true while anything moves. */
+bool mao_home_dots_layout(uint32_t now, float dt);
+void mao_home_dots_init(void);
+/* The ODD field is shared by the scenes that want it: each asks, the one
+ * with the most weight this tick gets it (mao_ui_devices.c). */
+void mao_ui_field_request(float reach, float strength, float oy, float hole, float weight);
 
 /* Menu, placeholder and first encounter (mao_overlay.c). */
 void mao_overlay_create(lv_obj_t *scr, bool intro_visible);

@@ -143,6 +143,25 @@ void lv_obj_move_foreground(lv_obj_t *o)
     }
     s_order[s_n - 1] = o->id;
 }
+int32_t lv_obj_get_index(const lv_obj_t *o)
+{
+    for (int i = 0; i < s_n; i++) {
+        if (s_order[i] == o->id) return i;
+    }
+    return -1;
+}
+void lv_obj_move_to_index(lv_obj_t *o, int32_t index)
+{
+    /* LVGL 9: the object takes that place; the ones between shift by one */
+    const int32_t from = lv_obj_get_index(o);
+    if (from < 0 || index < 0 || index >= s_n || from == index) return;
+    if (from < index) {
+        for (int32_t i = from; i < index; i++) s_order[i] = s_order[i + 1];
+    } else {
+        for (int32_t i = from; i > index; i--) s_order[i] = s_order[i - 1];
+    }
+    s_order[index] = o->id;
+}
 void lv_obj_get_coords(const lv_obj_t *o, lv_area_t *a)
 {
     /* LV_ALIGN_CENTER on a 240 x 240 screen, as on the device; custom-drawn
@@ -244,6 +263,23 @@ static void dial_for(float dps, uint32_t ms)
     }
 }
 
+/* HOME's lamp scale in the scenarios: the UI shows it while the eyes look
+ * at it and takes it away when they stop (the invariants check against it). */
+static bool s_scale_up;
+static uint32_t s_scale_off_at;
+static uint32_t s_scale_on_at;
+static void scale_look(int x, int y, bool on)
+{
+    if (on && !s_scale_up) {
+        s_scale_on_at = s_now;                    /* it arrives over ~250 ms, the top last */
+    }
+    mao_character_look(x, y, on);
+    s_scale_up = on;
+    if (!on) {
+        s_scale_off_at = s_now;
+    }
+}
+
 static void scenario(const char *name)
 {
     #define IS(x) (strcmp(name, x) == 0)
@@ -313,12 +349,12 @@ static void scenario(const char *name)
         for (int pass = 0; pass < 3; pass++) {
             for (int p = 0; p <= 100; p += pass == 1 ? 25 : 4) {     /* sweeps, and big jumps */
                 const float an = -arc + 2.0f * arc * (float)p / 100.0f;
-                mao_character_look((int)(104.0f * sinf(an)), (int)(-104.0f * cosf(an)), true);
+                scale_look((int)(104.0f * sinf(an)), (int)(-104.0f * cosf(an)), true);
                 run_ms(pass == 1 ? 500 : 40);
             }
             for (int p = 100; p >= 0; p -= 8) {
                 const float an = -arc + 2.0f * arc * (float)p / 100.0f;
-                mao_character_look((int)(104.0f * sinf(an)), (int)(-104.0f * cosf(an)), true);
+                scale_look((int)(104.0f * sinf(an)), (int)(-104.0f * cosf(an)), true);
                 run_ms(30);
             }
             if (pass == 2) {
@@ -329,12 +365,34 @@ static void scenario(const char *name)
                 run_ms(300);
                 mao_character_react(MAO_CHAR_REACT_FIDDLE_FED_UP);
                 for (int k = 0; k < 40; k++) {
-                    mao_character_look(k & 1 ? 80 : -80, -60, true);
+                    scale_look(k & 1 ? 80 : -80, -60, true);
                     run_ms(60);
                 }
             }
-            mao_character_look(0, 0, false); run_ms(1500);
+            scale_look(0, 0, false); run_ms(1500);
         }
+        /* drowsy, fiddled with until mad, then the scale goes: no jump anywhere */
+        mao_character_debug_expression(21);                     /* drowsy */
+        for (int k = 0; k < 30; k++) {
+            const float an = -arc + 2.0f * arc * (float)(k & 1 ? 0 : 100) / 100.0f;
+            scale_look((int)(104.0f * sinf(an)), (int)(-104.0f * cosf(an)), true);
+            run_ms(60);
+        }
+        mao_character_react(MAO_CHAR_REACT_FIDDLE_FED_UP);
+        for (int k = 0; k < 20; k++) {
+            scale_look(-77, 69, true);                    /* the low end: bottom left */
+            run_ms(100);
+        }
+        scale_look(0, 0, false);
+        run_ms(4000);
+        /* angry while it looks up at a full light, then the scale goes */
+        mao_character_react(MAO_CHAR_REACT_FIDDLE_FED_UP);
+        for (int k = 0; k < 20; k++) {
+            scale_look(77, -69, true);                            /* the high end: top right */
+            run_ms(100);
+        }
+        scale_look(0, 0, false);
+        run_ms(4000);
     }
     else if (IS("grudge")) {   /* M4.1: fiddled with - annoyed, kept at it for 6 s, then left alone */
         run_ms(2000);                                           /* t = 4500 */

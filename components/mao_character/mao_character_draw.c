@@ -309,14 +309,39 @@ static void set_color(lv_obj_t *const *objs, int n, uint32_t *last, uint32_t col
     }
 }
 
+/* The highest place any of the character's own objects holds among the
+ * screen's children. */
+static int32_t char_top_index(const mao_char_draw_t *d)
+{
+    int32_t top = -1;
+    for (int i = 0; i < 2; i++) {
+        lv_obj_t *const parts[] = { d->eye[i], d->pupil[i], d->core[i], d->shine[i * 2], d->shine[i * 2 + 1],
+                                    d->star[i], d->lid[i], d->lower[i], d->cover[i] };
+        for (size_t k = 0; k < sizeof(parts) / sizeof(parts[0]); k++) {
+            const int32_t x = lv_obj_get_index(parts[k]);
+            top = x > top ? x : top;
+        }
+    }
+    for (int k = 0; k < 3; k++) {
+        const int32_t x = lv_obj_get_index(d->mark[k]);
+        top = x > top ? x : top;
+    }
+    const int32_t m = lv_obj_get_index(d->mouth);
+    return m > top ? m : top;
+}
+
+/* The nearer eye goes over the farther one - but only over it: the
+ * character keeps its place in the screen's stack, under the interface
+ * drawn after it (the dots, HOME's light scale, the field). Moving it to the
+ * screen's foreground once put the lids over the scale. */
 static void raise_eye(mao_char_draw_t *d, int i)
 {
     lv_obj_t *const parts[] = { d->eye[i], d->pupil[i], d->core[i], d->shine[i * 2], d->shine[i * 2 + 1],
                                 d->star[i], d->lid[i], d->lower[i], d->cover[i] };
     for (size_t k = 0; k < sizeof(parts) / sizeof(parts[0]); k++) {
-        lv_obj_move_foreground(parts[k]);
+        lv_obj_move_to_index(parts[k], char_top_index(d));
     }
-    lv_obj_move_foreground(d->mouth);
+    lv_obj_move_to_index(d->mouth, char_top_index(d));
     d->front = (uint8_t)i;
 }
 

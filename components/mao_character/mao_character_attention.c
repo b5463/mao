@@ -169,11 +169,41 @@ void mao_char_attention_update(mao_char_t *mc, uint32_t now)
     }
     const bool looking = mc->look_on && !mc->peek && mc->transfer.phase == MAO_TR_NONE;
     if (looking) {
-        gain *= feedback || sulking ? 1.0f : 0.25f;   /* its reaction to the fiddling, and the mood after, in full */
         mao_motion_set(&mc->m, CH_GAZE_X, mc->look_gx);
         mao_motion_set(&mc->m, CH_GAZE_Y, mc->look_gy);
     }
-    mc->m.contain_r = looking || before(now, mc->contain_until) ? MAO_HOME_CONTAIN_R : 0.0f;
+    {
+        /* While the eyes follow the scale the layers are quieter (the knob is
+         * in charge); a reaction to the fiddling, and the mood after it, play
+         * in full. Eased both ways: when the scale goes, whatever mood holds
+         * the face comes back over MAO_LOOK_EASE_S, not in one frame. */
+        const float kdt = mc->contain_ms ? fminf((float)(now - mc->contain_ms) / 1000.0f, 0.1f) : 0.0f;
+        const float want[2] = { looking && !(feedback || sulking) ? 0.25f : 1.0f, looking ? 0.25f : 1.0f };
+        for (int k = 0; k < 2; k++) {
+            if (mc->look_k[k] <= 0.0f) {
+                mc->look_k[k] = 1.0f;                  /* first tick */
+            }
+            mc->look_k[k] += (want[k] - mc->look_k[k]) * (1.0f - expf(-kdt / MAO_LOOK_EASE_S));
+        }
+        gain *= mc->look_k[0];
+    }
+    {
+        /* Eased: the radius shrinks in fast and widens out slowly, so the
+         * eyes never snap when the scale comes or goes. */
+        const bool want = looking || before(now, mc->contain_until);
+        const float cdt = mc->contain_ms ? fminf((float)(now - mc->contain_ms) / 1000.0f, 0.1f) : 0.0f;
+        mc->contain_ms = now;
+        if (mc->contain_now < MAO_HOME_CONTAIN_R) {
+            mc->contain_now = MAO_CONTAIN_OFF_R;   /* first tick */
+        }
+        const float tgt = want ? MAO_HOME_CONTAIN_R : MAO_CONTAIN_OFF_R;
+        const float tau = want ? MAO_CONTAIN_IN_S : MAO_CONTAIN_OUT_S;
+        mc->contain_now += (tgt - mc->contain_now) * (1.0f - expf(-cdt / tau));
+        if (fabsf(tgt - mc->contain_now) < 0.5f) {
+            mc->contain_now = tgt;
+        }
+        mc->m.contain_r = mc->contain_now < MAO_CONTAIN_OFF_R - 0.5f ? mc->contain_now : 0.0f;
+    }
     mao_lark_update(&mc->lark, now, mc->visible && prio == PRIO_IDLE, mc->sleepy, gain, mc->m.layer);
     /* The accent leans with what plays, as strongly as it plays. */
     const float adt = mc->accent_ms ? (float)(now - mc->accent_ms) / 1000.0f : 0.0f;
@@ -187,7 +217,7 @@ void mao_char_attention_update(mao_char_t *mc, uint32_t now)
     float life[CH_COUNT] = { 0 };
     mao_life_update(&mc->life, &mc->lark, &mc->m, now, mc->visible && prio == PRIO_IDLE, mc->sleepy, life);
     if (prio != PRIO_NAV) {
-        const float lg = mc->peek ? MAO_PEEK_LAYER_GAIN : (looking ? 0.25f : 1.0f);
+        const float lg = mc->peek ? MAO_PEEK_LAYER_GAIN : mc->look_k[1];
         for (int i = 0; i < CH_COUNT; i++) {
             mc->m.layer[i] += life[i] * lg;
         }

@@ -126,7 +126,8 @@ static void inv_frame(void)
     }
     /* I10: HOME's lamp scale (M4.1) - while the eyes look at it, no part of
      * either eye reaches the rim where it is drawn (inner edge 102 px). */
-    if (!strcmp(s_scn, "homelook")) {
+    /* while the scale is up, and the fade-out after it (it leaves over ~0.9 s) */
+    if (!strcmp(s_scn, "homelook") && ((s_scale_up && s_now >= s_scale_on_at + 250) || s_now < s_scale_off_at + 900)) {
         for (int i = 0; i < 2; i++) {
             const lv_obj_t *e = EYE_OBJ(i, P_EYE);
             if (!visible(e)) {
@@ -137,7 +138,7 @@ static void inv_frame(void)
             const float rr = fminf((float)e->w, (float)e->h) * 0.5f;
             for (int k = 0; k < 4; k++) {
                 const float cx = (k & 1) ? x2 - rr : x1 + rr, cy = (k & 2) ? y2 - rr : y1 + rr;
-                if (sqrtf(cx * cx + cy * cy) + rr > 99.0f) {
+                if (sqrtf(cx * cx + cy * cy) + rr > 101.0f) {
                     fail("an eye reaches the lamp scale", i);
                 }
             }

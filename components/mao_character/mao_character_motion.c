@@ -237,11 +237,17 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
     }
     /* Containment (M4.1): while the rim carries a scale, the whole face is
      * pushed back inside a circle - both eyes together, so they keep their
-     * spacing. The eye is a rounded rect of radius min(w, h) / 2: its
-     * farthest point is a corner-circle centre plus that radius. */
+     * spacing. What is contained is the coloured eye - a rounded rect of
+     * radius min(w, h) / 2 - and its anti-aliased edge (MAO_CONTAIN_PAD); the
+     * lids and cover are background-coloured and drawn under the scale, so
+     * they cannot mark it. Every corner outside pulls
+     * the face in along its own radius; the pulls are averaged, so the two
+     * eyes' outer corners (one each side) settle the face straight down or
+     * up instead of pushing it left and right in turn. */
     if (m->contain_r > 0.0f) {
-        for (int it = 0; it < 3; it++) {
-            float worst = 0.0f, dx = 0.0f, dy = 0.0f;
+        for (int it = 0; it < 10; it++) {
+            float sx = 0.0f, sy = 0.0f, worst = 0.0f;
+            int n = 0;
             for (int e = 0; e < 2; e++) {
                 const float cx = e ? out->rx : out->lx, cy = e ? out->ry : out->ly;
                 const float ew2 = (e ? out->rw : out->lw) * 0.5f, eh2 = (e ? out->rh : out->lh) * 0.5f;
@@ -250,21 +256,29 @@ void mao_motion_pose(const mao_motion_t *m, mao_mouth_t mouth, uint32_t now_ms, 
                     const float px = cx + ((k & 1) ? 1.0f : -1.0f) * (ew2 - rr);
                     const float py = cy + ((k & 2) ? 1.0f : -1.0f) * (eh2 - rr);
                     const float d = sqrtf(px * px + py * py);
-                    const float over = d + rr - m->contain_r;
-                    if (over > worst && d > 0.01f) {
-                        worst = over;
-                        dx = px / d;
-                        dy = py / d;
+                    const float over = d + rr + MAO_CONTAIN_PAD - m->contain_r;
+                    if (over > 0.0f && d > 0.01f) {
+                        sx += over * px / d;
+                        sy += over * py / d;
+                        worst = fmaxf(worst, over);
+                        n++;
                     }
                 }
             }
-            if (worst <= 0.0f) {
+            if (n == 0 || worst < 0.05f) {
                 break;
             }
-            out->lx -= dx * worst;
-            out->rx -= dx * worst;
-            out->ly -= dy * worst;
-            out->ry -= dy * worst;
+            /* the average pull, but at least the worst corner's own share */
+            float mx = sx / (float)n, my = sy / (float)n;
+            const float ml = sqrtf(mx * mx + my * my);
+            if (ml < worst * 0.5f && ml > 0.001f) {
+                mx *= worst * 0.5f / ml;
+                my *= worst * 0.5f / ml;
+            }
+            out->lx -= mx;
+            out->rx -= mx;
+            out->ly -= my;
+            out->ry -= my;
         }
     }
     /* Transfer travel: applied after the head clamp, so MAO really can move

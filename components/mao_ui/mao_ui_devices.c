@@ -409,7 +409,7 @@ static struct {
     float reach, strength, oy, hole, weight;
 } s_fq;
 
-static void field_request(float reach, float strength, float oy, float hole, float weight)
+void mao_ui_field_request(float reach, float strength, float oy, float hole, float weight)
 {
     if (weight > s_fq.weight) {
         s_fq = (typeof(s_fq)) { reach, strength, oy, hole, weight };
@@ -472,7 +472,7 @@ static void device_preview(uint16_t type, int pct, int state, float y, float sca
     if (type == LIGHT_TYPE) {
         const float reach = lamp_preview_reach(pct >= 0 ? (float)pct / 100.0f : 0.6f) * scale *
                             (state == PREV_FAINT ? 0.7f : 1.0f) * (state == PREV_CALL ? 0.86f + 0.14f * breathe : 1.0f);
-        field_request(reach, (state == PREV_FAINT ? 0.35f : 1.0f) * opa / 255.0f, y, 0.0f, weight);
+        mao_ui_field_request(reach, (state == PREV_FAINT ? 0.35f : 1.0f) * opa / 255.0f, y, 0.0f, weight);
     } else if (type == CAM_TYPE) {
         const float a = state == PREV_FAINT ? 0.0f : CAM_PREVIEW_AP * (state == PREV_CALL ? 0.55f + 0.45f * breathe : 1.0f);
         const float ap[6] = { a, a, a, a, a, a };
@@ -1053,7 +1053,7 @@ static void word_page(float p, float menu, float t, uint32_t now)
     if (since_gone < 900.0f) {
         const float k = smooth01(since_gone / 520.0f);
         if (s_dp.left_kind == 1) {
-            field_request(lamp_preview_reach((float)s_dp.left_pct / 100.0f) * 0.55f * (1.0f - k), 0.6f * (1.0f - k),
+            mao_ui_field_request(lamp_preview_reach((float)s_dp.left_pct / 100.0f) * 0.55f * (1.0f - k), 0.6f * (1.0f - k),
                           SHEET_PREVIEW_Y, 0.0f, 1.0f);
         } else if (s_dp.left_kind == 2) {
             const float pap[6] = { CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP, CAM_PREVIEW_AP,
@@ -1189,7 +1189,7 @@ static void dotpage_layout(uint32_t now)
             reach += (small * leave - reach) * fk;
             strength = (1.0f - 0.9f * menu) * (0.45f + 0.55f * leave);
         }
-        field_request(reach, strength, qy, 0.0f, p0 + 0.01f);
+        mao_ui_field_request(reach, strength, qy, 0.0f, p0 + 0.01f);
     }
 
     /* The name follows the rim at the top: set along the circle, it reads
@@ -1245,7 +1245,7 @@ static void dotpage_layout(uint32_t now)
                   (s_dp.m.online ? (blocked ? 120.0f : 255.0f) : 110.0f) * p0 * (1.0f - 0.8f * menu) *
                       (fsheet ? 0.45f + 0.55f * leave : 1.0f),
                   now);
-        const float since = s_dp.shot_at ? (float)(now - s_dp.shot_at) : 1e9f;
+        const float since = s_dp.shot_at ? fmaxf((float)(int32_t)(now - s_dp.shot_at), 0.0f) : 1e9f;   /* signed: never wraps */
         if (since < 200.0f) {
             /* the exposure: the opening is light for an instant */
             const float k = since / 200.0f;
@@ -1266,7 +1266,7 @@ static void dotpage_layout(uint32_t now)
          * so a frame never moves once it has landed; only when the strip is
          * full do all of them close up, and none is ever dropped. */
         const int n = s_dp.shots;
-        const float land = s_dp.shot_at ? clampf((float)(now - s_dp.shot_at - 120) / 380.0f, 0.0f, 1.0f) : 1.0f;
+        const float land = s_dp.shot_at ? clampf(((float)(int32_t)(now - s_dp.shot_at) - 120.0f) / 380.0f, 0.0f, 1.0f) : 1.0f;   /* signed: the first 120 ms once wrapped to "landed" - a flash at the slot */
         const int ranks = n / 2;                                     /* slots per side beyond the bottom one */
         /* up both sides to just short of wherever the name ends */
         const float name_half = mao_dots_text_arc_width(s_dp.name, npitch) * 0.5f / 98.0f;
@@ -1334,219 +1334,6 @@ void mao_ui_device_turn(int32_t detents)
     mao_display_unlock();
 }
 
-static struct {
-    bool allowed;
-    uint32_t since;
-} s_hint;
-
-void mao_ui_home_hint(bool allowed)
-{
-    if (!mao_display_lock(0)) {
-        return;
-    }
-    s_hint.allowed = allowed;
-    s_hint.since = lv_tick_get();
-    mao_ui_wake();
-    mao_display_unlock();
-}
-
-/* The first encounter, in MAO's own dots: the name arrives through a ragged
- * front, TURN breathes under it; turning pulls the name aside as it goes and
- * the eyes appear (mao_ui_intro_exit). */
-static uint32_t s_intro_t0;
-
-static bool intro_layout(uint32_t now)
-{
-    float p, shift;
-    mao_overlay_intro_get(&p, &shift);
-    if (p < 0.004f) {
-        return false;
-    }
-    if (!s_intro_t0) {
-        s_intro_t0 = now;
-    }
-    const float t = (float)(now - s_intro_t0) / 1000.0f;
-    const float front = 20.0f + 150.0f * smooth01(t / 1.6f);
-    mao_dots_text_front("MAO", shift, -12.0f, 6.0f, 5.0f, 255.0f * p, front);
-    const float pulse = 0.55f + 0.45f * (0.5f + 0.5f * sinf(t * 3.2f));
-    const float late = smooth01((t - 1.2f) / 0.8f);          /* after the name has arrived */
-    mao_dots_text("TURN", 0.0f, 34.0f, 2.2f, 1.8f, 190.0f * p * p * p * pulse * late, -1.0f);
-    return true;
-}
-
-/* HOME's settings (mao_ui_home_tune): chosen, then set, in dots. */
-static struct {
-    mao_tune_mode_t mode;
-    int8_t sel;                  /* CHOOSE: -1 middle, 0 SOUND, 1 SCREEN; ADJUST: which */
-    int value;
-    uint32_t since;              /* when it came up (the eyes gather first) */
-    mao_spring_t shown;          /* the drawn value follows the set one softly */
-} s_tune;
-
-void mao_ui_home_tune(mao_tune_mode_t mode, int8_t sel, int value)
-{
-    if (!mao_display_lock(0)) {
-        return;
-    }
-    if (mode != MAO_TUNE_OFF && s_tune.mode == MAO_TUNE_OFF) {
-        mao_character_gather();                  /* MAO makes room */
-        s_tune.since = lv_tick_get();
-        s_tune.shown.x = (float)value;
-    } else if (mode == MAO_TUNE_OFF && s_tune.mode != MAO_TUNE_OFF) {
-        mao_character_return();                  /* and comes back */
-    }
-    if (mode == MAO_TUNE_ADJUST && s_tune.mode != MAO_TUNE_ADJUST) {
-        s_tune.shown.x = (float)value;
-    }
-    s_tune.mode = mode;
-    s_tune.sel = sel;
-    s_tune.value = value;
-    s_tune.shown.target = (float)value;
-    mao_ui_wake();
-    mao_display_unlock();
-}
-
-static bool home_tune_layout(uint32_t now, float dt)
-{
-    if (s_tune.mode == MAO_TUNE_OFF) {
-        return false;
-    }
-    mao_spring_step(&s_tune.shown, dt);
-    const float in = smooth01((float)(now - s_tune.since - MAO_CHAR_GATHER_MS) / 220.0f);
-    if (s_tune.mode == MAO_TUNE_CHOOSE) {
-        /* the same three-position switch as a device page's hold */
-        if (s_tune.sel < 0) {
-            mao_dots_glyph(0.0f, 0.0f, 5.0f, 220.0f * in, MAO_GLYPH_DOT, 0);
-            mao_dots_text("SOUND", -60.0f, 0.0f, 1.9f, 1.6f, 160.0f * in, -1.0f);
-            mao_dots_text("SCREEN", 60.0f, 0.0f, 1.9f, 1.6f, 160.0f * in, -1.0f);
-        } else {
-            mao_dots_text(s_tune.sel == 0 ? "SOUND" : "SCREEN", 0.0f, 0.0f, 3.0f, 2.6f, 255.0f * in, -1.0f);
-        }
-        return true;
-    }
-    /* ADJUST: a ring filled to the level, the level large, its name above */
-    const float v = clampf(s_tune.shown.x, 0.0f, 100.0f);
-    const int n = 40;
-    for (int i = 0; i < n; i++) {
-        const float f = (float)i / (float)(n - 1);
-        const float an = -2.6f + 5.2f * f;             /* a 300 deg arc, open at the bottom */
-        const bool lit = f * 100.0f <= v + 0.01f;
-        mao_dots_glyph(94.0f * sinf(an), -94.0f * cosf(an), lit ? 5.0f : 3.0f, (lit ? 255.0f : 60.0f) * in,
-                       MAO_GLYPH_SQUARE, 0);
-    }
-    mao_dots_text(s_tune.sel == 0 ? "SOUND" : "SCREEN", 0.0f, -44.0f, 2.2f, 1.8f, 170.0f * in, -1.0f);
-    char num[4];
-    snprintf(num, sizeof(num), "%d", (int)lrintf(v));
-    mao_dots_text(num, 0.0f, 10.0f, 6.0f, 5.0f, 255.0f * in, -1.0f);
-    return true;
-}
-
-/* HOME's light (mao_ui_home_lamp): a plain turn sets the light used last
- * without opening it. The level is an arc of dots along the rim, open at the
- * bottom where the light's name sits; the eyes look towards its lit end and
- * are held well inside it (mao_character_look), never touching it. It
- * leaves on its own shortly after. */
-#define HOME_LAMP_HOLD_MS 1600
-#define HOME_LAMP_R       104.0f
-#define HOME_LAMP_ARC     2.30f            /* half the arc, rad from the top */
-
-static struct {
-    char name[24];
-    bool on;
-    uint32_t last;                         /* the last turn */
-    mao_spring_t shown;                    /* the drawn level follows the set one softly */
-    mao_spring_t vis;                      /* 0..1 */
-} s_hl;
-
-void mao_ui_home_lamp(const char *name, int pct, bool on)
-{
-    if (!mao_display_lock(0)) {
-        return;
-    }
-    if (s_hl.vis.target < 0.5f) {
-        s_hl.shown.x = (float)pct;         /* it appears at its level, not from zero */
-    }
-    snprintf(s_hl.name, sizeof(s_hl.name), "%s", name ? name : "");
-    s_hl.on = on;
-    s_hl.shown.target = (float)pct;
-    s_hl.vis.target = 1.0f;
-    s_hl.last = lv_tick_get();
-    /* the eyes look where the scale ends - and keep clear of it */
-    const float an = -HOME_LAMP_ARC + 2.0f * HOME_LAMP_ARC * (on ? (float)pct / 100.0f : 0.0f);
-    mao_character_look((int)(HOME_LAMP_R * sinf(an)), (int)(-HOME_LAMP_R * cosf(an)), true);
-    mao_ui_wake();
-    mao_display_unlock();
-}
-
-static bool home_lamp_layout(uint32_t now, float dt)
-{
-    if (s_hl.vis.target > 0.5f && now - s_hl.last > HOME_LAMP_HOLD_MS) {
-        s_hl.vis.target = 0.0f;
-        mao_character_look(0, 0, false);
-    }
-    mao_spring_step(&s_hl.vis, dt);
-    mao_spring_step(&s_hl.shown, dt);
-    const float in = clampf(s_hl.vis.x, 0.0f, 1.0f);
-    if (in < 0.01f && s_hl.vis.target < 0.5f) {
-        return false;
-    }
-    const float v = clampf(s_hl.shown.x, 0.0f, 100.0f);
-    const int n = 48;
-    for (int i = 0; i < n; i++) {
-        const float f = (float)i / (float)(n - 1);
-        const float an = -HOME_LAMP_ARC + 2.0f * HOME_LAMP_ARC * f;
-        const bool lit = s_hl.on && f * 100.0f <= v + 0.01f;
-        /* the arc arrives from the name outwards, like the lamp page's field grows */
-        const float arrive = clampf(in * 1.6f - fabsf(f - 0.5f) * 1.2f + 0.2f, 0.0f, 1.0f);
-        mao_dots_glyph(HOME_LAMP_R * sinf(an), -HOME_LAMP_R * cosf(an), lit ? 4.0f : 2.4f,
-                       (lit ? 255.0f : 60.0f) * arrive, MAO_GLYPH_SQUARE, 0);
-    }
-    const float nw = mao_dots_text_arc_width(s_hl.name, 1.0f);
-    const float pitch = nw > 1.0f ? fminf(2.2f, 120.0f / nw) : 2.2f;
-    mao_dots_text_arc(s_hl.name, HOME_LAMP_R, true, pitch, 1.8f, 200.0f * in, false);
-    return true;
-}
-/* Boot (M4.1): KINO D4's boot in MAO's field - it blooms from the centre
- * through its ragged front, MAO's name arrives in dots over it, then the
- * field draws back into the centre, where the eyes open (mao_home.c). */
-static uint32_t s_boot_t0;
-
-void mao_devices_boot_bloom(uint32_t now_ms)
-{
-    s_boot_t0 = now_ms ? now_ms : 1;
-}
-
-static bool boot_layout(uint32_t now)
-{
-    if (!s_boot_t0) {
-        return false;
-    }
-    const float t = (float)(now - s_boot_t0) / 1000.0f;
-    if (t > 1.5f) {
-        s_boot_t0 = 0;
-        return false;
-    }
-    const float grow = smooth01(t / 0.6f);                  /* out ... */
-    const float back = smooth01((t - 0.8f) / 0.32f);        /* ... and back into the centre */
-    field_request(122.0f * grow * (1.0f - back), 0.9f, 0.0f, 0.0f, 5.0f);   /* over anything else */
-    const float in = smooth01((t - 0.22f) / 0.3f), out = 1.0f - smooth01((t - 0.72f) / 0.22f);
-    if (in * out > 0.01f) {
-        mao_dots_text_halo("MAO", 0.0f, -2.0f, 5.0f, 4.2f, 255.0f * in * out);
-    }
-    return true;
-}
-
-/* HOME, left alone for a moment by someone new to it: a quiet PRESS. */
-static void home_hint_layout(uint32_t now)
-{
-    if (!s_hint.allowed || now - s_hint.since < 6000 || s_tune.mode != MAO_TUNE_OFF || s_hl.vis.x > 0.02f) {
-        return;
-    }
-    const float t = (float)(now - s_hint.since - 6000) / 1000.0f;
-    const float in = clampf(t / 0.8f, 0.0f, 1.0f);
-    const float breathe = 0.75f + 0.25f * sinf(t * 2.0f * PI_F / 2.4f);
-    mao_dots_text("PRESS", 0.0f, 98.0f, 2.0f, 1.7f, 190.0f * in * breathe, -1.0f);
-}
 
 void mao_ui_device_dots(const mao_ui_dotpage_t *m)
 {
@@ -1607,11 +1394,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
     mao_dots_begin();
     ST(0, list_layout(now));
     ST(1, dotpage_layout(now));
-    home_hint_layout(now);
-    const bool intro_up = intro_layout(now);
-    const bool boot_up = boot_layout(now);
-    const bool tune_up = home_tune_layout(now, dt);
-    const bool lamp_up = home_lamp_layout(now, dt);
+    const bool home_up = mao_home_dots_layout(now, dt);   /* HOME's dots: hint, intro, boot, tune, light */
     ST(2, mao_dots_end());
     ST(3, mao_field_set(s_fq.weight > 0.0f ? s_fq.reach : 0.0f, s_fq.strength, s_fq.oy, now));
     ST(4, panel_layout());
@@ -1642,7 +1425,7 @@ bool mao_devices_ui_tick(float dt, uint32_t now)
                          (now - s_list.shown_at_ms) < LOOKING_MS + 100;
     const bool field_alive = s_list.presence.x > 0.004f ||   /* the dots shimmer while they are there */
                              (s_dp.m.on && s_panel.presence.x > 0.004f) || s_dp.reach.x > 0.5f;
-    return field_alive || waiting || s_hint.allowed || intro_up || tune_up || lamp_up || boot_up || s_list.show_at != 0 || s_panel.show_at != 0 ||
+    return field_alive || waiting || home_up || s_list.show_at != 0 || s_panel.show_at != 0 ||
            !mao_spring_settled(&s_list.pos, 0.002f) || !mao_spring_settled(&s_list.presence, 0.002f) ||
            !mao_spring_settled(&s_list.side, 0.05f) ||
            !mao_spring_settled(&s_panel.presence, 0.002f) || !mao_spring_settled(&s_panel.ty, 0.05f) ||
@@ -1711,13 +1494,11 @@ void mao_devices_ui_create(lv_obj_t *scr)
     mao_spring_init(&s_dp.hole, CAM_AP, ((mao_spring_profile_t){ .k = 240.0f, .zeta = 0.45f }));
     mao_spring_init(&s_dp.leave, 1.0f, ((mao_spring_profile_t){ .k = 120.0f, .zeta = 0.9f }));
     mao_spring_init(&s_dp.twist, 0.0f, ((mao_spring_profile_t){ .k = 70.0f, .zeta = 0.75f }));
-    mao_spring_init(&s_tune.shown, 0.0f, ((mao_spring_profile_t){ .k = 180.0f, .zeta = 0.9f }));
-    mao_spring_init(&s_hl.shown, 0.0f, ((mao_spring_profile_t){ .k = 180.0f, .zeta = 0.9f }));
-    mao_spring_init(&s_hl.vis, 0.0f, MAO_UI_PAGE);
     for (int k = 0; k < 6; k++) {
         /* soft, each a little different: they arrive one after another */
         mao_spring_init(&s_dp.blade[k], CAM_AP,
                         ((mao_spring_profile_t){ .k = 150.0f - 11.0f * (float)k, .zeta = 0.82f }));
     }
     mao_spring_init(&s_dp.optsel, 0.0f, MAO_UI_SELECT);
+    mao_home_dots_init();
 }

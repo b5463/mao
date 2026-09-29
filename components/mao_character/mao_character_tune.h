@@ -119,7 +119,12 @@ typedef struct {
 
 #define MAO_GAZE_MIN         7.0f    /* gaze for a single slow detent */
 #define MAO_GAZE_MAX         14.0f   /* gaze at the top of the lateral range */
-#define MAO_HOME_CONTAIN_R   92.0f   /* HOME's rim scale sits at 102..106 px: the eyes stay a clear gap inside */
+#define MAO_HOME_CONTAIN_R   96.0f   /* HOME's rim scale sits at 102..106 px: the eyes keep a clear gap inside it */
+#define MAO_CONTAIN_PAD      2.0f    /* the eye's anti-aliased edge */
+#define MAO_CONTAIN_OFF_R    175.0f  /* containment released: a radius nothing reaches */
+#define MAO_CONTAIN_IN_S     0.06f   /* the scale arrives: in at once */
+#define MAO_CONTAIN_OUT_S    0.35f   /* it leaves: the eyes glide back to their own pose, never a jump */
+#define MAO_LOOK_EASE_S      0.30f   /* the expression layers quieten / return around a look at the scale */
 #define MAO_GAZE_LAG_ORBIT   -3.0f   /* eyes trail the motion while orbiting */
 #define MAO_FACE_MIN         4.0f
 #define MAO_FACE_MAX         20.0f

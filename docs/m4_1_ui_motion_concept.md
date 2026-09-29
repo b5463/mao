@@ -587,6 +587,28 @@ decision. FORGET is on the left, the way the menu went.
   the light's name sits. The eyes stay where they are, so nothing covers the
   arc. It leaves about 1.6 s after the last turn.
 - With no light in the setup, a plain turn moves the eyes as before.
+- Fixes from use (2026-09-29):
+  - **The lids no longer paint over the scale.** When the nearer eye
+    changed in a head turn, its stack was moved to the screen's foreground,
+    above the dot layer. The background-coloured lids and cover then erased
+    the scale's dots. The eye is now raised only above the other eye, so the
+    character keeps its place under the interface.
+  - **Containment** keeps the coloured eye (rounded, with a 2 px
+    anti-aliased edge) inside 96 px. The pulls of all outside corners are
+    averaged, so a face too wide at its height settles up or down instead
+    of being pushed left and right in turn. It eases in (60 ms) and out
+    (350 ms).
+  - **No jump when the scale goes.** While looking, the expression and mind
+    layers run quieter; they now ease back over 0.3 s. The mind's layer
+    used to return in one frame, which dropped a drowsy or angry pose onto
+    the face at once.
+  - The arc arrives from the name upwards, so the top (nearest the eyes)
+    comes last.
+  - **Camera filmstrip:** for the first 120 ms after a capture, the new
+    frame was drawn at its slot, because an unsigned time difference
+    wrapped. It then vanished and flew in from the centre. This was the
+    flash at the bottom. The difference is now signed. The HOME tune's
+    words had the same wrap and popped in before the eyes made room.
 - The eyes look towards the lit end of the arc. They are held inside a
   92 px circle while they do, so no part of them reaches the scale
   (`mao_character_look`, harness invariant I10).
