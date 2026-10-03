@@ -4,3 +4,8 @@ managed_components/
 sdkconfig
 sdkconfig.old
 *.bin
+.cache/
+__pycache__/
+hardware/mao/*-backups/
+hardware/mao/*.kicad_prl
+hardware/mao/fp-info-cache

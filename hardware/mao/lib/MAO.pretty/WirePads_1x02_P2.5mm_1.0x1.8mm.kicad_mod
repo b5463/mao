@@ -1,0 +1,131 @@
+(footprint "WirePads_1x02_P2.5mm_1.0x1.8mm"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Solder lands for two AWG32 actuator leads")
+	(tags "wire pad LRA")
+	(property "Reference" "REF**"
+		(at 0 -1.8 0)
+		(layer "F.SilkS")
+		(uuid "cb88d45f-a71a-46b7-a50d-6141670b44b9")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Value" "WirePads_1x02_P2.5mm_1.0x1.8mm"
+		(at 0 1.8 0)
+		(layer "F.Fab")
+		(uuid "f27ff5b8-26ac-4519-8d76-d09aab17bee3")
+		(effects
+			(font
+				(size 0.5 0.5)
+				(thickness 0.075)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "ea91b85d-bdb6-40f8-993f-506ba8ad8b8d")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "2fd7c3a4-0670-4307-8927-4ab6e7c0f500")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(attr smd)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start -2.85 0)
+		(end -2.15 0)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "bd99f9a3-3629-4fc7-983a-01d5bb95aec0")
+	)
+	(fp_line
+		(start -2.5 -0.35)
+		(end -2.5 0.35)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "176c3c48-1f99-44d1-b913-e3d4e82f4b0c")
+	)
+	(fp_line
+		(start -2 -1.15)
+		(end 2 -1.15)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "8353aa8e-b10e-458f-b2d2-6f7653266c96")
+	)
+	(fp_line
+		(start -2 1.15)
+		(end -2 -1.15)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "adc43634-61af-4a2f-b930-835bbfbe6f53")
+	)
+	(fp_line
+		(start 2 -1.15)
+		(end 2 1.15)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "af608675-be5f-47f2-b144-0fc4f2834256")
+	)
+	(fp_line
+		(start 2 1.15)
+		(end -2 1.15)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "cb6726b0-af48-4e0b-99f4-03098c8c1fd3")
+	)
+	(pad "1" smd roundrect
+		(at -1.25 0)
+		(size 1 1.8)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.15)
+		(thermal_bridge_angle 45)
+		(uuid "ca635def-862b-43d5-9a81-fafc20672292")
+	)
+	(pad "2" smd roundrect
+		(at 1.25 0)
+		(size 1 1.8)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.15)
+		(thermal_bridge_angle 45)
+		(uuid "f9283388-ef6e-42ef-b5ce-e6dc378122f1")
+	)
+	(embedded_fonts no)
+)

@@ -1,0 +1,202 @@
+(footprint "Everlight_IR12-21C_RightAngle_3x1mm"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Everlight IR12-21C side-emitting IR LED, lens towards -y")
+	(tags "IR LED side looking right angle")
+	(property "Reference" "REF**"
+		(at 0 1.8 0)
+		(layer "F.SilkS")
+		(uuid "df61c092-08a0-4ec8-93ec-66e6278076a3")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Value" "Everlight_IR12-21C_RightAngle_3x1mm"
+		(at 0 2.6 0)
+		(layer "F.Fab")
+		(uuid "66143338-249a-4f35-8fa2-aaec600cf33d")
+		(effects
+			(font
+				(size 0.5 0.5)
+				(thickness 0.075)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "7724c0aa-22e6-44b6-8037-33c7d0471a4e")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "51092096-43d3-48d0-ac9e-cd124156e24a")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(attr smd)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start -2.049999 -0.6)
+		(end -2.049999 0.6)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "815f365f-1e4c-4a11-8bfd-6ec425bcf177")
+	)
+	(fp_line
+		(start -2.15 -1.65)
+		(end 2.15 -1.65)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "08c624bb-40c7-47af-8117-fc183c91d18c")
+	)
+	(fp_line
+		(start -2.15 0.95)
+		(end -2.15 -1.65)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "0ba884bb-4ae2-4d65-ab50-f246d51d6c5d")
+	)
+	(fp_line
+		(start 2.15 -1.65)
+		(end 2.15 0.95)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "c4216b4f-5d9d-40b2-91ec-50a2d5305746")
+	)
+	(fp_line
+		(start 2.15 0.95)
+		(end -2.15 0.95)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "aa2f79c7-ae53-4cf6-9004-56ed061562a2")
+	)
+	(fp_line
+		(start -1.5 -0.4)
+		(end 1.5 -0.4)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "b0a07af7-b310-49fb-a899-1d2ca5b1c31a")
+	)
+	(fp_line
+		(start -1.5 0.6)
+		(end -1.5 -0.4)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "ec3af54f-0181-4281-8d3e-e92a3eba9162")
+	)
+	(fp_line
+		(start -0.5 -1.4)
+		(end 0.5 -1.4)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "8f095458-24b2-4333-af0e-54d97305ed4b")
+	)
+	(fp_line
+		(start -0.5 -0.4)
+		(end -0.5 -1.4)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "d98c286e-cd33-4a04-b027-f400895ed488")
+	)
+	(fp_line
+		(start 0.5 -0.4)
+		(end 0.5 -1.4)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "6a33c4cb-8c35-463f-8df7-26d9b543f3a6")
+	)
+	(fp_line
+		(start 1.5 -0.4)
+		(end 1.5 0.6)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "df881b3a-5175-490a-9356-b7174d27802b")
+	)
+	(fp_line
+		(start 1.5 0.6)
+		(end -1.5 0.6)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "ca12f35b-5f08-41e0-b38d-16659cd298d6")
+	)
+	(fp_text user "K"
+		(at -1.5 1.2 0)
+		(layer "F.Fab")
+		(uuid "df252d15-2bba-47fc-98c3-bcdea7f8528e")
+		(effects
+			(font
+				(size 0.5 0.5)
+				(thickness 0.075)
+			)
+		)
+	)
+	(pad "1" smd roundrect
+		(at -1.5 0)
+		(size 0.8 1.4)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.0625)
+		(thermal_bridge_angle 45)
+		(uuid "b42f3d4c-9d96-45f6-86d9-8a64f26c0600")
+	)
+	(pad "2" smd roundrect
+		(at 1.5 0)
+		(size 0.8 1.4)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.0625)
+		(thermal_bridge_angle 45)
+		(uuid "0677ca1b-42dc-4bb6-8f75-676a2d58d203")
+	)
+	(embedded_fonts no)
+)
