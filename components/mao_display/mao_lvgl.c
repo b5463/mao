@@ -70,5 +70,6 @@ esp_err_t mao_lvgl_start(mao_lvgl_t *out)
 
     out->disp = disp;
     out->panel = bd.panel;
+    out->board_rotation = bd.rotation;
     return ESP_OK;
 }

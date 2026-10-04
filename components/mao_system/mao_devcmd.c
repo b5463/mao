@@ -10,7 +10,8 @@
  *
  * Compiled only with CONFIG_MAO_DEV_CONSOLE. Commands that concern
  * application behaviour are forwarded as MAO_EVENT_DEV_COMMAND so they run in
- * the dispatcher like any other event.
+ * the dispatcher like any other event. Hardware components register their
+ * own commands (mao_devcmd_register), which run in this task.
  *
  * Send e.g. "mao reset-first-boot" from idf.py monitor or tools/mao_cmd.py.
  */
@@ -32,10 +33,45 @@
 
 static const char *TAG = "MAO_SYSTEM";
 
-#define DEVCMD_TASK_STACK  3072
+#define DEVCMD_TASK_STACK  4096     /* registered handlers log floats */
 #define DEVCMD_TASK_PRIO   1
 #define DEVCMD_POLL_MS     50
-#define DEVCMD_LINE_MAX    48
+#define DEVCMD_LINE_MAX    96
+#define DEVCMD_MAX_EXTRA   16
+
+typedef struct {
+    const char *name;
+    const char *usage;
+    mao_devcmd_handler_t handler;
+} devcmd_entry_t;
+
+/* Filled during init (before the console task starts), read-only after. */
+static devcmd_entry_t s_extra[DEVCMD_MAX_EXTRA];
+static size_t s_extra_count;
+
+esp_err_t mao_devcmd_register(const char *name, const char *usage, mao_devcmd_handler_t handler)
+{
+    if (!name || !handler) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (s_extra_count >= DEVCMD_MAX_EXTRA) {
+        ESP_LOGW(TAG, "dev: no room for command '%s'", name);
+        return ESP_ERR_NO_MEM;
+    }
+    s_extra[s_extra_count++] = (devcmd_entry_t) { .name = name, .usage = usage, .handler = handler };
+    return ESP_OK;
+}
+
+static bool run_registered(const char *cmd, const char *arg)
+{
+    for (size_t i = 0; i < s_extra_count; i++) {
+        if (strcmp(cmd, s_extra[i].name) == 0) {
+            s_extra[i].handler(arg ? arg : "");
+            return true;
+        }
+    }
+    return false;
+}
 
 static void run_command(char *line)
 {
@@ -54,6 +90,11 @@ static void run_command(char *line)
     if (strcmp(cmd, "help") == 0) {
         ESP_LOGI(TAG, "dev commands: help | status | odd-reset | odd-selftest | odd-flood <s> | reset-first-boot | reboot | stress <seconds> | "
                  "key <cw|ccw|press|release|click|double|long> [count]");
+        for (size_t i = 0; i < s_extra_count; i++) {
+            ESP_LOGI(TAG, "  mao %s", s_extra[i].usage ? s_extra[i].usage : s_extra[i].name);
+        }
+    } else if (run_registered(cmd, arg)) {
+        /* handled by the component that registered it */
     } else if (strcmp(cmd, "key") == 0 && arg) {
         /* Inject a synthetic input event: indistinguishable from the knob for
          * everything above the input driver (scripted UI tests). */
@@ -157,6 +198,14 @@ esp_err_t mao_devcmd_start(void)
 
 esp_err_t mao_devcmd_start(void)
 {
+    return ESP_OK;
+}
+
+esp_err_t mao_devcmd_register(const char *name, const char *usage, mao_devcmd_handler_t handler)
+{
+    (void)name;
+    (void)usage;
+    (void)handler;
     return ESP_OK;
 }
 

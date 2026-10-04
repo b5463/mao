@@ -30,6 +30,9 @@ typedef enum {
     MAO_CHAR_SLEEPY,
     MAO_CHAR_SURPRISED,
     MAO_CHAR_HAPPY,
+    MAO_CHAR_SUSPICIOUS,
+    MAO_CHAR_ANNOYED,
+    MAO_CHAR_CONTENT,
     MAO_CHAR_STATE_COUNT,
 } mao_character_state_t;
 
@@ -48,6 +51,11 @@ typedef enum {
     MAO_CHAR_REACT_HAPPY,        /* eyes squint into a smile */
     MAO_CHAR_REACT_WAKE,         /* eyes open from closed/sleepy */
     MAO_CHAR_REACT_ATTEND,       /* something appeared: brief look towards the edge */
+    MAO_CHAR_REACT_SUSPICIOUS,   /* narrowed side-eye: "what are you doing?" */
+    MAO_CHAR_REACT_ANNOYED,      /* narrowed eyes, flat mouth, a little shake: "tsk" */
+    MAO_CHAR_REACT_CROSS,        /* properly cross: narrowed, flat mouth, turns away */
+    MAO_CHAR_REACT_CONTENT,      /* soft squint and a slow blink: being petted */
+    MAO_CHAR_REACT_DIZZY,        /* the dial's dizzy wobble, for being shaken / dropped */
 } mao_character_reaction_t;
 
 /* Build the character inside parent (display lock held). Starts hidden
@@ -65,6 +73,14 @@ void mao_character_dial(int32_t detents, mao_dial_speed_t speed, bool reversing)
 void mao_character_press(bool down);
 
 void mao_character_react(mao_character_reaction_t reaction);
+
+/* Look somewhere for hold_ms: gaze offset in pixels within the face (about
+ * -12..12; + = right / down), the face follows a little. Interrupts idle
+ * glances, not reactions. */
+void mao_character_look(int8_t x, int8_t y, uint16_t hold_ms);
+
+/* Reduced motion rate (~15 Hz instead of ~30 Hz) while MAO is idle. */
+void mao_character_set_reduced_rate(bool reduced);
 
 /* Sleepy is an idle presentation only; any command that implies interaction
  * should be preceded by set_sleepy(false). */

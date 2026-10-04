@@ -17,6 +17,7 @@
 static const char *TAG = "MAO_CHARACTER";
 
 #define TICK_MS            33        /* ~30 Hz motion update */
+#define TICK_REDUCED_MS    66        /* ~15 Hz while MAO is idle */
 #define CMD_QUEUE_LEN      16
 #define PI_F               3.14159265f
 #define TWO_PI_F           6.28318531f
@@ -27,6 +28,10 @@ static const char *TAG = "MAO_CHARACTER";
 #define SURPRISED_MS       750
 #define HAPPY_MS           900
 #define WIDE_HOLD_MS       300
+#define SUSPICIOUS_MS      1400
+#define ANNOYED_MS         1300
+#define CROSS_MS           2600
+#define CONTENT_MS         1900
 
 #define SLEEPY_OPEN        0.32f
 #define AWAY_OFFSET        175.0f    /* below the round screen */
@@ -38,6 +43,8 @@ typedef enum {
     CMD_SLEEPY,
     CMD_PRESENT,
     CMD_STRESS,
+    CMD_LOOK,
+    CMD_RATE,
 } cmd_type_t;
 
 typedef struct {
@@ -48,6 +55,7 @@ typedef struct {
 } cmd_t;
 
 static QueueHandle_t s_cmds;
+static lv_timer_t *s_timer;
 static mao_motion_t s_m;
 static mao_char_draw_t s_draw;
 static uint32_t s_last_tick_ms;
@@ -77,7 +85,7 @@ void mao_character_set_detents_per_rev(uint8_t detents_per_rev)
 }
 
 static const char *const kStateNames[MAO_CHAR_STATE_COUNT] = {
-    "IDLE", "NOTICE", "FOLLOW", "DIZZY", "SLEEPY", "SURPRISED", "HAPPY",
+    "IDLE", "NOTICE", "FOLLOW", "DIZZY", "SLEEPY", "SURPRISED", "HAPPY", "SUSPICIOUS", "ANNOYED", "CONTENT",
 };
 
 const char *mao_character_state_name(mao_character_state_t state)
@@ -141,6 +149,15 @@ static void wake_if_sleepy(uint32_t now)
 /* Command handlers (LVGL task)                                           */
 /* ---------------------------------------------------------------------- */
 
+static void start_dizzy(uint32_t now)
+{
+    settle_targets();
+    mao_motion_set(&s_m, CH_WOBBLE, 4.5f);
+    mao_motion_set(&s_m, CH_OPEN, 0.72f);
+    s_mouth = MAO_MOUTH_FLAT;
+    set_state(MAO_CHAR_DIZZY, now, DIZZY_MS);
+}
+
 static void on_dial(int32_t detents, mao_dial_speed_t speed, bool reversing, uint32_t now)
 {
     if (!s_visible || !s_present || detents == 0) {
@@ -149,12 +166,11 @@ static void on_dial(int32_t detents, mao_dial_speed_t speed, bool reversing, uin
     wake_if_sleepy(now);
     const float dir = detents > 0 ? 1.0f : -1.0f;
 
+    if (s_state == MAO_CHAR_ANNOYED) {
+        return;   /* cross: it will not play along until that has passed */
+    }
     if (reversing) {
-        settle_targets();
-        mao_motion_set(&s_m, CH_WOBBLE, 4.5f);
-        mao_motion_set(&s_m, CH_OPEN, 0.72f);
-        s_mouth = MAO_MOUTH_FLAT;
-        set_state(MAO_CHAR_DIZZY, now, DIZZY_MS);
+        start_dizzy(now);
         return;
     }
     if (s_state == MAO_CHAR_DIZZY) {
@@ -275,9 +291,83 @@ static void on_react(mao_character_reaction_t r, uint32_t now)
         mao_motion_kick(&s_m, CH_FACE_Y, -30.0f);
         set_state(MAO_CHAR_HAPPY, now, HAPPY_MS);
         break;
+    case MAO_CHAR_REACT_SUSPICIOUS: {
+        /* Side-eye towards wherever the fiddling comes from: narrowed, a
+         * slow look aside, slight head tilt. */
+        const float side = rnd(2) ? 1.0f : -1.0f;
+        s_mouth = MAO_MOUTH_NONE;
+        mao_motion_set(&s_m, CH_HAPPY, 0.0f);
+        mao_motion_set(&s_m, CH_OPEN, 0.58f);
+        mao_motion_set(&s_m, CH_GAZE_X, 9.0f * side);
+        mao_motion_set(&s_m, CH_GAZE_Y, 1.0f);
+        mao_motion_set(&s_m, CH_FACE_X, s_base_x + 3.0f * side);
+        mao_motion_set(&s_m, CH_TILT, 1.8f * side);
+        s_glance_until = 0;
+        set_state(MAO_CHAR_SUSPICIOUS, now, SUSPICIOUS_MS);
+        break;
+    }
+    case MAO_CHAR_REACT_ANNOYED:
+        /* "tsk": narrowed, flat mouth, a short shake of the head. */
+        mao_motion_set(&s_m, CH_HAPPY, 0.0f);
+        mao_motion_set(&s_m, CH_OPEN, 0.5f);
+        mao_motion_set(&s_m, CH_GAZE_X, 0.0f);
+        mao_motion_set(&s_m, CH_GAZE_Y, 1.5f);
+        mao_motion_set(&s_m, CH_TILT, -2.5f);
+        mao_motion_kick(&s_m, CH_FACE_X, 90.0f);
+        s_mouth = MAO_MOUTH_FLAT;
+        s_glance_until = 0;
+        set_state(MAO_CHAR_ANNOYED, now, ANNOYED_MS);
+        break;
+    case MAO_CHAR_REACT_CROSS: {
+        /* Properly cross: narrowed eyes, flat mouth, turns away for a bit. */
+        const float side = rnd(2) ? 1.0f : -1.0f;
+        mao_motion_set(&s_m, CH_HAPPY, 0.0f);
+        mao_motion_set(&s_m, CH_OPEN, 0.42f);
+        mao_motion_set(&s_m, CH_FACE_X, s_base_x + 15.0f * side);
+        mao_motion_set(&s_m, CH_GAZE_X, 10.0f * side);
+        mao_motion_set(&s_m, CH_GAZE_Y, -1.0f);
+        mao_motion_set(&s_m, CH_TILT, 3.5f * side);
+        mao_motion_kick(&s_m, CH_FACE_Y, -25.0f);
+        s_mouth = MAO_MOUTH_FLAT;
+        s_glance_until = 0;
+        set_state(MAO_CHAR_ANNOYED, now, CROSS_MS);
+        break;
+    }
+    case MAO_CHAR_REACT_DIZZY:
+        start_dizzy(now);
+        break;
+    case MAO_CHAR_REACT_CONTENT:
+        /* Being petted: a soft squint, eyes settle a little lower, one slow
+         * blink. */
+        s_mouth = MAO_MOUTH_NONE;
+        mao_motion_set(&s_m, CH_HAPPY, 0.75f);
+        mao_motion_set(&s_m, CH_OPEN, 0.85f);
+        mao_motion_set(&s_m, CH_FACE_Y, s_base_y + 4.0f);
+        mao_motion_set(&s_m, CH_GAZE_X, 0.0f);
+        mao_motion_set(&s_m, CH_GAZE_Y, 1.0f);
+        mao_motion_set(&s_m, CH_TILT, rnd(2) ? 1.5f : -1.5f);
+        mao_motion_blink(&s_m, now + 450, 600, 1);
+        set_state(MAO_CHAR_CONTENT, now, CONTENT_MS);
+        break;
     default:
         break;
     }
+}
+
+static void on_look(int8_t x, int8_t y, uint16_t hold_ms, uint32_t now)
+{
+    if (!s_visible || !s_present) {
+        return;
+    }
+    /* A reaction in progress keeps its own gaze. */
+    if (s_state != MAO_CHAR_IDLE && s_state != MAO_CHAR_SLEEPY && s_state != MAO_CHAR_NOTICE) {
+        return;
+    }
+    const float k = s_sleepy ? 0.6f : 1.0f;
+    mao_motion_set(&s_m, CH_GAZE_X, (float)x * k);
+    mao_motion_set(&s_m, CH_GAZE_Y, (float)y * k + (s_sleepy ? 3.0f : 0.0f));
+    mao_motion_set(&s_m, CH_FACE_X, s_base_x + (float)x * 0.6f * k);
+    s_glance_until = now + (hold_ms ? hold_ms : 900);
 }
 
 static void on_sleepy(bool sleepy, uint32_t now)
@@ -357,6 +447,13 @@ static void apply_command(const cmd_t *c, uint32_t now)
     case CMD_SLEEPY:  on_sleepy(c->flag, now); break;
     case CMD_PRESENT: on_present(c->flag, now); break;
     case CMD_STRESS:  s_stress_until = now + (uint32_t)c->value; break;
+    case CMD_LOOK:    on_look((int8_t)(c->value & 0xFF), (int8_t)((c->value >> 8) & 0xFF),
+                              (uint16_t)((uint32_t)c->value >> 16), now); break;
+    case CMD_RATE:
+        if (s_timer) {
+            lv_timer_set_period(s_timer, c->flag ? TICK_REDUCED_MS : TICK_MS);
+        }
+        break;
     default: break;
     }
 }
@@ -445,7 +542,8 @@ esp_err_t mao_character_create(lv_obj_t *parent)
     }
     s_last_tick_ms = lv_tick_get();
     schedule_idle(s_last_tick_ms);
-    if (!lv_timer_create(tick_cb, TICK_MS, NULL)) {
+    s_timer = lv_timer_create(tick_cb, TICK_MS, NULL);
+    if (!s_timer) {
         return ESP_ERR_NO_MEM;
     }
     ESP_LOGI(TAG, "character ready (procedural eyes, %d ms motion tick)", TICK_MS);
@@ -482,6 +580,17 @@ void mao_character_set_sleepy(bool sleepy)
 void mao_character_set_present(bool present)
 {
     post((cmd_t) { .type = CMD_PRESENT, .flag = present });
+}
+
+void mao_character_look(int8_t x, int8_t y, uint16_t hold_ms)
+{
+    const uint32_t packed = (uint32_t)(uint8_t)x | ((uint32_t)(uint8_t)y << 8) | ((uint32_t)hold_ms << 16);
+    post((cmd_t) { .type = CMD_LOOK, .value = (int32_t)packed });
+}
+
+void mao_character_set_reduced_rate(bool reduced)
+{
+    post((cmd_t) { .type = CMD_RATE, .flag = reduced });
 }
 
 void mao_character_debug_stress(uint32_t duration_ms)

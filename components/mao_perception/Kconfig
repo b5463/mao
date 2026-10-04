@@ -1,0 +1,48 @@
+menu "MAO perception"
+
+    config MAO_PERCEPT_NEAR_MM
+        int "Proximity: 'near' distance through the window (mm)"
+        range 50 800
+        default 200
+        help
+            Something closer than this (two readings in a row) is
+            APPROACH_NEAR; it has to move 50 % further away again before it
+            counts as gone (hysteresis). VERIFY AT BRING-UP through the
+            cover window: the window border adds crosstalk.
+
+    config MAO_PERCEPT_QUIET_ROOM_S
+        int "Quiet room after this many seconds of quiet"
+        range 10 3600
+        default 120
+
+    config MAO_PERCEPT_DARK_ROOM_S
+        int "Dark room after this many seconds of darkness"
+        range 5 600
+        default 20
+
+    config MAO_PERCEPT_LONG_ABSENCE_MIN
+        int "Long absence: minutes without anyone around"
+        range 5 10080
+        default 120
+        help
+            When someone comes back after at least this long (counting
+            deep sleep), MAO perceives LONG_ABSENCE before anything else.
+
+    config MAO_PERCEPT_IMU_Z_DOWN
+        bool "IMU +Z points down when MAO rests on its base"
+        default n
+        help
+            The LSM6DSOX sits on the face side of the A0, so its +Z axis
+            should point up out of the face when MAO rests on its base.
+            VERIFY AT BRING-UP with "mao sense" (accel z = +1 g at rest);
+            enable this if it reads -1 g.
+
+    config MAO_PERCEPT_LOG
+        bool "Log every percept"
+        default y
+        help
+            One INFO line per percept (release builds log WARN and above
+            only, so this costs nothing there). "mao percept log off"
+            silences it at run time.
+
+endmenu

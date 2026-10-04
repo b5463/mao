@@ -1,0 +1,92 @@
+menu "MAO power"
+
+    config MAO_POWER_WAKE_INTERVAL_MIN
+        int "Deep-sleep housekeeping wake-up interval (minutes)"
+        range 1 1440
+        default 30
+        help
+            Timer wake-up while in deep sleep, so MAO can update its state
+            (battery, time asleep) even when nobody touches it.
+
+    config MAO_POWER_CRITICAL_SHUTDOWN
+        bool "Deep sleep on a critical battery"
+        default y
+        help
+            On battery with SOC <= 2 % or the cell below 3.35 V (three
+            readings in a row), post MAO_EVENT_BATTERY_CRITICAL, give the
+            application 5 s to save state, then deep-sleep with USB as the
+            only wake source. The hardware UVLO switches the 3V3 rail off
+            near 2.96 V VSYS; this keeps the firmware well clear of it.
+
+    config MAO_POWER_AUTO
+        bool "Automatic power states (ACTIVE / IDLE / DROWSY / DEEP SLEEP)"
+        default y
+        help
+            Let MAO doze off on its own: IDLE after a short while without
+            anyone around (sensors slower), DROWSY later (panel asleep, CPU
+            light-sleeping between wake events), DEEP SLEEP after a long
+            doze on battery. Boards without power management ignore this.
+            Without it, only "mao sleep" and a critical battery change the
+            power state.
+
+    config MAO_POWER_IDLE_AFTER_S
+        int "IDLE after this many seconds without activity"
+        depends on MAO_POWER_AUTO
+        range 5 3600
+        default 30
+
+    config MAO_POWER_DROWSY_AFTER_S
+        int "DROWSY after this many seconds without activity"
+        depends on MAO_POWER_AUTO
+        range 20 86400
+        default 180
+        help
+            The application's sleepy look (MAO_SLEEPY_TIMEOUT_S, dimmed
+            screen, heavy eyes) comes first; DROWSY then puts the panel to
+            sleep and light-sleeps the CPU.
+
+    config MAO_POWER_DEEP_AFTER_MIN
+        int "DEEP SLEEP after this many minutes DROWSY (0 = never)"
+        depends on MAO_POWER_AUTO
+        range 0 1440
+        default 30
+
+    config MAO_POWER_REDROWSE_S
+        int "After a wake nobody follows up, doze off again after (s)"
+        depends on MAO_POWER_AUTO
+        range 5 600
+        default 20
+        help
+            A bump of the desk or a passing shadow wakes MAO from DROWSY;
+            if nothing else happens it looks around this long, then dozes
+            off again instead of waiting the full DROWSY delay.
+
+    config MAO_POWER_SLEEP_WITH_CONSOLE
+        bool "Sleep even while a USB host uses the console"
+        depends on MAO_POWER_AUTO
+        default n
+        help
+            Light and deep sleep drop the USB-Serial/JTAG connection. By
+            default MAO never goes below IDLE while a USB host is attached
+            (start-of-frame packets seen), so development sessions and the
+            factory fixture keep their console.
+
+    config MAO_POWER_DEEP_ON_USB
+        bool "Deep sleep while on USB power"
+        depends on MAO_POWER_AUTO
+        default n
+        help
+            On a charger MAO dozes (DROWSY) but stays out of deep sleep by
+            default, so it wakes instantly and keeps its sense of time.
+
+    config MAO_POWER_QUIET_WAKE_S
+        int "Look-around time after a housekeeping timer wake (s)"
+        depends on MAO_POWER_AUTO
+        range 2 120
+        default 8
+        help
+            The deep-sleep housekeeping timer boots MAO with the screen
+            dark. If nothing happens within this time it goes straight
+            back to deep sleep.
+
+endmenu

@@ -71,6 +71,31 @@ void mao_state_set_awake(bool awake)
     s_state.awake = awake;
 }
 
+void mao_state_set_room_dark(bool dark)
+{
+    s_state.room_dark = dark;
+}
+
+void mao_state_set_room_quiet(bool quiet)
+{
+    s_state.room_quiet = quiet;
+}
+
+void mao_state_set_upside_down(bool upside)
+{
+    s_state.upside_down = upside;
+}
+
+void mao_state_set_annoyance(uint8_t level)
+{
+    s_state.annoyance = level > 3 ? 3 : level;
+}
+
+void mao_state_set_grudge_until(int64_t until_us)
+{
+    s_state.grudge_until_us = until_us;
+}
+
 void mao_state_note_input(int64_t now_us)
 {
     s_state.last_input_us = now_us;

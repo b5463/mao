@@ -8,6 +8,7 @@
 typedef struct {
     lv_display_t *disp;
     esp_lcd_panel_handle_t panel;
+    uint16_t board_rotation;     /* the board's mounting rotation (degrees) */
 } mao_lvgl_t;
 
 /* Initialise panel + esp_lvgl_port with partial draw buffers. */

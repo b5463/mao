@@ -15,6 +15,9 @@
 #include "mao_events.h"
 #include "mao_input.h"
 #include "mao_led.h"
+#include "mao_perception.h"
+#include "mao_power.h"
+#include "mao_selftest.h"
 #include "mao_settings.h"
 #include "mao_system.h"
 #include "mao_ui.h"
@@ -26,6 +29,16 @@ static const char *TAG = "MAO_APP";
 #define DIAL_SETTLE_US        (700 * 1000)
 #define FAST_TICK_GAP_US      (90 * 1000) /* audio thinning at FAST speed */
 #define MENU_BUMP_GAP_US      (250 * 1000)
+#define DARK_ROOM_BRIGHTNESS  60          /* % of the preferred brightness in a dark room */
+
+typedef enum {
+    BOOT_NORMAL = 0,      /* wordmark, then the eyes open */
+    BOOT_RESUME,          /* back from deep sleep: the eyes simply open again */
+    BOOT_QUIET,           /* housekeeping timer: dark, back to sleep unless someone is here */
+    BOOT_FAULT,           /* fatal hardware fault: wordmark + service code */
+} boot_style_t;
+
+static boot_style_t s_boot_style = BOOT_NORMAL;
 
 static mao_dial_speed_t s_logged_speed = MAO_DIAL_STILL;
 static bool s_logged_reversing;
@@ -133,22 +146,56 @@ static void go_view(mao_view_t view)
 
 static void apply_brightness(bool sleepy)
 {
+    if (mao_app_power_quiet()) {
+        mao_display_set_brightness(0);     /* housekeeping wake: stay dark */
+        return;
+    }
     const uint8_t pref = mao_settings_get()->brightness;
-    uint8_t pct = sleepy ? (uint8_t)(pref * SLEEPY_BRIGHTNESS_PCT / 100) : pref;
+    uint32_t pct = sleepy ? (uint32_t)pref * SLEEPY_BRIGHTNESS_PCT / 100 : pref;
+    if (mao_state()->room_dark) {
+        pct = pct * DARK_ROOM_BRIGHTNESS / 100;   /* easy on the eyes at night */
+    }
     if (pct < 5) {
         pct = 5;
     }
-    mao_display_set_brightness(pct);
+    mao_display_set_brightness((uint8_t)pct);
+}
+
+void mao_app_refresh_brightness(void)
+{
+    apply_brightness(!mao_state()->awake);
 }
 
 static void wake(void)
 {
+    if (mao_app_power_quiet()) {
+        /* Someone came by during a housekeeping wake: light up, open the eyes. */
+        mao_app_power_end_quiet();
+        mao_state_set_awake(true);
+        mao_character_set_sleepy(false);
+        apply_brightness(false);
+        mao_ui_resume();
+        ESP_LOGI(TAG, "awake (from a housekeeping wake)");
+        return;
+    }
     if (!mao_state()->awake) {
         mao_state_set_awake(true);
         mao_character_set_sleepy(false);
         apply_brightness(false);
         ESP_LOGI(TAG, "awake");
     }
+}
+
+void mao_app_wake(void)
+{
+    wake();
+}
+
+void mao_app_note_activity(int64_t now_us)
+{
+    mao_state_note_input(now_us);
+    mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
+    mao_app_power_activity(now_us);
 }
 
 /* Classify the dial movement, log class changes, and give rotary audio
@@ -414,7 +461,7 @@ static void on_device_event(const mao_event_t *ev)
 static void on_idle_timeout(void)
 {
     const mao_app_state_t *st = mao_state();
-    if (st->view == MAO_VIEW_INTRO) {
+    if (st->view == MAO_VIEW_INTRO || s_boot_style == BOOT_FAULT) {
         return;   /* the first encounter waits indefinitely */
     }
     mao_state_note_idle();
@@ -427,6 +474,31 @@ static void on_idle_timeout(void)
         apply_brightness(true);
         mao_led_set_state(MAO_LED_STATE_OFF);
         ESP_LOGI(TAG, "sleepy after %d s without input", CONFIG_MAO_SLEEPY_TIMEOUT_S);
+    }
+}
+
+/* Become sleepy now (a quiet or dark room, a dying battery). */
+void mao_app_go_sleepy(void)
+{
+    mao_system_idle_kick(0);
+    on_idle_timeout();
+}
+
+/* The power state mao_power actually entered. */
+static void on_power_state(int32_t value, int64_t now)
+{
+    const mao_power_state_t prev = mao_app_power_on_state(value, now);
+    const mao_power_state_t st = (mao_power_state_t)value;
+    /* Fewer frames while nobody is around; full rate when MAO is awake. */
+    mao_character_set_reduced_rate(st != MAO_POWER_ACTIVE);
+    if (prev == MAO_POWER_DROWSY && st == MAO_POWER_ACTIVE && mao_state()->view == MAO_VIEW_HOME) {
+        /* Woken from dozing: a peek first. A press, touch, approach or USB
+         * plug that follows (as input / percept) makes it a proper wake-up. */
+        const mao_wake_source_t why = mao_power_last_wake();
+        ESP_LOGI(TAG, "woke from dozing (%s)", mao_wake_source_name(why));
+        if (why != MAO_WAKE_PRESS) {
+            mao_character_look(0, -3, 1200);
+        }
     }
 }
 
@@ -461,6 +533,7 @@ static void on_dev_command(int32_t value, int64_t now)
         go_view(MAO_VIEW_HOME);
         mao_character_debug_stress(seconds * 1000);
         mao_system_idle_kick(seconds * 1000 + SLEEPY_TIMEOUT_MS);
+        mao_app_power_hold(now + (int64_t)seconds * 1000000);
     }
 }
 
@@ -477,8 +550,10 @@ static void on_event(const mao_event_t *ev, void *ctx)
     const int64_t now = esp_timer_get_time();
 
     if (is_input(ev->type)) {
-        mao_state_note_input(now);
-        mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
+        if (s_boot_style == BOOT_FAULT) {
+            return;
+        }
+        mao_app_note_activity(now);
         wake();
         switch (mao_state()->view) {
         case MAO_VIEW_INTRO:       on_intro(ev); break;
@@ -498,8 +573,33 @@ static void on_event(const mao_event_t *ev, void *ctx)
         mao_state_note_input(now);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
         if (mao_state()->view == MAO_VIEW_HOME) {
-            mao_ui_boot();
+            switch (s_boot_style) {
+            case BOOT_RESUME:
+                mao_ui_resume();           /* continuity: it woke up, it did not boot */
+                break;
+            case BOOT_QUIET:
+                break;                     /* dark until someone shows up */
+            case BOOT_FAULT:
+                mao_ui_fault(mao_selftest_boot_check()->code);
+                break;
+            default:
+                mao_ui_boot();
+                break;
+            }
         }
+        break;
+    case MAO_EVENT_PERCEPT: {
+        mao_percept_msg_t m;
+        if (s_boot_style != BOOT_FAULT && mao_percept_from_event(ev, &m)) {
+            mao_app_on_percept(&m, now);
+        }
+        break;
+    }
+    case MAO_EVENT_TICK:
+        mao_app_power_tick(now);
+        break;
+    case MAO_EVENT_POWER_STATE:
+        on_power_state(ev->value, now);
         break;
     case MAO_EVENT_IDLE_TIMEOUT:
         on_idle_timeout();
@@ -517,10 +617,30 @@ static void on_event(const mao_event_t *ev, void *ctx)
     }
 }
 
+static const char *boot_style_name(boot_style_t b)
+{
+    switch (b) {
+    case BOOT_RESUME: return "resume from sleep";
+    case BOOT_QUIET:  return "quiet housekeeping wake";
+    case BOOT_FAULT:  return "hardware fault";
+    default:          return "normal";
+    }
+}
+
 esp_err_t mao_app_init(void)
 {
     const mao_settings_t *cfg = mao_settings_get();
-    const mao_view_t first_view = cfg->first_boot_done ? MAO_VIEW_HOME : MAO_VIEW_INTRO;
+    const mao_power_continuity_t *cont = mao_power_continuity();
+    const mao_boot_check_t *check = mao_selftest_boot_check();
+    const int64_t now = esp_timer_get_time();
+
+    /* How MAO comes up (brief section 32): never a raw debug screen. */
+    if (check->fatal) {
+        s_boot_style = BOOT_FAULT;
+    } else if (cfg->first_boot_done && cont->woke_from_sleep) {
+        s_boot_style = cont->source == MAO_WAKE_TIMER ? BOOT_QUIET : BOOT_RESUME;
+    }
+    const mao_view_t first_view = cfg->first_boot_done || s_boot_style == BOOT_FAULT ? MAO_VIEW_HOME : MAO_VIEW_INTRO;
     mao_state_init(first_view);
     if (first_view == MAO_VIEW_INTRO) {
         ESP_LOGI(TAG, "first boot: showing the first encounter");
@@ -528,10 +648,21 @@ esp_err_t mao_app_init(void)
 
     mao_audio_set_volume(cfg->volume);
     mao_character_set_detents_per_rev(mao_input_detents_per_rev());
+    mao_app_percept_init();
+    if (!mao_app_power_init(s_boot_style == BOOT_QUIET, now) && s_boot_style == BOOT_QUIET) {
+        s_boot_style = BOOT_RESUME;         /* no power policy: just wake up */
+    }
     ESP_RETURN_ON_ERROR(mao_ui_init(first_view), TAG, "ui");
+    if (s_boot_style == BOOT_RESUME || s_boot_style == BOOT_QUIET) {
+        mao_ui_skip_wordmark();             /* the first frame already has no wordmark */
+    }
     ESP_RETURN_ON_ERROR(mao_event_subscribe(on_event, NULL), TAG, "subscribe");
-    ESP_RETURN_ON_ERROR(mao_display_start(cfg->brightness), TAG, "display start");
-    ESP_LOGI(TAG, "app ready: view %s, sleepy after %d s", mao_ui_view_name(first_view),
-             CONFIG_MAO_SLEEPY_TIMEOUT_S);
+    ESP_RETURN_ON_ERROR(mao_display_start(s_boot_style == BOOT_QUIET ? 0 : cfg->brightness), TAG, "display start");
+    if (s_boot_style == BOOT_QUIET) {
+        mao_state_set_awake(false);
+        mao_character_set_sleepy(true);
+    }
+    ESP_LOGI(TAG, "app ready: view %s, boot %s, sleepy after %d s", mao_ui_view_name(first_view),
+             boot_style_name(s_boot_style), CONFIG_MAO_SLEEPY_TIMEOUT_S);
     return ESP_OK;
 }

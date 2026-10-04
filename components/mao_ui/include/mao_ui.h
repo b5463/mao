@@ -57,6 +57,16 @@ esp_err_t mao_ui_init(mao_view_t initial_view);
 /* HOME boot sequence: the "MAO" wordmark gives way to the character. */
 void mao_ui_boot(void);
 
+/* Back from deep sleep: call before mao_display_start() so the first frame
+ * has no wordmark ... */
+void mao_ui_skip_wordmark(void);
+/* ... then, instead of mao_ui_boot(), the eyes simply open again. */
+void mao_ui_resume(void);
+
+/* Fatal hardware fault: wordmark plus a service code (e.g. "SERVICE 02"),
+ * no character. */
+void mao_ui_fault(const char *code);
+
 /* Transition from the current view to view. menu_index selects the menu
  * entry (MENU) or names the page (PLACEHOLDER). */
 void mao_ui_show(mao_view_t view, int menu_index);

@@ -8,7 +8,10 @@
 #define WORDMARK_HOLD_MS   650
 #define WORDMARK_FADE_MS   200
 
+#define RESUME_WAKE_MS     220
+
 static lv_obj_t *s_wordmark;
+static lv_obj_t *s_fault;
 
 void mao_home_create(lv_obj_t *scr, bool wordmark_visible)
 {
@@ -55,4 +58,36 @@ void mao_home_boot(void)
 
     lv_timer_t *t = lv_timer_create(wake_character, WORDMARK_HOLD_MS + WORDMARK_FADE_MS / 2, NULL);
     lv_timer_set_repeat_count(t, 1);
+}
+
+/* Back from deep sleep: no wordmark (MAO did not "boot", it woke up). */
+void mao_home_skip_wordmark(void)
+{
+    lv_anim_delete(s_wordmark, wordmark_opa_exec);
+    lv_obj_add_flag(s_wordmark, LV_OBJ_FLAG_HIDDEN);
+}
+
+void mao_home_resume(void)
+{
+    mao_home_skip_wordmark();
+    lv_timer_t *t = lv_timer_create(wake_character, RESUME_WAKE_MS, NULL);
+    lv_timer_set_repeat_count(t, 1);
+}
+
+/* Fatal hardware fault: the wordmark stays, with a quiet service code
+ * under it instead of the character. No debug text in normal operation. */
+void mao_home_fault(const char *code)
+{
+    lv_anim_delete(s_wordmark, wordmark_opa_exec);
+    lv_obj_set_style_text_opa(s_wordmark, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(s_wordmark, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_align(s_wordmark, LV_ALIGN_CENTER, 3, -14);
+    if (!s_fault) {
+        s_fault = lv_label_create(lv_obj_get_parent(s_wordmark));
+        lv_obj_set_style_text_font(s_fault, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(s_fault, lv_color_hex(MAO_UI_DIM), 0);
+        lv_obj_set_style_text_letter_space(s_fault, 3, 0);
+    }
+    lv_label_set_text(s_fault, code ? code : "SERVICE");
+    lv_obj_align(s_fault, LV_ALIGN_CENTER, 2, 26);
 }

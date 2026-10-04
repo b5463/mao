@@ -106,6 +106,32 @@ void mao_ui_boot(void)
     }
 }
 
+void mao_ui_skip_wordmark(void)
+{
+    if (mao_display_lock(0)) {
+        mao_home_skip_wordmark();
+        mao_display_unlock();
+    }
+}
+
+void mao_ui_resume(void)
+{
+    if (mao_display_lock(0)) {
+        if (s_shown == MAO_VIEW_HOME) {
+            mao_home_resume();
+        }
+        mao_display_unlock();
+    }
+}
+
+void mao_ui_fault(const char *code)
+{
+    if (mao_display_lock(0)) {
+        mao_home_fault(code);
+        mao_display_unlock();
+    }
+}
+
 void mao_ui_show(mao_view_t view, int menu_index)
 {
     if (!mao_display_lock(0)) {

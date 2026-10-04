@@ -1,0 +1,60 @@
+menu "MAO board"
+
+    choice MAO_BOARD
+        prompt "Board"
+        default MAO_BOARD_LCDKIT if IDF_TARGET_ESP32C3
+        default MAO_BOARD_MAIN_A0 if IDF_TARGET_ESP32S3
+        help
+            The hardware MAO runs on. Each board belongs to one chip, so
+            "idf.py set-target" picks the matching board by default.
+
+        config MAO_BOARD_LCDKIT
+            bool "ESP32-C3-LCDkit (Espressif development kit)"
+            depends on IDF_TARGET_ESP32C3
+
+        config MAO_BOARD_MAIN_A0
+            bool "MAO_MAIN A0 (ESP32-S3-WROOM-1-N8R2)"
+            depends on IDF_TARGET_ESP32S3
+    endchoice
+
+    choice MAO_A0_LCD_ROTATION
+        prompt "MAO_MAIN A0: display rotation"
+        depends on MAO_BOARD_MAIN_A0
+        default MAO_A0_LCD_ROTATION_90
+        help
+            How the round panel is turned in the A0 puck relative to the
+            LCDkit mounting (FPC tail towards 6 o'clock), in clockwise
+            degrees. On the A0 the display FPC land sits at 9 o'clock, a
+            90 degree turn, hence the default.
+
+            VERIFY AT BRING-UP: the direction of that turn as seen by the
+            controller is not known until the face is on screen. If the
+            eyes appear rotated, try 270 live with "mao rotate 270" (dev
+            console), then "mao rotate save" or fix it here.
+
+        config MAO_A0_LCD_ROTATION_0
+            bool "0 (as on the LCDkit)"
+        config MAO_A0_LCD_ROTATION_90
+            bool "90"
+        config MAO_A0_LCD_ROTATION_180
+            bool "180"
+        config MAO_A0_LCD_ROTATION_270
+            bool "270"
+    endchoice
+
+    config MAO_A0_LCD_ROTATION_DEG
+        int
+        default 0 if MAO_A0_LCD_ROTATION_0
+        default 90 if MAO_A0_LCD_ROTATION_90
+        default 180 if MAO_A0_LCD_ROTATION_180
+        default 270 if MAO_A0_LCD_ROTATION_270
+        default 0
+
+    # Not user-editable: the name always follows the board choice.
+    config MAO_BOARD_NAME
+        string
+        default "ESP32-C3-LCDkit" if MAO_BOARD_LCDKIT
+        default "MAO_MAIN A0" if MAO_BOARD_MAIN_A0
+        default "unsupported"
+
+endmenu

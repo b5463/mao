@@ -1,0 +1,15 @@
+# MAO - MAO_MAIN A0, ESP32-S3-WROOM-1-N8R2 (applied after sdkconfig.defaults
+# for target esp32s3): 8 MB quad flash, 2 MB quad PSRAM.
+
+# --- Flash: 8 MB, QIO @ 80 MHz (mode and speed shared)
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_8mb.csv"
+
+# --- PSRAM: 2 MB quad @ 80 MHz, added to the heap. DMA buffers (LVGL draw
+# buffers, I2S) stay in internal RAM; they ask for MALLOC_CAP_DMA.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_QUAD=y
+CONFIG_SPIRAM_SPEED_80M=y
+
+# --- CPU
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y

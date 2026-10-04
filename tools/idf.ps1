@@ -5,6 +5,9 @@
 #   .\tools\idf.ps1 -p COM13 flash monitor
 #   .\tools\idf.ps1 release build                # release profile       -> build-release/
 #   .\tools\idf.ps1 release -p COM13 flash
+#   .\tools\idf.ps1 factory build                # factory profile: self-test at boot -> build-factory/
+#   .\tools\idf.ps1 set-target esp32s3           # board = MAO_MAIN A0 (esp32c3 = LCDkit);
+#                                                # once per profile, it resets that sdkconfig
 #
 # A profile layers sdkconfig.<profile> over sdkconfig.defaults. Each profile
 # keeps its own build directory and generated sdkconfig so they never mix.
@@ -13,7 +16,7 @@
 $ErrorActionPreference = 'Stop'
 $idfArgs = @($args)
 $buildProfile = 'dev'
-if ($idfArgs.Count -gt 0 -and ($idfArgs[0] -eq 'dev' -or $idfArgs[0] -eq 'release')) {
+if ($idfArgs.Count -gt 0 -and ($idfArgs[0] -eq 'dev' -or $idfArgs[0] -eq 'release' -or $idfArgs[0] -eq 'factory')) {
     $buildProfile = $idfArgs[0]
     $idfArgs = @($idfArgs | Select-Object -Skip 1)
 }
@@ -32,8 +35,8 @@ if (-not (Get-Command idf.py -ErrorAction SilentlyContinue)) {
 }
 
 $profileArgs = @("-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.$buildProfile")
-if ($buildProfile -eq 'release') {
-    $profileArgs += @('-B', 'build-release', '-DSDKCONFIG=build-release/sdkconfig')
+if ($buildProfile -ne 'dev') {
+    $profileArgs += @('-B', "build-$buildProfile", "-DSDKCONFIG=build-$buildProfile/sdkconfig")
 }
 
 Push-Location (Split-Path $PSScriptRoot -Parent)

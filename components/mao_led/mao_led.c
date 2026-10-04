@@ -50,6 +50,13 @@ static void pulse_end_cb(void *arg)
 
 esp_err_t mao_led_init(void)
 {
+    mao_board_caps_t caps;
+    mao_board_get_caps(&caps);
+    if (!caps.rgb_led) {
+        /* No LED on this board (A0: removed on purpose). Every call below
+         * stays a harmless no-op because s_strip remains NULL. */
+        return ESP_ERR_NOT_SUPPORTED;
+    }
     s_mutex = xSemaphoreCreateMutex();
     ESP_RETURN_ON_FALSE(s_mutex, ESP_ERR_NO_MEM, TAG, "mutex");
     ESP_RETURN_ON_ERROR(mao_board_led_init(&s_strip), TAG, "board led");

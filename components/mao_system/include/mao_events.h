@@ -2,7 +2,8 @@
  * MAO internal event bus.
  *
  * A single FreeRTOS queue drained by one dispatcher task (owned by
- * mao_system). Producers (input driver, system) post small fixed-size events;
+ * mao_system). Producers (input driver, power, IR, system) post small
+ * fixed-size events;
  * subscribers are plain callbacks invoked sequentially in the dispatcher task.
  * Nothing here knows about LVGL, audio or LEDs.
  */
@@ -37,6 +38,27 @@ typedef enum {
     MAO_EVENT_DEVICE_FOUND,      /* new, or back online after being offline */
     MAO_EVENT_DEVICE_LOST,       /* went offline */
     MAO_EVENT_DEVICE_CHANGED,    /* description, state or link status changed */
+
+    /* Power (mao_power). Battery events: value = state of charge in %. */
+    MAO_EVENT_USB_CONNECTED,
+    MAO_EVENT_USB_DISCONNECTED,
+    MAO_EVENT_CHARGING_STARTED,
+    MAO_EVENT_CHARGING_DONE,     /* charger finished while USB is still present */
+    MAO_EVENT_BATTERY_LOW,
+    MAO_EVENT_BATTERY_CRITICAL,  /* deep sleep follows shortly unless USB arrives */
+    MAO_EVENT_POWER_STATE,       /* value = mao_power_state_t now in effect */
+
+    /* IR (mao_ir). value = (address << 16) | command of a received NEC frame. */
+    MAO_EVENT_IR_RECEIVED,
+
+    /* Perception (mao_perception): something MAO noticed. value =
+     * mao_percept_pack(percept, confidence, detail), see mao_percept.h.
+     * Sensors never reach the application directly; only percepts do. */
+    MAO_EVENT_PERCEPT,
+
+    /* Application housekeeping tick (mao_app, ~1 Hz, boards with power
+     * management only). */
+    MAO_EVENT_TICK,
 
     MAO_EVENT_COUNT,
 } mao_event_type_t;

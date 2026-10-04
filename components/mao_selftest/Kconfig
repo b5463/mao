@@ -1,0 +1,22 @@
+menu "MAO self-test"
+
+    config MAO_SELFTEST_AT_BOOT
+        bool "Run the factory self-test at every boot (factory build)"
+        default n
+        help
+            For assembled-board validation: two seconds after MAO is ready
+            the self-test runs (output on the USB console, verdict on the
+            screen), exactly as "mao selftest" does. Build it with the
+            factory profile (sdkconfig.factory); never ship it.
+
+    config MAO_SELFTEST_AT_BOOT_INTERACTIVE
+        bool "Include the operator steps (look, listen, turn, press, touch)"
+        depends on MAO_SELFTEST_AT_BOOT
+        default y
+
+    config MAO_SELFTEST_PROMPT_TIMEOUT_S
+        int "Seconds to wait for the operator at each prompt"
+        range 5 300
+        default 20
+
+endmenu

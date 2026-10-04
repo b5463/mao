@@ -5,7 +5,7 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 
-#define MAO_EVENT_QUEUE_LEN     16
+#define MAO_EVENT_QUEUE_LEN     24
 #define MAO_EVENT_MAX_HANDLERS  8
 
 static const char *TAG = "MAO_SYSTEM";
@@ -94,6 +94,16 @@ const char *mao_event_name(mao_event_type_t type)
     case MAO_EVENT_DEVICE_FOUND:       return "DEVICE_FOUND";
     case MAO_EVENT_DEVICE_LOST:        return "DEVICE_LOST";
     case MAO_EVENT_DEVICE_CHANGED:     return "DEVICE_CHANGED";
+    case MAO_EVENT_USB_CONNECTED:      return "USB_CONNECTED";
+    case MAO_EVENT_USB_DISCONNECTED:   return "USB_DISCONNECTED";
+    case MAO_EVENT_CHARGING_STARTED:   return "CHARGING_STARTED";
+    case MAO_EVENT_CHARGING_DONE:      return "CHARGING_DONE";
+    case MAO_EVENT_BATTERY_LOW:        return "BATTERY_LOW";
+    case MAO_EVENT_BATTERY_CRITICAL:   return "BATTERY_CRITICAL";
+    case MAO_EVENT_POWER_STATE:        return "POWER_STATE";
+    case MAO_EVENT_IR_RECEIVED:        return "IR_RECEIVED";
+    case MAO_EVENT_PERCEPT:            return "PERCEPT";
+    case MAO_EVENT_TICK:               return "TICK";
     default:                           break;
     }
     ESP_LOGD(TAG, "unknown event %d", (int)type);

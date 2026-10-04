@@ -80,6 +80,9 @@ static void encoder_isr(void *arg)
     (void)arg;
     const uint8_t ab = read_ab();
     const int8_t step = kQuadTable[(s_prev_ab << 2) | ab];
+    const uint8_t changed = (uint8_t)(ab ^ s_prev_ab);
+    s_stats.edges_a += (changed >> 1) & 1u;
+    s_stats.edges_b += changed & 1u;
     if (step == 0 && ab != s_prev_ab) {
         s_stats.invalid_transitions++;   /* both lines changed: edge(s) missed */
     }
@@ -163,6 +166,9 @@ static void button_process(int64_t now)
             if (pressed) {
                 s_btn.pressed_at_us = now;
                 s_btn.long_fired = false;
+                portENTER_CRITICAL(&s_lock);
+                s_stats.presses++;
+                portEXIT_CRITICAL(&s_lock);
                 mao_event_post(MAO_EVENT_INPUT_PRESS, 0);
             } else {
                 mao_event_post(MAO_EVENT_INPUT_RELEASE, 0);
@@ -227,6 +233,13 @@ static void encoder_flush(void)
         detents = -detents;
     }
     const mao_event_type_t type = detents > 0 ? MAO_EVENT_INPUT_CW : MAO_EVENT_INPUT_CCW;
+    portENTER_CRITICAL(&s_lock);
+    if (detents > 0) {
+        s_stats.detents_cw += (uint32_t)detents;
+    } else {
+        s_stats.detents_ccw += (uint32_t)(-detents);
+    }
+    portEXIT_CRITICAL(&s_lock);
     mao_event_post(type, abs(detents));
 }
 

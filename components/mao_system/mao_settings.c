@@ -1,5 +1,6 @@
 #include "mao_settings.h"
 
+#include <stdio.h>
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -11,6 +12,9 @@ static const char *TAG = "MAO_SYSTEM";
 #define KEY_FIRST_BOOT    "fb_done"
 #define KEY_VOLUME        "volume"
 #define KEY_BRIGHTNESS    "bright"
+#define KEY_ROTATION      "rot"
+#define KEY_HW_REV        "hw_rev"
+#define KEY_HW_FAULTS     "hw_flt"
 
 #define DEFAULT_VOLUME       60
 #define DEFAULT_BRIGHTNESS   70
@@ -19,6 +23,7 @@ static mao_settings_t s_settings = {
     .first_boot_done = false,
     .volume = DEFAULT_VOLUME,
     .brightness = DEFAULT_BRIGHTNESS,
+    .display_rotation = MAO_SETTINGS_ROTATION_DEFAULT,
 };
 static nvs_handle_t s_nvs;
 static bool s_nvs_ok;
@@ -87,9 +92,22 @@ esp_err_t mao_settings_init(void)
     if (s_settings.brightness > 100 || s_settings.brightness < 5) {
         s_settings.brightness = DEFAULT_BRIGHTNESS;
     }
+    int16_t rot = MAO_SETTINGS_ROTATION_DEFAULT;
+    if (nvs_get_i16(s_nvs, KEY_ROTATION, &rot) == ESP_OK && (rot == 0 || rot == 90 || rot == 180 || rot == 270)) {
+        s_settings.display_rotation = rot;
+    }
+    size_t len = sizeof(s_settings.hw_revision);
+    if (nvs_get_str(s_nvs, KEY_HW_REV, s_settings.hw_revision, &len) != ESP_OK) {
+        s_settings.hw_revision[0] = '\0';
+    }
+    uint32_t faults = 0;
+    if (nvs_get_u32(s_nvs, KEY_HW_FAULTS, &faults) == ESP_OK) {
+        s_settings.hw_faults = faults;
+    }
 
-    ESP_LOGI(TAG, "settings: schema v%u, first_boot_done=%d volume=%u%% brightness=%u%%",
-             version, s_settings.first_boot_done, s_settings.volume, s_settings.brightness);
+    ESP_LOGI(TAG, "settings: schema v%u, first_boot_done=%d volume=%u%% brightness=%u%%%s",
+             version, s_settings.first_boot_done, s_settings.volume, s_settings.brightness,
+             s_settings.display_rotation >= 0 ? ", display rotation override" : "");
     return ESP_OK;
 }
 
@@ -125,4 +143,39 @@ esp_err_t mao_settings_set_brightness(uint8_t percent)
 {
     s_settings.brightness = percent > 100 ? 100 : percent;
     return store_u8(KEY_BRIGHTNESS, s_settings.brightness);
+}
+
+esp_err_t mao_settings_set_display_rotation(int16_t degrees)
+{
+    if (degrees != MAO_SETTINGS_ROTATION_DEFAULT && degrees != 0 && degrees != 90 && degrees != 180 &&
+        degrees != 270) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    s_settings.display_rotation = degrees;
+    if (!s_nvs_ok) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = degrees == MAO_SETTINGS_ROTATION_DEFAULT ? nvs_erase_key(s_nvs, KEY_ROTATION)
+                                                             : nvs_set_i16(s_nvs, KEY_ROTATION, degrees);
+    if (err == ESP_OK || err == ESP_ERR_NVS_NOT_FOUND) {
+        err = nvs_commit(s_nvs);
+    }
+    return err;
+}
+
+esp_err_t mao_settings_set_hw_record(const char *revision, uint32_t faults)
+{
+    snprintf(s_settings.hw_revision, sizeof(s_settings.hw_revision), "%s", revision ? revision : "");
+    s_settings.hw_faults = faults;
+    if (!s_nvs_ok) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nvs_set_str(s_nvs, KEY_HW_REV, s_settings.hw_revision);
+    if (err == ESP_OK) {
+        err = nvs_set_u32(s_nvs, KEY_HW_FAULTS, faults);
+    }
+    if (err == ESP_OK) {
+        err = nvs_commit(s_nvs);
+    }
+    return err;
 }

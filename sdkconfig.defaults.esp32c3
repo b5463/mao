@@ -1,0 +1,8 @@
+# MAO - ESP32-C3-LCDkit (applied after sdkconfig.defaults for target esp32c3).
+
+# --- Flash: 4 MB in-package XMC (as used by the factory firmware)
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# --- CPU
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_160=y

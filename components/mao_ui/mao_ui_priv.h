@@ -55,6 +55,9 @@ void mao_ui_list_bump(mao_ui_list_t *l, int direction);
 /* HOME (mao_home.c) */
 void mao_home_create(lv_obj_t *scr, bool wordmark_visible);
 void mao_home_boot(void);
+void mao_home_skip_wordmark(void);
+void mao_home_resume(void);
+void mao_home_fault(const char *code);
 
 /* Overlay views (mao_overlay.c) */
 void mao_overlay_create(lv_obj_t *scr, bool intro_visible);
