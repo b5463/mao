@@ -61,7 +61,7 @@ Host unit tests (no IDF): `tests/host/run.sh` (§11).
 | Area | API | A0 implementation |
 |---|---|---|
 | Identity | `mao_board_init`, `_get_caps`, `_revision`, `_revision_mv` | chip check, release sleep holds, HALL_FAST high, mic off, IRQ inputs, board ID (ADC1 ch of GPIO3, one-shot, curve-fitting cal, 8 samples, 1.40–1.90 V = "A0"), I2C + expander |
-| I2C | `_i2c_bus`, `_i2c_device`, `_i2c_add`, `_i2c_scan`, `_i2c_name` | I2C0, SDA 15 / SCL 16, 400 kHz, internal pull-ups off. Every device is probed at boot; ToF and haptic rails are powered for the probe or scan only |
+| I2C | `_i2c_bus`, `_i2c_device`, `_i2c_add`, `_i2c_scan`, `_i2c_name` | I2C0, SDA 7 / SCL 15, 400 kHz, internal pull-ups off. Every device is probed at boot; ToF and haptic rails are powered for the probe or scan only |
 | Rails | `_rail_set`, `_rail_is_on`, `_rail_readback` (`DISPLAY`, `AMP`, `HAPTIC`, `TOF`, `IR_RX`, `MIC`) | expander P1/P2/P3/P4/P5; MIC = GPIO13 (input+output, so it can be read back). Readback = the pin level (expander input register / GPIO), not the commanded one |
 | Diagnostics | `_expander_test` | CONFIG readback, POLARITY round trip 0x2A / 0x15 on the output pins (polarity only acts on inputs: no rail moves), output pins read back their commanded level |
 | Expander reset | `_expander_resets`, `_expander_reset_test`, `_display_reinit` | GPIO37 = EXP_RST_N (open drain, R205 10 k pull-up): automatic recovery of a wedged expander and the self-test pulse; a reset counter tells the rail owners to re-initialise (below) |
@@ -86,7 +86,7 @@ continues, but rails, display power and the charger line are then unavailable.
 **Recovery through GPIO37 (EXP_RST_N).** GPIO37 drives the expander's RESET
 pin (open drain, released high from the first instruction of
 `a0_i2c_init()`; R205 10 k pull-up holds it high through boot and deep
-sleep). GPIO37 is not a spare any more; GPIO38 (TP12) is the only spare on a
+sleep). GPIO37 is not a spare any more; GPIO35 (TP12) is the only spare on a
 pad. When an expander write or input read fails, the driver resets the I2C
 bus (`i2c_master_bus_reset()`), pulses RESET low for 10 µs, reprograms the
 expander from the shadow registers (output before direction, as at power-up)
@@ -159,13 +159,13 @@ every output pin.
   restores the brightness.
 
 ### 3.2 Audio
-- Speaker: MAX98357A on I2S1 standard Philips TX (BCLK 21, WS 47, DOUT 48),
+- Speaker: MAX98357A on I2S1 standard Philips TX (BCLK 17, WS 18, DOUT 16),
   16 kHz mono 16-bit. Each sample goes to both slots. SD_MODE = expander P2
   at 3.3 V selects the left channel; low is shutdown. `mao_audio` powers
   the amp only around sounds: on before a sound with 2 ms wake, off after 3 s
   of silence. The vocabulary is unchanged. `A0_AUDIO_GAIN` = 0.58 (the
   LCDkit value, VERIFY by ear; gain pin open = 9 dB).
-- Mic: SPH0641LU4H-1 on I2S0 PDM RX (CLK 41, DATA 42), hardware PDM→PCM,
+- Mic: SPH0641LU4H-1 on I2S0 PDM RX (CLK 36, DATA 38), hardware PDM→PCM,
   16 kHz, DSR 8S = 1.024 MHz PDM clock. **Slot choice:** SELECT is tied low,
   and IDF defines `I2S_PDM_SLOT_LEFT` as "the device whose select pin is
   pulled down". The mono default (left slot) is used, with no clock
@@ -214,7 +214,7 @@ every output pin.
   alert at 5 %, ALSC off), VALRT 0x14 = 0xA5FF (3.30 V low), CRATE 0x16
   (0.208 %/h), STATUS 0x1A (flags cleared after reading).
 - Charger: USB present = GPIO8 low (both edges), charging = P6 low (via the
-  expander INT on GPIO17). Fast charge is 297 mA with a USB500 input limit,
+  expander INT on GPIO21). Fast charge is 297 mA with a USB500 input limit,
   set in hardware.
 - Events: `USB_CONNECTED` / `USB_DISCONNECTED`, `CHARGING_STARTED`,
   `CHARGING_DONE` (CHG released while USB is still present),
@@ -283,12 +283,12 @@ Stage 2 extends `mao_input_stats_t` with per-channel edge counters
 | DEEP_SLEEP | rail off, bus isolated | IMU wake-on-motion (off on a critical battery), ToF / ALS / mic off | every expander rail off, HALL_FAST low and held |
 
 - Deep-sleep wake: ext1 ANY_LOW on GPIO0 (press), GPIO2 (IMU INT1), GPIO8
-  (USB plugged) and GPIO17 (expander: charger / alerts). A line that is
+  (USB plugged) and GPIO21 (expander: charger / alerts). A line that is
   already low is not armed. With USB present, ext0 waits on GPIO8 going high
   (unplug) instead. Touch wakes on the TOP zone, and a timer wakes every
   `CONFIG_MAO_POWER_WAKE_INTERVAL_MIN` (30 min). On a critical battery only
   USB can wake MAO.
-- Light-sleep (DROWSY) wake: the same lines plus GPIO18 (ToF threshold), any
+- Light-sleep (DROWSY) wake: the same lines plus GPIO48 (ToF threshold, through the GPIO wake source: GPIO48 is not an RTC pad), any
   touch zone, and a 60 s housekeeping timer. The timer only refreshes the
   battery state and sleeps again; any other source returns to ACTIVE. Ring
   rotation alone is not a wake source (GPIO 39/40 are not RTC pads), but
