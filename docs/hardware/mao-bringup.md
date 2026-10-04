@@ -1,0 +1,129 @@
+# MAO_MAIN A0: bring-up
+
+First power-on of an unproven board (EVT, 5 units). This procedure is staged: nothing gets more energy
+than the previous step proved it can take. Production testing of proven boards is
+`mao-factory-test.md`; firmware details are in `docs/firmware/mao-a0-firmware.md`.
+
+Test pads (B side; full table with positions in `mao-factory-test.md` §4):
+
+| Where | Pads |
+|---|---|
+| Service field, row 1 (below the charger) | TP2 GND, TP3 3V3, TP4 SYS, TP5 BAT |
+| Service field, row 2 | TP10 SCL, TP1 GND, TP16 GND |
+| Service field, row 3 | TP9 SDA, TP11 XRST, TP8 BOOT, TP12 IO35 |
+| At their sources | TP6 VBUS (at the TVS), TP7 RST (module pin 3), TP13 LCD, TP14 MIC, TP15 IRV |
+
+Tag-Connect J201 (TC2030-NL): 1 GND, 2 EN, 3 TXD0, 4 3V3, 5 RXD0, 6 GPIO0.
+
+**Equipment:**
+- current-limited bench supply,
+- DMM (µA range),
+- USB-C cable and a USB power meter,
+- a protected 1S LiPo with a 10 k NTC and the J102 pinout (1 BAT−, 2 NTC, 3 BAT+),
+- thermal camera if available,
+- ESP-IDF v6.0.3.
+
+## 0. Before any power
+
+1. **Visual / microscope check.** Pin 1 and polarity of:
+   - Q101, Q301, Q501, U101, U105
+   - every QFN/DFN: U102, U103, U104, U202, U501
+   - U401, U402, U403, MK401
+   - D101, D301–D304, D501/D502
+   - J102 and J101 legs soldered
+   - the springs
+2. **USB-C:** confirm the receptacle is seated and all four THT shell legs are soldered.
+3. **Resistance to GND** (DMM, both polarities; a low reading is a short):
+
+   | Node | Pad | Expect |
+   |---|---|---|
+   | VBUS | TP6 | > 100 kΩ (charger input) |
+   | VSYS | TP4 | > 10 kΩ (UVLO divider 1.51 MΩ, loads off) |
+   | VBAT | TP5 | > 100 kΩ |
+   | +3V3 | TP3 | > 1 kΩ (I2C pull-ups 2.2 k in parallel with ICs) |
+   | 3V3_LCD | TP13 | > 10 kΩ |
+4. **BAT link:** confirm R108 (the 0 Ω 1206 link, marked BAT LINK on the back) is fitted. It is the one place to measure battery current: lift it and insert the ammeter across its pads.
+
+## 1. First power: VBUS only, no cell, no panel
+
+Supply on TP6 (+) and D101 pad 2 or TP1 (−): 5.00 V, **current limit 100 mA**.
+
+| Check | Where | Expect | If not |
+|---|---|---|---|
+| Supply current, ESP32 in ROM boot loop or app | supply | 20–80 mA | > 150 mA: short; stop |
+| VSYS | TP4 | 4.35–4.45 V (BQ24073 OUT regulation, no cell) | 0 V: U102 not powered or ILIM/ISET open; check R103/R104/R105 (beside the charger; in the dense power section the passives are identified on `outputs/fab/ASSEMBLY-MAO_MAIN_A0-bottom.pdf`) |
+| +3V3 | TP3 | 3.27–3.33 V | 0 V: check U104 EN (BB_EN must be > 1.1 V when VSYS is 4.4 V); oscillation: scope SW nodes BB_L1/L2 |
+| Charger status | GPIO8 (USB_PRESENT_N) | low | |
+| Switched rails | TP13 / TP14 / TP15 | < 0.3 V (all off at reset) | a rail on at reset = default resistor missing |
+| Temperature | U102, U104 | < 10 °C rise | |
+
+Then raise the limit to 500 mA.
+
+## 2. USB console and first firmware
+
+1. Connect USB-C to the PC with the panel still not fitted. The S3's native USB-Serial/JTAG enumerates without any boot mode.
+2. If it does not enumerate, hold the face switch (GPIO0, TP8 BOOT to GND) while plugging in to force the ROM loader. Recovery without USB goes through the Tag-Connect UART.
+3. Flash the dev build: `tools/idf.ps1 s3 dev flash monitor`, or `idf.py -B build-s3-dev flash monitor`.
+4. Expected boot log:
+   - board ID 1.55–1.75 V (A0)
+   - `i2c: ... 6/6 devices answered`
+   - expander configured
+   - rails all off
+   - `[--]` lines only for parts that are not fitted yet: the panel
+5. Run `mao selftest auto nopads`. Every automatic step must pass, except the display-dependent ones.
+
+## 3. Display
+
+1. Hand-solder (or hot-bar) the LH128R-IG01 FPC to the J301 land. Pad 1 is towards 6 o'clock, and the FPC tail folds at 9 o'clock.
+2. Check TP13 (LCD) switches 0 → 3.3 V when the firmware enables the rail, with a soft start of about 4 ms (scope it: no dip on +3V3 > 100 mV).
+3. **Orientation:** the default rotation is 90°, set from the 9 o'clock FPC exit. If the face is rotated, run `mao rotate 270` (or 0 / 180), then `mao rotate save`. Record the value and make it the Kconfig default.
+4. Check colour order and inversion against the LCDkit: same panel, so the same constants apply.
+
+## 4. Battery and charger
+
+1. Connect the protected cell to J102. Check polarity before plugging: the plug's red lead must go to the pin marked + on the silkscreen (pin 3).
+2. **Without USB:** VBAT at TP5 = cell voltage − Q101 drop (< 20 mV at light load). The board runs from the cell, and the current drawn should match `mao-power-budget.md` per state.
+3. **With USB:** charge current through R108's pads (link lifted, ammeter inserted) is 270–300 mA, falling in the constant-voltage phase. CHG reads low while charging.
+4. **NTC:** warm the cell's NTC to above 50 °C (hot air, carefully) or swap in a 3.3 k resistor: charging must stop. Cooling (or 27 k) must also stop it below 0 °C.
+5. **UVLO:** feed VSYS from a supply through TP4 with USB removed and the cell disconnected. Ramp down: +3V3 must drop at 2.96 V ± 3 % and restart at 3.26 V ± 3 %.
+6. **Gauge:** `mao power` shows VCELL within 20 mV of the DMM. SOC converges within one charge cycle.
+
+## 5. Each subsystem
+
+| Subsystem | Test | Pass |
+|---|---|---|
+| Speaker | self-test `speaker` step (chirp heard by the mic) and the UI sounds | clean, no clipping at full volume; amplifier silent and 0.6 µA when SD is low |
+| Haptics | `mao haptic calibrate`, then `mao haptic <name>` | resonance 190–285 Hz, the effects feel distinct |
+| Microphone | `mao sense` (mic level) | quiet room −58 dBFS ± 6; speech peaks −30 dBFS |
+| IMU | `mao sense` (accelerometer) | +1 g on z face-up (else set `MAO_PERCEPT_IMU_Z_DOWN`) |
+| ToF | `mao sense` (distance), window fitted | 50–1300 mm on a hand. Run crosstalk calibration with the window in place |
+| Light | `mao sense` (lux) | covered < 3 lux, office 200–800 lux |
+| Touch | `mao sense` (touch) | each zone ≥ 2 % change through the enclosure wall |
+| Ring | turn the ring | 30 steps per turn, direction correct (else swap in firmware) |
+| IR | `mao ir rx on`, `mao ir send <addr> <cmd>` under the fixture lid | RX sees TX through the lid reflection; a TV remote is received |
+| Radio | ODD BUS self-test / flood tool (M2) against LAMP at 1 m / 5 m, board in the enclosure | RSSI within 6 dB of the LCDkit at the same distances |
+
+## 6. Power measurements (fill in `mao-power-budget.md`)
+
+Through R108's pads with the link lifted, on the cell (4.0 V), USB unplugged:
+
+| State | How | Estimate |
+|---|---|---|
+| Active | face on, radio listening | ~137 mA |
+| Idle | dimmed face | ~118 mA |
+| Drowsy | panel sleep, light sleep | ~1.6 mA |
+| Deep sleep | `mao sleep` | ~70 µA incl. PCM (board only, without the cell's PCM: ~55 µA) |
+
+A deep-sleep figure above 150 µA means a rail or pull-up is leaking. Find it by lifting one rail at a time: check the test pads TP13–15 read 0 V.
+
+## 7. Known risks to watch on A0
+
+| Area | Risk | How it shows | Fallback |
+|---|---|---|---|
+| Buck-boost | layout per TI, but a 0.47 µH part with 2 × 22 µF 0603 at 3.3 V bias | ripple > 50 mV, audible whine | add the second COUT footprint value 22 µF → 47 µF 0805 in A1 |
+| Charger heat | 0.85 W worst case at 3.0 V cell | U102 > 70 °C | ISET to 4.3 k (200 mA) by a resistor swap |
+| Antenna | battery and enclosure detuning | RSSI more than 6 dB below the LCDkit | none on the board (no matching network on the module); move the cell or reduce plastic thickness near 6 o'clock |
+| Touch | 2 mm wall + ring between arc and finger | change < 1 % | conductive filament as material B, or copper tape on the wall |
+| Ring | magnet gap tolerance in FDM | missed steps | reduce the gap or use Ø4 magnets |
+| ToF | window crosstalk | false "near" | thinner window, black mask gap around the aperture, crosstalk calibration |
+| Footprints not yet proven on a board | JST SH clone (J102), DFE201612E land (L101), LH128R FPC land, BW0019BG springs | poor solder joints | check the first boards under the microscope; footprints come from the datasheets in `hardware/mao/lib` |

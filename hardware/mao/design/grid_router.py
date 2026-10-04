@@ -4,10 +4,10 @@
 Input : .cache/mao-routing/grid-dump.json (grid_dump.py) and outputs/DRC.json (unconnected list).
 Output: .cache/mao-routing/grid-routes.json, applied by apply_routes.py.
 
-Model: 0.05 mm cells on F.Cu, In2.Cu and B.Cu (In1 is the ground plane: vias only). Copper is rasterised
+Model: 0.05 mm cells on F.Cu, In2.Cu, In3.Cu (slow nets) and B.Cu (In1/In4 are ground planes: vias only). Copper is rasterised
 per net; a per-connection Euclidean distance field gives, for a track of width w, the cells whose
 centre keeps w/2 + 0.15 mm + 0.036 mm (raster allowance; obstacles mark every cell they touch) from foreign copper. Vias need the same on
-all four layers. A* runs over (cell, layer, direction) with 45-degree moves, a bend penalty, a via
+all six layers. A* runs over (cell, layer, direction) with 45-degree moves, a bend penalty, a via
 cost and a mild In2 penalty. Each finished route is rasterised before the next connection.
 Pad entry (ODD JOBS 87/88): inside a 0.35 mm margin a track runs only on the pad's centre lines (and, for
 plated through-holes, its 45-degree diagonals) and ends at the pad centre; an arm already carrying a track is taken. No 135-degree corners. A join onto an existing
@@ -23,11 +23,14 @@ from grid_kernel import _astar, _DX, _DY   # compiled search (numba)
 from grid_smooth import smooth_run
 from PIL import Image, ImageDraw
 
-from netrules import ROOT, CACHE, DRC_JSON, POWER, SWITCH, width_for, priority, ORIGIN
+from netrules import ROOT, CACHE, DRC_JSON, POWER, SWITCH, width_for, priority, ORIGIN, PLANE_NETS, INNER_OK, INNER_FAST
 RES, CLR = 0.05, 0.15
 RASTER = RES * 0.7072          # obstacles mark every cell they touch: copper lies within this of a marked centre
-VIA_D, VIA_COST, BEND = 0.6, 44.0, (0.0, 3.0, 8.0, 20.0, 200.0)  # in cells: via = 2.2 mm of track; bend cost per 45-degree step
-LAYERS = ['F', 'I1', 'I2', 'B']; ROUTE = (0, 2, 3); LCOST = {0: 1.0, 2: 1.3, 3: 1.0}
+VIA_D, VIA_COST, BEND = 0.6, 90.0, (0.0, 3.0, 8.0, 20.0, 200.0)  # in cells: via = 2.2 mm of track; bend cost per 45-degree step
+LAYERS = ['F', 'I1', 'I2', 'I3', 'I4', 'B']; NLAY = len(LAYERS)
+ROUTE = (0, 2, 3, 5); LCOST = {0: 1.0, 2: 1.1, 3: 3.0, 5: 1.0}   # MAO 6 layers: In1/In4 GND planes, In3 +3V3 plane
+# In2 is a full routing layer between GND and +3V3. In3 (the +3V3 plane) takes only slow nets (netrules.INNER_OK),
+# at a cost that keeps it for the last crossings, never at the buck-boost (in3_forbid below) (ODD JOBS 17).
 DIRS = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
 
 dump = json.loads((CACHE / 'grid-dump.json').read_text())
@@ -37,10 +40,10 @@ nets = {'': -2}
 def nid(n):
     if n not in nets: nets[n] = len(nets)
     return nets[n]
-lab = np.zeros((4, H, W), np.int32)      # inflated: every cell copper touches (clearance)
-exact = np.zeros((4, H, W), np.int32)    # shrunk: cells whose centre is 0.03 mm inside copper (connectivity)
+lab = np.zeros((NLAY, H, W), np.int32)      # inflated: every cell copper touches (clearance)
+exact = np.zeros((NLAY, H, W), np.int32)    # shrunk: cells whose centre is 0.03 mm inside copper (connectivity)
 via_forbid = np.zeros((H, W), bool)
-ko = np.zeros((4, H, W), bool)          # track keep-outs, kept apart: own-net copper under them must not open them
+ko = np.zeros((NLAY, H, W), bool)          # track keep-outs, kept apart: own-net copper under them must not open them
 cx = x0 + (np.arange(W) + 0.5) * RES; cy = y0 + (np.arange(H) + 0.5) * RES
 
 def ix(x): return int(round((x - x0) / RES - 0.5))
@@ -48,7 +51,7 @@ def iy(y): return int(round((y - y0) / RES - 0.5))
 def window(a, b, c, d, pad=0.0):
     return max(0, ix(a - pad) - 1), max(0, iy(b - pad) - 1), min(W, ix(c + pad) + 2), min(H, iy(d + pad) + 2)
 
-def fill_box(layers, box, n, r=None, cx0=None, cy0=None):
+def fill_box(layers, box, n, r=None, cx0=None, cy0=None, connect=True):
     e = RES / 2                               # a cell touches the box iff its centre is within RES/2 per axis
     i0, j0, i1, j1 = window(*box, e)
     X, Y = np.meshgrid(cx[i0:i1], cy[j0:j1])
@@ -57,6 +60,7 @@ def fill_box(layers, box, n, r=None, cx0=None, cy0=None):
     else:
         m = (X >= box[0] - e) & (X <= box[2] + e) & (Y >= box[1] - e) & (Y <= box[3] + e)
     for l in layers: lab[l, j0:j1, i0:i1][m] = n
+    if not connect: return (i0, j0, m)
     s_ = 0.03
     mi = ((X - cx0) ** 2 + (Y - cy0) ** 2 <= max(r - s_, 0.01) ** 2) if r else          ((X >= box[0] + s_) & (X <= box[2] - s_) & (Y >= box[1] + s_) & (Y <= box[3] - s_))
     for l in layers: exact[l, j0:j1, i0:i1][mi] = n
@@ -75,11 +79,17 @@ def draw_track(l, ax, ay, bx, by, w, n):
     i0, j0, m = capsule(ax, ay, bx, by, max(w - 0.06, 0.02)); exact[l, j0:j0 + m.shape[0], i0:i0 + m.shape[1]][m] = n
 
 def draw_via(x, y, d, n):
-    for l in range(4): fill_box([l], (x - d / 2, y - d / 2, x + d / 2, y + d / 2), n, d / 2, x, y)
+    for l in range(NLAY): fill_box([l], (x - d / 2, y - d / 2, x + d / 2, y + d / 2), n, d / 2, x, y)
 
 L = {n: i for i, n in enumerate(LAYERS)}
+HOLE_CLR = 0.25                          # board rule min_hole_clearance (copper to a non-plated hole)
 for p in dump['pads']:
     ls = [L[l] for l in p['layers']]
+    extra = max(p.get('clr', 0.0), HOLE_CLR if p['kind'] == 'NPTH' else 0.0) - CLR   # rules stricter than 0.15 mm
+    if extra > 0:                         # inflate the obstacle only; connectivity (exact) stays the real pad
+        b_ = p['box']; r_ = p.get('r')
+        fill_box(ls, (b_[0] - extra, b_[1] - extra, b_[2] + extra, b_[3] + extra), -2, r_ + extra if r_ else None,
+                 p['x'], p['y'], connect=False)
     fill_box(ls, p['box'], nid(p['net']) if p['kind'] != 'NPTH' else -2, p.get('r'), p['x'], p['y'])
 SPOKE_M = 0.45                           # through-hole GND pads keep room for two thermal spokes on F and B
 for p in dump['pads']:
@@ -96,7 +106,7 @@ for k in dump['keepouts']:
     ImageDraw.Draw(img).polygon([((x - x0) / RES - 0.5, (y - y0) / RES - 0.5) for x, y in k['pts']], fill=1, outline=1)
     m = np.array(img, bool)
     if k['tracks']:
-        for l in (L[n] for n in k['layers'] if n != 'I1'):   # In1 carries no tracks anyway; vias must pass it
+        for l in (L[n] for n in k['layers'] if n not in ('I1', 'I4')):   # planes carry no tracks; vias must pass them
             sl = lab[l]; sl[m & (sl == 0)] = -1; ko[l] |= m
     if k['vias']: via_forbid |= m
 HOLE_GAP = 0.25                          # board rule min_hole_to_hole
@@ -114,7 +124,24 @@ for p in dump['pads']:
 edge = 0.55
 band = np.zeros((H, W), bool); e = int(math.ceil(edge / RES))
 band[:e] = band[-e:] = True; band[:, :e] = band[:, -e:] = True
-for l in range(4): lab[l][band & (lab[l] == 0)] = -1
+# MAO: the board is a disc with an antenna notch, not its bounding box. Block every cell outside
+# the outline minus the edge band (copper-to-edge rule 0.3 mm + track half-width margin).
+import mechanical as _m
+_X, _Y = np.meshgrid(cx, cy)
+outside = (np.hypot(_X, _Y) > _m.PCB_R - edge) | ((np.abs(_X) < _m.NOTCH_W / 2 + edge) & (_Y > _m.NOTCH_Y - edge))
+band |= outside
+for l in range(NLAY): lab[l][band & (lab[l] == 0)] = -1
+via_forbid |= outside
+
+in3_forbid = np.zeros((H, W), bool)
+for bx_ in ((-2.0, -15.0, 7.5, -7.5),):    # buck-boost U104/L101/CIN/COUT: its output plane stays whole
+    i0_, j0_, i1_, j1_ = window(*bx_)
+    in3_forbid[j0_:j1_, i0_:i1_] = True
+
+def layer_ok(l, net, okl, j0, j1, i0, i1):
+    if l != 3: return okl
+    if not INNER_OK.match(net): return np.zeros_like(okl)
+    return okl & ~in3_forbid[j0:j1, i0:i1]
 
 POWER_IDS = np.array([i for k, i in nets.items() if POWER.match(k)] or [0])
 SWITCH_IDS = np.array([i for k, i in nets.items() if SWITCH.match(k)] or [0])
@@ -134,7 +161,7 @@ def item(it):
     m = re.match(r'Track \[(.*?)\] on (\S+)', d)
     if m:
         net, layer = m.group(1), m.group(2)[0]
-        best = min((t for t in dump['tracks'] if t['net'] == net and t['layer'] == ('F' if layer == 'F' else 'B' if layer == 'B' else 'I2')),
+        best = min((t for t in dump['tracks'] if t['net'] == net and t['layer'] == ('F' if layer == 'F' else 'B' if layer == 'B' else 'I' + m.group(2)[2])),
                    key=lambda t: seg_dist(x, y, t))
         return {'kind': 'track', 'net': net, 'layers': [L[best['layer']]], 't': best,
                 'box': [min(best['x1'], best['x2']), min(best['y1'], best['y2']), max(best['x1'], best['x2']), max(best['y1'], best['y2'])]}
@@ -267,7 +294,7 @@ def route(a, b, net, w, pad_mm, keep=True):
     need = (w / 2 + CLR + RASTER) / RES; vneed = (VIA_D / 2 + CLR + RASTER) / RES
     ok, pen, near = {}, {}, {}; vok = ~via_forbid[j0:j1, i0:i1] & ~hole_block[j0:j1, i0:i1]
     signal = keep and w <= 0.25 and not POWER.match(net)
-    for l in range(4):
+    for l in range(NLAY):
         sub = lab[l, j0:j1, i0:i1]
         foreign = (sub != 0) & (sub != n)
         d = distance_transform_edt(~foreign)
@@ -280,6 +307,7 @@ def route(a, b, net, w, pad_mm, keep=True):
                 if sw.any(): ok[l] &= distance_transform_edt(~sw) >= need + SWITCH_GAP / RES
             block, near[l], own, vnear = pad_zones(net, l, i0, j0, i1, j1, keep)
             ok[l] &= ~block
+            ok[l] = layer_ok(l, net, ok[l], j0, j1, i0, i1)
             vok &= ~block & ~vnear         # no via in or touching an own pad
             pen[l] = np.where(d < need + NEAR_BAND, NEAR_PEN, 0.0) + np.where(own, OWN_PEN, 0.0)
         vok &= d >= vneed
@@ -349,6 +377,7 @@ def masks(net, w, box, keep, pad_mm=2.0):
             if pw.any(): ok[l] &= distance_transform_edt(~pw) >= need + POWER_GAP / RES
             if sw.any(): ok[l] &= distance_transform_edt(~sw) >= need + SWITCH_GAP / RES
         ok[l] &= ~pad_zones(net, l, i0, j0, i1, j1, keep)[0]
+        ok[l] = layer_ok(l, net, ok[l], j0, j0 + ok[l].shape[0], i0, i0 + ok[l].shape[1])
     return ok, i0, j0
 
 def smooth_polys(polys, ok, i0, j0):
@@ -427,13 +456,22 @@ def main():
     conns = []
     for u in drc['unconnected_items']:
         a, b = item(u['items'][0]), item(u['items'][1])
-        if not a or not b or a['net'] == 'GND': continue
+        if not a or not b or a['net'] in PLANE_NETS: continue      # planes carry these through pad vias
         conns.append((a, b))
     def prio(c):
         net = c[0]['net']
         rank = priority(net)
         return (rank, math.hypot(c[0]['box'][0] - c[1]['box'][0], c[0]['box'][1] - c[1]['box'][1]))
     conns.sort(key=prio)
+    pri = [n for n in os.environ.get('GR_PRIORITY', '').split(',') if n]   # MAO: designer's net order first
+    def hop(c):                          # short local hops first: they have one natural path, buses go round them
+        a_, b_ = c
+        gx = max(0.0, max(a_['box'][0], b_['box'][0]) - min(a_['box'][2], b_['box'][2]))
+        gy = max(0.0, max(a_['box'][1], b_['box'][1]) - min(a_['box'][3], b_['box'][3]))
+        return 0 if math.hypot(gx, gy) < 3.0 else 1
+    if pri:
+        rank = {n: i for i, n in enumerate(pri)}
+        conns.sort(key=lambda c: (hop(c), rank.get(c[0]['net'], len(rank)), prio(c)))
     only = sys.argv[1:] and set(sys.argv[1:])
     if only and os.environ.get('GR_ORDER') == 'argv':   # route the named nets in the order given
         rank = {n: i for i, n in enumerate(sys.argv[1:])}

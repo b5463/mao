@@ -20,7 +20,12 @@ PASSIVES = {
     ('3.0k', '0402'): ('C25784', '0402WGF3001TCE', 'UNI-ROYAL'),
     ('560k', '0402'): ('C132339', '0402WGF5603TCE', 'UNI-ROYAL'),
     ('510k', '0402'): ('C11616', '0402WGF5103TCE', 'UNI-ROYAL'),
-    ('0R', '1206'): ('', 'RC1206JR-070RL', 'YAGEO'),
+    ('0R', '1206'): ('C17888', '1206W4F0000T5E', 'UNI-ROYAL'),
+    ('22R', '0402'): ('C25092', '0402WGF220JTCE', 'UNI-ROYAL'),
+    ('100R', '0402'): ('C25076', '0402WGF1000TCE', 'UNI-ROYAL'),
+    ('510R', '0402'): ('C25123', '0402WGF5100TCE', 'UNI-ROYAL'),
+    ('10R', '0603'): ('C22859', '0603WAF100JT5E', 'UNI-ROYAL'),
+    ('47R', '0603'): ('C23182', '0603WAF470JT5E', 'UNI-ROYAL'),
     ('100n', '0402'): ('C1525', 'CL05B104KO5NNNC', 'Samsung'),
     ('1u', '0402'): ('C52923', 'CL05A105KA5NQNC', 'Samsung'),
     ('2.2u', '0402'): ('C12530', 'CL05A225MQ5NSNC', 'Samsung'),
@@ -83,6 +88,7 @@ class Builder:
 
     def TP(self, ref, net, label, size='1.5'):
         """Test pad (no fitted part). label is the silkscreen name (ODD JOBS 103)."""
-        return self.part(ref, 'Connector:TestPoint', 'TestPoint:TestPoint_Pad_D%smm' % size, label,
+        lib = 'MAO' if size == '1.2' else 'TestPoint'          # no 1.2 mm round pad in the stock library
+        return self.part(ref, 'Connector:TestPoint', '%s:TestPoint_Pad_D%smm' % (lib, size), label,
                          {'1': net}, mpn='PCB feature, no part', note='test pad ' + label,
                          **{'Exclude from BOM': 'yes'})

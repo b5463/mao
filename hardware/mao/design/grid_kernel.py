@@ -22,6 +22,7 @@ def _astar(ok, pen, vok, scost, smask, gcost, gdir, lcost, bend, via_cost, min_r
     N = NL * h * w * 9
     g = np.full(N, np.inf, np.float32)
     came = np.full(N, 254, np.uint8)
+    closed = np.zeros(N, np.bool_)      # weighted A*: a state is expanded once (no reopening, no blow-up)
     heap = [(0.0, 0.0, np.int64(0))]
     heap.pop()
     r2 = math.sqrt(2.0) - 1.0
@@ -51,7 +52,8 @@ def _astar(ok, pen, vok, scost, smask, gcost, gdir, lcost, bend, via_cost, min_r
                 else:
                     v = m - 144; s = ((v // 9 * h + y) * w + x) * 9 + v % 9
             return out, 0
-        if gc > g[code]: continue
+        if gc > g[code] or closed[code]: continue
+        closed[code] = True
         d = code % 9; c = code // 9; x = c % w; y = (c // w) % h; l = c // (w * h)
         if d < 8 and gcost[l, y, x] < np.inf and came[code] != 255 and (gdir[l, y, x] >> d) & 1:
             ng = gc + gcost[l, y, x]
@@ -83,7 +85,7 @@ def _astar(ok, pen, vok, scost, smask, gcost, gdir, lcost, bend, via_cost, min_r
             if not good: continue
             ng = gc + cost
             t = ((l * h + py) * w + px) * 9 + k
-            if ng < g[t]:
+            if ng < g[t] and not closed[t]:
                 g[t] = ng; came[t] = ((k * 2 + (1 if steps > 1 else 0)) * 9 + d)
                 dx = max(gx0 - px, 0, px - gx1); dy = max(gy0 - py, 0, py - gy1)
                 heapq.heappush(heap, (ng + hw * (max(dx, dy) + r2 * min(dx, dy)), ng, np.int64(t)))
@@ -92,7 +94,7 @@ def _astar(ok, pen, vok, scost, smask, gcost, gdir, lcost, bend, via_cost, min_r
                 if l2 == l or not ok[l2, y, x]: continue
                 t = ((l2 * h + y) * w + x) * 9 + 8
                 ng = gc + via_cost
-                if ng < g[t]:
+                if ng < g[t] and not closed[t]:
                     g[t] = ng; came[t] = 144 + l * 9 + d
                     dx = max(gx0 - x, 0, x - gx1); dy = max(gy0 - y, 0, y - gy1)
                     heapq.heappush(heap, (ng + hw * (max(dx, dy) + r2 * min(dx, dy)), ng, np.int64(t)))

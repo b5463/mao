@@ -3,9 +3,11 @@
 Base settings come from project_base.json (the KINO D4 carrier project, stripped of its own net
 classes), so every KiCad 10 key exists; MAO-specific rules are applied on top.
 
-Stackup assumption: JLCPCB JLC04161H-7628, 1.6 mm, outer 1 oz / inner 0.5 oz, L1-L2 prepreg
-0.2104 mm (Er ~4.4). USB D+/D- edge-coupled microstrip over the L2 ground: w 0.25, gap 0.15 ->
-Z0 ~61 ohm, Zdiff ~92 ohm (IPC-2141 approximation); USB full speed tolerates the residual error.
+Stackup assumption: JLCPCB standard 6-layer 1.6 mm (JLC06161H-3313): outer 1 oz / inner 0.5 oz,
+L1-L2 and L5-L6 3313 prepreg ~0.1 mm (Er ~4.1). Every routing layer sits on a ground plane (In1 under F
+and In2, In4 under B). USB D+/D- runs as an edge-coupled pair over ground at w 0.2-0.25 / gap 0.15:
+below 90 ohm differential on this thin prepreg, which full-speed USB (12 Mbit/s, edges of several ns
+over ~40 mm of track, electrically short) tolerates; no impedance control is ordered.
 """
 import json
 from pathlib import Path
@@ -16,15 +18,17 @@ BASE = Path(__file__).with_name('project_base.json')
 
 CLASSES = [
     # name, track, clearance, via dia, via drill, nets
-    ('Battery', 0.6, 0.2, 0.6, 0.3, ['VBAT', 'BAT_RAW', 'BAT_IN', 'VSYS']),
-    ('USBPower', 0.5, 0.2, 0.6, 0.3, ['VBUS']),
+    ('Battery', 0.4, 0.15, 0.6, 0.3, ['VBAT', 'BAT_RAW', 'BAT_IN', 'VSYS']),
+    ('USBPower', 0.4, 0.15, 0.6, 0.3, ['VBUS']),
     ('Rail3V3', 0.4, 0.15, 0.6, 0.3, ['+3V3']),
     ('Switched', 0.3, 0.15, 0.6, 0.3, ['3V3_LCD', 'LCD_BL_K', 'LCD_BL_D', 'MIC_VDD', 'IR_RX_VCC']),
-    ('Speaker', 0.4, 0.2, 0.6, 0.3, ['SPK_P', 'SPK_N']),
-    ('Actuator', 0.3, 0.2, 0.6, 0.3, ['LRA_P', 'LRA_N', 'IR_LED_K', 'IR_LED_A1', 'IR_LED_A2']),
-    ('Switch', 0.5, 0.25, 0.6, 0.3, ['BB_L1', 'BB_L2']),
+    ('Speaker', 0.4, 0.15, 0.6, 0.3, ['SPK_P', 'SPK_N']),
+    ('Actuator', 0.3, 0.15, 0.6, 0.3, ['LRA_P', 'LRA_N', 'IR_LED_K', 'IR_LED_A1', 'IR_LED_A2']),
+    ('Switch', 0.4, 0.15, 0.6, 0.3, ['BB_L1', 'BB_L2']),
     ('USB', 0.25, 0.15, 0.6, 0.3, ['USB_DP', 'USB_DN']),
-    ('Touch', 0.15, 0.3, 0.6, 0.3, ['TOUCH_LEFT_E', 'TOUCH_RIGHT_E', 'TOUCH_TOP_E', 'TOUCH_REAR_E',
+    # fine-pitch IC pads sit 0.15 mm apart, so every class keeps the 0.15 mm rule at the pads;
+    # wider spacing for power, switch and touch nets is enforced by the router (netrules / grid_router)
+    ('Touch', 0.15, 0.15, 0.6, 0.3, ['TOUCH_LEFT_E', 'TOUCH_RIGHT_E', 'TOUCH_TOP_E', 'TOUCH_REAR_E',
                                     'TOUCH_LEFT', 'TOUCH_RIGHT', 'TOUCH_TOP', 'TOUCH_REAR']),
 ]
 
@@ -33,8 +37,8 @@ def write():
     pro = json.loads(BASE.read_text())
     pro['meta']['filename'] = NAME + '.kicad_pro'
     rules = pro['board']['design_settings']['rules']
-    rules.update(min_clearance=0.15, min_track_width=0.15, min_via_diameter=0.6, min_via_annular_width=0.13,
-                 min_through_hole_diameter=0.3, min_hole_to_hole=0.25, min_hole_clearance=0.25,
+    rules.update(min_clearance=0.15, min_track_width=0.15, min_via_diameter=0.5, min_via_annular_width=0.13,
+                 min_through_hole_diameter=0.2, min_hole_to_hole=0.25, min_hole_clearance=0.25,
                  min_copper_edge_clearance=0.3, min_silk_clearance=0.15, min_text_height=0.8,
                  min_text_thickness=0.12, solder_mask_to_copper_clearance=0.0)
     default = [c for c in pro['net_settings']['classes'] if c['name'] == 'Default'][0]
@@ -52,6 +56,9 @@ def write():
     pro['net_settings']['classes'] = classes
     pro['net_settings']['netclass_patterns'] = patterns
     ds = pro['board']['design_settings']
+    # build_pcb.trim_silk cuts the module's and the USB-C's silk back from the board edge on purpose, so
+    # those two footprints differ from the stock library by design (review doc, PCB section)
+    ds['rule_severities']['lib_footprint_mismatch'] = 'ignore'
     ds['track_widths'] = [0.0, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8]
     ds['via_dimensions'] = [{'diameter': 0.0, 'drill': 0.0}, {'diameter': 0.6, 'drill': 0.3}]
     ds['diff_pair_dimensions'] = [{'gap': 0.0, 'via_gap': 0.0, 'width': 0.0}, {'gap': 0.15, 'via_gap': 0.25, 'width': 0.25}]

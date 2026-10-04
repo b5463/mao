@@ -100,12 +100,12 @@ b.R('R8', '100k', 'USB_PRESENT_N', '+3V3', note='PGOOD pull-up')
 b.R('R9', '100k', 'CHG_N', '+3V3', note='CHG pull-up')
 
 b.at('power', 'BATTERY',
-     'JST PH 3-pin: 1 = BAT-, 2 = NTC, 3 = BAT+ (same order as KINO J1100, ODD JOBS 41/167). Cell MUST carry '
+     'JST SH 3-pin: 1 = BAT-, 2 = NTC, 3 = BAT+ (same order as KINO J1100, ODD JOBS 41/167). Cell MUST carry '
      'its own protection PCM and a 10k NTC. R10 = 0R link to measure battery current (110). '
      'Q1 blocks a reversed cell (51). R11 fits only for cells without NTC.')
-b.part('J2', 'Connector_Generic:Conn_01x03', 'Connector_JST:JST_PH_S3B-PH-SM4-TB_1x03-1MP_P2.00mm_Horizontal',
-       'BAT', {'1': 'GND', '2': 'BAT_NTC', '3': 'BAT_RAW'}, lcsc='C265101', mpn='S3B-PH-SM4-TB', mfr='JST',
-       note='battery: 1 BAT-, 2 NTC, 3 BAT+')
+b.part('J2', 'Connector_Generic:Conn_01x03', 'Connector_JST:JST_SH_SM03B-SRSS-TB_1x03-1MP_P1.00mm_Horizontal',
+       'BAT', {'1': 'GND', '2': 'BAT_NTC', '3': 'BAT_RAW'}, lcsc='C7430445', mpn='ZX-SH1.0-3PWT (JST SM03B-SRSS-TB compatible)',
+       mfr='Megastar', note='battery: 1 BAT-, 2 NTC, 3 BAT+. 2.9 mm tall: fits over the cell. 1 A (peaks ~0.6 A)')
 b.R('R10', '0R', 'BAT_RAW', 'BAT_IN', pkg='1206', note='BAT LINK: remove to insert an ammeter (ODD JOBS 110)')
 b.part('Q1', 'Transistor_FET:AO3401A', 'Package_TO_SOT_SMD:SOT-23', 'AO3401A',
        {'1': 'BAT_RPP_G', '3': 'BAT_IN', '2': 'VBAT'}, lcsc='C15127', mpn='AO3401A', mfr='AOS',
@@ -129,8 +129,7 @@ b.part('U4', 'MAO:TPS63802', 'MAO:TI_DLA0010A_VSON-HR-10_2x3mm_P0.5mm', 'TPS6380
        note='buck-boost; PG not used')
 b.part('L1', 'Device:L', 'Inductor_SMD:L_Murata_DFE201610P', '0.47uH', {'1': 'BB_L1', '2': 'BB_L2'},
        lcsc='C668312', mpn='DFE201612E-R47M=P2', mfr='Murata', note='0.47 uH, Isat 5.5 A, 26 mOhm, 2016')
-b.C('C5', '10u', 'VSYS', pkg='0603', note='buck-boost CIN, at VIN pin')
-b.C('C6', '100n', 'VSYS', note='buck-boost VIN HF')
+b.C('C5', '10u', 'VSYS', pkg='0603', note='buck-boost CIN, 0.25 mm from VIN (TI layout: no separate HF cap)')
 b.C('C7', '22u', '+3V3', pkg='0603', note='COUT')
 b.C('C8', '22u', '+3V3', pkg='0603', note='COUT')
 b.R('R13', '1M', 'VSYS', 'BB_EN', note='UVLO divider top')
@@ -145,7 +144,7 @@ b.part('U5', 'Power_Management:TPS22917DBV', 'Package_TO_SOT_SMD:SOT-23-6', 'TPS
        {'1': '+3V3', '2': 'GND', '3': 'LCD_PWR_EN', '4': 'LCD_SW_CT', '5': 'LCD_SW_QOD', '6': '3V3_LCD'},
        lcsc='C2681320', mpn='TPS22917DBVR', mfr='TI', note='load switch, 0.5 uA Iq')
 b.part('C9', 'Device:C', 'Capacitor_SMD:C_0402_1005Metric', '1nF 50V', {'1': 'LCD_SW_CT', '2': '+3V3'},
-       mpn='GRM155R71H102KA01D', mfr='Murata', note='CT to VIN per TPS22917 datasheet')
+       lcsc='C1523', mpn='0402B102K500NT', mfr='FH', note='CT to VIN per TPS22917 datasheet (X7R 50 V)')
 b.C('C10', '1u', '3V3_LCD', note='switch output')
 b.R('R32', '100R', 'LCD_SW_QOD', '3V3_LCD', note='QOD output discharge through 100R (datasheet option): clean panel power-down')
 b.R('R17', '100k', 'LCD_PWR_EN', 'GND', note='default off')
@@ -160,7 +159,7 @@ mod = {'GND': 'GND', '3V3': '+3V3', 'EN': 'MCU_EN'}
 names = {0: 'IO0', 43: 'TXD0', 44: 'RXD0', 19: 'USB_D-', 20: 'USB_D+'}
 for gpio, net, d, fn, note in pinmap.NATIVE:
     name = names.get(gpio, 'IO%d' % gpio)
-    mod[name] = net if net else 'IO%d_SPARE' % gpio if gpio in (37, 38) else NC
+    mod[name] = net if net else 'IO%d_SPARE' % gpio if gpio == 35 else NC
 b.part('U6', 'RF_Module:ESP32-S3-WROOM-1', 'RF_Module:ESP32-S3-WROOM-1', 'ESP32-S3-WROOM-1-N8R2', mod,
        lcsc='C2913204', mpn='ESP32-S3-WROOM-1-N8R2', mfr='Espressif', note='8 MB flash, 2 MB quad PSRAM, -40..85 C')
 b.C('C11', '22u', '+3V3', pkg='0603', note='module bulk (Espressif HDG)')
@@ -168,8 +167,9 @@ b.C('C12', '100n', '+3V3', note='module HF')
 b.R('R18', '10k', '+3V3', 'MCU_EN', note='EN pull-up')
 b.C('C13', '1u', 'MCU_EN', note='EN delay (10k x 1 uF)')
 b.R('R19', '10k', '+3V3', 'PRESS_N', note='GPIO0 pull-up: normal boot')
-b.R('R20', '100k', '+3V3', 'BOARD_ID', note='board ID divider top')
-b.R('R21', '100k', 'BOARD_ID', 'GND', note='board ID bottom: A0 = 1.65 V')
+b.R('R20', '1M', '+3V3', 'BOARD_ID', note='board ID divider top (1M: 1.65 uA, ODD JOBS 112)')
+b.R('R21', '1M', 'BOARD_ID', 'GND', note='board ID bottom: A0 = 1.65 V')
+b.C('C15', '100n', 'BOARD_ID', note='holds the divider for the ADC sample (1M source)')
 
 b.at('compute', 'EXPANDER',
      'TCA6408A at 0x20. Outputs default off through 100k pull-downs; inputs pulled up. '
@@ -179,10 +179,10 @@ exp = {'1': 'EXP_RST_N', '6': 'GND', '17': 'GND', '11': 'EXP_INT_N', '12': 'I2C_
 port_pin = {0: '2', 1: '3', 2: '4', 3: '5', 4: '7', 5: '8', 6: '9', 7: '10'}
 for bit, net, d, fn, pull in pinmap.EXPANDER:
     exp[port_pin[bit]] = net
-b.part('U7', 'Interface_Expansion:TCA6408ARGT', 'Package_DFN_QFN:VQFN-16-1EP_3x3mm_P0.5mm_EP1.45x1.45mm',
+b.part('U7', 'Interface_Expansion:TCA6408ARGT', 'Package_DFN_QFN:VQFN-16-1EP_3x3mm_P0.5mm_EP1.45x1.45mm_ThermalVias',
        'TCA6408ARGTR', exp, lcsc='C181499', mpn='TCA6408ARGTR', mfr='TI', note='8-bit I2C GPIO expander')
 b.C('C14', '100n', '+3V3', note='expander')
-b.R('R22', '10k', '+3V3', 'EXP_RST_N', note='expander reset released')
+b.R('R22', '10k', '+3V3', 'EXP_RST_N', note='expander reset released; GPIO37 can pull it low (recovery)')
 b.R('R23', '100k', '+3V3', 'EXP_INT_N', note='INT pull-up')
 b.R('R24', '100k', 'LCD_RST_N', 'GND', note='P0 default: panel held in reset')
 # R17 (LCD_PWR_EN) sits with the load switch
@@ -190,24 +190,29 @@ b.R('R25', '100k', 'AMP_SD_N', 'GND', note='P2 default: amplifier shut down (sil
 b.R('R26', '100k', 'HAPTIC_EN', 'GND', note='P3 default: haptic off')
 b.R('R27', '100k', 'TOF_XSHUT', 'GND', note='P4 default: proximity sensor off')
 b.R('R28', '100k', 'IR_RX_PWR', 'GND', note='P5 default: IR receiver unpowered')
-b.R('R29', '10k', '+3V3', 'SENSE_ALRT_N', note='P7 wired-OR pull-up (gauge ALRT + light INT)')
+b.R('R29', '100k', '+3V3', 'SENSE_ALRT_N', note='P7 wired-OR pull-up (gauge ALRT + light INT); 100k: a latched alert in deep sleep costs 33 uA, not 330')
 
 b.at('compute', 'I2C', 'One 400 kHz bus. 2.2k pull-ups (ODD JOBS 30): ~6 devices, short traces.')
 b.R('R30', '2.2k', '+3V3', 'I2C_SDA')
 b.R('R31', '2.2k', '+3V3', 'I2C_SCL')
 
 b.at('compute', 'SERVICE',
-     'Tag-Connect TC2030-NL (no part fitted): 1 3V3, 2 EN, 3 GPIO0, 4 TXD0, 5 GND, 6 RXD0 - recovery '
-     'without USB (ODD JOBS 33-35, 157). Probe pads in one service field (36-38).')
+     'Tag-Connect TC2030-NL (no part fitted): 1 GND, 2 EN, 3 TXD0, 4 3V3, 5 RXD0, 6 GPIO0 - recovery '
+     'without USB (ODD JOBS 33-35, 157). Pinout chosen so TXD0/RXD0 run straight from the module pins. '
+     'Probe pads: rails beside the charger, comms in one field, switched rails at their sources (36-39).')
 b.part('J3', 'Connector:TC2030', 'Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical', 'SERVICE',
-       {'1': '+3V3', '2': 'MCU_EN', '3': 'PRESS_N', '4': 'UART_TX', '5': 'GND', '6': 'UART_RX'},
+       {'1': 'GND', '2': 'MCU_EN', '3': 'UART_TX', '4': '+3V3', '5': 'UART_RX', '6': 'PRESS_N'},
        mpn='PCB feature, no part', note='Tag-Connect TC2030-IDC-NL footprint', **{'Exclude from BOM': 'yes'})
 for ref, net, label in [('TP1', 'GND', 'GND'), ('TP2', 'GND', 'GND'), ('TP3', '+3V3', '3V3'),
                         ('TP4', 'VSYS', 'SYS'), ('TP5', 'VBAT', 'BAT'), ('TP6', 'VBUS', 'VBUS'),
                         ('TP7', 'MCU_EN', 'RST'), ('TP8', 'PRESS_N', 'BOOT'), ('TP9', 'I2C_SDA', 'SDA'),
-                        ('TP10', 'I2C_SCL', 'SCL'), ('TP11', 'IO37_SPARE', 'IO37'),
-                        ('TP12', 'IO38_SPARE', 'IO38')]:
-    b.TP(ref, net, label, size='1.0' if label.startswith('IO') else '1.5')
+                        ('TP10', 'I2C_SCL', 'SCL'), ('TP11', 'EXP_RST_N', 'XRST'),
+                        ('TP12', 'IO35_SPARE', 'IO35'), ('TP13', '3V3_LCD', 'LCD'), ('TP14', 'MIC_VDD', 'MIC'),
+                        ('TP15', 'IR_RX_VCC', 'IRV'), ('TP16', 'GND', 'GND')]:
+    # switched rails (TP13-15): the fixture proves each one really switches (firmware reads back only
+    # the enables); signal pads 1.0 mm, rails and supplies 1.2 mm (ODD JOBS 37: 1-1.5 mm; 1.2 leaves each
+    # pad's name room between the rows of the 2.7 mm service field)
+    b.TP(ref, net, label, size='1.2' if label in ('GND', '3V3', 'SYS', 'BAT', 'VBUS') else '1.0')
 
 for i in (1, 2, 3):
     b.part('FID%d' % i, 'Mechanical:Fiducial', 'Fiducial:Fiducial_1mm_Mask2mm', 'FID', {},
@@ -294,7 +299,7 @@ b.R('R304', '100R', 'LCD_BL_PWM', 'LCD_BL_G', note='gate resistor')
 b.R('R305', '100k', 'LCD_BL_G', 'GND', note='backlight off by default; also holds strap GPIO46 low')
 
 b.at('interface', 'RING DIAL',
-     'Two DRV5012 Hall latches under the 30-pole magnet ring, 30 deg apart (2.5 pole pitches = 90 deg electrical): '
+     'Two DRV5012 Hall latches under the 30-pole magnet ring, 6 deg apart (half a pole = 90 deg electrical): '
      'A/B quadrature identical to the LCDkit EC11 (2 transitions per detent, 30 detents). '
      'HALL_FAST low = 20 Hz sampling, 1.6 uA (sleep); high = 2.5 kHz (awake).')
 b.part('U301', 'MAO:DRV5012', 'Package_SON:Texas_X2SON-4-1EP_1.1x1.4mm_P0.5mm_EP0.8x0.6mm', 'DRV5012AEDMRR',
@@ -308,7 +313,7 @@ b.C('C304', '100n', '+3V3', note='U302 VCC')
 b.R('R306', '100k', 'HALL_FAST', 'GND', note='low-power sampling until firmware')
 
 b.at('interface', 'FACE PRESS',
-     'ALPS SKQG on B.Cu at the centre: the whole top unit presses it. GPIO0 = BOOT strap: no capacitor here.')
+     'ALPS SKQG on F.Cu at the centre, under the panel: the floating face presses it. GPIO0 = BOOT strap: no capacitor here.')
 b.part('SW301', 'Switch:SW_Push', 'Button_Switch_SMD:SW_SPST_SKQG_WithStem', 'SKQGADE010',
        {'1': 'PRESS_N', '2': 'GND'}, lcsc='C116647', mpn='SKQGADE010', mfr='ALPS', note='2.55 N, 0.25 mm travel')
 
@@ -376,22 +381,22 @@ b.R('R403', '100k', 'MIC_PWR', 'GND', note='mic off at reset')
 b.at('feedback', 'SPEAKER AMP',
      'MAX98357A I2S class-D from VSYS. SD_MODE from the expander: low = 0.6 uA shutdown, 3.3 V = left channel. '
      'GAIN_SLOT open = 9 dB (datasheet state, deliberate). Speaker in the base on two gold springs.')
-b.part('U501', 'MAO:MAX98357A', 'Package_DFN_QFN:TQFN-16-1EP_3x3mm_P0.5mm_EP1.23x1.23mm', 'MAX98357AETE+T',
+b.part('U501', 'MAO:MAX98357A', 'Package_DFN_QFN:TQFN-16-1EP_3x3mm_P0.5mm_EP1.23x1.23mm_ThermalVias', 'MAX98357AETE+T',
        {'1': 'AMP_DIN', '2': NC, '3': 'GND', '4': 'AMP_SD_N', '5': NC, '6': NC, '7': 'VSYS', '8': 'VSYS',
         '9': 'SPK_P', '10': 'SPK_N', '11': 'GND', '12': NC, '13': NC, '14': 'AMP_LRCLK', '15': 'GND',
         '16': 'AMP_BCLK', '17': 'GND'},
        lcsc='C910544', mpn='MAX98357AETE+T', mfr='Analog Devices', note='3.2 W mono I2S class-D')
-b.C('C501', '10u', 'VSYS', pkg='0603', note='amp bulk (ODD JOBS 15)')
-b.C('C502', '10u', 'VSYS', pkg='0603', note='amp bulk')
+b.C('C501', '10u', 'VSYS', pkg='0603', note='amp bulk (ODD JOBS 15); with C503 the datasheet 10 uF + 0.1 uF')
 b.C('C503', '100n', 'VSYS', note='amp HF')
 b.part('J501', 'MAO:Spring', SPRING_FP, 'SPK+', {'1': 'SPK_P'}, note='speaker +', **SPRING)
 b.part('J502', 'MAO:Spring', SPRING_FP, 'SPK-', {'1': 'SPK_N'}, note='speaker -', **SPRING)
 
 b.at('feedback', 'HAPTIC',
      'DRV2605L closed-loop LRA driver from VSYS, I2C 0x5A, EN from the expander (4 uA off). IN/TRIG low: '
-     'playback by I2C. LRA LD0832AA (235 Hz, 1.8 Vrms) glued to the board underside, leads to J503.')
+     'playback by I2C. Pin 6 VDD/NC left open (SLOS854D: optional supply, tie to VDD or float). '
+     'LRA LD0832AA (235 Hz, 1.8 Vrms) glued to the base, leads to J503.')
 b.part('U502', 'Driver:DRV2605LDGS', 'Package_SO:MSOP-10_3x3mm_P0.5mm', 'DRV2605LDGSR',
-       {'1': 'HAP_REG', '2': 'I2C_SCL', '3': 'I2C_SDA', '4': 'GND', '5': 'HAPTIC_EN', '6': 'VSYS',
+       {'1': 'HAP_REG', '2': 'I2C_SCL', '3': 'I2C_SDA', '4': 'GND', '5': 'HAPTIC_EN', '6': NC,
         '7': 'LRA_P', '8': 'GND', '9': 'LRA_N', '10': 'VSYS'},
        lcsc='C527464', mpn='DRV2605LDGSR', mfr='TI', note='haptic driver, auto-resonance')
 b.C('C504', '1u', 'VSYS', note='haptic VDD')
@@ -417,12 +422,14 @@ b.C('C506', '10u', 'VSYS', pkg='0603', note='IR pulse reservoir')
 
 b.at('feedback', 'IR RECEIVE',
      'IRM-H638T (as LCDkit), top-view, looking up through the window border. Powered from expander P5 through '
-     '100R/4.7 uF only when listening (0.4 mA). No external pull-up on OUT: it would back-power the receiver.')
+     '100R/4.7 uF only when listening (0.4 mA). OUT pull-up goes to the switched supply, never to +3V3, '
+     'so an unpowered receiver is never back-powered and GPIO36 reads a defined low while it is off.')
 b.part('U503', 'Interface_Optical:IRM-H6xxT', 'OptoDevice:Everlight_IRM-H6xxT', 'IRM-H638T/TR2',
        {'1': 'GND', '2': 'GND', '3': 'IR_RX', '4': 'IR_RX_VCC'}, lcsc='C91447', mpn='IRM-H638T/TR2',
        mfr='Everlight', note='38 kHz IR receiver')
 b.R('R505', '100R', 'IR_RX_PWR', 'IR_RX_VCC', note='receiver supply filter (datasheet application circuit)')
 b.C('C507', '4.7u', 'IR_RX_VCC', pkg='0603', note='receiver supply filter')
+b.R('R506', '10k', 'IR_RX_VCC', 'IR_RX', note='OUT pull-up to the switched supply (defined level, no back-powering)')
 
 
 # --------------------------------------------------------------------------------------------

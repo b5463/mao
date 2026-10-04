@@ -1954,21 +1954,21 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" ""
+		(property "MPN" "0402WGF220JTCE"
 			(at 68.58 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "Manufacturer" ""
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 68.58 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C25092"
 			(at 68.58 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2053,21 +2053,21 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" ""
+		(property "MPN" "0402WGF220JTCE"
 			(at 105.41 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "Manufacturer" ""
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 105.41 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C25092"
 			(at 105.41 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2542,21 +2542,21 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" ""
+		(property "MPN" "0603WAF100JT5E"
 			(at 172.72 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "Manufacturer" ""
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 172.72 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C22859"
 			(at 172.72 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2794,21 +2794,21 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" ""
+		(property "MPN" "0402WGF1000TCE"
 			(at 237.49 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "Manufacturer" ""
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 237.49 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C25076"
 			(at 237.49 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3006,23 +3006,23 @@
 		)
 		(uuid "52dbc9ce-569e-5e54-847f-100019a1fa1a")
 	)
-	(text "Two DRV5012 Hall latches under the 30-pole magnet ring, 30 deg apart (2.5 pole pitches = 90 deg electrical): A/B quadrature identical to the"
+	(text "Two DRV5012 Hall latches under the 30-pole magnet ring, 6 deg apart (half a pole = 90 deg electrical): A/B quadrature identical to the LCDkit"
 		(exclude_from_sim no)
 		(at 15.24 170.18 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "4bfd22a8-1b8d-5431-83f0-b991ca76c7a8")
+		(uuid "c256f2c5-32af-5ed5-adf6-2ba9c8faea26")
 	)
-	(text "LCDkit EC11 (2 transitions per detent, 30 detents). HALL_FAST low = 20 Hz sampling, 1.6 uA (sleep); high = 2.5 kHz (awake)."
+	(text "EC11 (2 transitions per detent, 30 detents). HALL_FAST low = 20 Hz sampling, 1.6 uA (sleep); high = 2.5 kHz (awake)."
 		(exclude_from_sim no)
 		(at 15.24 172.72 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "7c73e7b6-a582-5f8f-b49a-aeafecaf0564")
+		(uuid "41152ab8-300f-5c23-a764-14f481ba3be5")
 	)
 	(symbol
 		(lib_id "MAO:DRV5012")
@@ -4048,32 +4048,32 @@
 		)
 		(uuid "e5bffc4f-7af7-5a99-b515-4a9989a654ea")
 	)
-	(text "ALPS SKQG on B.Cu at the centre: the"
+	(text "ALPS SKQG on F.Cu at the centre, under"
 		(exclude_from_sim no)
 		(at 160.02 121.92 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "ecf3f07d-591e-55f4-b22e-3e116bc4c531")
+		(uuid "d8785169-331e-5219-ac83-fdf91ce6e433")
 	)
-	(text "whole top unit presses it. GPIO0 = BOOT"
+	(text "the panel: the floating face presses it."
 		(exclude_from_sim no)
 		(at 160.02 123.19 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "b84befc9-8af7-5e97-9a90-a17c85820456")
+		(uuid "1b4b5765-79d8-51f9-9d4e-ba0b8ad07a82")
 	)
-	(text "strap: no capacitor here."
+	(text "GPIO0 = BOOT strap: no capacitor here."
 		(exclude_from_sim no)
 		(at 160.02 125.73 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "c6e11a65-d3f1-5eb6-bafd-316528ae3c91")
+		(uuid "14bb07a0-573b-550e-ab49-07a0f66cd70e")
 	)
 	(symbol
 		(lib_id "Switch:SW_Push")
@@ -4292,21 +4292,21 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" ""
+		(property "MPN" "0402WGF5100TCE"
 			(at 219.71 109.22 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "Manufacturer" ""
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 219.71 109.22 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C25123"
 			(at 219.71 109.22 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -4531,21 +4531,21 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" ""
+		(property "MPN" "0402WGF5100TCE"
 			(at 283.21 109.22 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "Manufacturer" ""
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 283.21 109.22 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C25123"
 			(at 283.21 109.22 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -4770,21 +4770,21 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" ""
+		(property "MPN" "0402WGF5100TCE"
 			(at 261.62 142.24 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "Manufacturer" ""
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 261.62 142.24 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C25123"
 			(at 261.62 142.24 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -5009,21 +5009,21 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" ""
+		(property "MPN" "0402WGF5100TCE"
 			(at 321.31 142.24 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "Manufacturer" ""
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 321.31 142.24 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C25123"
 			(at 321.31 142.24 0)
 			(effects
 				(font (size 1.27 1.27))

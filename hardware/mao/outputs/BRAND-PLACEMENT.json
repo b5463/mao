@@ -1,0 +1,25 @@
+{
+  "source": "odd_jobs_symbol.png",
+  "source_sha256": "e649915c312c913e8411a8392c0d4ce312a83d3df6814cca4b8060538b80c59e",
+  "colour": "white",
+  "placements": [
+    {
+      "layer": "F.SilkS",
+      "width_mm": 5.0,
+      "height_mm": 4.077,
+      "centre_mm": [
+        5.5,
+        13.6
+      ]
+    },
+    {
+      "layer": "B.SilkS (mirrored to read from the back)",
+      "width_mm": 3.2,
+      "centre_mm": [
+        12.1,
+        12.6
+      ]
+    }
+  ],
+  "artwork_licence": "LicenseRef-KINO-Reserved"
+}

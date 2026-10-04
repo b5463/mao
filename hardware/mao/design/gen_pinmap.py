@@ -34,8 +34,8 @@ def header():
              '#pragma once', '']
     lines.append('/* ESP32-S3 GPIOs */')
     for gpio, net, d, fn, note in pinmap.NATIVE:
-        if not net or net.startswith('USB_') or net.startswith('UART_'):
-            continue
+        if not net or net in ('USB_DP', 'USB_DN') or net.startswith('UART_'):
+            continue                      # USB and console pins belong to the IDF drivers
         lines.append('#define MAO_PIN_%-18s %2d   /* %s */' % (net, gpio, fn))
     lines += ['', '/* TCA6408A expander port bits (I2C 0x20) */']
     for bit, net, d, fn, pull in pinmap.EXPANDER:

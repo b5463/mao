@@ -17,7 +17,7 @@ import pcbnew as pcb
 from board import TARGET
 from board import pt
 
-LAY = {'F': pcb.F_Cu, 'B': pcb.B_Cu, 'I2': pcb.In2_Cu}
+LAY = {'F': pcb.F_Cu, 'B': pcb.B_Cu, 'I2': pcb.In2_Cu, 'I3': pcb.In3_Cu}
 mm = lambda v: pcb.ToMM(v) - 50
 near = lambda p, q, e=0.02: abs(mm(p.x) - q[0]) < e and abs(mm(p.y) - q[1]) < e
 
@@ -51,7 +51,9 @@ def _add(b, add):
     for net, layer, w, pts in add:
         code = b.FindNet(net).GetNetCode()
         if layer == 'V':
-            v = pcb.PCB_VIA(b); v.SetPosition(pt(50 + pts[0][0], 50 + pts[0][1])); v.SetWidth(pcb.FromMM(.6)); v.SetDrill(pcb.FromMM(.3))
+            dia = w if w and w < 0.6 else 0.6            # MAO: w = 0.5 gives a 0.5 / 0.2 mm via (under-IC PGND)
+            v = pcb.PCB_VIA(b); v.SetPosition(pt(50 + pts[0][0], 50 + pts[0][1])); v.SetWidth(pcb.FromMM(dia))
+            v.SetDrill(pcb.FromMM(0.3 if dia >= 0.6 else 0.2))
             v.SetViaType(pcb.VIATYPE_THROUGH); v.SetLayerPair(pcb.F_Cu, pcb.B_Cu); v.SetNetCode(code); v.SetLocked(True); b.Add(v); n += 1
             continue
         for a, c in zip(pts, pts[1:]):

@@ -2,7 +2,8 @@
 """Stitch GND pour fragments that carry pads but reach no via to the In1 plane (KiCad 10 python).
 
 For each outer-layer GND fill fragment with no GND via or plated hole inside, one 0.6/0.3 mm via
-is placed where the fragment is widest: the via ring plus clearance must lie inside the fragment
+is placed; a fragment larger than 20 mm2 gets a second tie, as far from its first as the copper allows
+(one via is a single 1 nH return for a whole patch). Each via site: the via ring plus clearance must lie inside the fragment
 on its own layer, inside a GND fill on the other outer layer where one exists there, 0.6 mm from
 any In2 track, 0.75 mm from any via and clear of other holes. Fragments too small for that are
 left for KiCad's island removal and listed. Run DRC with --refill-zones --save-board first and
@@ -27,7 +28,7 @@ def is_own(t): return isinstance(t, pcb.PCB_VIA) and any(abs(mm(t.GetPosition().
 stale = [t for t in tracks if is_own(t)]    # removed only at the end: Remove() invalidates the other proxies
 tracks = [t for t in tracks if not is_own(t)]
 vias = [t for t in tracks if isinstance(t, pcb.PCB_VIA)]
-in2 = [t for t in tracks if not isinstance(t, pcb.PCB_VIA) and t.GetLayer() == pcb.In2_Cu]
+in2 = [t for t in tracks if not isinstance(t, pcb.PCB_VIA) and t.GetLayer() in (pcb.In2_Cu, pcb.In3_Cu)]
 outer = [t for t in tracks if not isinstance(t, pcb.PCB_VIA) and t.GetLayer() in (pcb.F_Cu, pcb.B_Cu)]
 anchors = [v.GetPosition() for v in vias if v.GetNetCode() == code] + [p.GetPosition() for p in holes if p.GetNetCode() == code]
 fills = {}
@@ -37,6 +38,8 @@ for z in b.Zones():
         polys = z.GetFilledPolysList(layer)
         fills.setdefault(layer, []).extend(polys.Outline(i) for i in range(polys.OutlineCount()))
 other = {pcb.F_Cu: pcb.B_Cu, pcb.B_Cu: pcb.F_Cu}
+keepouts = [z.Outline() for z in list(b.Zones()) + [z for f in b.GetFootprints() for z in f.Zones()]
+            if z.GetIsRuleArea() and z.GetDoNotAllowVias()]     # board and footprint rule areas (SW301's legs)
 
 def inside(outline, x, y, r):
     for k in range(12):
@@ -46,6 +49,10 @@ def inside(outline, x, y, r):
 
 def clear(x, y):
     p = pt(50 + x, 50 + y)
+    for k in range(9):                      # the via ring stays out of every no-via rule area
+        a = k * math.pi / 4
+        q = p if k == 8 else pt(50 + x + .3 * math.cos(a), 50 + y + .3 * math.sin(a))
+        if any(o.Contains(q) for o in keepouts): return False
     if any((v.GetPosition() - p).EuclideanNorm() < pcb.FromMM(0.75) for v in vias): return False
     for h in holes:
         if (h.GetPosition() - p).EuclideanNorm() < h.GetDrillSize().x / 2 + pcb.FromMM(0.3 + 0.25): return False
@@ -67,7 +74,9 @@ added, skipped = [], []
 for layer, outlines in fills.items():
     if layer not in other: continue
     for o in outlines:
-        if any(o.PointInside(a) for a in anchors): continue
+        mine = [a for a in anchors if o.PointInside(a)]
+        need = 1 if o.Area() / 1e12 < 20 else 2
+        if len(mine) >= need: continue
         bb = o.BBox()
         touching = [p.GetParentFootprint().GetReference() + '.' + p.GetNumber() for p in pads
                     if p.GetNetCode() == code and p.IsOnLayer(layer) and o.PointInside(p.GetPosition())]
@@ -80,14 +89,19 @@ for layer, outlines in fills.items():
                     if inside(o, x, y, r) and clear(x, y):
                         far = [q for q in fills.get(other[layer], []) if q.PointInside(pt(50 + x, 50 + y))]
                         if not far or inside(far[0], x, y, r):
-                            best = (x, y, r); break
+                            d = min((math.hypot(mm(a.x) - x, mm(a.y) - y) for a in mine), default=0.)
+                            if not mine:
+                                best = (x, y, r); break
+                            if d >= 3 and (best is None or d > best[3]):
+                                best = (x, y, r, d)          # second tie: the farthest site from the first
                     y += 0.1
                 x += 0.1
             if best: break
         where = f'{b.GetLayerName(layer)} {round(o.Area() / 1e12, 2)} mm2 at ({round(mm(bb.GetCenter().x), 1)}, {round(mm(bb.GetCenter().y), 1)}) pads {touching}'
         if not best: skipped.append(where); continue
-        x, y, r = best
+        x, y, r = best[:3]
         added.append((x, y, where))
+        anchors.append(pt(50 + x, 50 + y))
         if DRY: continue
         v = pcb.PCB_VIA(b); v.SetPosition(pt(50 + x, 50 + y)); v.SetWidth(pcb.FromMM(.6)); v.SetDrill(pcb.FromMM(.3))
         v.SetViaType(pcb.VIATYPE_THROUGH); v.SetLayerPair(pcb.F_Cu, pcb.B_Cu); v.SetNet(gnd); b.Add(v)

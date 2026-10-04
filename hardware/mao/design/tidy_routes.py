@@ -31,13 +31,14 @@ CLR_CH = pcb.FromMM(0.15)             # chamfers and moved vias: the rule itself
 JOG = pcb.FromMM(0.35)                # a sideways step shorter than this is a jog, not a route
 MIN_RUN = pcb.FromMM(0.25)            # shortest segment this script will create
 CHAMFER = pcb.FromMM(0.4)
-COPPER = (pcb.F_Cu, pcb.In2_Cu, pcb.B_Cu)
+COPPER = (pcb.F_Cu, pcb.In2_Cu, pcb.In3_Cu, pcb.B_Cu)
 
 b = pcb.LoadBoard(str(TARGET))
 tracks = [t for t in b.GetTracks() if not isinstance(t, pcb.PCB_VIA)]
 vias = [t for t in b.GetTracks() if isinstance(t, pcb.PCB_VIA)]
 pads = [p for f in b.GetFootprints() for p in f.Pads()]
-areas = [z for z in b.Zones() if z.GetIsRuleArea() and z.GetDoNotAllowTracks()]
+areas = [z for z in list(b.Zones()) + [z for f in b.GetFootprints() for z in f.Zones()]
+         if z.GetIsRuleArea() and z.GetDoNotAllowTracks()]      # footprint keep-outs too (SKQG dome, Tag-Connect)
 
 # ---- obstacle index: 1 mm cells per layer ------------------------------------------------
 CELL = pcb.FromMM(1.0)

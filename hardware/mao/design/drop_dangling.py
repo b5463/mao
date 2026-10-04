@@ -22,7 +22,8 @@ for v in drc['violations']:
 b = pcb.LoadBoard(str(TARGET))
 removed = []
 for t in list(b.GetTracks()):
-    if t.IsLocked(): continue                     # deliberate copper (fixed routes, lane ends) stays
+    if t.IsLocked() and '--locked' not in sys.argv: continue   # deliberate copper stays unless asked: a
+    # designed fan-out via the router never used (it continued on the stub's own layer) is dropped with --locked
     kind = 'Via' if isinstance(t, pcb.PCB_VIA) else 'Track'
     pos = t.GetPosition() if kind == 'Via' else t.GetStart()
     for k, net, x, y in wanted:

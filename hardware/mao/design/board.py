@@ -56,3 +56,28 @@ def restore_through_hole_mask(board):
                 else:
                     layers.RemoveLayer(mask)
             p.SetLayerSet(layers)
+
+
+def courtyard_boxes(fp, step=0.5):
+    """A part's body as board-mm boxes (x0, y0, x1, y1). Rectangular courtyards give one box; others
+    (the module's courtyard includes its antenna keep-out, a T shape) are cut into `step` mm strips, so
+    silkscreen checks see the real outline instead of its bounding box. Falls back to the footprint box."""
+    c = fp.GetCourtyard(pcb.B_CrtYd if fp.IsFlipped() else pcb.F_CrtYd)
+    if not c.OutlineCount():
+        r = fp.GetBoundingBox(False, False)
+        return [(mm(r.GetLeft()), mm(r.GetTop()), mm(r.GetRight()), mm(r.GetBottom()))]
+    r = c.BBox()
+    x0, y0, x1, y1 = mm(r.GetLeft()), mm(r.GetTop()), mm(r.GetRight()), mm(r.GetBottom())
+    if c.Area() >= 0.95 * (x1 - x0) * (y1 - y0) * 1e12:
+        return [(x0, y0, x1, y1)]
+    out = []
+    y = y0
+    while y < y1 - 1e-6:
+        yb = min(y + step, y1)
+        ym = (y + yb) / 2
+        xs = [x0 + (x1 - x0) * k / 200 for k in range(201)]
+        inside = [x for x in xs if c.Contains(pt(ORIGIN + x, ORIGIN + ym))]
+        if inside:
+            out.append((min(inside), y, max(inside), yb))
+        y = yb
+    return out or [(x0, y0, x1, y1)]

@@ -5,7 +5,7 @@ import pcbnew as pcb
 from board import TARGET
 from board import CACHE, pt
 
-LAYER = {'F': pcb.F_Cu, 'I2': pcb.In2_Cu, 'B': pcb.B_Cu}
+LAYER = {'F': pcb.F_Cu, 'I2': pcb.In2_Cu, 'I3': pcb.In3_Cu, 'B': pcb.B_Cu}
 data = json.loads((CACHE / os.environ.get('GR_OUT', 'grid-routes.json')).read_text())   # GR_OUT: as grid_router.py
 b = pcb.LoadBoard(str(TARGET))
 n_seg = n_via = 0
