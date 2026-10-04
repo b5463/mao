@@ -28,7 +28,7 @@ def is_own(t): return isinstance(t, pcb.PCB_VIA) and any(abs(mm(t.GetPosition().
 stale = [t for t in tracks if is_own(t)]    # removed only at the end: Remove() invalidates the other proxies
 tracks = [t for t in tracks if not is_own(t)]
 vias = [t for t in tracks if isinstance(t, pcb.PCB_VIA)]
-in2 = [t for t in tracks if not isinstance(t, pcb.PCB_VIA) and t.GetLayer() in (pcb.In2_Cu, pcb.In3_Cu)]
+in2 = [t for t in tracks if not isinstance(t, pcb.PCB_VIA) and t.GetLayer() == pcb.In2_Cu]
 outer = [t for t in tracks if not isinstance(t, pcb.PCB_VIA) and t.GetLayer() in (pcb.F_Cu, pcb.B_Cu)]
 anchors = [v.GetPosition() for v in vias if v.GetNetCode() == code] + [p.GetPosition() for p in holes if p.GetNetCode() == code]
 fills = {}

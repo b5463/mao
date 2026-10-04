@@ -218,13 +218,13 @@ def trim_silk(board, margin=0.25):
 
 
 def stackup(board):
-    """JLCPCB standard 6-layer 1.6 mm (JLC06161H-3313), matte black mask, white silk, ENIG.
-    L1 F signals + parts | L2 In1 GND | L3 In2 signals | L4 In3 +3V3 | L5 In4 GND | L6 B signals + parts:
-    every outer layer and the inner routing layer sit on a solid ground (ODD JOBS 17-19)."""
+    """JLCPCB standard 4-layer 1.6 mm (JLC04161H-1080), matte black mask, white silk, ENIG.
+    L1 F parts + signals | L2 In1 solid GND | L3 In2 power regions + slow signals | L4 B parts + signals.
+    L1 sits 0.076 mm over the ground plane, L4 0.076 mm under the power layer (ODD JOBS 17-19)."""
     ds = board.GetDesignSettings()
     ds.SetBoardThickness(MM(1.6))
-    board.SetCopperLayerCount(6)
-    ds.SetCopperLayerCount(6)
+    board.SetCopperLayerCount(4)
+    ds.SetCopperLayerCount(4)
 
 
 def build():
@@ -293,7 +293,7 @@ def build():
         print(line)
     print('silk trimmed at the edge: %d items' % trim_silk(board))
 
-    allcu = [pcb.F_Cu, pcb.In1_Cu, pcb.In2_Cu, pcb.In3_Cu, pcb.In4_Cu, pcb.B_Cu]
+    allcu = [pcb.F_Cu, pcb.In1_Cu, pcb.In2_Cu, pcb.B_Cu]
     # Antenna: no copper, track, via, pad or pour on any layer within 3 mm of the notch and in the
     # part of the board the module's own keep-out covers (ODD JOBS 2/3).
     hw, ny = m.NOTCH_W / 2 + m.ANTENNA_COPPER_SETBACK, m.NOTCH_Y - 0.6
@@ -325,7 +325,7 @@ def build():
     # Touch electrodes: no plane under the rim arcs (parasitic C kills sensitivity).
     for a in (m.TOUCH_LEFT_ANGLE, m.TOUCH_RIGHT_ANGLE):
         h = m.TOUCH_ARC_SPAN / 2 + 3
-        keepout(board, [pcb.In1_Cu, pcb.In2_Cu, pcb.In3_Cu, pcb.In4_Cu], sector_pts(m.TOUCH_ARC_R[0] - 1.0, m.PCB_R + 1, a - h, a + h),
+        keepout(board, [pcb.In1_Cu, pcb.In2_Cu], sector_pts(m.TOUCH_ARC_R[0] - 1.0, m.PCB_R + 1, a - h, a + h),
                 'TOUCH PLANE CUT %d' % int(a), tracks=True, vias=True, pads=False, pours=True)
 
     # Solid pour connection where thermal spokes make no sense: exposed pads and their thermal vias
@@ -340,9 +340,13 @@ def build():
                     pcb.ZONE_CONNECTION_FULL)
 
     edge = outline_points(inset=0.3)
-    zone(board, 'GND', [pcb.In1_Cu, pcb.In4_Cu], edge, priority=0, name='GND PLANE', thermal=False)
-    zone(board, '+3V3', [pcb.In3_Cu], edge, priority=0, name='3V3 PLANE')
-    zone(board, 'GND', [pcb.F_Cu, pcb.In2_Cu, pcb.B_Cu], edge, priority=0, name='GND POUR')
+    zone(board, 'GND', [pcb.In1_Cu], edge, priority=0, name='GND PLANE', thermal=False)
+    zone(board, 'GND', [pcb.F_Cu, pcb.B_Cu], edge, priority=0, name='GND POUR')
+    # L3: +3V3 everywhere by default, the travelling rails in their own regions above it (power_regions.py)
+    import power_regions
+    zone(board, '+3V3', [pcb.In2_Cu], edge, priority=0, name='3V3 L3')
+    for net, prio, outline, _ in power_regions.zones():
+        zone(board, net, [pcb.In2_Cu], outline, priority=prio, name='%s L3' % net)
 
     pcb.SaveBoard(str(TARGET), board)
     import project

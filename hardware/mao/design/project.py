@@ -3,11 +3,11 @@
 Base settings come from project_base.json (the KINO D4 carrier project, stripped of its own net
 classes), so every KiCad 10 key exists; MAO-specific rules are applied on top.
 
-Stackup assumption: JLCPCB standard 6-layer 1.6 mm (JLC06161H-3313): outer 1 oz / inner 0.5 oz,
-L1-L2 and L5-L6 3313 prepreg ~0.1 mm (Er ~4.1). Every routing layer sits on a ground plane (In1 under F
-and In2, In4 under B). USB D+/D- runs as an edge-coupled pair over ground at w 0.2-0.25 / gap 0.15:
-below 90 ohm differential on this thin prepreg, which full-speed USB (12 Mbit/s, edges of several ns
-over ~40 mm of track, electrically short) tolerates; no impedance control is ordered.
+Stackup assumption: JLCPCB standard 4-layer 1.6 mm (JLC04161H-1080): outer 1 oz / inner 0.5 oz,
+L1-L2 and L3-L4 1080 prepreg 0.076 mm (Er ~4.1). F sits on the L2 ground plane, B on the L3 power layer.
+USB D+/D- runs as an edge-coupled pair on F over ground at w 0.2-0.25 / gap 0.15: below 90 ohm differential
+on this thin prepreg, which full-speed USB (12 Mbit/s, edges of several ns over ~30 mm of track,
+electrically short) tolerates; no impedance control is ordered.
 """
 import json
 from pathlib import Path

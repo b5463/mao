@@ -2,27 +2,27 @@
 
 Every item is drawn from the pad coordinates of the placement in placement.py (UX, UY = 3.0, -11.0)
 and locked, so the routers work around it. Layer B unless noted. ODD JOBS 7-12, 16, 85-88:
-  VBUS   receptacle (both VBUS pads, the far one through an F.Cu bar) -> TVS D101 -> C101 -> U102 IN
+  VBUS   receptacle (both VBUS pads, the far one through the L3 VBUS strip) -> TVS D101 -> C101 -> U102 IN
   VBAT   cell -> J102 -> R108 link -> Q101 (reverse-polarity FET) -> C103 -> U102 BAT, gauge U103 tap
-  VSYS   U102 OUT -> CIN C105 -> U104 VIN in one bar; C102 above; two vias to the F.Cu distribution
+  VSYS   U102 OUT -> CIN C105 -> U104 VIN in one bar; C102 above; vias into the L3 VSYS region, and one
+         via at every load (amplifier, haptic driver, IR LEDs and their reservoir)
   SW     U104 L1/L2 straight up to the inductor pads (TI SLVSEU9D fig. 12-1)
   PGND   strip between the U104 pin rows joining PGND, AGND, MODE, CIN and COUT grounds, one 0.5 mm
          via under the IC plus a via at every power capacitor ground
-  +3V3   U104 VOUT -> COUT C106/C107 -> two vias into the In2 plane
+  +3V3   U104 VOUT -> COUT C106/C107 -> two vias into the L3 +3V3 region
 Charger and converter programming pins (ILIM, ISET, TD, EN, FB) and the NTC line are short designed
-tracks too; the NTC crosses the FET chain on F.Cu.
+tracks too; the NTC crosses the FET chain on F.Cu. Speaker, LRA and IR LED cathode lines are designed too.
 """
 from handroute import run
 
 V = 'V'
 ADD = [
-    # ---- VBUS ------------------------------------------------------------------------------------
+    # ---- VBUS: A9/B4 straight to the TVS; A4/B9 joins through the L3 VBUS strip (power_regions) -------
     ('VBUS', 'B', 0.5, [(2.45, -21.6), (2.45, -20.4), (3.0, -19.85)]),                # A9/B4 -> D101
-    ('VBUS', 'B', 0.5, [(-2.45, -21.6), (-2.45, -20.55)]),                            # A4/B9: straight to F
+    ('VBUS', 'B', 0.5, [(-2.45, -21.6), (-2.45, -20.55)]),                            # A4/B9 -> L3
     ('VBUS', V, None, [(-2.45, -20.55)]),
-    ('VBUS', 'F', 0.5, [(-2.45, -20.55), (-2.45, -16.0), (-1.55, -15.1), (3.6, -15.1), (4.5, -16.0), (4.5, -17.5)]),
-    ('VBUS', V, None, [(4.5, -17.5)]),                                                # over the USB pair (B there)
     ('VBUS', 'B', 0.5, [(3.0, -18.9), (3.0, -18.3), (3.8, -17.5), (7.96, -17.5), (8.66, -16.8), (8.66, -14.9)]),
+    ('VBUS', V, None, [(4.5, -17.5)]),                                                # L3 strip end
     ('VBUS', 'B', 0.3, [(8.66, -14.9), (8.66, -13.5)]),                               # C101 -> IN
     # ---- VBAT chain --------------------------------------------------------------------------------
     ('BAT_RAW', 'B', 0.6, [(18.26, -7.903), (18.26, -5.715)]),                        # J102.3 -> R108
@@ -31,49 +31,39 @@ ADD = [
     ('VBAT', 'B', 0.25, [(14.3, -14.45), (14.3, -13.95), (13.7, -13.95)]),            # gauge VBAT pins
     ('VBAT', 'B', 0.25, [(13.7, -16.0), (13.7, -12.0)]),                              # C104 - gauge - FET source
     ('BAT_RPP_G', 'B', 0.3, [(14.25, -9.875), (14.25, -8.51)]),                       # gate -> R109
-    # ---- VSYS --------------------------------------------------------------------------------------
+    # ---- VSYS: power section, then one via per load into the L3 VSYS region (power_regions) ----------
     ('VSYS', 'B', 0.8, [(7.6, -11.775), (5.57, -11.775)]),                            # U102 OUT -> CIN
     ('VSYS', 'B', 0.4, [(5.57, -11.775), (4.1, -11.775)]),                            # CIN -> VIN
     ('VSYS', 'B', 0.6, [(5.57, -13.285), (5.57, -11.775)]),                           # C102
     ('VSYS', V, None, [(6.79, -11.775)]),
     ('VSYS', 'B', 0.4, [(5.57, -13.1), (6.6, -13.1)]),
     ('VSYS', V, None, [(6.6, -13.1)]),
-    ('VSYS', 'F', 0.6, [(6.6, -13.1), (6.79, -12.91), (6.79, -11.775), (7.35, -11.215), (7.35, -9.21), (10.25, -9.21)]),
-    ('VSYS', 'F', 0.6, [(7.35, -9.21), (5.34, -7.2), (5.1, -7.2)]),
     ('VSYS', 'B', 0.2, [(9.66, -10.0), (9.66, -9.8), (9.96, -9.5), (10.25, -9.21)]),   # U102 EN1 (USB500)
     ('VSYS', V, None, [(10.25, -9.21)]),
     ('VSYS', 'B', 0.3, [(5.1, -7.99), (5.1, -7.2)]),                                  # R111 UVLO top
     ('VSYS', V, None, [(5.1, -7.2)]),
-    # ---- VSYS distribution on F.Cu (over the In1 GND plane) ----------------------------------------
-    # trunk west to the amplifier (via beside its input caps); the router finishes the local B links
-    ('VSYS', 'F', 0.6, [(5.1, -7.2), (1.7, -10.6), (-13.0, -10.6), (-16.6, -7.0), (-16.6, 3.55)]),
-    ('VSYS', V, None, [(-16.6, 3.55)]),
-    ('VSYS', 'B', 0.4, [(-17.6, 3.55), (-15.2, 3.55)]),                              # amp bar: C501, C502
-    ('VSYS', 'B', 0.25, [(-15.25, 2.7), (-15.25, 3.55)]),                             # amp VDD pins
-    ('VSYS', 'B', 0.25, [(-15.75, 2.7), (-15.75, 3.55)]),
-    ('VSYS', 'B', 0.4, [(-17.6, 3.55), (-18.6, 3.55), (-18.6, 8.5)]),                 # haptic VDD (pin 10) past C503
-    # ---- speaker and LRA (B): amp and driver outputs face their contacts ----------------------------
-    ('SPK_P', 'B', 0.3, [(-16.85, 1.75), (-17.2, 1.75), (-17.7, 2.25)]),
-    ('SPK_P', 'B', 0.5, [(-17.7, 2.25), (-21.4, 2.25), (-22.3, 3.15), (-23.2, 3.15)]),
-    ('SPK_N', 'B', 0.3, [(-16.85, 1.25), (-17.2, 1.25), (-17.7, 0.75)]),
-    ('SPK_N', 'B', 0.5, [(-17.7, 0.75), (-20.65, -2.2), (-23.0, -2.2)]),
-    ('LRA_P', 'B', 0.3, [(-19.0, 10.1), (-19.6, 10.1), (-20.3, 10.8), (-20.3, 11.6)]),
-    ('LRA_N', 'B', 0.3, [(-19.0, 9.1), (-21.0, 9.1), (-21.4, 9.5)]),
-    # IR LED left (R501): branch north along the 9-10 o'clock side
-    ('VSYS', 'F', 0.4, [(-13.0, -10.6), (-15.2, -12.8), (-15.2, -21.6), (-14.2, -22.6)]),
-    ('VSYS', V, None, [(-14.2, -22.6)]),
-    ('VSYS', 'B', 0.4, [(-14.2, -22.6), (-13.8, -23.0), (-12.825, -23.0)]),
-    # IR LED right (R502) and the IR reservoir C505: branch north from the power section
-    ('VSYS', 'F', 0.4, [(6.6, -13.1), (5.5, -14.2), (5.5, -21.6), (6.1, -22.2)]),     # west of the TVS ground vias
-    ('VSYS', V, None, [(6.1, -22.2)]),
-    ('VSYS', 'B', 0.4, [(6.1, -22.2), (6.9, -23.0), (7.675, -23.0)]),
-    ('VSYS', 'F', 0.4, [(6.1, -22.2), (6.3, -22.4), (12.6, -22.4)]),                 # along the top edge, clear of the ALS
-    ('VSYS', V, None, [(12.6, -22.4)]),
-    ('VSYS', 'B', 0.4, [(12.6, -22.4), (13.0, -22.0), (13.725, -22.0)]),
-    # SYS and BAT probe pads (service field, straight below the charger): VSYS from the EN1 via, VBAT
-    # down the gap between C103 and the FET gate
-    ('VSYS', 'B', 0.3, [(10.25, -9.21), (10.25, -6.6), (10.9, -5.95)]),
-    ('VBAT', 'B', 0.25, [(13.12, -11.775), (13.12, -6.73), (13.9, -5.95)]),
+    ('VSYS', 'B', 0.3, [(10.25, -9.21), (10.25, -7.05), (11.6, -5.7)]),               # SYS probe pad
+    ('VBAT', 'B', 0.25, [(13.12, -11.775), (13.12, -7.0), (14.4, -5.72)]),            # BAT probe pad
+    ('VSYS', V, None, [(-21.2, 7.4)]),                                                # amplifier (C501, C502)
+    ('VSYS', 'B', 0.3, [(-17.48, 11.4), (-17.48, 10.0)]),                              # haptic driver pin 10 -> C503
+    ('VSYS', 'B', 0.3, [(-17.48, 10.0), (-17.48, 9.38), (-17.0, 8.9)]),
+    ('VSYS', V, None, [(-17.0, 8.9)]),                                                # into the band's notch
+    ('VSYS', V, None, [(-12.45, -22.1)]),                                             # IR LED left (R501)
+    ('VSYS', V, None, [(6.63, -22.3)]),                                               # IR LED right (R502)
+    ('VSYS', V, None, [(12.0, -19.3)]),                                               # IR reservoir C505
+    # ---- speaker and LRA (B): outputs face their contacts -------------------------------------------
+    ('SPK_P', 'B', 0.3, [(-17.75, 2.4), (-17.75, 2.0), (-18.15, 1.6)]),
+    ('SPK_P', 'B', 0.5, [(-18.15, 1.6), (-21.2, 1.6), (-22.8, 3.2), (-23.1, 3.2)]),
+    ('SPK_N', 'B', 0.3, [(-17.25, 2.4), (-17.25, 0.9)]),
+    ('SPK_N', 'B', 0.5, [(-17.25, 0.9), (-20.0, 0.9), (-22.9, -2.0), (-22.9, -2.2)]),
+    ('LRA_P', 'B', 0.3, [(-18.2, 12.9), (-18.9, 12.9), (-19.5, 12.3), (-20.0, 12.3)]),          # pin 7 -> J503.1
+    ('LRA_N', 'B', 0.3, [(-18.2, 11.9), (-18.6, 11.9), (-19.35, 11.15), (-20.5, 10.0), (-20.8, 10.0)]),
+    # ---- IR LED cathodes: the switch drain to D502 on B, to D501 by an F bar between the USB-C shell legs
+    ('IR_LED_K', 'B', 0.4, [(9.6, -22.6), (9.6, -23.6), (10.9, -24.9)]),
+    ('IR_LED_K', V, None, [(9.6, -23.6)]),
+    ('IR_LED_K', 'F', 0.4, [(9.6, -23.6), (8.6, -24.6), (-7.0, -24.6), (-7.6, -25.2)]),
+    ('IR_LED_K', V, None, [(-7.6, -25.2)]),
+    ('IR_LED_K', 'B', 0.4, [(-7.6, -25.2), (-8.4, -26.0)]),
     # ---- switch nodes ------------------------------------------------------------------------------
     ('BB_L1', 'B', 0.4, [(3.5, -12.0), (3.5, -12.55), (3.725, -12.775), (3.725, -13.2)]),
     ('BB_L2', 'B', 0.4, [(2.5, -12.0), (2.5, -12.55), (2.275, -12.775), (2.275, -13.2)]),

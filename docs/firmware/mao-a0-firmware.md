@@ -60,15 +60,15 @@ Host unit tests (no IDF): `tests/host/run.sh` (§11).
 
 | Area | API | A0 implementation |
 |---|---|---|
-| Identity | `mao_board_init`, `_get_caps`, `_revision`, `_revision_mv` | chip check, release sleep holds, HALL_FAST high, mic off, IRQ inputs, board ID (ADC1 ch of GPIO3, one-shot, curve-fitting cal, 8 samples, 1.40–1.90 V = "A0"), I2C + expander |
+| Identity | `mao_board_init`, `_get_caps`, `_revision`, `_revision_mv` | chip check, release sleep holds, HALL_FAST high, mic off, IRQ inputs, board ID (ADC1_CH7 on GPIO8, one-shot, curve-fitting cal, 8 samples, 1.40–1.90 V = "A0"), I2C + expander |
 | I2C | `_i2c_bus`, `_i2c_device`, `_i2c_add`, `_i2c_scan`, `_i2c_name` | I2C0, SDA 7 / SCL 15, 400 kHz, internal pull-ups off. Every device is probed at boot; ToF and haptic rails are powered for the probe or scan only |
-| Rails | `_rail_set`, `_rail_is_on`, `_rail_readback` (`DISPLAY`, `AMP`, `HAPTIC`, `TOF`, `IR_RX`, `MIC`) | expander P1/P2/P3/P4/P5; MIC = GPIO13 (input+output, so it can be read back). Readback = the pin level (expander input register / GPIO), not the commanded one |
+| Rails | `_rail_set`, `_rail_is_on`, `_rail_readback` (`DISPLAY`, `AMP`, `HAPTIC`, `TOF`, `IR_RX`, `MIC`) | expander P1/P2/P3/P4/P5; MIC = GPIO35 (input+output, so it can be read back). Readback = the pin level (expander input register / GPIO), not the commanded one |
 | Diagnostics | `_expander_test` | CONFIG readback, POLARITY round trip 0x2A / 0x15 on the output pins (polarity only acts on inputs: no rail moves), output pins read back their commanded level |
-| Expander reset | `_expander_resets`, `_expander_reset_test`, `_display_reinit` | GPIO37 = EXP_RST_N (open drain, R205 10 k pull-up): automatic recovery of a wedged expander and the self-test pulse; a reset counter tells the rail owners to re-initialise (below) |
-| Lines | `_line_get` (`USB_PRESENT`, `CHARGING`, `SENSE_ALERT`) | GPIO8 low; expander P6 low; P7 low (reading the input register clears the expander INT) |
-| IRQs | `_irq_get` (`IMU_INT1/2`, `TOF`, `EXPANDER`, `USB_PRESENT`) | GPIO 2 / 7 / 18 / 17 / 8, all active low, already inputs |
+| Expander reset | `_expander_resets`, `_expander_reset_test`, `_display_reinit` | GPIO38 = EXP_RST_N (open drain, R205 10 k pull-up): automatic recovery of a wedged expander and the self-test pulse; a reset counter tells the rail owners to re-initialise (below) |
+| Lines | `_line_get` (`USB_PRESENT`, `CHARGING`, `SENSE_ALERT`) | GPIO3 low; expander P6 low; P7 low (reading the input register clears the expander INT) |
+| IRQs | `_irq_get` (`IMU_INT1/2`, `TOF`, `EXPANDER`, `USB_PRESENT`) | GPIO 14 / 47 / 48 / 21 / 3, all active low, already inputs |
 | Display | `_display_init`, `_backlight_set`, `_display_sleep`, `_display_get_resolution` | §3.1; the descriptor carries the panel-native orientation and the mounting `rotation` |
-| Input | `_input_init`, `_hall_fast_set` | Hall A 39 / B 40, press GPIO0 (input only), same decoder parameters as the EC11 |
+| Input | `_input_init`, `_hall_fast_set` | Hall A 41 / B 42, press GPIO0 (input only), same decoder parameters as the EC11 |
 | Touch | `_touch_get`, `_touch_zone_name` | RIGHT T1, LEFT T4, TOP T5, REAR T6; wake zone TOP |
 | Audio | `_audio_init`, `_audio_gain`, `_mic_init` | §3.2 |
 | IR | `_ir_get` | TX 35, RX 36 (active low), 38 kHz / 33 %, RX settle 1 ms |
@@ -83,11 +83,11 @@ rail would glitch on. Writes are read-modify-write on a shadow register
 under a mutex. A missing expander is reported `[!!] I2C expander` and boot
 continues, but rails, display power and the charger line are then unavailable.
 
-**Recovery through GPIO37 (EXP_RST_N).** GPIO37 drives the expander's RESET
+**Recovery through GPIO38 (EXP_RST_N).** GPIO38 drives the expander's RESET
 pin (open drain, released high from the first instruction of
 `a0_i2c_init()`; R205 10 k pull-up holds it high through boot and deep
-sleep). GPIO37 is not a spare any more; GPIO35 (TP12) is the only spare on a
-pad. When an expander write or input read fails, the driver resets the I2C
+sleep). The 4-layer board uses every module pin except the strap GPIO46
+(see `mao-pin-map.md`). When an expander write or input read fails, the driver resets the I2C
 bus (`i2c_master_bus_reset()`), pulses RESET low for 10 µs, reprograms the
 expander from the shadow registers (output before direction, as at power-up)
 and retries the access once. A wedged expander no longer needs a power
@@ -116,18 +116,25 @@ every output pin.
 
 ## 3. Drivers
 
-### 3.1 Display: Limito LH128R-IG01 (GC9A01, 240 × 240)
-- SPI2 on the IO_MUX pins (SCLK 12, MOSI 11, CS 10, DC 9), 80 MHz, mode 0,
-  write-only. Backlight: LEDC ch0, 5 kHz, 10 bit on GPIO46. It is set to 0 %
-  before the rail comes up.
+### 3.1 Display: 1.28" round GC9A01 panel in the J301 FPC connector (240 × 240)
+- The panel plugs in: an 18-pin 0.5 mm tail (Winstar WF0128BTYAA4DNN0 or any
+  panel of that 18-pin standard) in the J301 back-flip connector, so it can be
+  replaced without soldering.
+- SPI2, 80 MHz, mode 0, write-only: SCLK 12 and MOSI 11 on SPI2's IO_MUX pads,
+  CS 13 through the GPIO matrix, DC 10 a plain GPIO; the module pins follow the
+  connector's pin order (no crossing on the board). `unpark()` restores the same
+  routing after a rail power cycle. TE (tearing effect) is GPIO9, an input with
+  the internal pull-down; the flush does not use it yet. Backlight: LEDC ch0,
+  5 kHz, 10 bit on GPIO45 (a strap, held low by the 100 k gate pull-down). It is
+  set to 0 % before the rail comes up.
 - Power-up sequence: RST_N low, PWR_EN high, 10 ms, 10 ms with reset low,
   RST_N high, 120 ms, then `esp_lcd` GC9A01 init with `reset_gpio = -1`. The
   driver's software reset is kept; it is redundant but harmless.
 - Colour handling and the panel-native orientation (`A0_LCD_PANEL_MIRROR_X`
   true, `_MIRROR_Y` false, `_SWAP_XY` false, BGR, inverted) are properties of
-  the LH128R glass + GC9A01 and equal the LCDkit (same panel, FPC towards
-  6 o'clock = rotation 0).
-- **Rotation.** On the A0 the FPC land sits at 9 o'clock, a 90° turn. The
+  the 1.28" IPS glass + GC9A01 and equal the LCDkit's (FPC towards 6 o'clock =
+  rotation 0); VERIFY AT BRING-UP against the fitted panel.
+- **Rotation.** On the A0 the panel's tail leaves at 9 o'clock, a 90° turn. The
   mounting is a Kconfig choice, `MAO_MAIN A0: display rotation`
   (`CONFIG_MAO_A0_LCD_ROTATION`, 0 / 90 / 180 / 270, default **90**, VERIFY
   AT BRING-UP: the sense of the turn as the controller sees it is unknown
@@ -149,7 +156,7 @@ every output pin.
   redraws and resumes rendering. The UI keeps running meanwhile (the LVGL
   lock is not held).
 - After an expander reset the panel is re-initialised automatically (§2,
-  "Recovery through GPIO37").
+  "Recovery through GPIO38").
 - With the rail off (`MAO_RAIL_DISPLAY` off), DC, CS, MOSI and SCLK are
   driven low as GPIOs. For deep sleep they are isolated (high-Z, held). When
   the rail is switched on again, the panel is re-initialised and the pins are
@@ -165,11 +172,11 @@ every output pin.
   the amp only around sounds: on before a sound with 2 ms wake, off after 3 s
   of silence. The vocabulary is unchanged. `A0_AUDIO_GAIN` = 0.58 (the
   LCDkit value, VERIFY by ear; gain pin open = 9 dB).
-- Mic: SPH0641LU4H-1 on I2S0 PDM RX (CLK 36, DATA 38), hardware PDM→PCM,
+- Mic: SPH0641LU4H-1 on I2S0 PDM RX (CLK 37, DATA 36), hardware PDM→PCM,
   16 kHz, DSR 8S = 1.024 MHz PDM clock. **Slot choice:** SELECT is tied low,
   and IDF defines `I2S_PDM_SLOT_LEFT` as "the device whose select pin is
   pulled down". The mono default (left slot) is used, with no clock
-  inversion (`A0_MIC_CLK_INVERT`, VERIFY). The mic supply is GPIO13
+  inversion (`A0_MIC_CLK_INVERT`, VERIFY). The mic supply is GPIO35
   (`MAO_RAIL_MIC`), switched together with the clock.
 
 - Added in stage 2: `mao_audio_tsk()` (two dry clicks, 3.9 / 3.3 kHz, 55 ms
@@ -213,7 +220,7 @@ every output pin.
   (0x001x), HIBRT 0x0A = 0x8030, CONFIG 0x0C (RCOMP kept, ATHD = 27 → empty
   alert at 5 %, ALSC off), VALRT 0x14 = 0xA5FF (3.30 V low), CRATE 0x16
   (0.208 %/h), STATUS 0x1A (flags cleared after reading).
-- Charger: USB present = GPIO8 low (both edges), charging = P6 low (via the
+- Charger: USB present = GPIO3 low (both edges), charging = P6 low (via the
   expander INT on GPIO21). Fast charge is 297 mA with a USB500 input limit,
   set in hardware.
 - Events: `USB_CONNECTED` / `USB_DISCONNECTED`, `CHARGING_STARTED`,
@@ -282,16 +289,16 @@ Stage 2 extends `mao_input_stats_t` with per-channel edge counters
 | DROWSY | panel sleep-in, backlight off | IMU wake-on-motion only (12.5 Hz LP), ToF approach threshold, ALS off, mic off | amp, haptics and IR RX off; HALL_FAST low; CPU in light sleep |
 | DEEP_SLEEP | rail off, bus isolated | IMU wake-on-motion (off on a critical battery), ToF / ALS / mic off | every expander rail off, HALL_FAST low and held |
 
-- Deep-sleep wake: ext1 ANY_LOW on GPIO0 (press), GPIO2 (IMU INT1), GPIO8
+- Deep-sleep wake: ext1 ANY_LOW on GPIO0 (press), GPIO14 (IMU INT1), GPIO3
   (USB plugged) and GPIO21 (expander: charger / alerts). A line that is
-  already low is not armed. With USB present, ext0 waits on GPIO8 going high
+  already low is not armed. With USB present, ext0 waits on GPIO3 going high
   (unplug) instead. Touch wakes on the TOP zone, and a timer wakes every
   `CONFIG_MAO_POWER_WAKE_INTERVAL_MIN` (30 min). On a critical battery only
   USB can wake MAO.
 - Light-sleep (DROWSY) wake: the same lines plus GPIO48 (ToF threshold, through the GPIO wake source: GPIO48 is not an RTC pad), any
   touch zone, and a 60 s housekeeping timer. The timer only refreshes the
   battery state and sleeps again; any other source returns to ACTIVE. Ring
-  rotation alone is not a wake source (GPIO 39/40 are not RTC pads), but
+  rotation alone is not a wake source (GPIO 41/42 are not RTC pads), but
   touching the ring usually trips the IMU or a touch zone. ext1 moves its
   pads to RTC IO, so they are given back to the GPIO matrix after every
   light sleep and at boot.
@@ -405,9 +412,11 @@ input carries its time, so it runs identically on the host (§11).
 
 Kconfig `MAO perception`: `MAO_PERCEPT_NEAR_MM` (200, VERIFY through the
 window), `MAO_PERCEPT_QUIET_ROOM_S` (120), `MAO_PERCEPT_DARK_ROOM_S` (20),
-`MAO_PERCEPT_LONG_ABSENCE_MIN` (120), `MAO_PERCEPT_IMU_Z_DOWN` (n; VERIFY:
-+Z should point out of the face), `MAO_PERCEPT_LOG` (y: one INFO line per
-percept). Everything else is in `pe_config_default()`.
+`MAO_PERCEPT_LONG_ABSENCE_MIN` (120), `MAO_PERCEPT_IMU_Z_DOWN` (n: U401 sits
+on the face side at 0°, so by ST AN5192 fig. 1 the IMU's +X is board +x, +Y
+is board −y (towards 12 o'clock) and +Z points out of the face; the axis glyph
+is on the silkscreen; confirm the sign at bring-up), `MAO_PERCEPT_LOG`
+(y: one INFO line per percept). Everything else is in `pe_config_default()`.
 
 ## 6. Application: percepts → behaviour (`mao_app_percept.c`)
 
@@ -488,7 +497,7 @@ console (`[OK]` / `[!!]` / `[--]` lines, `mao board`, `mao selftest boot`).
 - **Factory self-test**: `mao selftest` (interactive), `mao selftest auto`
   (operator steps skipped), or at every boot with `CONFIG_MAO_SELFTEST_AT_BOOT`
   (profile `sdkconfig.factory`). On the A0: 24 automatic steps (including
-  `expander_reset`, which pulses GPIO37), 3 probe-pad steps (`pad_lcd`,
+  `expander_reset`, which pulses GPIO38), 3 probe-pad steps (`pad_lcd`,
   `pad_mic`, `pad_irv`: each rail off then on, measured at TP13 / TP14 /
   TP15 by the fixture DMM or the operator) and 6 operator steps; 7 steps on
   the LCDkit. Answers: `mao selftest yes|no|skip`, a face press = yes,
@@ -550,15 +559,15 @@ tests/host/run.sh --docker   # gcc inside espressif/idf:v6.0.3
 ```
 
 ## 12. Known hardware / source discrepancies
-- Resolved: the generated header contains `MAO_PIN_USB_PRESENT_N` (GPIO8)
+- Resolved: the generated header contains `MAO_PIN_USB_PRESENT_N` (GPIO3 since the 4-layer pin map)
   and the old `#ifndef` fallback is gone; the board-ID divider reads
   1 M / 1 M everywhere; the pull-up notes in `pinmap.py` now match
   `circuit.py` (TOF_INT_N 10 k, SENSE_ALRT_N 100 k); the `pinmap.py`
   docstring names `hardware/mao/design/gen_pinmap.py`.
-- Hardware changes after stage 2 that the firmware follows: GPIO37 is
+- Hardware changes after stage 2 that the firmware follows: GPIO38 is
   EXP_RST_N (expander reset, TP11 XRST); TP13-TP15 expose the switched rails;
   the IR receiver output has a 10 k pull-up (R506) to its switched supply.
-- The brief listed GPIO13 as a spare. The current `pinmap.py` / header use it
+- The brief listed GPIO13 as a spare. The 4-layer pin map uses GPIO13 for LCD_CS and GPIO35
   as `MIC_PWR` (the mic draws 80 µA even with its clock stopped), and the
   firmware follows the header.
 
@@ -575,8 +584,8 @@ RTC-clock accuracy for "time asleep".
 Stage 2:
 - **Display rotation** `CONFIG_MAO_A0_LCD_ROTATION` (default 90; 270 is the
   other candidate): `mao rotate 270`, then `mao rotate save` or fix Kconfig.
-- **IMU axis sign** at rest (`mao sense`: accel z ≈ +1 g with the face up),
-  else `MAO_PERCEPT_IMU_Z_DOWN`.
+- **IMU axis sign** at rest (`mao sense`: accel z ≈ +1 g with the face up,
+  as the layout predicts), else `MAO_PERCEPT_IMU_Z_DOWN`.
 - Perception thresholds on real hardware: near distance through the window
   (`MAO_PERCEPT_NEAR_MM`), cover distance (35 mm), quiet-room level
   (-58 dBFS), sudden-noise rise (15 dB / -50 dBFS), motion still / move /

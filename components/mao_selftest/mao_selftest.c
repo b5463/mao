@@ -90,7 +90,7 @@ static const char *TAG = "MAO_SELFTEST";
 #define LIM_PAD_OFF_MAX_MV      300
 #define LIM_PAD_ON_MIN_MV       3000
 #define LIM_PAD_ON_MAX_MV       3400       /* load switch / expander-fed rails */
-#define LIM_PAD_MIC_ON_MAX_MV   3350       /* GPIO13 through 100 R: always a little below 3V3 */
+#define LIM_PAD_MIC_ON_MAX_MV   3350       /* GPIO35 through 100 R: always a little below 3V3 */
 #define MEASURE_AUTO_TIMEOUT_MS 5000       /* automatic mode: a fixture DMM answers at once */
 #define EXP_RESET_SETTLE_MS     800        /* owners re-initialise panel / ToF / haptics */
 
@@ -320,7 +320,7 @@ static result_t t_expander(char *d)
 
 static result_t t_expander_reset(char *d)
 {
-    /* Pulses EXP_RST_N (GPIO37): the expander must really reset (CONFIG
+    /* Pulses EXP_RST_N (GPIO38): the expander must really reset (CONFIG
      * back at 0xFF) and come back with every rail as it was. The panel, the
      * ToF and the haptic driver see their lines drop and are re-initialised
      * by their owners; give them a moment. */

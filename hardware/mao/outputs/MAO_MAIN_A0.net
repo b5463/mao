@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "/Users/moravcik/Library/Application Support/Claude/scratch-workspaces/fd95d868-fd9f-42b4-ab0f-1fa3f0ecd399/883b8d98-75ff-4844-b199-4b97bf4e807f/scratch-2026-10-03-a0bc0e/mao/hardware/mao/MAO_MAIN_A0.kicad_sch")
-		(date "2026-10-04T09:31:35")
+		(date "2026-10-05T01:06:15")
 		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
@@ -4394,7 +4394,7 @@
 			(ref "R205")
 			(value "10k")
 			(footprint "Resistor_SMD:R_0402_1005Metric")
-			(description "expander reset released; GPIO37 can pull it low (recovery)")
+			(description "expander reset released; GPIO38 can pull it low (recovery)")
 			(fields
 				(field
 					(name "MPN") "0402WGF1002TCE")
@@ -4408,7 +4408,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "expander reset released; GPIO37 can pull it low (recovery)")
+					(name "Description") "expander reset released; GPIO38 can pull it low (recovery)")
 			)
 			(libsource
 				(lib "Device")
@@ -5991,86 +5991,6 @@
 			)
 		)
 		(comp
-			(ref "TP12")
-			(value "IO35")
-			(footprint "TestPoint:TestPoint_Pad_D1.0mm")
-			(description "test pad IO35")
-			(fields
-				(field
-					(name "MPN") "PCB feature, no part")
-				(field
-					(name "Manufacturer")
-				)
-				(field
-					(name "LCSC")
-				)
-				(field
-					(name "Exclude from BOM") "yes")
-				(field
-					(name "Footprint") "TestPoint:TestPoint_Pad_D1.0mm")
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "test pad IO35")
-			)
-			(libsource
-				(lib "Connector")
-				(part "TestPoint")
-				(description "test point")
-			)
-			(property
-				(name "MPN")
-				(value "PCB feature, no part")
-			)
-			(property
-				(name "Manufacturer")
-				(value "")
-			)
-			(property
-				(name "LCSC")
-				(value "")
-			)
-			(property
-				(name "Exclude from BOM")
-				(value "yes")
-			)
-			(property
-				(name "Sheetname")
-				(value "Compute")
-			)
-			(property
-				(name "Sheetfile")
-				(value "compute.kicad_sch")
-			)
-			(property
-				(name "exclude_from_bom")
-			)
-			(property
-				(name "ki_keywords")
-				(value "test point tp")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Pin* Test*")
-			)
-			(sheetpath
-				(names "/Compute/")
-				(tstamps "/5c1663d1-fabd-5843-8636-9724c729cba6/")
-			)
-			(tstamps "9ad6bf78-5c3c-513c-8af3-bd829c2cf225")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-					)
-				)
-			)
-		)
-		(comp
 			(ref "TP13")
 			(value "LCD")
 			(footprint "TestPoint:TestPoint_Pad_D1.0mm")
@@ -7419,47 +7339,39 @@
 		(comp
 			(ref "J301")
 			(value "LCD")
-			(footprint "MAO:Limito_LH128R_FPC_12P_P0.7mm_SolderLand")
-			(description "panel pin order per Limito drawing 20190710: 1 GND, 2 LEDK, 3 LEDA, 4 VDD, 5 GND, 6 GND, 7 D/C, 8 CS, 9 SCL, 10 SDA, 11 RESET, 12 GND")
+			(footprint "MAO:HDGC_0.5K-HX-18PWB_1x18-1MP_P0.5mm_Horizontal")
+			(description "0.5 mm 18P FPC connector, 1.0 mm high, back flip, top and bottom contacts; panel pinout: 1 TP_INT, 2 TP_SDA, 3 TP_SCL, 4 TP_RST, 5 TP_GND, 6 TP_VDD, 7 VLED+, 8 VLED-, 9 GND, 10 CS, 11 SCL, 12 SDA, 13 RS, 14 TE, 15 RESET, 16 VCI, 17 NC, 18 GND")
 			(fields
 				(field
-					(name "MPN") "PCB feature: LH128R-IG01 FPC land")
+					(name "MPN") "0.5K-HX-18PWB")
 				(field
-					(name "Manufacturer")
-				)
+					(name "Manufacturer") "HDGC")
 				(field
-					(name "LCSC")
-				)
+					(name "LCSC") "C2919497")
 				(field
-					(name "Exclude from BOM") "yes")
-				(field
-					(name "Footprint") "MAO:Limito_LH128R_FPC_12P_P0.7mm_SolderLand")
+					(name "Footprint") "MAO:HDGC_0.5K-HX-18PWB_1x18-1MP_P0.5mm_Horizontal")
 				(field
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "panel pin order per Limito drawing 20190710: 1 GND, 2 LEDK, 3 LEDA, 4 VDD, 5 GND, 6 GND, 7 D/C, 8 CS, 9 SCL, 10 SDA, 11 RESET, 12 GND")
+					(name "Description") "0.5 mm 18P FPC connector, 1.0 mm high, back flip, top and bottom contacts; panel pinout: 1 TP_INT, 2 TP_SDA, 3 TP_SCL, 4 TP_RST, 5 TP_GND, 6 TP_VDD, 7 VLED+, 8 VLED-, 9 GND, 10 CS, 11 SCL, 12 SDA, 13 RS, 14 TE, 15 RESET, 16 VCI, 17 NC, 18 GND")
 			)
 			(libsource
 				(lib "MAO")
-				(part "LH128R_FPC")
-				(description "LH128R-IG01 round GC9A01 panel, 12-pin 0.7 mm solder FPC")
+				(part "ROUND_LCD_FPC18")
+				(description "FPC connector for 1.28\" round GC9A01 panels with the 18-pin 0.5 mm tail")
 			)
 			(property
 				(name "MPN")
-				(value "PCB feature: LH128R-IG01 FPC land")
+				(value "0.5K-HX-18PWB")
 			)
 			(property
 				(name "Manufacturer")
-				(value "")
+				(value "HDGC")
 			)
 			(property
 				(name "LCSC")
-				(value "")
-			)
-			(property
-				(name "Exclude from BOM")
-				(value "yes")
+				(value "C2919497")
 			)
 			(property
 				(name "Sheetname")
@@ -7468,9 +7380,6 @@
 			(property
 				(name "Sheetfile")
 				(value "interface.kicad_sch")
-			)
-			(property
-				(name "exclude_from_bom")
 			)
 			(sheetpath
 				(names "/Interface/")
@@ -7500,6 +7409,9 @@
 							(num "6")
 						)
 						(pin
+							(num "MP")
+						)
+						(pin
 							(num "7")
 						)
 						(pin
@@ -7516,6 +7428,24 @@
 						)
 						(pin
 							(num "12")
+						)
+						(pin
+							(num "13")
+						)
+						(pin
+							(num "14")
+						)
+						(pin
+							(num "15")
+						)
+						(pin
+							(num "16")
+						)
+						(pin
+							(num "17")
+						)
+						(pin
+							(num "18")
 						)
 					)
 				)
@@ -8010,7 +7940,7 @@
 			(ref "R305")
 			(value "100k")
 			(footprint "Resistor_SMD:R_0402_1005Metric")
-			(description "backlight off by default; also holds strap GPIO46 low")
+			(description "backlight off by default; also holds the VDD_SPI strap GPIO45 low")
 			(fields
 				(field
 					(name "MPN") "0402WGF1003TCE")
@@ -8024,7 +7954,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "backlight off by default; also holds strap GPIO46 low")
+					(name "Description") "backlight off by default; also holds the VDD_SPI strap GPIO45 low")
 			)
 			(libsource
 				(lib "Device")
@@ -12176,87 +12106,6 @@
 		)
 		(libpart
 			(lib "MAO")
-			(part "LH128R_FPC")
-			(description "LH128R-IG01 round GC9A01 panel, 12-pin 0.7 mm solder FPC")
-			(fields
-				(field
-					(name "Reference") "J")
-				(field
-					(name "Value") "LH128R_FPC")
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "LH128R-IG01 round GC9A01 panel, 12-pin 0.7 mm solder FPC")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "GND")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "LEDK")
-					(type "passive")
-				)
-				(pin
-					(num "3")
-					(name "LEDA")
-					(type "passive")
-				)
-				(pin
-					(num "4")
-					(name "VDD")
-					(type "passive")
-				)
-				(pin
-					(num "5")
-					(name "GND")
-					(type "passive")
-				)
-				(pin
-					(num "6")
-					(name "GND")
-					(type "passive")
-				)
-				(pin
-					(num "7")
-					(name "D/C")
-					(type "passive")
-				)
-				(pin
-					(num "8")
-					(name "CS")
-					(type "passive")
-				)
-				(pin
-					(num "9")
-					(name "SCL")
-					(type "passive")
-				)
-				(pin
-					(num "10")
-					(name "SDA")
-					(type "passive")
-				)
-				(pin
-					(num "11")
-					(name "~{RESET}")
-					(type "passive")
-				)
-				(pin
-					(num "12")
-					(name "GND")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "MAO")
 			(part "LSM6DSOX")
 			(description "I2C/SPI, iNEMO inertial module: always-on 3D accelerometer and 3D gyroscope, with auxiliary SPI, 1.71V to 3.6V VCC")
 			(docs "https://www.st.com/resource/en/datasheet/lsm6dsm.pdf")
@@ -12574,6 +12423,122 @@
 				(pin
 					(num "7")
 					(name "EP")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "MAO")
+			(part "ROUND_LCD_FPC18")
+			(description "FPC connector for 1.28\" round GC9A01 panels with the 18-pin 0.5 mm tail")
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "ROUND_LCD_FPC18")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "FPC connector for 1.28\" round GC9A01 panels with the 18-pin 0.5 mm tail")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "TP_INT")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "TP_SDA")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "TP_SCL")
+					(type "passive")
+				)
+				(pin
+					(num "4")
+					(name "TP_RST")
+					(type "passive")
+				)
+				(pin
+					(num "5")
+					(name "TP_GND")
+					(type "passive")
+				)
+				(pin
+					(num "6")
+					(name "TP_VDD")
+					(type "passive")
+				)
+				(pin
+					(num "7")
+					(name "VLED+")
+					(type "passive")
+				)
+				(pin
+					(num "8")
+					(name "VLED-")
+					(type "passive")
+				)
+				(pin
+					(num "9")
+					(name "GND")
+					(type "passive")
+				)
+				(pin
+					(num "10")
+					(name "CS")
+					(type "passive")
+				)
+				(pin
+					(num "11")
+					(name "SCL")
+					(type "passive")
+				)
+				(pin
+					(num "12")
+					(name "SDA")
+					(type "passive")
+				)
+				(pin
+					(num "13")
+					(name "RS")
+					(type "passive")
+				)
+				(pin
+					(num "14")
+					(name "TE")
+					(type "passive")
+				)
+				(pin
+					(num "15")
+					(name "~{RESET}")
+					(type "passive")
+				)
+				(pin
+					(num "16")
+					(name "VCI")
+					(type "passive")
+				)
+				(pin
+					(num "17")
+					(name "NC")
+					(type "passive")
+				)
+				(pin
+					(num "18")
+					(name "GND")
+					(type "passive")
+				)
+				(pin
+					(num "MP")
+					(name "MP")
 					(type "passive")
 				)
 			)
@@ -13639,14 +13604,14 @@
 			)
 			(node
 				(ref "J301")
-				(pin "3")
-				(pinfunction "LEDA_3")
+				(pin "16")
+				(pinfunction "VCI_16")
 				(pintype "passive")
 			)
 			(node
 				(ref "J301")
-				(pin "4")
-				(pinfunction "VDD_4")
+				(pin "7")
+				(pinfunction "VLED+_7")
 				(pintype "passive")
 			)
 			(node
@@ -13907,8 +13872,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "15")
-				(pinfunction "IO3_15")
+				(pin "12")
+				(pinfunction "IO8_12")
 				(pintype "bidirectional")
 			)
 		)
@@ -14021,8 +13986,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "30")
-				(pinfunction "IO37_30")
+				(pin "31")
+				(pinfunction "IO38_31")
 				(pintype "bidirectional")
 			)
 			(node
@@ -14259,26 +14224,26 @@
 			)
 			(node
 				(ref "J301")
-				(pin "1")
-				(pinfunction "GND_1")
-				(pintype "passive")
-			)
-			(node
-				(ref "J301")
-				(pin "12")
-				(pinfunction "GND_12")
+				(pin "18")
+				(pinfunction "GND_18")
 				(pintype "passive")
 			)
 			(node
 				(ref "J301")
 				(pin "5")
-				(pinfunction "GND_5")
+				(pinfunction "TP_GND_5")
 				(pintype "passive")
 			)
 			(node
 				(ref "J301")
-				(pin "6")
-				(pinfunction "GND_6")
+				(pin "9")
+				(pinfunction "GND_9")
+				(pintype "passive")
+			)
+			(node
+				(ref "J301")
+				(pin "MP")
+				(pinfunction "MP_MP")
 				(pintype "passive")
 			)
 			(node
@@ -14726,8 +14691,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "22")
-				(pinfunction "IO14_22")
+				(pin "38")
+				(pinfunction "IO2_38")
 				(pintype "bidirectional")
 			)
 			(node
@@ -14903,8 +14868,8 @@
 			(class "Default")
 			(node
 				(ref "U201")
-				(pin "38")
-				(pinfunction "IO2_38")
+				(pin "22")
+				(pinfunction "IO14_22")
 				(pintype "bidirectional")
 			)
 			(node
@@ -14933,23 +14898,6 @@
 		)
 		(net
 			(code "32")
-			(name "IO35_SPARE")
-			(class "Default")
-			(node
-				(ref "TP12")
-				(pin "1")
-				(pinfunction "1_1")
-				(pintype "passive")
-			)
-			(node
-				(ref "U201")
-				(pin "28")
-				(pinfunction "IO35_28")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "33")
 			(name "IR_LED_A1")
 			(class "Actuator")
 			(node
@@ -14965,7 +14913,7 @@
 			)
 		)
 		(net
-			(code "34")
+			(code "33")
 			(name "IR_LED_A2")
 			(class "Actuator")
 			(node
@@ -14981,7 +14929,7 @@
 			)
 		)
 		(net
-			(code "35")
+			(code "34")
 			(name "IR_LED_K")
 			(class "Actuator")
 			(node
@@ -15004,7 +14952,7 @@
 			)
 		)
 		(net
-			(code "36")
+			(code "35")
 			(name "IR_RX")
 			(class "Default")
 			(node
@@ -15026,7 +14974,7 @@
 			)
 		)
 		(net
-			(code "37")
+			(code "36")
 			(name "IR_RX_PWR")
 			(class "Default")
 			(node
@@ -15047,7 +14995,7 @@
 			)
 		)
 		(net
-			(code "38")
+			(code "37")
 			(name "IR_RX_VCC")
 			(class "Switched")
 			(node
@@ -15079,7 +15027,7 @@
 			)
 		)
 		(net
-			(code "39")
+			(code "38")
 			(name "IR_TX")
 			(class "Default")
 			(node
@@ -15095,7 +15043,7 @@
 			)
 		)
 		(net
-			(code "40")
+			(code "39")
 			(name "IR_TX_G")
 			(class "Default")
 			(node
@@ -15116,7 +15064,7 @@
 			)
 		)
 		(net
-			(code "41")
+			(code "40")
 			(name "LCD_BL_D")
 			(class "Switched")
 			(node
@@ -15132,7 +15080,7 @@
 			)
 		)
 		(net
-			(code "42")
+			(code "41")
 			(name "LCD_BL_G")
 			(class "Default")
 			(node
@@ -15153,13 +15101,13 @@
 			)
 		)
 		(net
-			(code "43")
+			(code "42")
 			(name "LCD_BL_K")
 			(class "Switched")
 			(node
 				(ref "J301")
-				(pin "2")
-				(pinfunction "LEDK_2")
+				(pin "8")
+				(pinfunction "VLED-_8")
 				(pintype "passive")
 			)
 			(node
@@ -15169,7 +15117,7 @@
 			)
 		)
 		(net
-			(code "44")
+			(code "43")
 			(name "LCD_BL_PWM")
 			(class "Default")
 			(node
@@ -15179,19 +15127,36 @@
 			)
 			(node
 				(ref "U201")
-				(pin "16")
-				(pinfunction "IO46_16")
+				(pin "26")
+				(pinfunction "IO45_26")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "44")
+			(name "LCD_CS")
+			(class "Default")
+			(node
+				(ref "J301")
+				(pin "10")
+				(pinfunction "CS_10")
+				(pintype "passive")
+			)
+			(node
+				(ref "U201")
+				(pin "21")
+				(pinfunction "IO13_21")
 				(pintype "bidirectional")
 			)
 		)
 		(net
 			(code "45")
-			(name "LCD_CS")
+			(name "LCD_DC")
 			(class "Default")
 			(node
 				(ref "J301")
-				(pin "8")
-				(pinfunction "CS_8")
+				(pin "13")
+				(pinfunction "RS_13")
 				(pintype "passive")
 			)
 			(node
@@ -15203,23 +15168,6 @@
 		)
 		(net
 			(code "46")
-			(name "LCD_DC")
-			(class "Default")
-			(node
-				(ref "J301")
-				(pin "7")
-				(pinfunction "D/C_7")
-				(pintype "passive")
-			)
-			(node
-				(ref "U201")
-				(pin "17")
-				(pinfunction "IO9_17")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "47")
 			(name "LCD_MOSI")
 			(class "Default")
 			(node
@@ -15235,13 +15183,13 @@
 			)
 		)
 		(net
-			(code "48")
+			(code "47")
 			(name "LCD_MOSI_P")
 			(class "Default")
 			(node
 				(ref "J301")
-				(pin "10")
-				(pinfunction "SDA_10")
+				(pin "12")
+				(pinfunction "SDA_12")
 				(pintype "passive")
 			)
 			(node
@@ -15251,7 +15199,7 @@
 			)
 		)
 		(net
-			(code "49")
+			(code "48")
 			(name "LCD_PWR_EN")
 			(class "Default")
 			(node
@@ -15273,13 +15221,13 @@
 			)
 		)
 		(net
-			(code "50")
+			(code "49")
 			(name "LCD_RST_N")
 			(class "Default")
 			(node
 				(ref "J301")
-				(pin "11")
-				(pinfunction "~{RESET}_11")
+				(pin "15")
+				(pinfunction "~{RESET}_15")
 				(pintype "passive")
 			)
 			(node
@@ -15295,7 +15243,7 @@
 			)
 		)
 		(net
-			(code "51")
+			(code "50")
 			(name "LCD_SCLK")
 			(class "Default")
 			(node
@@ -15311,13 +15259,13 @@
 			)
 		)
 		(net
-			(code "52")
+			(code "51")
 			(name "LCD_SCLK_P")
 			(class "Default")
 			(node
 				(ref "J301")
-				(pin "9")
-				(pinfunction "SCL_9")
+				(pin "11")
+				(pinfunction "SCL_11")
 				(pintype "passive")
 			)
 			(node
@@ -15327,7 +15275,7 @@
 			)
 		)
 		(net
-			(code "53")
+			(code "52")
 			(name "LCD_SW_CT")
 			(class "Default")
 			(node
@@ -15343,7 +15291,7 @@
 			)
 		)
 		(net
-			(code "54")
+			(code "53")
 			(name "LCD_SW_QOD")
 			(class "Default")
 			(node
@@ -15356,6 +15304,23 @@
 				(pin "5")
 				(pinfunction "QOD_5")
 				(pintype "open_collector")
+			)
+		)
+		(net
+			(code "54")
+			(name "LCD_TE")
+			(class "Default")
+			(node
+				(ref "J301")
+				(pin "14")
+				(pinfunction "TE_14")
+				(pintype "passive")
+			)
+			(node
+				(ref "U201")
+				(pin "17")
+				(pinfunction "IO9_17")
+				(pintype "bidirectional")
 			)
 		)
 		(net
@@ -15436,8 +15401,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "29")
-				(pinfunction "IO36_29")
+				(pin "30")
+				(pinfunction "IO37_30")
 				(pintype "bidirectional")
 			)
 		)
@@ -15453,8 +15418,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "31")
-				(pinfunction "IO38_31")
+				(pin "29")
+				(pinfunction "IO36_29")
 				(pintype "bidirectional")
 			)
 		)
@@ -15474,8 +15439,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "21")
-				(pinfunction "IO13_21")
+				(pin "28")
+				(pinfunction "IO35_28")
 				(pintype "bidirectional")
 			)
 		)
@@ -15939,8 +15904,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "12")
-				(pinfunction "IO8_12")
+				(pin "15")
+				(pinfunction "IO3_15")
 				(pintype "bidirectional")
 			)
 		)
@@ -16169,6 +16134,72 @@
 		)
 		(net
 			(code "88")
+			(name "unconnected-(J301-NC-Pad17)")
+			(class "Default")
+			(node
+				(ref "J301")
+				(pin "17")
+				(pinfunction "NC_17")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "89")
+			(name "unconnected-(J301-TP_INT-Pad1)")
+			(class "Default")
+			(node
+				(ref "J301")
+				(pin "1")
+				(pinfunction "TP_INT_1")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "90")
+			(name "unconnected-(J301-TP_RST-Pad4)")
+			(class "Default")
+			(node
+				(ref "J301")
+				(pin "4")
+				(pinfunction "TP_RST_4")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "91")
+			(name "unconnected-(J301-TP_SCL-Pad3)")
+			(class "Default")
+			(node
+				(ref "J301")
+				(pin "3")
+				(pinfunction "TP_SCL_3")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "92")
+			(name "unconnected-(J301-TP_SDA-Pad2)")
+			(class "Default")
+			(node
+				(ref "J301")
+				(pin "2")
+				(pinfunction "TP_SDA_2")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "93")
+			(name "unconnected-(J301-TP_VDD-Pad6)")
+			(class "Default")
+			(node
+				(ref "J301")
+				(pin "6")
+				(pinfunction "TP_VDD_6")
+				(pintype "passive+no_connect")
+			)
+		)
+		(net
+			(code "94")
 			(name "unconnected-(U101-NC-Pad1)")
 			(class "Default")
 			(node
@@ -16179,7 +16210,7 @@
 			)
 		)
 		(net
-			(code "89")
+			(code "95")
 			(name "unconnected-(U101-NC-Pad2)")
 			(class "Default")
 			(node
@@ -16190,7 +16221,7 @@
 			)
 		)
 		(net
-			(code "90")
+			(code "96")
 			(name "unconnected-(U102-TMR-Pad14)")
 			(class "Default")
 			(node
@@ -16201,7 +16232,7 @@
 			)
 		)
 		(net
-			(code "91")
+			(code "97")
 			(name "unconnected-(U104-PG-Pad5)")
 			(class "Default")
 			(node
@@ -16212,18 +16243,18 @@
 			)
 		)
 		(net
-			(code "92")
-			(name "unconnected-(U201-IO45-Pad26)")
+			(code "98")
+			(name "unconnected-(U201-IO46-Pad16)")
 			(class "Default")
 			(node
 				(ref "U201")
-				(pin "26")
-				(pinfunction "IO45_26")
+				(pin "16")
+				(pinfunction "IO46_16")
 				(pintype "bidirectional+no_connect")
 			)
 		)
 		(net
-			(code "93")
+			(code "99")
 			(name "unconnected-(U401-OCS_Aux-Pad10)")
 			(class "Default")
 			(node
@@ -16234,7 +16265,7 @@
 			)
 		)
 		(net
-			(code "94")
+			(code "100")
 			(name "unconnected-(U401-SDO_Aux-Pad11)")
 			(class "Default")
 			(node
@@ -16245,7 +16276,7 @@
 			)
 		)
 		(net
-			(code "95")
+			(code "101")
 			(name "unconnected-(U402-DNC-Pad8)")
 			(class "Default")
 			(node
@@ -16256,7 +16287,7 @@
 			)
 		)
 		(net
-			(code "96")
+			(code "102")
 			(name "unconnected-(U501-GAIN_SLOT-Pad2)")
 			(class "Default")
 			(node
@@ -16267,7 +16298,7 @@
 			)
 		)
 		(net
-			(code "97")
+			(code "103")
 			(name "unconnected-(U501-NC-Pad5)")
 			(class "Default")
 			(node
@@ -16278,7 +16309,7 @@
 			)
 		)
 		(net
-			(code "98")
+			(code "104")
 			(name "unconnected-(U501-NC-Pad6)")
 			(class "Default")
 			(node
@@ -16289,7 +16320,7 @@
 			)
 		)
 		(net
-			(code "99")
+			(code "105")
 			(name "unconnected-(U501-NC-Pad12)")
 			(class "Default")
 			(node
@@ -16300,7 +16331,7 @@
 			)
 		)
 		(net
-			(code "100")
+			(code "106")
 			(name "unconnected-(U501-NC-Pad13)")
 			(class "Default")
 			(node
@@ -16311,7 +16342,7 @@
 			)
 		)
 		(net
-			(code "101")
+			(code "107")
 			(name "unconnected-(U502-VDD{slash}NC-Pad6)")
 			(class "Default")
 			(node

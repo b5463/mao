@@ -9,7 +9,8 @@
 <text x="360.0" y="254.0" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#36c" font-weight="normal">display active area</text>
 <text x="360.0" y="178.4" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#c80" font-weight="normal">ring ID</text>
 <rect x="279.0" y="584.3" width="162.0" height="54.0" stroke="#c00" fill="#fde" stroke-width="1.0"/>
-<text x="360.0" y="616.7" font-family="Helvetica, Arial, sans-serif" font-size="11" text-anchor="middle" fill="#c00" font-weight="normal">ANTENNA: no metal within 15 mm</text>
+<text x="360.0" y="607.7" font-family="Helvetica, Arial, sans-serif" font-size="11" text-anchor="middle" fill="#c00" font-weight="normal">ANTENNA</text>
+<text x="360.0" y="623.9" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#c00" font-weight="normal">no metal within 15 mm</text>
 <rect x="200.2" y="200.0" width="319.5" height="270.0" stroke="#777" fill="none" stroke-width="1.0" stroke-dasharray="2,3"/>
 <text x="342.0" y="461.0" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#777" font-weight="normal">cell envelope 35.5 x 30 x 5.1 (below the PCB)</text>
 <circle cx="192.8" cy="229.4" r="9.9" stroke="#111" fill="#fff" stroke-width="1.2"/>
@@ -26,8 +27,8 @@
 <text x="270.7" y="151.3" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#a0a" font-weight="bold">2</text>
 <circle cx="449.3" cy="147.3" r="8.1" stroke="#a0a" fill="#fff" stroke-width="1.2"/>
 <text x="449.3" y="151.3" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#a0a" font-weight="bold">3</text>
-<circle cx="252.9" cy="380.0" r="8.1" stroke="#36c" fill="#fff" stroke-width="1.2"/>
-<text x="252.9" y="384.1" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#36c" font-weight="bold">4</text>
+<circle cx="252.0" cy="380.0" r="8.1" stroke="#36c" fill="#fff" stroke-width="1.2"/>
+<text x="252.0" y="384.1" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#36c" font-weight="bold">4</text>
 <circle cx="270.4" cy="211.5" r="8.1" stroke="#0a5" fill="#fff" stroke-width="1.2"/>
 <text x="270.4" y="215.6" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#0a5" font-weight="bold">5</text>
 <circle cx="449.6" cy="211.5" r="8.1" stroke="#0a5" fill="#fff" stroke-width="1.2"/>
@@ -40,8 +41,8 @@
 <text x="360.0" y="361.6" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#111" font-weight="bold">9</text>
 <circle cx="180.7" cy="445.3" r="8.1" stroke="#c80" fill="#fff" stroke-width="1.2"/>
 <text x="180.7" y="449.3" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#c80" font-weight="bold">10</text>
-<circle cx="171.0" cy="286.4" r="8.1" stroke="#c80" fill="#fff" stroke-width="1.2"/>
-<text x="171.0" y="290.4" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#c80" font-weight="bold">11</text>
+<circle cx="158.4" cy="300.8" r="8.1" stroke="#c80" fill="#fff" stroke-width="1.2"/>
+<text x="158.4" y="304.9" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#c80" font-weight="bold">11</text>
 <circle cx="147.6" cy="408.8" r="8.1" stroke="#c80" fill="#fff" stroke-width="1.2"/>
 <text x="147.6" y="412.9" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#c80" font-weight="bold">12</text>
 <circle cx="147.6" cy="351.2" r="8.1" stroke="#c80" fill="#fff" stroke-width="1.2"/>
@@ -52,20 +53,20 @@
 <text x="565.0" y="502.4" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#36c" font-weight="bold">15</text>
 <circle cx="551.5" cy="519.1" r="8.1" stroke="#36c" fill="#fff" stroke-width="1.2"/>
 <text x="551.5" y="523.2" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#36c" font-weight="bold">16</text>
-<circle cx="481.5" cy="550.1" r="8.1" stroke="#111" fill="#fff" stroke-width="1.2"/>
-<text x="481.5" y="554.1" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#111" font-weight="bold">17</text>
+<circle cx="496.8" cy="538.4" r="8.1" stroke="#111" fill="#fff" stroke-width="1.2"/>
+<text x="496.8" y="542.5" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#111" font-weight="bold">17</text>
 <circle cx="533.3" cy="346.6" r="8.1" stroke="#c00" fill="#fff" stroke-width="1.2"/>
 <text x="533.3" y="350.6" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#c00" font-weight="bold">18</text>
 <path d="M 126.7 488.8 A 257.4 257.4 0 0 1 126.7 271.2" stroke="#c80" stroke-width="6" fill="none" opacity="0.6"/>
 <text x="135.0" y="380.0" font-family="Helvetica, Arial, sans-serif" font-size="11" text-anchor="middle" fill="#c80" transform="rotate(-90 135.0 380.0)">TOUCH LEFT</text>
 <path d="M 593.3 271.2 A 257.4 257.4 0 0 1 593.3 488.8" stroke="#c80" stroke-width="6" fill="none" opacity="0.6"/>
 <text x="585.0" y="380.0" font-family="Helvetica, Arial, sans-serif" font-size="11" text-anchor="middle" fill="#c80" transform="rotate(90 585.0 380.0)">TOUCH RIGHT</text>
-<text x="720" y="128.0" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Board</tspan>  Ø58.0 mm disc, 1.6 mm, 6 layers</text>
+<text x="720" y="128.0" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Board</tspan>  Ø58.0 mm disc, 1.6 mm, 4 layers</text>
 <text x="720" y="149.6" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Origin</tspan>  puck axis = display centre; +y towards 6 o'clock</text>
 <text x="720" y="171.2" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Enclosure</tspan>  Ø64 mm, wall 2.0 mm, board-to-wall 1.0 mm</text>
 <text x="720" y="192.8" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Ring</tspan>  ID 48 / OD 64 mm, 30 poles at r 26.3 mm, gap to sensors 1.5 mm</text>
 <text x="720" y="214.4" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Notch</tspan>  24.0 x 6.3 mm, inner edge y 22.70 (antenna boundary)</text>
-<text x="720" y="236.0" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Display</tspan>  active Ø32.4, outline Ø35.6, panel 2.2 mm above PCB</text>
+<text x="720" y="236.0" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Display</tspan>  active Ø32.4, outline Ø35.6, panel 2.7 / window 4.9 mm above PCB</text>
 <text x="720" y="257.6" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Zone A</tspan>  F.Cu under the panel: parts &lt;= 1.2 mm</text>
 <text x="720" y="279.2" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Zone B</tspan>  B.Cu over the cell: parts &lt;= 3.2 mm, 0.3 mm insulator</text>
 <text x="720" y="300.8" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Press</tspan>  switch stem at (0.0, -2.5), 0.25 mm travel, 2.55 N</text>
@@ -76,19 +77,19 @@
 <text x="720" y="423.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold"> 1</tspan>  J101  USB-C (B), face at y -29.6  (0.00, -25.95)</text>
 <text x="720" y="440.3" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#a0a"><tspan font-weight="bold"> 2</tspan>  D501  IR out (B)  (-9.93, -25.86)</text>
 <text x="720" y="457.4" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#a0a"><tspan font-weight="bold"> 3</tspan>  D502  IR out (B)  (9.93, -25.86)</text>
-<text x="720" y="474.5" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold"> 4</tspan>  J301  display FPC (F)  (-11.90, 0.00)</text>
+<text x="720" y="474.5" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold"> 4</tspan>  J301  display FPC (F)  (-12.00, 0.00)</text>
 <text x="720" y="491.6" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 5</tspan>  U402  ToF window  (-9.95, -18.72)</text>
 <text x="720" y="508.7" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 6</tspan>  U403  light window  (9.95, -18.72)</text>
 <text x="720" y="525.8" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 7</tspan>  U503  IR receive window  (21.40, -0.00)</text>
 <text x="720" y="542.9" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 8</tspan>  MK401  mic port (Ø0.5 hole)  (21.15, 6.06)</text>
 <text x="720" y="560.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold"> 9</tspan>  SW301  face-press stem  (0.00, -2.50)</text>
 <text x="720" y="577.1" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">10</tspan>  J302  TOP spring  (-19.92, 7.25)</text>
-<text x="720" y="594.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">11</tspan>  J303  REAR spring (B)  (-21.00, -10.40)</text>
+<text x="720" y="594.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">11</tspan>  J303  REAR spring (B)  (-22.40, -8.80)</text>
 <text x="720" y="611.3" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">12</tspan>  J501  SPK+ spring (B)  (-23.60, 3.20)</text>
 <text x="720" y="628.4" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">13</tspan>  J502  SPK- spring (B)  (-23.60, -3.20)</text>
 <text x="720" y="645.5" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">14</tspan>  J503  LRA leads (B)  (-20.84, 11.08)</text>
 <text x="720" y="662.6" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold">15</tspan>  U301  Hall A  (22.78, 13.15)</text>
 <text x="720" y="679.7" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold">16</tspan>  U302  Hall B  (21.28, 15.46)</text>
-<text x="720" y="696.8" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold">17</tspan>  J201  Tag-Connect (B)  (13.50, 18.90)</text>
+<text x="720" y="696.8" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold">17</tspan>  J201  Tag-Connect (B)  (15.20, 17.60)</text>
 <text x="720" y="713.9" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c00"><tspan font-weight="bold">18</tspan>  J102  battery plug (B), opening to 6 o'clock  (19.26, -3.71)</text>
 </svg>

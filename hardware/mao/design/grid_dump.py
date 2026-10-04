@@ -14,7 +14,7 @@ from board import CACHE
 b = pcb.LoadBoard(str(TARGET))
 tracks = list(b.GetTracks())            # read first: this SWIG build fails if read after pad lists
 mm = lambda v: pcb.ToMM(v) - 50
-LAYERS = {pcb.F_Cu: 'F', pcb.In1_Cu: 'I1', pcb.In2_Cu: 'I2', pcb.In3_Cu: 'I3', pcb.In4_Cu: 'I4', pcb.B_Cu: 'B'}
+LAYERS = {pcb.F_Cu: 'F', pcb.In1_Cu: 'I1', pcb.In2_Cu: 'I2', pcb.B_Cu: 'B'}
 
 out = {'pads': [], 'tracks': [], 'vias': [], 'keepouts': [], 'classes': {}}
 for t in tracks:
@@ -29,7 +29,7 @@ for f in b.GetFootprints():
     for p in f.Pads():
         attr = p.GetAttribute()
         kind = 'PTH' if attr == pcb.PAD_ATTRIB_PTH else 'NPTH' if attr == pcb.PAD_ATTRIB_NPTH else 'SMD'
-        layers = [n for l, n in LAYERS.items() if p.IsOnLayer(l)] if kind == 'SMD' else ['F', 'I1', 'I2', 'I3', 'I4', 'B']
+        layers = [n for l, n in LAYERS.items() if p.IsOnLayer(l)] if kind == 'SMD' else ['F', 'I1', 'I2', 'B']
         bb = p.GetBoundingBox(); c = p.GetPosition()
         rec = {'ref': f.GetReference(), 'num': p.GetNumber(), 'net': p.GetNetname(), 'kind': kind, 'layers': layers,
                'x': mm(c.x), 'y': mm(c.y), 'box': [mm(bb.GetLeft()), mm(bb.GetTop()), mm(bb.GetRight()), mm(bb.GetBottom())]}

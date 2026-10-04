@@ -2,8 +2,8 @@
  * MAO_MAIN A0 sleep wiring: which pads wake the chip, and what every rail
  * and pad does while it sleeps.
  *
- * Wake lines (all active low): face press GPIO0, IMU INT1 GPIO2, charger
- * PGOOD GPIO8 and expander INT GPIO21 are RTC pads, combined in one ext1
+ * Wake lines (all active low): face press GPIO0, IMU INT1 GPIO14, charger
+ * PGOOD GPIO3 and expander INT GPIO21 are RTC pads, combined in one ext1
  * ANY_LOW group. The proximity interrupt (GPIO48, light sleep only: the ToF is
  * off in deep sleep) is not an RTC pad and wakes through the GPIO wake source
  * instead. Two consequences of the ext1 group:

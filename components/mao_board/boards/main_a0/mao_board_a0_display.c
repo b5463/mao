@@ -1,7 +1,11 @@
 /*
- * MAO_MAIN A0 display: Limito LH128R-IG01 (GC9A01, 240x240) on SPI2 via the
- * IO_MUX pins, 80 MHz, write-only. The panel and backlight sit behind a load
- * switch (expander LCD_PWR_EN) and the panel reset is expander LCD_RST_N.
+ * MAO_MAIN A0 display: a 1.28" round GC9A01 panel (240x240) with the 18-pin
+ * plug-in tail (Winstar WF0128BTYAA4DNN0) in the J301 FPC connector, on SPI2,
+ * 80 MHz, write-only: SCLK and MOSI on SPI2's IO_MUX pads, CS through the GPIO
+ * matrix (the module pins follow the connector's pin order), DC a plain GPIO.
+ * TE (tearing effect) is wired to MAO_PIN_LCD_TE as an input; the flush does
+ * not wait for it yet (VERIFY AT BRING-UP). The panel and backlight sit behind
+ * a load switch (expander LCD_PWR_EN) and the panel reset is expander LCD_RST_N.
  *
  * Power-up: rail on, 10 ms, reset low 10 ms, reset high, 120 ms, then the
  * GC9A01 init. With the rail off, the bus is driven low (or isolated for
@@ -17,7 +21,8 @@
 #include "driver/ledc.h"
 #include "driver/rtc_io.h"
 #include "driver/spi_master.h"
-#include "esp_private/gpio.h"     /* gpio_iomux_output(): give parked pins back to SPI2 */
+#include "esp_private/gpio.h"     /* gpio_iomux_output(), gpio_func_sel(): give parked pins back to SPI2 */
+#include "esp_rom_gpio.h"
 #include "soc/spi_periph.h"
 #include "esp_check.h"
 #include "esp_lcd_gc9a01.h"
@@ -49,7 +54,8 @@ static bool s_oriented;      /* panel orientation set once; the driver keeps it 
 
 static esp_err_t backlight_init(void)
 {
-    /* GPIO46 is a strap; its 100 k pull-down keeps the backlight off until
+    /* GPIO45 is a strap (VDD_SPI: must read 0 at reset); the 100 k gate
+     * pull-down holds it low and keeps the backlight off until
      * LEDC takes the pin here, long after boot, at 0 % duty. */
     const ledc_timer_config_t timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -114,13 +120,15 @@ void a0_display_park(bool deep)
 
 static void unpark(void)
 {
-    /* Same routing spi_bus_initialize() / spi_bus_add_device() chose: the
-     * native IO_MUX function of SPI2. DC stays a plain GPIO that esp_lcd
-     * drives per transaction. */
+    /* Same routing spi_bus_initialize() / spi_bus_add_device() chose: SCLK
+     * and MOSI on the native IO_MUX function of SPI2, CS through the GPIO
+     * matrix (its pad is not SPI2's IO_MUX CS). DC stays a plain GPIO that
+     * esp_lcd drives per transaction. */
     const int func = spi_periph_signal[LCD_SPI_HOST].func;
     gpio_iomux_output((gpio_num_t)MAO_PIN_LCD_SCLK, func);
     gpio_iomux_output((gpio_num_t)MAO_PIN_LCD_MOSI, func);
-    gpio_iomux_output((gpio_num_t)MAO_PIN_LCD_CS, func);
+    gpio_func_sel((gpio_num_t)MAO_PIN_LCD_CS, PIN_FUNC_GPIO);
+    esp_rom_gpio_connect_out_signal(MAO_PIN_LCD_CS, spi_periph_signal[LCD_SPI_HOST].spics_out[0], false, false);
     s_parked = false;
 }
 

@@ -13,6 +13,12 @@ whose track keeps 0.15 mm on its own layer. Run DRC with --refill-zones afterwar
                                                 # a straight 0.25 mm track along the shared axis
     python gnd_pad_vias.py --all                # MAO: every SMD GND pad without its own via yet,
                                                 # outward from the part first (ODD JOBS 16)
+    python gnd_pad_vias.py --all --share 1.6 --pour R,TP,SW
+                                                # MAO 4-layer: a pad within 1.6 mm of a plane via of its
+                                                # net (a neighbour pin's, its cap's) joins that via with a
+                                                # stub instead of drilling its own; parts of the --pour
+                                                # classes join GND through the outer pour (gnd_stitch.py
+                                                # ties any fragment that is left without a via)
 """
 import math, sys
 import pcbnew as pcb
@@ -26,7 +32,7 @@ NET = sys.argv[sys.argv.index('--net') + 1] if '--net' in sys.argv else 'GND'
 code = b.FindNet(NET).GetNetCode()
 mm = lambda v: pcb.ToMM(v) - 50
 CLR = pcb.FromMM(0.15)
-COPPER = (pcb.F_Cu, pcb.In2_Cu, pcb.In3_Cu, pcb.B_Cu)
+COPPER = (pcb.F_Cu, pcb.In2_Cu, pcb.B_Cu)          # every layer a via meets that may carry tracks
 added = []
 
 def foreign(shape, layer):
@@ -38,6 +44,15 @@ def foreign(shape, layer):
         if p.GetNetCode() == code and p.GetNetCode() != 0 or not p.IsOnLayer(layer): continue
         if not bb.Intersects(p.GetBoundingBox()): continue
         if p.GetEffectiveShape(layer).Collide(shape, CLR - 1): return True
+    return False
+smd = [p for p in pads if p.GetAttribute() == pcb.PAD_ATTRIB_SMD]
+def in_smd(via):
+    """The via ring would land on an SMD pad of any net, its own included: no via-in-pad (solder wicking)."""
+    bb = via.BBox()
+    for p in smd:
+        for lay in (pcb.F_Cu, pcb.B_Cu):
+            if p.IsOnLayer(lay) and bb.Intersects(p.GetBoundingBox()) and p.GetEffectiveShape(lay).Collide(via, 0):
+                return True
     return False
 def hole_ok(at):
     for t in tracks + added:
@@ -61,7 +76,22 @@ def inside_ok(at):
     for z in areas:
         if z.Outline().Collide(at, pcb.FromMM(0.3)): return False
     if any((at - c).EuclideanNorm() < pcb.FromMM(2.2) for c in fiducials): return False   # 2 mm mask ring + gap
+    if NET != 'GND' and any(in_poly(x, y, poly, 0.5) for poly in other_regions):  # the L3 copper there is
+        return False                                                                 # another rail
     return True
+import power_regions
+other_regions = [o for n, _, o, _ in power_regions.zones() if n != NET]
+def in_poly(x, y, poly, margin=0.0):
+    """Point inside the polygon, or within `margin` mm of it."""
+    inside = False
+    for (x1, y1), (x2, y2) in zip(poly, poly[1:] + poly[:1]):
+        if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
+            inside = not inside
+        dx, dy = x2 - x1, y2 - y1
+        t = max(0.0, min(1.0, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy or 1)))
+        if math.hypot(x - x1 - t * dx, y - y1 - t * dy) < margin:
+            return True
+    return inside
 def stub_ok(c, at, layer):
     seg = pcb.SHAPE_SEGMENT(c, at, pcb.FromMM(0.3))
     for z in track_areas:
@@ -83,12 +113,26 @@ def link(name):
     t = pcb.PCB_TRACK(b); t.SetStart(c); t.SetEnd(end); t.SetWidth(pcb.FromMM(0.25)); t.SetLayer(layer)
     t.SetNetCode(code); t.SetLocked(True); b.Add(t); added.append(t)
     return f'{name}: {pcb.ToMM((end - c).EuclideanNorm()):.2f} mm link'
-names = [a for a in sys.argv[1:] if not a.startswith('--') and a != NET]
+def opt(flag, default):
+    return sys.argv[sys.argv.index(flag) + 1] if flag in sys.argv else default
+SHARE = pcb.FromMM(float(opt('--share', 0)))
+POUR = set(filter(None, opt('--pour', '').split(',')))
+flagvals = {opt(f, None) for f in ('--net', '--share', '--pour')}
+names = [a for a in sys.argv[1:] if not a.startswith('--') and a not in flagvals]
+def share(c, layer):
+    """A plane via of this net within SHARE of pad centre c that a straight stub reaches cleanly."""
+    vs = [t for t in tracks + added if isinstance(t, pcb.PCB_VIA) and t.GetNetCode() == code
+          and (t.GetPosition() - c).EuclideanNorm() <= SHARE]
+    for v in sorted(vs, key=lambda t: (t.GetPosition() - c).EuclideanNorm()):
+        stub = pcb.SHAPE_SEGMENT(c, v.GetPosition(), pcb.FromMM(0.3))
+        if not foreign(stub, layer) and stub_ok(c, v.GetPosition(), layer):
+            return v
+    return None
 if '--all' in sys.argv:
     skip = {'FID', 'H', 'E'}                       # no part / electrodes
     for f in b.GetFootprints():
         ref = f.GetReference()
-        if ''.join(ch for ch in ref if ch.isalpha()) in skip:
+        if ''.join(ch for ch in ref if ch.isalpha()) in skip | POUR:
             continue
         has_vias = any(p.GetAttribute() == pcb.PAD_ATTRIB_PTH and p.GetNetCode() == code for p in f.Pads())
         for p in f.Pads():
@@ -101,7 +145,8 @@ if '--all' in sys.argv:
             if has_vias and p.GetSize(pcb.F_Cu).x > pcb.FromMM(1.0):
                 continue                           # exposed pad that already carries thermal vias
             names.append('%s.%s' % (ref, p.GetNumber()))
-    names = sorted(set(names), key=lambda n: (n.split('.')[0], n))
+    first = {'U': 0, 'J': 1, 'D': 2, 'Q': 3}           # ICs and connectors drill first; their caps share
+    names = sorted(set(names), key=lambda n: (first.get(n[0], 4), n.split('.')[0], n))
 done_pads = set()
 for name in names:
     if '>' in name: log.append(link(name)); continue
@@ -115,6 +160,12 @@ for name in names:
       done_pads.add(key)
       layer = pcb.B_Cu if fps[ref].IsFlipped() else pcb.F_Cu
       c = pad.GetPosition(); best = None
+      if SHARE:
+          v = share(c, layer)
+          if v:
+              t = pcb.PCB_TRACK(b); t.SetStart(c); t.SetEnd(v.GetPosition()); t.SetWidth(pcb.FromMM(0.3))
+              t.SetLayer(layer); t.SetNetCode(code); t.SetLocked(True); b.Add(t); added.append(t)
+              log.append(f'{name}: shares ({mm(v.GetPosition().x):.2f}, {mm(v.GetPosition().y):.2f})'); continue
       fc = fps[ref].GetPosition()
       out = math.atan2(c.y - fc.y, c.x - fc.x) if (c - fc).EuclideanNorm() > pcb.FromMM(0.2) else 0.0
       order = sorted(range(8), key=lambda k: (k % 2, abs(math.remainder(math.pi / 4 * k - out, 2 * math.pi))))
@@ -125,13 +176,22 @@ for name in names:
               a = math.pi / 4 * k
               at = c + pcb.VECTOR2I(pcb.FromMM(r * math.cos(a)), pcb.FromMM(r * math.sin(a)))
               via = pcb.SHAPE_CIRCLE(at, pcb.FromMM(0.3))
-              if not hole_ok(at) or any(foreign(via, l) for l in COPPER): continue
+              if not hole_ok(at) or any(foreign(via, l) for l in COPPER) or in_smd(via): continue
               stub = pcb.SHAPE_SEGMENT(c, at, pcb.FromMM(0.3))
               if foreign(stub, layer): continue
               if not inside_ok(at) or not stub_ok(c, at, layer): continue
               best = (r, at); break
           if best: break
       if not best: log.append(f'{name}: NO SITE within 3 mm'); continue
+      if SHARE:                        # a site beside an existing via of this net: use that via (no twin vias)
+          twins = [t for t in tracks + added if isinstance(t, pcb.PCB_VIA) and t.GetNetCode() == code
+                   and (t.GetPosition() - best[1]).EuclideanNorm() < pcb.FromMM(1.1)]
+          twin = next((t for t in twins if not foreign(pcb.SHAPE_SEGMENT(c, t.GetPosition(), pcb.FromMM(0.3)), layer)
+                       and stub_ok(c, t.GetPosition(), layer)), None)
+          if twin:
+              t = pcb.PCB_TRACK(b); t.SetStart(c); t.SetEnd(twin.GetPosition()); t.SetWidth(pcb.FromMM(0.3))
+              t.SetLayer(layer); t.SetNetCode(code); t.SetLocked(True); b.Add(t); added.append(t)
+              log.append(f'{name}: joins ({mm(twin.GetPosition().x):.2f}, {mm(twin.GetPosition().y):.2f})'); continue
       v = pcb.PCB_VIA(b); v.SetPosition(best[1]); v.SetWidth(pcb.FromMM(.6)); v.SetDrill(pcb.FromMM(.3))
       v.SetViaType(pcb.VIATYPE_THROUGH); v.SetLayerPair(pcb.F_Cu, pcb.B_Cu); v.SetNetCode(code); v.SetLocked(True); b.Add(v)
       t = pcb.PCB_TRACK(b); t.SetStart(c); t.SetEnd(best[1]); t.SetWidth(pcb.FromMM(0.3)); t.SetLayer(layer)

@@ -13,18 +13,18 @@ Coordinates: board millimetres, origin on the puck axis (display centre), +x to 
 
 | Layer (top → bottom) | Thickness | Notes |
 |---|---:|---|
-| Clear window | 1.0 | **Not FDM**: FDM is never optically clear. Use laser-cut 1 mm PMMA or PC (Ø47), glued into the top shell. Back-printed or masked black except over the face and the three sensor apertures |
+| Clear window | 1.0 | **Not FDM**: FDM is never optically clear. Use laser-cut 1 mm PMMA or PC (Ø47), bonded to the display carrier so window, panel and carrier float together in the top shell's bore (§4). Back-printed or masked black except over the face and the three sensor apertures. Its underside is 4.9 mm above F.Cu (4.65 mm with the face pressed) |
 | Air / foam | 0.2 | no pressure on the panel glass |
-| Display LH128R-IG01 | ~2.0 | on a printed carrier that floats with the window (press travel 0.25 mm) |
-| Panel standoff | 2.2 | carrier + 0.5 mm foam; the FPC tail folds down at 9 o'clock to the J301 land |
-| PCB F.Cu side (Zone A) | ≤ 1.2 | under the panel; tallest part is the SKQG switch with stem |
-| PCB | 1.6 | 6 layers |
+| Display, 1.28" round GC9A01 (Winstar WF0128BTYAA4DNN0, 35.6 × 37.74 × 1.56) | ~2.0 | on a printed carrier that floats with the window (press travel 0.25 mm) |
+| Panel standoff | 2.7 | carrier + 0.5 mm foam; the 18-pin FPC tail folds down at 9 o'clock into the J301 connector (1.0 mm high, front entry from the rim side). Set by the tallest part under the window border, the IR receiver (4.0 ± 0.3 mm with its dome): 0.35 mm clearance at worst case with the face pressed (ODD JOBS 135) |
+| PCB F.Cu side (Zone A) | (≤ 1.2) | inside the standoff, under the panel; tallest part is the SKQG switch with stem. Under the window border (sensor band) parts may reach 4.3 mm; under the ring's lower lip (r > 24 mm, lip 1.9 mm above F.Cu) ≤ 0.95 mm (0603) |
+| PCB | 1.6 | 4 layers (JLC04161H-1080), black mask, ENIG |
 | PCB B.Cu side (Zone B) | ≤ 3.2 | module 3.1 mm, JST SH 2.9 mm, everything else ≤ 1.2 |
 | Insulator | 0.3 | Kapton or fish paper on the cell's top face |
 | Cell LP503035 | 5.1 | 35.5 × 30 mm, centred at (0, −5), long axis along x |
 | Base floor | 1.2 | speaker sits in the left crescent beside the cell |
 
-Total ≈ 17 mm. With 0.6 mm top lip and 0.4 mm foot it comes to the 18 mm puck.
+Total ≈ 17.3 mm. With 0.6 mm top lip and 0.4 mm foot it comes to an 18.3 mm puck.
 
 ## 2. Board and fixing
 
@@ -53,19 +53,19 @@ the ring's inner wall. That costs some wear and a little noise.
 ## 4. Face press
 
 - The window, display and carrier form one floating assembly, guided by the top shell's bore with 0.1 mm clearance.
-- A boss on the carrier's underside (Ø2, at (0, −2.5)) rests on the SKQG stem: 2.55 N, 0.25 mm travel.
+- A boss on the carrier's underside (Ø2, at (0, −2.5), reaching down through the 2.7 mm standoff to the stem) rests on the SKQG stem: 2.55 N, 0.25 mm travel.
 - Two printed flexure tabs (or 4 small foam pads) preload the assembly up against the lip so it does not rattle.
-- The FPC needs a 2 mm service loop to survive the travel.
+- The FPC needs a 2 mm service loop to survive the travel. J301's front (FPC entry) is at x −14.85, 2.95 mm inside the panel outline; with the fold at the panel edge the tail needs 10.5–12.5 mm from the glass edge to the end of its contacts. VERIFY against the panel drawing before ordering panels (any 18-pin tail of that length plugs in).
 - Holding the face while plugging USB enters the ROM bootloader (GPIO0), as with the LCDkit knob.
 
 ## 5. Sensors that look out
 
 | Sensor | Position | Window treatment |
 |---|---|---|
-| ToF VL53L4CD (U402) | 11 o'clock, r 21.2 | Clear aperture Ø3, no paint. The cover gap must be < 0.5 mm and the window ≤ 1 mm (crosstalk). Run crosstalk calibration at the factory station |
-| Light OPT3004 (U403) | 1 o'clock, r 21.2 | Clear aperture Ø2; or a 50 % ink dot so it reads "dim" like an eye |
-| IR receiver IRM-H638T (U503) | 3 o'clock, r 21.4 | IR-transparent (visible-black) ink acceptable |
-| Microphone SPH0641 (MK401) | 3–4 o'clock, B.Cu, bottom port through the board | Ø0.8 hole in the window border above it, with a mesh or gasket. Seal the PCB-to-shell path with a 0.5 mm foam ring so the mic hears the room, not the cavity |
+| ToF VL53L4CD (U402) | 11 o'clock, r 21.2 | Clear aperture Ø3, no paint. The sensor top is 3.9 mm below the window, so the air gap is bridged by a **black light-blocking gasket**: closed-cell foam (PORON or EPDM) 4.2 mm free, about 3.9 mm fitted, with separate Ø1.2 openings over the emitter and the receiver, bonded to the window underside and resting on the sensor cap. This is ST AN5231's configuration for sub-1 m ranging (gasket required, window ≤ 1.5 mm, no open air gap). The 0.25 mm press travel only compresses the foam. Run crosstalk calibration at the factory station |
+| Light OPT3004 (U403) | 1 o'clock, r 21.2 | Clear aperture Ø2; or a 50 % ink dot so it reads "dim" like an eye. The aperture, 4.25 mm above the die, limits the view to about ±17°: enough for room level and "covered"; calibrate the lux scale at bring-up |
+| IR receiver IRM-H638T (U503) | 3 o'clock, r 21.4 | IR-transparent (visible-black) ink acceptable. The dome top (4.0 ± 0.3 mm) sits 0.6–0.9 mm under the window (0.35–0.65 mm pressed) |
+| Microphone SPH0641 (MK401) | 3–4 o'clock, B.Cu, bottom port through the board | Ø0.8 hole in the window border above it, with a mesh. A foam gasket tube (Ø4 / Ø1.2, 5.2 mm free, about 4.9 mm fitted) seals the path from the copper-free ring round the port hole on F.Cu to the window hole, so the mic hears the room, not the cavity |
 | IR LEDs (D501/D502) | back edge, 11 and 1 o'clock, side-emitting outwards | Ø3 IR-transparent windows in the wall (or the wall itself in IR-clear PETG) |
 
 ## 6. Touch electrodes
@@ -73,7 +73,7 @@ the ring's inner wall. That costs some wear and a little noise.
 | Zone | Implementation |
 |---|---|
 | LEFT / RIGHT | Copper arcs at the board rim (E301/E302, 50° each, F+B). They sense through the 2 mm wall and the ring; nothing to build. No ground plane under them |
-| TOP | Spring J302 (BW0019BG, 3.0 mm working height) presses on an electrode on the underside of the window border: copper tape, or a conductive-filament print if material B is conductive |
+| TOP | Spring J302 (BW0019BG, free 3.8 mm, working 3.0 mm, limit 2.5 mm) presses on a boss that hangs from the carrier under the window border with its face 3.0 mm above F.Cu (1.9 mm below the window). The electrode is copper tape on the window's underside wrapped down over the boss, or the boss printed in conductive filament if material B is conductive. Pressing the face takes the spring to 2.75 mm, inside its range |
 | REAR | Spring J303 presses on an electrode on the base's inner surface: copper tape or conductive filament |
 
 ## 7. Battery
@@ -110,6 +110,6 @@ the ring's inner wall. That costs some wear and a little noise.
 ## 11. Assembly order
 
 1. Press magnets into the ring (check alternation with a reference magnet) and the dowel into the top shell.
-2. Fit the window into the top shell. Fit the display onto the carrier and route the FPC.
-3. Solder the FPC tail to the J301 land (hot-bar, or by hand with flux; see bring-up). Place the board into the top shell on the peg and inserts.
+2. Bond the window to the display carrier, fit the display onto the carrier, fit the ToF and mic gaskets under the window border, and route the FPC. Drop the assembly into the top shell's bore.
+3. Open J301's back-flip actuator, insert the FPC tail (contacts either way up: the connector contacts both faces), close the actuator. Place the board into the top shell on the peg and inserts. The display can be lifted out and replaced the same way.
 4. Insulator, cell (plug J102), speaker onto springs, LRA. Close the base with 2 × M2.

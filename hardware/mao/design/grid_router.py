@@ -4,7 +4,8 @@
 Input : .cache/mao-routing/grid-dump.json (grid_dump.py) and outputs/DRC.json (unconnected list).
 Output: .cache/mao-routing/grid-routes.json, applied by apply_routes.py.
 
-Model: 0.05 mm cells on F.Cu, In2.Cu, In3.Cu (slow nets) and B.Cu (In1/In4 are ground planes: vias only). Copper is rasterised
+Model: 0.05 mm cells on F.Cu, In2.Cu (L3: slow nets only, outside the power-region cores) and B.Cu (In1 is
+the solid ground plane: vias only). Copper is rasterised
 per net; a per-connection Euclidean distance field gives, for a track of width w, the cells whose
 centre keeps w/2 + 0.15 mm + 0.036 mm (raster allowance; obstacles mark every cell they touch) from foreign copper. Vias need the same on
 all six layers. A* runs over (cell, layer, direction) with 45-degree moves, a bend penalty, a via
@@ -26,11 +27,15 @@ from PIL import Image, ImageDraw
 from netrules import ROOT, CACHE, DRC_JSON, POWER, SWITCH, width_for, priority, ORIGIN, PLANE_NETS, INNER_OK, INNER_FAST
 RES, CLR = 0.05, 0.15
 RASTER = RES * 0.7072          # obstacles mark every cell they touch: copper lies within this of a marked centre
-VIA_D, VIA_COST, BEND = 0.6, 90.0, (0.0, 3.0, 8.0, 20.0, 200.0)  # in cells: via = 2.2 mm of track; bend cost per 45-degree step
-LAYERS = ['F', 'I1', 'I2', 'I3', 'I4', 'B']; NLAY = len(LAYERS)
-ROUTE = (0, 2, 3, 5); LCOST = {0: 1.0, 2: 1.1, 3: 3.0, 5: 1.0}   # MAO 6 layers: In1/In4 GND planes, In3 +3V3 plane
-# In2 is a full routing layer between GND and +3V3. In3 (the +3V3 plane) takes only slow nets (netrules.INNER_OK),
-# at a cost that keeps it for the last crossings, never at the buck-boost (in3_forbid below) (ODD JOBS 17).
+VIA_D, VIA_COST, BEND = 0.6, float(os.environ.get('GR_VIACOST', 90.0)), (0.0, 3.0, 8.0, 20.0, 200.0)  # in cells: via = 2.2 mm of track; bend cost per 45-degree step
+from netrules import COPPER, PLANE_LAYERS, SLOW_LAYER
+LAYERS = list(COPPER); NLAY = len(LAYERS)
+SL = LAYERS.index(SLOW_LAYER)
+ROUTE = tuple(i for i, n in enumerate(LAYERS) if n not in PLANE_LAYERS)
+L3COST = float(os.environ.get('GR_L3COST', 2.0))
+LCOST = {i: (L3COST if i == SL else 1.0) for i in ROUTE}
+# MAO 4 layers: In1 the solid GND plane (vias only). In2 (L3) carries power regions and takes only slow nets
+# (netrules.INNER_OK), at a cost that keeps it for crossings, never inside a power-region core (l3_forbid).
 DIRS = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
 
 dump = json.loads((CACHE / 'grid-dump.json').read_text())
@@ -106,7 +111,7 @@ for k in dump['keepouts']:
     ImageDraw.Draw(img).polygon([((x - x0) / RES - 0.5, (y - y0) / RES - 0.5) for x, y in k['pts']], fill=1, outline=1)
     m = np.array(img, bool)
     if k['tracks']:
-        for l in (L[n] for n in k['layers'] if n not in ('I1', 'I4')):   # planes carry no tracks; vias must pass them
+        for l in (L[n] for n in k['layers'] if n not in PLANE_LAYERS):   # planes carry no tracks; vias must pass them
             sl = lab[l]; sl[m & (sl == 0)] = -1; ko[l] |= m
     if k['vias']: via_forbid |= m
 HOLE_GAP = 0.25                          # board rule min_hole_to_hole
@@ -133,15 +138,17 @@ band |= outside
 for l in range(NLAY): lab[l][band & (lab[l] == 0)] = -1
 via_forbid |= outside
 
-in3_forbid = np.zeros((H, W), bool)
-for bx_ in ((-2.0, -15.0, 7.5, -7.5),):    # buck-boost U104/L101/CIN/COUT: its output plane stays whole
-    i0_, j0_, i1_, j1_ = window(*bx_)
-    in3_forbid[j0_:j1_, i0_:i1_] = True
+l3_forbid = np.zeros((H, W), bool)       # L3 power-region cores (power_regions.py): signals stay out
+import power_regions as _pr
+for poly in _pr.cores():
+    img = Image.new('1', (W, H), 0)
+    ImageDraw.Draw(img).polygon([((x - x0) / RES - 0.5, (y - y0) / RES - 0.5) for x, y in poly], fill=1, outline=1)
+    l3_forbid |= np.array(img, bool)
 
 def layer_ok(l, net, okl, j0, j1, i0, i1):
-    if l != 3: return okl
+    if l != SL: return okl
     if not INNER_OK.match(net): return np.zeros_like(okl)
-    return okl & ~in3_forbid[j0:j1, i0:i1]
+    return okl & ~l3_forbid[j0:j1, i0:i1]
 
 POWER_IDS = np.array([i for k, i in nets.items() if POWER.match(k)] or [0])
 SWITCH_IDS = np.array([i for k, i in nets.items() if SWITCH.match(k)] or [0])

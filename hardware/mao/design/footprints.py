@@ -102,6 +102,15 @@ def body(fp, w, h, pin1=True, crt_margin=0.25, pads_extent=None):
         dot(fp, pcb.F_SilkS, round(cx0 + 0.02, 2), round(cy0 + 0.02, 2), 0.1)
 
 
+def model(fp, name, boxes):
+    """Attach lib/MAO.3dshapes/<name>.wrl to the footprint and write it from datasheet boxes, so every
+    part has its real height in the 3D review and the enclosure check (ODD JOBS 74, 194)."""
+    m = pcb.FP_3DMODEL()
+    m.m_Filename = '${KIPRJMOD}/lib/MAO.3dshapes/%s.wrl' % name
+    fp.Models().push_back(m)
+    wrl_box_model(os.path.join(os.path.dirname(LOCAL_FP), 'MAO.3dshapes', name + '.wrl'), boxes)
+
+
 def save(fp):
     os.makedirs(LOCAL_FP, exist_ok=True)
     pcb.PCB_IO_MGR.FindPlugin(pcb.PCB_IO_MGR.KICAD_SEXP).FootprintSave(str(LOCAL_FP), fp)
@@ -130,6 +139,7 @@ def ti_dla0010a():
         line(fp, pcb.F_SilkS, (sx * 0.5, 1.62), (sx * 0.2, 1.62), 0.12)
     fp.Reference().SetPosition(vec(0, -2.3))
     fp.Value().SetPosition(vec(0, 2.3))
+    model(fp, 'TI_DLA0010A_VSON-HR-10', [(-1.0, -1.5, 0.0, 1.0, 1.5, 1.0, (0.10, 0.10, 0.10))])   # 1 mm max height
     save(fp)
 
 
@@ -157,6 +167,10 @@ def ti_dnp0006a():
     body(fp, 2.0, 2.0, pads_extent=(-1.2, -1.0, 1.2, 1.0))
     # the optical aperture is the package centre: mark it on Fab so the window is placed over it
     rect(fp, pcb.F_Fab, -0.3, -0.3, 0.3, 0.3, 0.05)
+    model(fp, 'TI_DNP0006A_USON-6', [                                # 0.65 mm max height
+        (-1.0, -1.0, 0.0, 1.0, 1.0, 0.62, (0.18, 0.16, 0.12)),
+        (-0.3, -0.3, 0.62, 0.3, 0.3, 0.65, (0.55, 0.45, 0.30)),     # optical aperture
+    ])
     save(fp)
 
 
@@ -179,38 +193,10 @@ def everlight_ir12():
     text(fp, pcb.F_Fab, 'K', -1.5, 1.2, 0.5)
     fp.Reference().SetPosition(vec(0, 1.8))
     fp.Value().SetPosition(vec(0, 2.6))
-    save(fp)
-
-
-def lh128r_fpc_land():
-    """Limito LH128R-IG01 12-pin 0.7 mm solder FPC, hot-bar/hand soldered with the fingers facing
-    the board after the 180 degree fold under the panel. Panel drawing 20190710 rev A: fingers 0.35
-    wide, 2.00 +-0.2 long, pitch 0.7, two 1.0 mm holes 10.00 apart 1.0 mm behind the fingers, tail
-    11.4 wide, 12.24 from the glass edge. Pads are 0.40 wide and 3.6 long so the finger lands at any
-    point of a +-0.8 mm fold tolerance; the row runs along x, pad 1 at +x. Fab layer shows the FPC
-    outline and the alignment holes for the assembly jig (no drilled holes: the module is below)."""
-    fp = new('Limito_LH128R_FPC_12P_P0.7mm_SolderLand', 'Solder land for the LH128R-IG01 12-pin 0.7 mm FPC',
-             'FPC hotbar GC9A01 LH128R')
-    for n in range(1, 13):
-        x = (6.5 - n) * 0.7          # pad 1 at +x
-        smd_pad(fp, n, x, 0, 0.40, 3.6, rr=0.05)
-    # FPC tail (finger end at y=-1.0 when centred, extends towards +y = panel edge)
-    rect(fp, pcb.F_Fab, -5.7, -1.0, 5.7, 6.5, 0.08)
-    for x in (-5.0, 5.0):
-        s = pcb.PCB_SHAPE(fp)
-        s.SetShape(pcb.SHAPE_T_CIRCLE)
-        s.SetCenter(vec(x, 2.0))
-        s.SetEnd(vec(x + 0.5, 2.0))
-        s.SetLayer(pcb.F_Fab)
-        s.SetWidth(MM(0.08))
-        fp.Add(s)
-    rect(fp, pcb.F_CrtYd, -4.6, -2.05, 4.6, 2.05, 0.05)
-    # pin-1 cue: silk tick beyond pad 1 and the numbers on Fab
-    line(fp, pcb.F_SilkS, (4.45, -2.1), (4.45, -1.3), 0.15)
-    text(fp, pcb.F_Fab, '1', 3.85, -2.4, 0.4)
-    text(fp, pcb.F_Fab, '12', -3.85, -2.4, 0.4)
-    fp.Reference().SetPosition(vec(0, -3.0))
-    fp.Value().SetPosition(vec(0, 3.0))
+    model(fp, 'Everlight_IR12-21C', [                                # body 3.0 x 1.1, 1.0 high; lens 0.88 wide
+        (-1.5, -0.5, 0.0, 1.5, 0.6, 1.0, (0.70, 0.78, 0.86)),
+        (-0.44, -1.4, 0.06, 0.44, -0.5, 0.94, (0.80, 0.86, 0.92)),
+    ])
     save(fp)
 
 
@@ -225,6 +211,10 @@ def bw0019_spring():
     rect(fp, pcb.F_CrtYd, -1.05, -1.35, 1.05, 2.75, 0.05)
     fp.Reference().SetPosition(vec(0, -2.0))
     fp.Value().SetPosition(vec(0, 3.4))
+    model(fp, 'BAT_BW0019BG', [                                      # free height 3.8
+        (-0.75, -1.05, 0.0, 0.75, 1.05, 0.15, (0.85, 0.68, 0.30)),  # solder base
+        (-0.6, 0.6, 0.15, 0.6, 2.45, 3.8, (0.85, 0.68, 0.30)),      # arm and contact
+    ])
     save(fp)
 
 
@@ -308,7 +298,63 @@ def touch_arc():
     return name
 
 
-ALL = [ti_dla0010a, ti_dnp0006a, everlight_ir12, lh128r_fpc_land, bw0019_spring, wire_pads_2, touch_arc]
+def hdgc_fpc18():
+    """HDGC 0.5K-HX-18PWB (LCSC C2919497): 0.5 mm FPC/FFC connector, 18 contacts, 1.0 mm high, front
+    insertion with a back-flip actuator, contacts top and bottom (the tail may face either way).
+    HDGC drawing 0.5K-HX-xxPWB rev A0 (2016-03-12), dimensions for n = 18 from its table formulas
+    (A = 0.5n + 2, B = 0.5(n - 1), E = B + 1.6, F = B + 2.4): signal lands 0.30 x 0.80 on 0.50 pitch,
+    retention lands 0.40 x 0.80 between E = 10.1 and F = 10.9, 3.30 from the signal land's far edge to the
+    retention land's far edge. Body A = 11.0 wide, housing front 3.25 from the contact tips.
+    Origin: centre of the signal row; pin 1 at -x; the FPC enters from +y. Mating FPC: 0.30 mm thick at
+    the stiffener, contacts 0.30 wide, G = 9.5 wide (round 1.28" GC9A01 panels with the 18-pin tail,
+    e.g. Winstar WF0128BTYAA4DNN0)."""
+    name = 'HDGC_0.5K-HX-18PWB_1x18-1MP_P0.5mm_Horizontal'
+    fp = new(name, 'HDGC 0.5K-HX-18PWB FPC connector, 18 pins, 0.5 mm pitch, 1.0 mm high, top/bottom contact',
+             'FPC FFC ZIF 0.5mm 18P flip HDGC')
+    for n in range(1, 19):
+        smd_pad(fp, n, -4.25 + 0.5 * (n - 1), 0.0, 0.30, 0.80)
+    for x in (-5.25, 5.25):
+        smd_pad(fp, 'MP', x, 2.5, 0.40, 0.80)
+    # housing (Fab), the FPC entry edge and the inserted tail outline (G = 9.5 wide)
+    rect(fp, pcb.F_Fab, -5.5, -0.3, 5.5, 2.85, 0.1)
+    line(fp, pcb.F_Fab, (-4.75, 2.85), (-4.75, 4.6), 0.08)
+    line(fp, pcb.F_Fab, (4.75, 2.85), (4.75, 4.6), 0.08)
+    text(fp, pcb.F_Fab, 'FPC', 0.0, 3.8, 0.5)
+    rect(fp, pcb.F_CrtYd, -5.8, -0.7, 5.8, 3.15, 0.05)
+    # pin-1 cue on silk: a dot beyond pad 1, outside the land; housing ends as short ticks
+    dot(fp, pcb.F_SilkS, -4.25, -0.95, 0.12)
+    line(fp, pcb.F_SilkS, (-5.6, 1.0), (-5.6, 1.9), 0.12)
+    line(fp, pcb.F_SilkS, (5.6, 1.0), (5.6, 1.9), 0.12)
+    text(fp, pcb.F_Fab, '1', -4.25, -1.0, 0.4)
+    m = pcb.FP_3DMODEL()
+    m.m_Filename = '${KIPRJMOD}/lib/MAO.3dshapes/HDGC_0.5K-HX-18PWB.wrl'
+    fp.Models().push_back(m)
+    fp.Reference().SetPosition(vec(0, -1.8))
+    fp.Value().SetPosition(vec(0, 5.2))
+    save(fp)
+    wrl_box_model(os.path.join(os.path.dirname(LOCAL_FP), 'MAO.3dshapes', 'HDGC_0.5K-HX-18PWB.wrl'), [
+        # (x0, y0, z0, x1, y1, z1, rgb) in mm, board coordinates of the footprint (y down)
+        (-5.5, 0.35, 0.0, 5.5, 2.85, 0.75, (0.86, 0.80, 0.66)),     # housing, natural thermoplastic
+        (-5.1, -0.3, 0.55, 5.1, 1.0, 1.0, (0.12, 0.12, 0.12)),      # actuator, closed, at the rear
+        (-4.4, -0.4, 0.0, 4.4, 0.35, 0.12, (0.85, 0.68, 0.30)),    # contact tails
+    ])
+
+
+def wrl_box_model(path, boxes):
+    """Minimal VRML 2.0 body: one coloured box per entry (KiCad VRML unit = 0.1 inch)."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    u = 1 / 2.54
+    out = ['#VRML V2.0 utf8']
+    for x0, y0, z0, x1, y1, z1, rgb in boxes:
+        cx, cy, cz = (x0 + x1) / 2 * u, -(y0 + y1) / 2 * u, (z0 + z1) / 2 * u
+        out.append('Transform { translation %.4f %.4f %.4f children [ Shape { appearance Appearance { material '
+                   'Material { diffuseColor %.2f %.2f %.2f } } geometry Box { size %.4f %.4f %.4f } } ] }'
+                   % (cx, cy, cz, rgb[0], rgb[1], rgb[2], (x1 - x0) * u, (y1 - y0) * u, (z1 - z0) * u))
+    with open(path, 'w') as f:
+        f.write('\n'.join(out) + '\n')
+
+
+ALL = [ti_dla0010a, ti_dnp0006a, everlight_ir12, hdgc_fpc18, bw0019_spring, wire_pads_2, touch_arc]
 
 if __name__ == '__main__':
     for f in ALL:

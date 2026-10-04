@@ -10,8 +10,8 @@ Test pads (B side; full table with positions in `mao-factory-test.md` §4):
 |---|---|
 | Service field, row 1 (below the charger) | TP2 GND, TP3 3V3, TP4 SYS, TP5 BAT |
 | Service field, row 2 | TP10 SCL, TP1 GND, TP16 GND |
-| Service field, row 3 | TP9 SDA, TP11 XRST, TP8 BOOT, TP12 IO35 |
-| At their sources | TP6 VBUS (at the TVS), TP7 RST (module pin 3), TP13 LCD, TP14 MIC, TP15 IRV |
+| Service field, row 3 | TP9 SDA, TP11 XRST, TP8 BOOT, TP7 RST |
+| At their sources | TP6 VBUS (at the TVS), TP13 LCD, TP14 MIC, TP15 IRV |
 
 Tag-Connect J201 (TC2030-NL): 1 GND, 2 EN, 3 TXD0, 4 3V3, 5 RXD0, 6 GPIO0.
 
@@ -53,7 +53,7 @@ Supply on TP6 (+) and D101 pad 2 or TP1 (−): 5.00 V, **current limit 100 mA**.
 | Supply current, ESP32 in ROM boot loop or app | supply | 20–80 mA | > 150 mA: short; stop |
 | VSYS | TP4 | 4.35–4.45 V (BQ24073 OUT regulation, no cell) | 0 V: U102 not powered or ILIM/ISET open; check R103/R104/R105 (beside the charger; in the dense power section the passives are identified on `outputs/fab/ASSEMBLY-MAO_MAIN_A0-bottom.pdf`) |
 | +3V3 | TP3 | 3.27–3.33 V | 0 V: check U104 EN (BB_EN must be > 1.1 V when VSYS is 4.4 V); oscillation: scope SW nodes BB_L1/L2 |
-| Charger status | GPIO8 (USB_PRESENT_N) | low | |
+| Charger status | GPIO3 (USB_PRESENT_N) | low | |
 | Switched rails | TP13 / TP14 / TP15 | < 0.3 V (all off at reset) | a rail on at reset = default resistor missing |
 | Temperature | U102, U104 | < 10 °C rise | |
 
@@ -62,7 +62,7 @@ Then raise the limit to 500 mA.
 ## 2. USB console and first firmware
 
 1. Connect USB-C to the PC with the panel still not fitted. The S3's native USB-Serial/JTAG enumerates without any boot mode.
-2. If it does not enumerate, hold the face switch (GPIO0, TP8 BOOT to GND) while plugging in to force the ROM loader. Recovery without USB goes through the Tag-Connect UART.
+2. If it does not enumerate, hold the face switch (GPIO0, TP8 BOOT to GND) while plugging in to force the ROM loader. Recovery without USB goes through the Tag-Connect UART. Use a 3.3 V adapter and plug it in only after the board is powered: an adapter's TX idles high and would feed RXD0 of an unpowered module.
 3. Flash the dev build: `tools/idf.ps1 s3 dev flash monitor`, or `idf.py -B build-s3-dev flash monitor`.
 4. Expected boot log:
    - board ID 1.55–1.75 V (A0)
@@ -74,10 +74,10 @@ Then raise the limit to 500 mA.
 
 ## 3. Display
 
-1. Hand-solder (or hot-bar) the LH128R-IG01 FPC to the J301 land. Pad 1 is towards 6 o'clock, and the FPC tail folds at 9 o'clock.
+1. Open J301's back-flip actuator, insert the panel's 18-pin FPC tail (WF0128BTYAA4DNN0 or any panel of that 18-pin standard; the connector contacts both faces, so either way up) and close the actuator. The tail folds at 9 o'clock. No soldering: a panel can be swapped the same way.
 2. Check TP13 (LCD) switches 0 → 3.3 V when the firmware enables the rail, with a soft start of about 4 ms (scope it: no dip on +3V3 > 100 mV).
 3. **Orientation:** the default rotation is 90°, set from the 9 o'clock FPC exit. If the face is rotated, run `mao rotate 270` (or 0 / 180), then `mao rotate save`. Record the value and make it the Kconfig default.
-4. Check colour order and inversion against the LCDkit: same panel, so the same constants apply.
+4. Check colour order and inversion against the LCDkit (same GC9A01 controller; confirm `A0_LCD_PANEL_MIRROR_X` and the colour order on the fitted panel and record them).
 
 ## 4. Battery and charger
 
@@ -97,11 +97,12 @@ Then raise the limit to 500 mA.
 | Microphone | `mao sense` (mic level) | quiet room −58 dBFS ± 6; speech peaks −30 dBFS |
 | IMU | `mao sense` (accelerometer) | +1 g on z face-up (else set `MAO_PERCEPT_IMU_Z_DOWN`) |
 | ToF | `mao sense` (distance), window fitted | 50–1300 mm on a hand. Run crosstalk calibration with the window in place |
-| Light | `mao sense` (lux) | covered < 3 lux, office 200–800 lux |
+| Light | `mao sense` (lux) | covered < 3 lux, office 200–800 lux. The Ø2 window aperture narrows the view to about ±17°: record the lux scale factor against a meter |
 | Touch | `mao sense` (touch) | each zone ≥ 2 % change through the enclosure wall |
 | Ring | turn the ring | 30 steps per turn, direction correct (else swap in firmware) |
 | IR | `mao ir rx on`, `mao ir send <addr> <cmd>` under the fixture lid | RX sees TX through the lid reflection; a TV remote is received |
 | Radio | ODD BUS self-test / flood tool (M2) against LAMP at 1 m / 5 m, board in the enclosure | RSSI within 6 dB of the LCDkit at the same distances |
+| Enclosure fit | assemble with the printed shell, window, ToF gasket and mic tube (`mao-mechanical.md` §1, §5) | press the face fully: it travels 0.25 mm without touching the IR receiver dome; the TOP spring presses its boss; the ToF gasket seats on the sensor cap |
 
 ## 6. Power measurements (fill in `mao-power-budget.md`)
 
@@ -126,4 +127,4 @@ A deep-sleep figure above 150 µA means a rail or pull-up is leaking. Find it by
 | Touch | 2 mm wall + ring between arc and finger | change < 1 % | conductive filament as material B, or copper tape on the wall |
 | Ring | magnet gap tolerance in FDM | missed steps | reduce the gap or use Ø4 magnets |
 | ToF | window crosstalk | false "near" | thinner window, black mask gap around the aperture, crosstalk calibration |
-| Footprints not yet proven on a board | JST SH clone (J102), DFE201612E land (L101), LH128R FPC land, BW0019BG springs | poor solder joints | check the first boards under the microscope; footprints come from the datasheets in `hardware/mao/lib` |
+| Footprints not yet proven on a board | JST SH clone (J102), DFE201612E land (L101), HDGC 0.5K-HX-18PWB FPC connector (J301), BW0019BG springs | poor solder joints | check the first boards under the microscope; footprints come from the datasheets in `hardware/mao/lib` |

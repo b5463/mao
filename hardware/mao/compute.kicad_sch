@@ -2580,7 +2580,7 @@
 		)
 		(uuid "8fb68146-876d-54b0-b780-60dfa3e4e52d")
 	)
-	(global_label "USB_PRESENT_N"
+	(global_label "BOARD_ID"
 		(shape bidirectional)
 		(at 31.75 67.31 180)
 		(fields_autoplaced yes)
@@ -2588,7 +2588,7 @@
 			(font (size 1.27 1.27))
 			(justify right)
 		)
-		(uuid "2997ad4c-b97b-5da2-b561-afb7a793a436")
+		(uuid "13a08491-7333-5068-8e67-b1e429828bf7")
 	)
 	(global_label "USB_DN"
 		(shape bidirectional)
@@ -2610,7 +2610,7 @@
 		)
 		(uuid "0d528481-1791-5aef-97d6-657ec316a9bd")
 	)
-	(global_label "BOARD_ID"
+	(global_label "USB_PRESENT_N"
 		(shape bidirectional)
 		(at 31.75 54.61 180)
 		(fields_autoplaced yes)
@@ -2618,19 +2618,13 @@
 			(font (size 1.27 1.27))
 			(justify right)
 		)
-		(uuid "493e70d8-dc04-596c-a339-6d2a7dbde96d")
+		(uuid "f02f8597-7402-5a40-b190-0581a38e96c7")
 	)
-	(global_label "LCD_BL_PWM"
-		(shape bidirectional)
-		(at 62.23 82.55 0)
-		(fields_autoplaced yes)
-		(effects
-			(font (size 1.27 1.27))
-			(justify left)
-		)
-		(uuid "f7076b48-21c9-5338-a05e-66f60d0b2ea3")
+	(no_connect
+		(at 62.23 82.55)
+		(uuid "b22739ed-a4b6-5a08-bfd6-7f5777a1df01")
 	)
-	(global_label "LCD_DC"
+	(global_label "LCD_TE"
 		(shape bidirectional)
 		(at 31.75 69.85 180)
 		(fields_autoplaced yes)
@@ -2638,9 +2632,9 @@
 			(font (size 1.27 1.27))
 			(justify right)
 		)
-		(uuid "884ff492-47fd-58c9-87d1-7e32784f7bd1")
+		(uuid "d02ad25b-e37b-5125-b31b-3e0666407aca")
 	)
-	(global_label "LCD_CS"
+	(global_label "LCD_DC"
 		(shape bidirectional)
 		(at 31.75 72.39 180)
 		(fields_autoplaced yes)
@@ -2648,7 +2642,7 @@
 			(font (size 1.27 1.27))
 			(justify right)
 		)
-		(uuid "a0a97160-cf10-57bc-83c5-359e12a5e553")
+		(uuid "77453f2f-f799-5ade-86d6-4038594aad96")
 	)
 	(global_label "LCD_MOSI"
 		(shape bidirectional)
@@ -2670,7 +2664,7 @@
 		)
 		(uuid "2f988bff-8331-5ab7-bc6a-bea17d73c52b")
 	)
-	(global_label "MIC_PWR"
+	(global_label "LCD_CS"
 		(shape bidirectional)
 		(at 31.75 80.01 180)
 		(fields_autoplaced yes)
@@ -2678,9 +2672,9 @@
 			(font (size 1.27 1.27))
 			(justify right)
 		)
-		(uuid "1b45d0f4-68f9-5d6a-b21f-8e6bdf03bebc")
+		(uuid "56ce4090-169d-5601-a482-3152a5d3636f")
 	)
-	(global_label "HALL_FAST"
+	(global_label "IMU_INT1"
 		(shape bidirectional)
 		(at 31.75 82.55 180)
 		(fields_autoplaced yes)
@@ -2688,7 +2682,7 @@
 			(font (size 1.27 1.27))
 			(justify right)
 		)
-		(uuid "38663913-a825-5511-90bb-33898ce40245")
+		(uuid "2cff69a3-d68d-5e0e-8af7-0eaebb66f25c")
 	)
 	(global_label "EXP_INT_N"
 		(shape bidirectional)
@@ -2720,9 +2714,15 @@
 		)
 		(uuid "fcf5a0df-5081-512c-a5a6-a40459c498cd")
 	)
-	(no_connect
-		(at 62.23 80.01)
-		(uuid "1a174580-fe8f-5080-b90b-6c8061a07815")
+	(global_label "LCD_BL_PWM"
+		(shape bidirectional)
+		(at 62.23 80.01 0)
+		(fields_autoplaced yes)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left)
+		)
+		(uuid "60a3b6e6-0809-59b7-b14f-20747486a357")
 	)
 	(global_label "PRESS_N"
 		(shape bidirectional)
@@ -2734,7 +2734,7 @@
 		)
 		(uuid "43f2fc1b-754d-563c-8691-ef1310e05f21")
 	)
-	(global_label "IO35_SPARE"
+	(global_label "MIC_PWR"
 		(shape bidirectional)
 		(at 62.23 59.69 0)
 		(fields_autoplaced yes)
@@ -2742,9 +2742,9 @@
 			(font (size 1.27 1.27))
 			(justify left)
 		)
-		(uuid "1ca083d7-ad12-5aeb-af12-da3f6b7cde3c")
+		(uuid "ede6fba6-a19c-5a3d-8273-363b201c94e9")
 	)
-	(global_label "MIC_CLK"
+	(global_label "MIC_DATA"
 		(shape bidirectional)
 		(at 62.23 62.23 0)
 		(fields_autoplaced yes)
@@ -2752,9 +2752,9 @@
 			(font (size 1.27 1.27))
 			(justify left)
 		)
-		(uuid "fa61c2f0-2a75-5742-b61c-b761b20bb750")
+		(uuid "005c03e8-8d2a-55f9-af21-1c414d14440a")
 	)
-	(global_label "EXP_RST_N"
+	(global_label "MIC_CLK"
 		(shape bidirectional)
 		(at 62.23 64.77 0)
 		(fields_autoplaced yes)
@@ -2762,9 +2762,9 @@
 			(font (size 1.27 1.27))
 			(justify left)
 		)
-		(uuid "f025b8c1-0790-5cfe-b14a-da0ee4a6d2f5")
+		(uuid "15b9abbd-3054-54e6-a1a3-6b7427ede19d")
 	)
-	(global_label "MIC_DATA"
+	(global_label "EXP_RST_N"
 		(shape bidirectional)
 		(at 62.23 67.31 0)
 		(fields_autoplaced yes)
@@ -2772,7 +2772,7 @@
 			(font (size 1.27 1.27))
 			(justify left)
 		)
-		(uuid "469b3bb7-84b8-5298-bea9-60d6495eb51f")
+		(uuid "b21c46a3-9ab2-5209-95df-79513a90e850")
 	)
 	(global_label "IR_TX"
 		(shape bidirectional)
@@ -2834,7 +2834,7 @@
 		)
 		(uuid "083bea57-5163-5b64-b0da-db3d646aed75")
 	)
-	(global_label "IMU_INT1"
+	(global_label "HALL_FAST"
 		(shape bidirectional)
 		(at 31.75 52.07 180)
 		(fields_autoplaced yes)
@@ -2842,7 +2842,7 @@
 			(font (size 1.27 1.27))
 			(justify right)
 		)
-		(uuid "c67b3830-6a6d-5a72-b078-5f82e8290fe2")
+		(uuid "0069d81f-b581-5097-8240-abdade485b87")
 	)
 	(global_label "TOUCH_RIGHT"
 		(shape bidirectional)
@@ -4786,7 +4786,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "expander reset released; GPIO37 can pull it low (recovery)"
+		(property "Description" "expander reset released; GPIO38 can pull it low (recovery)"
 			(at 251.46 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -6179,7 +6179,7 @@
 	)
 	(rectangle
 		(start 12.7 120.65)
-		(end 160.02 184.15)
+		(end 158.75 184.15)
 		(stroke (width 0.15) (type dash) (color 120 120 120 1))
 		(fill (type none))
 		(uuid "774ec874-4a64-509c-8f72-4c6323594550")
@@ -6195,21 +6195,21 @@
 	)
 	(text "Tag-Connect TC2030-NL (no part fitted): 1 GND, 2 EN, 3 TXD0, 4 3V3, 5 RXD0, 6 GPIO0 - recovery without USB (ODD JOBS 33-35, 157). Pinout chosen so"
 		(exclude_from_sim no)
-		(at 15.24 179.07 0)
+		(at 15.24 177.8 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "675b79df-c874-530a-b84a-c6915dcd2512")
+		(uuid "c0c9b217-079b-5170-9b4d-58dcd5a41e8a")
 	)
 	(text "TXD0/RXD0 run straight from the module pins. Probe pads: rails beside the charger, comms in one field, switched rails at their sources (36-39)."
 		(exclude_from_sim no)
-		(at 15.24 181.61 0)
+		(at 15.24 180.34 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "245ec373-4abe-5579-b220-3f32218539f2")
+		(uuid "8732d853-7dd4-5505-9f14-4183783ae441")
 	)
 	(symbol
 		(lib_id "Connector:TC2030")
@@ -7732,15 +7732,15 @@
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "9ad6bf78-5c3c-513c-8af3-bd829c2cf225")
-		(property "Reference" "TP12"
+		(uuid "6e2372f7-b848-5800-86a7-913c9d0dc52f")
+		(property "Reference" "TP13"
 			(at 142.24 130.81 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
-		(property "Value" "IO35"
+		(property "Value" "LCD"
 			(at 146.05 137.16 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -7761,7 +7761,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "test pad IO35"
+		(property "Description" "test pad LCD"
 			(at 143.51 135.89 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -7797,26 +7797,64 @@
 			)
 		)
 		(pin "1"
-			(uuid "0e787203-7bdb-5e5c-b322-d6c5548170d4")
+			(uuid "9689478a-d99f-51fe-8f0c-0b0f7a4485ca")
 		)
 		(instances
 			(project "MAO_MAIN_A0"
 				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "TP12")
+					(reference "TP13")
 					(unit 1)
 				)
 			)
 		)
 	)
-	(global_label "IO35_SPARE"
-		(shape bidirectional)
-		(at 143.51 135.89 270)
-		(fields_autoplaced yes)
-		(effects
-			(font (size 1.27 1.27))
-			(justify right)
+	(symbol
+		(lib_id "MAO:3V3_LCD")
+		(at 143.51 135.89 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "b11b8159-7fb0-5406-847a-a5046a270ac5")
+		(property "Reference" "#PWR338"
+			(at 143.51 135.89 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
 		)
-		(uuid "07a6ef87-f1b6-5cba-af2a-9b647af9b306")
+		(property "Value" "3V3_LCD"
+			(at 143.51 139.7 0)
+			(effects
+				(font (size 1.27 1.27))
+			)
+		)
+		(property "Footprint" ""
+			(at 143.51 135.89 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 143.51 135.89 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "d89e468c-2970-55f2-95ed-107a8cbe3996")
+		)
+		(instances
+			(project "MAO_MAIN_A0"
+				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
+					(reference "#PWR338")
+					(unit 1)
+				)
+			)
+		)
 	)
 	(symbol
 		(lib_id "Connector:TestPoint")
@@ -7827,15 +7865,15 @@
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "6e2372f7-b848-5800-86a7-913c9d0dc52f")
-		(property "Reference" "TP13"
+		(uuid "9b6cb0b0-7652-5ea5-ac54-2d30dd646529")
+		(property "Reference" "TP14"
 			(at 149.86 130.81 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
-		(property "Value" "LCD"
+		(property "Value" "MIC"
 			(at 153.67 137.16 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -7856,7 +7894,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "test pad LCD"
+		(property "Description" "test pad MIC"
 			(at 151.13 135.89 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -7892,34 +7930,34 @@
 			)
 		)
 		(pin "1"
-			(uuid "9689478a-d99f-51fe-8f0c-0b0f7a4485ca")
+			(uuid "d706a250-5483-5edd-91ee-7c3df9e57935")
 		)
 		(instances
 			(project "MAO_MAIN_A0"
 				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "TP13")
+					(reference "TP14")
 					(unit 1)
 				)
 			)
 		)
 	)
 	(symbol
-		(lib_id "MAO:3V3_LCD")
+		(lib_id "MAO:MIC_VDD")
 		(at 151.13 135.89 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "fcd6c6f4-f44d-5d9b-80f7-bdf65e48367f")
-		(property "Reference" "#PWR338"
+		(uuid "4d0f98af-fdd7-5408-afc8-2e80f4cd33e8")
+		(property "Reference" "#PWR339"
 			(at 151.13 135.89 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "Value" "3V3_LCD"
+		(property "Value" "MIC_VDD"
 			(at 151.13 139.7 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -7940,140 +7978,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "63924da8-6597-5020-af84-3fef4c322073")
-		)
-		(instances
-			(project "MAO_MAIN_A0"
-				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "#PWR338")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Connector:TestPoint")
-		(at 57.15 165.1 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "9b6cb0b0-7652-5ea5-ac54-2d30dd646529")
-		(property "Reference" "TP14"
-			(at 55.88 160.02 0)
-			(effects
-				(font (size 1.27 1.27))
-				(justify left)
-			)
-		)
-		(property "Value" "MIC"
-			(at 59.69 166.37 0)
-			(effects
-				(font (size 1.27 1.27))
-				(justify left)
-			)
-		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
-			(at 57.15 165.1 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 57.15 165.1 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Description" "test pad MIC"
-			(at 57.15 165.1 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "MPN" "PCB feature, no part"
-			(at 57.15 165.1 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Manufacturer" ""
-			(at 57.15 165.1 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "LCSC" ""
-			(at 57.15 165.1 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Exclude from BOM" "yes"
-			(at 57.15 165.1 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "d706a250-5483-5edd-91ee-7c3df9e57935")
-		)
-		(instances
-			(project "MAO_MAIN_A0"
-				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "TP14")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "MAO:MIC_VDD")
-		(at 57.15 165.1 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(dnp no)
-		(uuid "7f1e0c17-c9e2-5317-929c-03ae7e03fa3c")
-		(property "Reference" "#PWR339"
-			(at 57.15 165.1 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Value" "MIC_VDD"
-			(at 57.15 168.91 0)
-			(effects
-				(font (size 1.27 1.27))
-			)
-		)
-		(property "Footprint" ""
-			(at 57.15 165.1 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 57.15 165.1 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "faa87e3e-18d6-5888-adee-03789e33537e")
+			(uuid "6d2aede5-ae69-5525-82ce-d7ea6b44eb6a")
 		)
 		(instances
 			(project "MAO_MAIN_A0"
@@ -8086,7 +7991,7 @@
 	)
 	(symbol
 		(lib_id "Connector:TestPoint")
-		(at 64.77 165.1 0)
+		(at 57.15 163.83 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -8095,63 +8000,63 @@
 		(fields_autoplaced yes)
 		(uuid "ae38c923-1f7b-54ba-b967-d90ff0878e48")
 		(property "Reference" "TP15"
-			(at 63.5 160.02 0)
+			(at 55.88 158.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Value" "IRV"
-			(at 67.31 166.37 0)
+			(at 59.69 165.1 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
-			(at 64.77 165.1 0)
+			(at 57.15 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 64.77 165.1 0)
+			(at 57.15 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Description" "test pad IRV"
-			(at 64.77 165.1 0)
+			(at 57.15 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "MPN" "PCB feature, no part"
-			(at 64.77 165.1 0)
+			(at 57.15 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Manufacturer" ""
-			(at 64.77 165.1 0)
+			(at 57.15 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "LCSC" ""
-			(at 64.77 165.1 0)
+			(at 57.15 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Exclude from BOM" "yes"
-			(at 64.77 165.1 0)
+			(at 57.15 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
@@ -8171,42 +8076,42 @@
 	)
 	(symbol
 		(lib_id "MAO:IR_RX_VCC")
-		(at 64.77 165.1 180)
+		(at 57.15 163.83 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "f3b252e2-73a3-5425-a60f-d6ac38d3dd23")
+		(uuid "0a1bd110-a7af-52d4-8740-a81f743497f2")
 		(property "Reference" "#PWR340"
-			(at 64.77 165.1 0)
+			(at 57.15 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Value" "IR_RX_VCC"
-			(at 64.77 168.91 0)
+			(at 57.15 167.64 0)
 			(effects
 				(font (size 1.27 1.27))
 			)
 		)
 		(property "Footprint" ""
-			(at 64.77 165.1 0)
+			(at 57.15 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 64.77 165.1 0)
+			(at 57.15 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(pin "1"
-			(uuid "b16b9d38-c15d-5e75-9d09-c9b61abdc4b6")
+			(uuid "fda13f4d-8758-59b1-8526-f68b11e8eb3d")
 		)
 		(instances
 			(project "MAO_MAIN_A0"
@@ -8219,7 +8124,7 @@
 	)
 	(symbol
 		(lib_id "Connector:TestPoint")
-		(at 72.39 165.1 0)
+		(at 64.77 163.83 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -8228,63 +8133,63 @@
 		(fields_autoplaced yes)
 		(uuid "83fb3667-1661-59d6-8636-9884fd78a90b")
 		(property "Reference" "TP16"
-			(at 71.12 160.02 0)
+			(at 63.5 158.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Value" "GND"
-			(at 74.93 166.37 0)
+			(at 67.31 165.1 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Footprint" "MAO:TestPoint_Pad_D1.2mm"
-			(at 72.39 165.1 0)
+			(at 64.77 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 72.39 165.1 0)
+			(at 64.77 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Description" "test pad GND"
-			(at 72.39 165.1 0)
+			(at 64.77 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "MPN" "PCB feature, no part"
-			(at 72.39 165.1 0)
+			(at 64.77 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Manufacturer" ""
-			(at 72.39 165.1 0)
+			(at 64.77 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "LCSC" ""
-			(at 72.39 165.1 0)
+			(at 64.77 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Exclude from BOM" "yes"
-			(at 72.39 165.1 0)
+			(at 64.77 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
@@ -8304,48 +8209,130 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 72.39 165.1 0)
+		(at 64.77 163.83 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "41a1ab20-a987-59b9-8904-01cccda400f7")
+		(uuid "1a21332b-3d0d-50cd-b3e4-d05af86dd733")
 		(property "Reference" "#PWR341"
-			(at 72.39 165.1 0)
+			(at 64.77 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Value" "GND"
-			(at 72.39 168.91 0)
+			(at 64.77 167.64 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Footprint" ""
-			(at 72.39 165.1 0)
+			(at 64.77 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 72.39 165.1 0)
+			(at 64.77 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(pin "1"
-			(uuid "c0115349-0bb9-5901-82bb-d729f049c868")
+			(uuid "90d30c55-ab35-5261-bb06-eb15d70f247e")
 		)
 		(instances
 			(project "MAO_MAIN_A0"
 				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
 					(reference "#PWR341")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:Fiducial")
+		(at 72.39 161.29 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "36c817f5-354b-5ca8-a839-9c1b79281cff")
+		(property "Reference" "FID1"
+			(at 71.12 158.75 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left)
+			)
+		)
+		(property "Value" "FID"
+			(at 74.93 163.83 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left)
+			)
+		)
+		(property "Footprint" "Fiducial:Fiducial_1mm_Mask2mm"
+			(at 72.39 161.29 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 72.39 161.29 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "Description" "assembly fiducial, top"
+			(at 72.39 161.29 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "MPN" "PCB feature, no part"
+			(at 72.39 161.29 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" ""
+			(at 72.39 161.29 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "LCSC" ""
+			(at 72.39 161.29 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "Exclude from BOM" "yes"
+			(at 72.39 161.29 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(instances
+			(project "MAO_MAIN_A0"
+				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
+					(reference "FID1")
 					(unit 1)
 				)
 			)
@@ -8360,8 +8347,8 @@
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "36c817f5-354b-5ca8-a839-9c1b79281cff")
-		(property "Reference" "FID1"
+		(uuid "e9c9383f-543b-5b92-9602-147dee04917e")
+		(property "Reference" "FID2"
 			(at 80.01 158.75 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8427,7 +8414,7 @@
 		(instances
 			(project "MAO_MAIN_A0"
 				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "FID1")
+					(reference "FID2")
 					(unit 1)
 				)
 			)
@@ -8442,8 +8429,8 @@
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "e9c9383f-543b-5b92-9602-147dee04917e")
-		(property "Reference" "FID2"
+		(uuid "9ab934b8-15ec-54ce-8383-731c9915528a")
+		(property "Reference" "FID3"
 			(at 88.9 158.75 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8509,7 +8496,7 @@
 		(instances
 			(project "MAO_MAIN_A0"
 				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "FID2")
+					(reference "FID3")
 					(unit 1)
 				)
 			)
@@ -8524,8 +8511,8 @@
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "9ab934b8-15ec-54ce-8383-731c9915528a")
-		(property "Reference" "FID3"
+		(uuid "4486a2d6-634f-5ba4-a1f3-375b38634cf3")
+		(property "Reference" "FID4"
 			(at 97.79 158.75 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8553,7 +8540,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "assembly fiducial, top"
+		(property "Description" "assembly fiducial, bottom"
 			(at 99.06 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8591,7 +8578,7 @@
 		(instances
 			(project "MAO_MAIN_A0"
 				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "FID3")
+					(reference "FID4")
 					(unit 1)
 				)
 			)
@@ -8606,8 +8593,8 @@
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "4486a2d6-634f-5ba4-a1f3-375b38634cf3")
-		(property "Reference" "FID4"
+		(uuid "3f826085-2f92-5712-8c24-50dec718249e")
+		(property "Reference" "FID5"
 			(at 106.68 158.75 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8673,7 +8660,7 @@
 		(instances
 			(project "MAO_MAIN_A0"
 				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "FID4")
+					(reference "FID5")
 					(unit 1)
 				)
 			)
@@ -8688,8 +8675,8 @@
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "3f826085-2f92-5712-8c24-50dec718249e")
-		(property "Reference" "FID5"
+		(uuid "73e5f2e2-3657-574e-90b0-c7943d8a1b59")
+		(property "Reference" "FID6"
 			(at 115.57 158.75 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8755,14 +8742,14 @@
 		(instances
 			(project "MAO_MAIN_A0"
 				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "FID5")
+					(reference "FID6")
 					(unit 1)
 				)
 			)
 		)
 	)
 	(symbol
-		(lib_id "Mechanical:Fiducial")
+		(lib_id "Mechanical:MountingHole")
 		(at 125.73 161.29 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -8770,22 +8757,22 @@
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "73e5f2e2-3657-574e-90b0-c7943d8a1b59")
-		(property "Reference" "FID6"
+		(uuid "76edca84-6b9f-524e-923a-ea3a16c799f3")
+		(property "Reference" "H1"
 			(at 124.46 158.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
-		(property "Value" "FID"
+		(property "Value" "MOUNT"
 			(at 128.27 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
-		(property "Footprint" "Fiducial:Fiducial_1mm_Mask2mm"
+		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2"
 			(at 125.73 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8799,7 +8786,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "assembly fiducial, bottom"
+		(property "Description" "M2 screw to the top chassis (heat-set insert)"
 			(at 125.73 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8837,7 +8824,7 @@
 		(instances
 			(project "MAO_MAIN_A0"
 				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "FID6")
+					(reference "H1")
 					(unit 1)
 				)
 			)
@@ -8852,8 +8839,8 @@
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "76edca84-6b9f-524e-923a-ea3a16c799f3")
-		(property "Reference" "H1"
+		(uuid "bc2cb713-641f-58ac-a5e0-43f92ad6f105")
+		(property "Reference" "H2"
 			(at 133.35 158.75 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8919,88 +8906,6 @@
 		(instances
 			(project "MAO_MAIN_A0"
 				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
-					(reference "H1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Mechanical:MountingHole")
-		(at 143.51 161.29 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "bc2cb713-641f-58ac-a5e0-43f92ad6f105")
-		(property "Reference" "H2"
-			(at 142.24 158.75 0)
-			(effects
-				(font (size 1.27 1.27))
-				(justify left)
-			)
-		)
-		(property "Value" "MOUNT"
-			(at 146.05 163.83 0)
-			(effects
-				(font (size 1.27 1.27))
-				(justify left)
-			)
-		)
-		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2"
-			(at 143.51 161.29 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 143.51 161.29 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Description" "M2 screw to the top chassis (heat-set insert)"
-			(at 143.51 161.29 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "MPN" "PCB feature, no part"
-			(at 143.51 161.29 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Manufacturer" ""
-			(at 143.51 161.29 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "LCSC" ""
-			(at 143.51 161.29 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Exclude from BOM" "yes"
-			(at 143.51 161.29 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(instances
-			(project "MAO_MAIN_A0"
-				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2/5c1663d1-fabd-5843-8636-9724c729cba6"
 					(reference "H2")
 					(unit 1)
 				)
@@ -9009,7 +8914,7 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 152.4 161.29 0)
+		(at 144.78 161.29 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -9018,63 +8923,63 @@
 		(fields_autoplaced yes)
 		(uuid "41bd16e7-cb02-5883-8001-4735a13f2f07")
 		(property "Reference" "H3"
-			(at 151.13 158.75 0)
+			(at 143.51 158.75 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Value" "MOUNT"
-			(at 154.94 163.83 0)
+			(at 147.32 163.83 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_2mm"
-			(at 152.4 161.29 0)
+			(at 144.78 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 152.4 161.29 0)
+			(at 144.78 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Description" "locating peg, plastic only (antenna side, ODD JOBS 69)"
-			(at 152.4 161.29 0)
+			(at 144.78 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "MPN" "PCB feature, no part"
-			(at 152.4 161.29 0)
+			(at 144.78 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Manufacturer" ""
-			(at 152.4 161.29 0)
+			(at 144.78 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "LCSC" ""
-			(at 152.4 161.29 0)
+			(at 144.78 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Exclude from BOM" "yes"
-			(at 152.4 161.29 0)
+			(at 144.78 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)

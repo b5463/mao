@@ -246,7 +246,7 @@
 		)
 		(uuid "aa6f9b1c-7ccb-5688-9660-11814bbccf9f")
 	)
-	(text "GPIO45 must read 0 at reset (3.3 V flash); GPIO46 pulled down (backlight off, download-boot strap)."
+	(text "GPIO45 (VDD_SPI strap) must read 0 at reset for the 3.3 V flash: the backlight gate pull-down holds it low. GPIO46 (download-boot strap) is NC with its internal pull-down."
 		(exclude_from_sim no)
 		(at 25.4 223.52 0)
 		(effects

@@ -3619,14 +3619,14 @@
 		)
 		(uuid "851fca63-9c0d-5b02-9b6e-f3cc2fe26478")
 	)
-	(text "GPIO13 through 100R/1 uF only while listening: it draws 80 uA even with the clock stopped. SEL low."
+	(text "GPIO35 through 100R/1 uF only while listening: it draws 80 uA even with the clock stopped. SEL low."
 		(exclude_from_sim no)
 		(at 300.99 68.58 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "ea00e123-85f1-5910-8632-e735126730be")
+		(uuid "56dc09eb-a0cd-52ad-b625-c04b0dff3d29")
 	)
 	(symbol
 		(lib_id "Sensor_Audio:SPH0641LU4H-1")

@@ -8,7 +8,7 @@ governs; rule numbers below refer to it.
 
 ## 1. Product form
 
-A round puck, ~Ø64 × 18 mm, FDM-printed in up to two materials (Bambu X2D, 2 × AMS HT).
+A round puck, ~Ø64 × 18.3 mm, FDM-printed in up to two materials (Bambu X2D, 2 × AMS HT).
 
 ```
                  back (12 o'clock): USB-C, IR out
@@ -25,7 +25,7 @@ A round puck, ~Ø64 × 18 mm, FDM-printed in up to two materials (Bambu X2D, 2 �
 
 | Element | Decision | Why |
 |---|---|---|
-| Face | Limito LH128R-IG01 1.28" GC9A01, centred on the puck axis | Same panel as the LCDkit: identical colours, orientation constants and timings, so the character looks exactly the same |
+| Face | Plug-in 1.28" round GC9A01 panel (Winstar WF0128BTYAA4DNN0, 240 × 240 IPS) on an 18-pin 0.5 mm FPC tail in the J301 back-flip connector, centred on the puck axis | Swappable without solder; same controller and resolution as the LCDkit's panel, so the character's colours and timings carry over (orientation constants verified at bring-up) |
 | Dial | Ring around the face, 30-pole magnet ring + 2 × DRV5012 Hall latches | Same electrical behaviour as the LCDkit EC11 (30 detents, 15 quadrature cycles, rest at 00/11), so `mao_input`'s decoder is unchanged. Contactless, thin, no gear backlash |
 | Press | The face (window + panel on a printed carrier) floats 0.25 mm on an ALPS SKQG switch at the PCB centre | Pressing MAO's face is the button. It stays on GPIO0, so holding it while plugging USB enters the ROM bootloader, as with the LCDkit knob |
 | Body touch | LEFT/RIGHT: copper arcs at the board rim sensing through the ring; TOP: spring to a window-border electrode; REAR: spring to a base electrode | Hidden sensing (brief §8); printed electrodes possible with conductive filament as the second material |
@@ -41,7 +41,7 @@ Mechanical datums: `hardware/mao/design/mechanical.py`; drawing and enclosure in
 
 | Requirement | ESP32-C3 (LCDkit) | ESP32-S3 |
 |---|---|---|
-| Signals needed (42) | 15 usable GPIO: impossible | 34 of 36 module pins used natively (incl. USB and UART) + 8 on the expander; spare: GPIO35 (on a test pad), GPIO45 (strap, NC) |
+| Signals needed (42) | 15 usable GPIO: impossible | Every module GPIO used natively except the strap GPIO46 (NC), incl. USB, UART and the display TE line; GPIO45 (VDD_SPI strap) drives the backlight gate behind its 100 k pull-down; + 8 on the expander |
 | Body touch | none | 14 native channels, deep-sleep touch wake |
 | Microphone | no PDM RX | I2S0 PDM RX with hardware PDM→PCM |
 | Speaker + mic together | one I2S | I2S0 (mic) + I2S1 (amp) concurrently |
@@ -63,7 +63,7 @@ USB-C ─ ESD/TVS ─ VBUS ─► BQ24073 (linear, DPPM, USB500, 297 mA) ─► 
                      MAX17048 gauge on VBAT                             ├─► DRV2605L haptic driver
                                                                         └─► 2 × IR LEDs
 +3V3 ─► TPS22917 ─► 3V3_LCD (panel + backlight, soft start, discharge)
-GPIO13 ─ RC ─► MIC_VDD      expander P5 ─ RC ─► IR_RX_VCC
+GPIO35 ─ RC ─► MIC_VDD      expander P5 ─ RC ─► IR_RX_VCC
 ```
 
 | Topic | Decision |
@@ -73,7 +73,7 @@ GPIO13 ─ RC ─► MIC_VDD      expander P5 ─ RC ─► IR_RX_VCC
 | Battery protection | Cell PCM (mandatory in the cell spec, checked on receipt) + hardware UVLO + NTC charge window + firmware cut-off from the gauge + reverse-polarity P-FET. No second protector IC: the pin-out of the common FS8205A could not be verified, and the UVLO covers over-discharge (ODD JOBS 49/51) |
 | Fuel gauge | MAX17048 ModelGauge: real SOC without a sense resistor, 3 µA hibernate |
 | Rail control | Display (load switch), mic (GPIO supply), IR receiver (expander supply), amp (SD), haptic (EN), ToF (XSHUT), Hall sampling (SEL). Each can be off; all are off at reset. The three switched rails have probe pads (TP13–15) so the fixture can prove they switch |
-| Expander recovery | GPIO37 drives the TCA6408A RESET (10 k pull-up): firmware resets and reprograms a wedged expander without a power cycle |
+| Expander recovery | GPIO38 drives the TCA6408A RESET (10 k pull-up): firmware resets and reprograms a wedged expander without a power cycle |
 | USB-C | Sink only (2 × 5.1 kΩ Rd), USB 2.0 FS to the S3's native USB-Serial-JTAG (flashing, console, JTAG, recovery), TPD2E2U06 + SMF15A at the connector |
 
 Power budget and runtimes: `mao-power-budget.md`.
@@ -82,14 +82,14 @@ Power budget and runtimes: `mao-power-budget.md`.
 
 | Sense | Part | Interface | Wake source |
 |---|---|---|---|
-| Motion, orientation, tap, free-fall | LSM6DSOX | I2C 0x6A, INT1 (GPIO2), INT2 (GPIO47) | yes (INT1, wake-on-motion) |
+| Motion, orientation, tap, free-fall | LSM6DSOX | I2C 0x6A, INT1 (GPIO14), INT2 (GPIO47) | yes (INT1, wake-on-motion) |
 | Approach | VL53L4CD ToF, 0–1.3 m | I2C 0x29, GPIO1 → GPIO48, XSHUT via expander | via threshold interrupt (light sleep, GPIO wake) |
 | Light / covered | OPT3004 | I2C 0x44, INT wired-OR | — |
-| Hearing | SPH0641 PDM mic | I2S0 PDM RX (GPIO36 clock, GPIO38 data) | — |
+| Hearing | SPH0641 PDM mic | I2S0 PDM RX (GPIO37 clock, GPIO36 data) | — |
 | Touch (4 zones) | ESP32-S3 native | TOUCH1/4/5/6 | yes (TOP channel) |
 | Dial | 2 × DRV5012 | GPIO41/42 | — |
 | Press | SKQG | GPIO0 | yes |
-| Power events | BQ24073 PGOOD/CHG, MAX17048 ALRT | GPIO8, expander | yes (USB plug, alerts) |
+| Power events | BQ24073 PGOOD/CHG, MAX17048 ALRT | GPIO3, expander | yes (USB plug, alerts) |
 | IR | IRM-H638T | RMT RX GPIO40 (TX GPIO39) | — |
 
 Firmware data flow (see `docs/firmware/mao-a0-firmware.md`):
@@ -113,16 +113,18 @@ The character never reads hardware; a sensor never maps straight to an animation
 
 ## 6. Board
 
-- Ø58 mm disc, 1.6 mm, 6 layers (JLCPCB standard JLC06161H-3313): F signals + parts / **In1 solid GND** / In2 signals (+ GND fill) / **In3 solid +3V3** / **In4 solid GND** / B signals + parts. Every routing layer sits on a ground plane; the long buses (I2C, interrupts, enables) run on In2, so the outer layers keep short, readable fan-outs. A 4-layer version was routed first: with only F and B for signals, the IMU over the module's pin row, the face switch and the display lanes left the centre without escape room (ODD JOBS 17, 87-88).
+- Ø58 mm disc, 1.6 mm, **4 layers** (JLCPCB standard JLC04161H-1080: 1080 prepreg, so L1 sits 0.076 mm over L2): **L1 (F)** parts and the critical lines (USB pair, IMU, touch leads, PRESS) / **L2 (In1) solid GND**: no tracks, no splits; only the touch-arc cuts and the antenna keep-out shape it / **L3 (In2) power**: a +3V3 plane over most of the board, a VSYS band from the power section along the 12 o'clock edge and down the 9 o'clock rim, a VBUS strip under the receptacle, plus the slow lines (enables, interrupts, resets, the I2C trunk) / **L4 (B)** parts and short fan-outs over the L3 planes. USB, the display SPI, I2S and the PDM clock never touch L3. The first A0 was routed on 6 layers; this board was re-placed from scratch for 4 layers with designed escapes (`design/route_local.py`), so every fast line keeps one outer layer over an unbroken reference and the board needs fewer vias than the 6-layer one.
 - Power section at 1–2 o'clock on B, laid out by hand (`design/route_power.py`): one straight chain from the cell
   (J102) through the 0 Ω link R108 and reverse-polarity FET Q101 to the charger, then VSYS straight into the
   buck-boost. The buck-boost follows TI's reference layout: inductor over the power pins, CIN at VIN,
   COUT at VOUT, a PGND strip between the pin rows with a via under the IC. VSYS reaches the amplifier,
   haptics and IR on F.Cu over the In1 ground plane.
 - Probe pads on B where their signals are: a service field between the charger and the module (GND, 3V3, SYS, BAT,
-  SDA, SCL, XRST, BOOT, IO35 on a 3.0 × 3.2 mm grid, a ground beside every rail), VBUS at the USB TVS, RST at module pin 3,
+  SDA, SCL, XRST, BOOT, RST on a 3.0 × 3.2 mm grid, a ground beside every rail), VBUS at the USB TVS,
   LCD/MIC/IRV at their switches. Tag-Connect TC2030-NL at the UART pins. Supplies and grounds on 1.2 mm pads, signals on 1.0 mm.
-  Every GND and +3V3 pad drops to its plane through its own via (ODD JOBS 14/16/17).
+  Every IC, capacitor and connector GND / +3V3 pad reaches its plane through a via of its own or one shared with a
+  neighbouring pin of the same net within 1.6 mm; pull-down resistors join GND through the outer pour, and every pour
+  fragment is stitched to L2 (ODD JOBS 14/16/17).
 - Antenna notch 24 × 6.3 mm; no copper, track, via or pour within 3 mm of it on any layer (rule area + the module's own keep-out).
 - Two M2 screws (heat-set inserts in the chassis) on the back half, one plastic locating peg on the antenna half (ODD JOBS 69).
 - Matte black solder mask, white silk, ENIG (visible product board; rule 173 caveat noted for inspection).

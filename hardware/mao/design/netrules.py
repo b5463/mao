@@ -16,17 +16,28 @@ OUTPUTS = ROOT / 'outputs'
 DRC_JSON = OUTPUTS / 'DRC.json'
 ORIGIN = 50.0
 
-# Layer roles (ODD JOBS 17): F signals + parts, In1 solid GND, In2 power pours + slow signals,
-# B signals + parts. In1 is solid GND and In2 solid +3V3 (no tracks): the grid router routes on F
-# and B only; GND and +3V3 pads each get their own via to their plane.
-ROUTE_LAYERS = ('F', 'B')
-# ODD JOBS 17 (L3 = power + slower signals): these nets may cross on In2 inside the +3V3 plane where
-# F and B are taken. Everything fast (USB, display SPI, I2S, PDM), every touch lead (parasitic C) and
-# every power net stays on the outer layers.
-INNER_OK = re.compile(r'(I2C_SDA|I2C_SCL|\w+_EN|\w+_N|TOF_XSHUT|IMU_INT\d|HALL_\w+|IR_RX|IR_TX|IR_RX_PWR|'
-                      r'UART_TX|UART_RX|IO\d+_SPARE|MIC_PWR|LCD_BL_PWM|BOARD_ID)$')
+# Layer roles: JLC04161H-1080, 4 layers (ODD JOBS 17, brief "MAO must be 4-layer"):
+#   L1 F.Cu   parts + short fan-out and buses, 0.076 mm above L2
+#   L2 In1.Cu uninterrupted solid GND: no tracks at all, only vias pass
+#   L3 In2.Cu power regions (+3V3, VSYS, VBAT, VBUS, switched rails) + selected slow signals
+#   L4 B.Cu   parts + signals, 0.076 mm below L3
+# Router layer names, in stack order; index = position in the stack.
+COPPER = ('F', 'I1', 'I2', 'B')
+PLANE_LAYERS = ('I1',)           # never routed
+SLOW_LAYER = 'I2'                # L3: only SLOW_OK nets, never inside a power-region core
+ROUTE_LAYERS = ('F', 'I2', 'B')
+# L3 policy: enables, shutdowns, status, interrupts, expander control, static or slow GPIO, and I2C where it
+# leaves the power copper whole. Never USB, display SPI, I2S, PDM, touch leads, power or switch nodes.
+SLOW_OK = {
+    'I2C_SDA', 'I2C_SCL',
+    'LCD_PWR_EN', 'HAPTIC_EN', 'TOF_XSHUT', 'IR_RX_PWR', 'AMP_SD_N', 'LCD_RST_N',
+    'CHG_N', 'SENSE_ALRT_N', 'USB_PRESENT_N', 'EXP_INT_N', 'EXP_RST_N', 'TOF_INT_N',
+    'IMU_INT1', 'IMU_INT2', 'LCD_TE', 'HALL_A', 'HALL_B', 'HALL_FAST', 'IR_RX', 'IR_TX',
+    'UART_TX', 'UART_RX', 'MCU_EN', 'PRESS_N', 'MIC_PWR', 'LCD_BL_PWM', 'BOARD_ID',
+}
+INNER_OK = re.compile(r'(%s)$' % '|'.join(sorted(SLOW_OK)))
 INNER_FAST = re.compile(r'(USB_D[PN]|LCD_(SCLK|MOSI|CS|DC)\w*|AMP_(DIN|BCLK|LRCLK)|MIC_(CLK|DATA)|SPK_[PN]|BB_L\d)$')
-PLANE_NETS = ('GND', '+3V3')     # In1 and In2: every pad reaches its plane through its own via
+PLANE_NETS = ('GND', '+3V3')     # GND: L2 plane; +3V3: the L3 +3V3 region. Every pad reaches its copper by a via
 
 # Net classes. Power: carries load current. Switch: the buck-boost inductor nodes (ODD JOBS 8).
 POWER = re.compile(r'(VBUS|VBUS_\w+|VSYS|VBAT|BAT_\w+|\+3V3|3V3_\w+|SPK_[PN]|LRA_[PN]|IR_LED_\w+|LCD_BL_K)$')
@@ -72,7 +83,7 @@ ROUTE_ORDER = [
     'MIC_CLK', 'MIC_DATA', 'MIC_PWR', 'MIC_VDD',
     'HALL_A', 'HALL_B', 'HALL_FAST',
     'IR_TX', 'IR_TX_G', 'IR_LED_K', 'IR_LED_A1', 'IR_LED_A2', 'IR_RX', 'IR_RX_PWR', 'IR_RX_VCC',
-    'UART_TX', 'UART_RX', 'MCU_EN', 'PRESS_N', 'EXP_RST_N', 'IO35_SPARE',
+    'UART_TX', 'UART_RX', 'MCU_EN', 'PRESS_N', 'EXP_RST_N', 'LCD_TE',
     'IMU_INT1', 'IMU_INT2', 'TOF_INT_N', 'TOF_XSHUT',
     'AMP_SD_N', 'HAPTIC_EN', 'HAP_REG', 'CHG_N', 'SENSE_ALRT_N', 'EXP_INT_N', 'USB_PRESENT_N',
     'TOUCH_LEFT', 'TOUCH_RIGHT', 'TOUCH_TOP', 'TOUCH_REAR',

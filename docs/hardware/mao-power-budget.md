@@ -21,7 +21,7 @@ replaces these numbers.
 | Subsystem | Part | Active | Idle | Drowsy / light sleep | Deep sleep / off |
 |---|---|---:|---:|---:|---:|
 | MCU + radio | ESP32-S3-WROOM-1-N8R2 | 100 mA (RX listening, 240 MHz); 355 mA TX peaks | 95 mA | 0.3–2 mA (light sleep, radio off or windowed) | 8 µA |
-| LCD panel | LH128R-IG01 (GC9A01) | 8.5 mA | 8.5 mA | 15 µA (sleep-in) | 0 (rail switched off) |
+| LCD panel | WF0128BTYAA4DNN0 (GC9A01) | 8.5 mA | 8.5 mA | 15 µA (sleep-in) | 0 (rail switched off) |
 | Backlight | 2 LEDs, AO3400A PWM | 22 mA (70 %) | 11 mA (35 %) | 0 | 0 |
 | Display rail switch | TPS22917 | 0.5 µA | 0.5 µA | 0.5 µA | 0.5 µA |
 | Speaker amp | MAX98357A | 2.4 mA idle; 20–150 mA while a sound plays | 0.6 µA (SD low between sounds) | 0.6 µA | 0.6 µA |

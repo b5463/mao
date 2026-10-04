@@ -1,8 +1,10 @@
 """Write the ordered stackup into MAO_MAIN_A0.kicad_pcb (plain Python 3; idempotent).
 
-JLCPCB JLC06161H-3313, 6 layers, 1.6 mm, as published on jlcpcb.com/impedance:
-  L1 F.Cu 1 oz | 3313 prepreg 0.0994 | L2 In1.Cu 0.5 oz | core 0.55 | L3 In2.Cu 0.5 oz | 2116 prepreg 0.1088
-  | L4 In3.Cu 0.5 oz | core 0.55 | L5 In4.Cu 0.5 oz | 3313 prepreg 0.0994 | L6 B.Cu 1 oz
+JLCPCB JLC04161H-1080, 4 layers, 1.6 mm, as published on jlcpcb.com/impedance:
+  L1 F.Cu 1 oz | 1080 prepreg 0.0764 | L2 In1.Cu 0.5 oz | core 1.265 | L3 In2.Cu 0.5 oz | 1080 prepreg 0.0764
+  | L4 B.Cu 1 oz
+The thinnest of JLC's standard 4-layer prepregs: L1 sits 0.076 mm over the L2 ground plane and L4 0.076 mm
+under the L3 power layer (brief: outer layers as close to their reference as the standard options allow).
 Black solder mask, white legend, ENIG (FAB-NOTES). The Gerber job file and the 3D view take these from the
 board, so the release package and the renders show the board as ordered. Rewrites any existing stackup block.
 """
@@ -16,15 +18,11 @@ LAYERS = [
     '(layer "F.Paste" (type "Top Solder Paste"))',
     '(layer "F.Mask" (type "Top Solder Mask") (color "Black") (thickness 0.01))',
     '(layer "F.Cu" (type "copper") (thickness 0.035))',
-    '(layer "dielectric 1" (type "prepreg") (color "FR4 natural") (thickness 0.0994) %s)' % FR4,
+    '(layer "dielectric 1" (type "prepreg") (color "FR4 natural") (thickness 0.0764) %s)' % FR4,
     '(layer "In1.Cu" (type "copper") (thickness 0.0152))',
-    '(layer "dielectric 2" (type "core") (color "FR4 natural") (thickness 0.55) %s)' % FR4,
+    '(layer "dielectric 2" (type "core") (color "FR4 natural") (thickness 1.265) %s)' % FR4,
     '(layer "In2.Cu" (type "copper") (thickness 0.0152))',
-    '(layer "dielectric 3" (type "prepreg") (color "FR4 natural") (thickness 0.1088) %s)' % FR4,
-    '(layer "In3.Cu" (type "copper") (thickness 0.0152))',
-    '(layer "dielectric 4" (type "core") (color "FR4 natural") (thickness 0.55) %s)' % FR4,
-    '(layer "In4.Cu" (type "copper") (thickness 0.0152))',
-    '(layer "dielectric 5" (type "prepreg") (color "FR4 natural") (thickness 0.0994) %s)' % FR4,
+    '(layer "dielectric 3" (type "prepreg") (color "FR4 natural") (thickness 0.0764) %s)' % FR4,
     '(layer "B.Cu" (type "copper") (thickness 0.035))',
     '(layer "B.Mask" (type "Bottom Solder Mask") (color "Black") (thickness 0.01))',
     '(layer "B.Paste" (type "Bottom Solder Paste"))',
@@ -62,8 +60,8 @@ def main():
     assert m, 'no setup section'
     s = s[:m.end()] + block(m.group(1) + '\t') + s[m.end():]
     TARGET.write_text(s, encoding='utf-8')
-    print('stackup: JLC06161H-3313, %.4f mm dielectric+copper, black mask, ENIG' % (
-        2 * 0.035 + 4 * 0.0152 + 2 * 0.0994 + 0.1088 + 2 * 0.55), flush=True)
+    print('stackup: JLC04161H-1080, %.4f mm dielectric+copper, black mask, ENIG' % (
+        2 * 0.035 + 2 * 0.0152 + 2 * 0.0764 + 1.265), flush=True)
 
 
 if __name__ == '__main__':

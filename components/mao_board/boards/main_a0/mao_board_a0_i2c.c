@@ -9,7 +9,7 @@
  * output register is ALWAYS written first (0x00: every rail off, panel held
  * in reset), and only then are the output pins enabled.
  *
- * Recovery: GPIO37 drives the expander's RESET (open-drain, 10 k pull-up
+ * Recovery: MAO_PIN_EXP_RST_N (GPIO38) drives the expander's RESET (open-drain, 10 k pull-up
  * R205 on the board). If a write or an input read fails, the bus is reset,
  * the expander is pulsed into reset and reprogrammed from the shadow
  * registers, and the access is retried once. A wedged expander no longer

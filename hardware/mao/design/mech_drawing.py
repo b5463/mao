@@ -66,7 +66,8 @@ def main():
     e.append(text(0, -m.RING_ID / 2 + 1.6, 'ring ID', 10, 'middle', '#c80'))
     # antenna
     e.append(rect(-m.MODULE_W / 2, m.ANTENNA_EDGE_Y, m.MODULE_W / 2, m.MODULE_OUTER_R, '#c00', '#fde', 1.0))
-    e.append(text(0, m.ANTENNA_EDGE_Y + 3.6, 'ANTENNA: no metal within 15 mm', 11, 'middle', '#c00'))
+    e.append(text(0, m.ANTENNA_EDGE_Y + 2.6, 'ANTENNA', 11, 'middle', '#c00'))
+    e.append(text(0, m.ANTENNA_EDGE_Y + 4.4, 'no metal within 15 mm', 10, 'middle', '#c00'))
     # battery
     bw, bd, bh = m.BATTERY_ENVELOPE
     bx, by = m.BATTERY_CENTRE
@@ -107,12 +108,13 @@ def main():
         e.append('<text x="%.1f" y="%.1f" font-family="Helvetica, Arial, sans-serif" font-size="11" text-anchor="middle" fill="#c80" '
                  'transform="rotate(%d %.1f %.1f)">%s</text>' % (X(x), Y(y), -90 if a < 0 else 90, X(x), Y(y), name))
     # key dimensions (right column)
-    rows = [('Board', 'Ø%.1f mm disc, 1.6 mm, 6 layers' % (2 * m.PCB_R)),
+    rows = [('Board', 'Ø%.1f mm disc, 1.6 mm, 4 layers' % (2 * m.PCB_R)),
             ('Origin', 'puck axis = display centre; +y towards 6 o\'clock'),
             ('Enclosure', 'Ø%.0f mm, wall %.1f mm, board-to-wall %.1f mm' % (m.PUCK_OD, m.WALL, m.PUCK_OD / 2 - m.WALL - m.PCB_R)),
             ('Ring', 'ID %.0f / OD %.0f mm, 30 poles at r %.1f mm, gap to sensors %.1f mm' % (m.RING_ID, m.RING_OD, m.RING_MAGNET_R, m.HALL_GAP)),
             ('Notch', '%.1f x %.1f mm, inner edge y %.2f (antenna boundary)' % (m.NOTCH_W, m.PCB_R - m.NOTCH_Y, m.NOTCH_Y)),
-            ('Display', 'active Ø%.1f, outline Ø%.1f, panel %.1f mm above PCB' % (m.DISPLAY_ACTIVE_D, 2 * m.DISPLAY_OUTLINE_R, m.DISPLAY_STANDOFF)),
+            ('Display', 'active Ø%.1f, outline Ø%.1f, panel %.1f / window %.1f mm above PCB' % (
+                m.DISPLAY_ACTIVE_D, 2 * m.DISPLAY_OUTLINE_R, m.DISPLAY_STANDOFF, m.WINDOW_Z)),
             ('Zone A', 'F.Cu under the panel: parts <= %.1f mm' % m.ZONE_A_MAX_H),
             ('Zone B', 'B.Cu over the cell: parts <= %.1f mm, 0.3 mm insulator' % m.ZONE_B_MAX_H),
             ('Press', 'switch stem at (%.1f, %.1f), 0.25 mm travel, 2.55 N' % m.PRESS_XY),

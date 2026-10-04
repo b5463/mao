@@ -31,7 +31,7 @@ CLR_CH = pcb.FromMM(0.15)             # chamfers and moved vias: the rule itself
 JOG = pcb.FromMM(0.35)                # a sideways step shorter than this is a jog, not a route
 MIN_RUN = pcb.FromMM(0.25)            # shortest segment this script will create
 CHAMFER = pcb.FromMM(0.4)
-COPPER = (pcb.F_Cu, pcb.In2_Cu, pcb.In3_Cu, pcb.B_Cu)
+COPPER = (pcb.F_Cu, pcb.In2_Cu, pcb.B_Cu)
 
 b = pcb.LoadBoard(str(TARGET))
 tracks = [t for t in b.GetTracks() if not isinstance(t, pcb.PCB_VIA)]
@@ -97,7 +97,9 @@ bylayer = defaultdict(list)
 for t in tracks: bylayer[(t.GetNetCode(), t.GetLayer())].append(t)
 at = defaultdict(list)
 for t in tracks:
-    if t.IsLocked() or t.GetLayer() not in COPPER or t.GetLength() == 0: continue
+    # MAO 4-layer: L3 (In2) slow lines stay as the router drew them; it kept them out of the power-region
+    # cores (power_regions.py), which this pass cannot see
+    if t.IsLocked() or t.GetLayer() not in COPPER or t.GetLayer() == pcb.In2_Cu or t.GetLength() == 0: continue
     at[key(t, t.GetStart())].append(t); at[key(t, t.GetEnd())].append(t)
 def stop(k):
     """A chain end: junction, width change, or a same-net pad or via under the vertex."""
@@ -265,7 +267,7 @@ for v in vias:
     if v.IsLocked(): continue
     pv = v.GetPosition(); net = v.GetNetCode()
     ends = [t for t in alltracks if t.GetNetCode() == net and (t.GetStart() == pv or t.GetEnd() == pv)]
-    if len(ends) != 2 or any(t.IsLocked() for t in ends): continue
+    if len(ends) != 2 or any(t.IsLocked() or t.GetLayer() == pcb.In2_Cu for t in ends): continue
     if any(q.GetNetCode() == net and q.GetBoundingBox().Contains(pv) for q in pads): continue
     t1, t2 = ends
     A = t1.GetEnd() if t1.GetStart() == pv else t1.GetStart()

@@ -1,0 +1,70 @@
+[
+ {
+  "zone": "GND PLANE",
+  "net": "GND",
+  "layer": "In1.Cu",
+  "pieces": [
+   {
+    "area_mm2": 2098.7,
+    "vias": 61,
+    "bbox": [
+     -25.4,
+     -28.7,
+     25.4,
+     22.7
+    ]
+   }
+  ]
+ },
+ {
+  "zone": "3V3 L3",
+  "net": "+3V3",
+  "layer": "In2.Cu",
+  "pieces": [
+   {
+    "area_mm2": 1504.1,
+    "vias": 25,
+    "bbox": [
+     -25.29,
+     -25.71,
+     25.4,
+     22.7
+    ]
+   }
+  ]
+ },
+ {
+  "zone": "VSYS L3",
+  "net": "VSYS",
+  "layer": "In2.Cu",
+  "pieces": [
+   {
+    "area_mm2": 361.2,
+    "vias": 10,
+    "bbox": [
+     -25.0,
+     -26.0,
+     12.4,
+     12.6
+    ]
+   }
+  ]
+ },
+ {
+  "zone": "VBUS L3",
+  "net": "VBUS",
+  "layer": "In2.Cu",
+  "pieces": [
+   {
+    "area_mm2": 33.0,
+    "vias": 2,
+    "bbox": [
+     -3.3,
+     -21.0,
+     5.2,
+     -16.9
+    ]
+   }
+  ]
+ }
+]

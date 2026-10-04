@@ -17,7 +17,7 @@ import pcbnew as pcb
 from board import TARGET
 from board import pt
 
-LAY = {'F': pcb.F_Cu, 'B': pcb.B_Cu, 'I2': pcb.In2_Cu, 'I3': pcb.In3_Cu}
+LAY = {'F': pcb.F_Cu, 'B': pcb.B_Cu, 'I2': pcb.In2_Cu}
 mm = lambda v: pcb.ToMM(v) - 50
 near = lambda p, q, e=0.02: abs(mm(p.x) - q[0]) < e and abs(mm(p.y) - q[1]) < e
 
@@ -46,12 +46,29 @@ def _rip(b, rip, rip_nets=()):
     return k
 
 
+def _via_hits(b, code, x, y, dia):
+    """Pads of other nets a new via would touch (0.15 mm rule): KiCad would hand the via their net."""
+    c = pt(50 + x, 50 + y)
+    out = []
+    for f in b.GetFootprints():
+        for p in f.Pads():
+            if p.GetNetCode() == code:
+                continue
+            for layer in (pcb.F_Cu, pcb.B_Cu):
+                if p.IsOnLayer(layer) and p.GetEffectiveShape(layer).Collide(c, pcb.FromMM(dia / 2 + 0.15)):
+                    out.append('%s.%s' % (f.GetReference(), p.GetNumber()))
+                    break
+    return out
+
+
 def _add(b, add):
     n = 0
     for net, layer, w, pts in add:
         code = b.FindNet(net).GetNetCode()
         if layer == 'V':
             dia = w if w and w < 0.6 else 0.6            # MAO: w = 0.5 gives a 0.5 / 0.2 mm via (under-IC PGND)
+            hits = _via_hits(b, code, pts[0][0], pts[0][1], dia)
+            assert not hits, (net, 'via', pts[0], 'touches', hits)
             v = pcb.PCB_VIA(b); v.SetPosition(pt(50 + pts[0][0], 50 + pts[0][1])); v.SetWidth(pcb.FromMM(dia))
             v.SetDrill(pcb.FromMM(0.3 if dia >= 0.6 else 0.2))
             v.SetViaType(pcb.VIATYPE_THROUGH); v.SetLayerPair(pcb.F_Cu, pcb.B_Cu); v.SetNetCode(code); v.SetLocked(True); b.Add(v); n += 1

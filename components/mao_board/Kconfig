@@ -24,7 +24,7 @@ menu "MAO board"
         help
             How the round panel is turned in the A0 puck relative to the
             LCDkit mounting (FPC tail towards 6 o'clock), in clockwise
-            degrees. On the A0 the display FPC land sits at 9 o'clock, a
+            degrees. On the A0 the display tail leaves the panel at 9 o'clock, a
             90 degree turn, hence the default.
 
             VERIFY AT BRING-UP: the direction of that turn as seen by the

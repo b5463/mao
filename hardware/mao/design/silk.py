@@ -22,7 +22,7 @@ from board import ROOT, TARGET, at, courtyard_boxes
 import mechanical as m
 
 DATE = '2026-10'
-FIELD = {'TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP8', 'TP9', 'TP10', 'TP11', 'TP12', 'TP16'}
+FIELD = {'TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP8', 'TP9', 'TP10', 'TP11', 'TP16'}
 GROUPS = ('MAO silk F', 'MAO silk B', 'ODD JOBS maker mark')
 STROKE = 0.15
 
@@ -95,6 +95,16 @@ def main():
         b.Add(s)
         group('MAO silk ' + side).AddItem(s)
 
+    def line(x0, y0, x1, y1, side='B'):
+        s = pcb.PCB_SHAPE(b)
+        s.SetShape(pcb.SHAPE_T_SEGMENT)
+        s.SetStart(at(x0, y0))
+        s.SetEnd(at(x1, y1))
+        s.SetWidth(pcb.FromMM(STROKE))
+        s.SetLayer(pcb.B_SilkS if side == 'B' else pcb.F_SilkS)
+        b.Add(s)
+        group('MAO silk ' + side).AddItem(s)
+
     def pad(ref, num):
         p = next(p for p in fps[ref].Pads() if p.GetNumber() == num)
         return mm(p.GetPosition().x), mm(p.GetPosition().y)
@@ -153,17 +163,25 @@ def main():
                 r = g.GetBoundingBox()
                 graphics['B' if g.GetLayer() == pcb.B_SilkS else 'F'].append(
                     (mm(r.GetLeft()), mm(r.GetTop()), mm(r.GetRight()), mm(r.GetBottom())))
+    vias = {'F': [], 'B': []}               # silk never prints over a via (tented bumps read as noise)
+    for t in b.GetTracks():
+        if isinstance(t, pcb.PCB_VIA):
+            x, y, r = mm(t.GetPosition().x), mm(t.GetPosition().y), pcb.ToMM(t.GetWidth(pcb.F_Cu)) / 2
+            for sd in ('F', 'B'):
+                vias[sd].append((x - r, y - r, x + r, y + r))
     placed = {'F': [], 'B': []}
 
-    def why(bx, sd):
+    def why(bx, sd, text_gap=0.5):
         for q in pad_boxes[sd]:
             if overlap(bx, q, 0.2): return 'pad %s' % (tuple(round(v, 2) for v in q),)
         for q in bodies[sd]:
             if overlap(bx, q, 0.0): return 'body %s' % (tuple(round(v, 2) for v in q),)
         for q in graphics[sd]:
             if overlap(bx, q, 0.05): return 'silk %s' % (tuple(round(v, 2) for v in q),)
+        for q in vias[sd]:
+            if overlap(bx, q, 0.05): return 'via %s' % (tuple(round(v, 2) for v in q),)
         for q in placed[sd]:
-            if overlap(bx, q, 0.5): return 'text %s' % (tuple(round(v, 2) for v in q),)
+            if overlap(bx, q, text_gap): return 'text %s' % (tuple(round(v, 2) for v in q),)
         if not all(math.hypot(x, y) < m.PCB_R - 0.5 for x in (bx[0], bx[2]) for y in (bx[1], bx[3])):
             return 'edge'
         return None
@@ -171,9 +189,35 @@ def main():
     def clear(bx, sd):
         return why(bx, sd) is None
 
-    def label(s_, cands, sd, size=0.8, bold=False, angle=0, gname=None):
-        """First clear candidate (centre positions, optionally (x, y, angle)); the first, flagged, if none."""
+    def measure(s_, x, y, sd, size=0.8, a_=0):
+        """Box a text would take, from a text object that is never added to the board."""
+        t = pcb.PCB_TEXT(b)
+        t.SetText(s_)
+        t.SetTextSize(pcb.VECTOR2I(pcb.FromMM(size), pcb.FromMM(size)))
+        t.SetTextThickness(pcb.FromMM(max(STROKE, size * 0.15)))
+        t.SetLayer(pcb.B_SilkS if sd == 'B' else pcb.F_SilkS)
+        t.SetMirrored(sd == 'B')
+        t.SetHorizJustify(pcb.GR_TEXT_H_ALIGN_CENTER)
+        t.SetVertJustify(pcb.GR_TEXT_V_ALIGN_CENTER)
+        t.SetPosition(at(x, y))
+        t.SetTextAngle(pcb.EDA_ANGLE(a_, pcb.DEGREES_T))
+        return tbox(t)
+
+    def ring(x, y, r):
+        """Fallback spots round an anchor: nearest first, upright or reading upwards."""
+        out = []
+        for k in range(17):
+            d = r + 0.6 + 0.15 * k
+            for a in range(0, 360, 15):
+                out.append((d, x + d * math.cos(math.radians(a)), y + d * math.sin(math.radians(a))))
+        return [(cx_, cy_, a_) for _, cx_, cy_ in sorted(out) for a_ in (0, 270)]
+
+    def label(s_, cands, sd, size=0.8, bold=False, angle=0, gname=None, anchor=None):
+        """First clear candidate (centre positions, optionally (x, y, angle)), then the nearest clear spot round
+        `anchor` (x, y, r); the first candidate, flagged, if none."""
         cands = [c if len(c) == 3 else (c[0], c[1], angle) for c in cands]
+        if anchor:
+            cands = cands + ring(*anchor)
         t = text(s_, cands[0][0], cands[0][1], sd, size, angle=angle, bold=bold, gname=gname)
         for x, y, a_ in cands:
             t.SetPosition(at(x, y))
@@ -192,71 +236,151 @@ def main():
         placed[sd].append(tbox(t))
         return t
 
-    # ---- identity, face side (F): maker's mark over MAO / MAIN A0 / date --------------------------------
-    w = 5.0
+    # ---- identity, face side (F): maker's mark over MAO / MAIN A0 / date, the S/N field below ---------------
+    w = 4.6
     h = mark(BRAND_CENTRE, w, 'F')
     bx, by = BRAND_CENTRE
     placed['F'].append((bx - w / 2, by - h / 2, bx + w / 2, by + h / 2))
     for s_, dy, size, bold in (('MAO', 1.3, 1.3, True), ('MAIN A0', 3.0, 0.9, False), (DATE, 4.35, 0.8, False)):
         t = text(s_, bx, by + h / 2 + dy, 'F', size, bold=bold, gname='ODD JOBS maker mark')
         placed['F'].append(tbox(t))
+    sy = by + h / 2 + 6.2                  # S/N field (ODD JOBS 101): the name, then a box for a sticker or laser mark
+    t = text('S/N', bx - 1.85, sy, 'F', 0.8)
+    placed['F'].append(tbox(t))
+    rect(bx - 0.2, sy - 0.8, bx + 3.05, sy + 0.8, 'F')
+    placed['F'].append((bx - 0.2, sy - 0.8, bx + 3.05, sy + 0.8))
 
     # ---- face side function labels --------------------------------------------------------------------
-    jx, jy = centre('J301')
-    label('LCD', [(jx - 2.9, jy), (jx - 3.3, jy)], 'F', 1.0, angle=90)            # beside the FPC land
+    jx, jy = centre('J301')                # beside the FPC connector, on the side the tail comes from
+    label('LCD', [(jx - 4.0, jy, 90), (jx - 4.4, jy, 90), (jx - 1.6, jy - 7.0, 0), (jx - 1.6, jy + 7.0, 0)], 'F', 1.0)
     tx, ty = centre('J302')
     label('TOP', [(tx, ty + 2.3), (tx - 0.4, ty - 2.2), (tx + 0.8, ty + 2.6), (tx - 2.6, ty + 1.6)], 'F')
     label('ANTENNA  KEEP CLEAR', [(ANTENNA_TEXT[0], ANTENNA_TEXT[1])], 'F')
 
-    # ---- back: maker's mark, product line and S/N box in the corner that stays visible with the cell in --
-    bh = mark(B_MARK, 2.8, 'B')
-    placed['B'].append((B_MARK[0] - 1.4, B_MARK[1] - bh / 2, B_MARK[0] + 1.4, B_MARK[1] + bh / 2))
-    px, py = PRODUCT_B
-    label('MAO MAIN A0', [(px, py)], 'B', 1.0, bold=True)
-    label(DATE, [(px - 2.3, py + 1.55), (px - 2.3, py + 1.6), (px - 2.0, py + 1.55)], 'B', 0.8)      # the mark beside it says ODD JOBS
-    sx, sy = SN_BOX
-    rect(sx - 3.0, sy - 0.85, sx + 3.0, sy + 0.85)
-    placed['B'].append((sx - 3.0, sy - 0.85, sx + 3.0, sy + 0.85))
-    label('S/N', [(sx - 4.7, sy), (sx - 4.9, sy)], 'B')
+    # ---- back: maker's mark and product line beside the module, outside the cell (seen with the base off) --
+    bw = 2.0
+    bh = mark(B_MARK, bw, 'B')
+    placed['B'].append((B_MARK[0] - bw / 2, B_MARK[1] - bh / 2, B_MARK[0] + bw / 2, B_MARK[1] + bh / 2))
+    edge_x = B_MARK[0] - bw / 2 - 0.35     # the text block ends here (it reads from the back: mark first)
+    for s_, y_, size, bold in (('MAO MAIN A0', B_MARK[1] - 0.6, 0.8, True), (DATE, B_MARK[1] + 0.75, 0.8, False)):
+        t = text(s_, edge_x, y_, 'B', size, bold=bold)
+        x0, _, x1, _ = tbox(t)
+        t.SetPosition(at(edge_x - (x1 - x0) / 2, y_))
+        placed['B'].append(tbox(t))
 
     # ---- back: connectors with their pin cues -----------------------------------------------------------
     label('USB', [(-4.4, -19.8), (-5.0, -18.2)], 'B', 1.0, bold=True)
     # battery plug: pin cues and name on the plug side, one aligned block (R108's link sits on the other)
     x2, _ = pad('J102', '2')
-    t = text('-  T  +\nBAT', x2, -0.39 + 1.4, 'B', 0.8, bold=True)    # J102: 1 BAT-, 2 NTC, 3 BAT+ (mirrored view)
+    t = text('- T +\nBAT', x2, 0.0, 'B', 0.8, bold=True)    # J102: 1 BAT- at the larger x, read first from the back
+    _, y0_, _, _ = tbox(t)
+    t.SetPosition(at(x2, 0.0 + (-0.39 + 0.25) - y0_))       # top of the block 0.25 mm below the plug's body
     placed['B'].append(tbox(t))
-    for ref, s_ in (('J501', 'SPK+'), ('J502', 'SPK-')):
+    for ref, s_ in (('J502', 'SPK-'), ('J501', 'SPK+')):    # beside each spring, level with it
         x, y = centre(ref)
-        label(s_, [(x + 3.3, y), (x + 2.4, y + 2.2 if s_ == 'SPK-' else y - 2.2), (x + 3.0, y)], 'B')
+        label(s_, [(x + 3.3, y), (x + 2.7, y), (x + 3.0, y - 0.3), (x + 3.0, y + 0.3)], 'B')
     lx, ly = centre('J503')
-    label('LRA', [(lx + 2.9, ly + 3.0), (lx + 3.1, ly + 3.2), (lx, ly - 2.4)], 'B')
+    label('LRA', [(lx - 2.05, ly + 2.3), (lx - 2.5, ly - 2.4), (lx + 1.25, ly + 3.5)], 'B')
     rx, ry = centre('J303')
     label('REAR', [(rx, ry - 2.0), (rx, ry + 2.0), (rx + 3.6, ry), (rx, ry - 2.4)], 'B')
-    gx, gy = centre('J201')
-    label('SERVICE', [(gx + 1.4, gy + 2.75), (gx + 1.8, gy + 2.75)], 'B')
+    gx, gy = centre('J201')                # Tag-Connect: name along its module-side column
+    label('SERVICE', [(gx - 2.6, gy, 270), (gx - 0.3, gy + 3.65, 0), (gx + 2.5, gy, 270)], 'B')
     kx, ky = centre('R108')
     label('BAT\nLINK', [(kx + 2.65, ky - 0.4), (kx + 2.8, ky - 0.4)], 'B')
 
-    # ---- back: test pads by function (ODD JOBS 103), each name in the first clear spot round its pad --------
-    for ref in sorted((r for r in fps if r.startswith('TP')), key=lambda r: int(r[2:])):
+    # ---- back: test pads by function (ODD JOBS 103) --------------------------------------------------------
+    # The service field is labelled as one set: every name upright beside its pad or level above / below it,
+    # chosen together so no two names crowd each other (0.4 mm between field names) and none sits on a pad,
+    # a body or a via; the preferred side of each pad (FIELD_SPOT) wins where the field allows it.
+    tps = sorted((r for r in fps if r.startswith('TP')), key=lambda r: int(r[2:]))
+    def box_of(s_, x, y, a_, sd='B'):
+        return measure(s_, x, y, sd, 0.8, a_)
+    options = {}
+    shared = {r_: pair for pair in FIELD_SHARED for r_ in pair}
+    for ref in [r for r in tps if r in FIELD and (r not in shared or r == shared[r][0])]:
+        f = fps[ref]; x, y = centre(ref); s_ = f.GetValue()
+        r = 0.6 if s_ in ('GND', '3V3', 'SYS', 'BAT', 'VBUS') else 0.5
+        pref = FIELD_SPOT.get(ref, [])
+        order = pref + [k for k in (('side', 1), ('side', -1), ('flat', 1), ('flat', -1)) if k not in pref]
+        if ref in shared:                  # one name for an adjacent pair of like pads, centred between them
+            x = (x + centre(shared[ref][1])[0]) / 2
+            order = [('flat', 1), ('flat', -1)]
+        opts = []
+        for rank, (kind, sgn) in enumerate(order):
+            for off in (0.0, 0.2, -0.2, 0.3, -0.3, 0.4, -0.4, 0.6, -0.6, 0.8, -0.8):
+                for out in (0.0, 0.15, 0.3, 0.45, 0.6):   # a little further out where a via sits beside the pad
+                    d_ = r + 0.72 + out
+                    c = ((x + sgn * d_, y + off, 270) if kind == 'side' else (x + off, y + sgn * d_, 0))
+                    bx_ = box_of(s_, *c)
+                    if why(bx_, 'B') is None:
+                        opts.append((rank * 10 + abs(off) * 5 + out * 8, c, bx_))
+        options[ref] = sorted(opts, key=lambda o: o[0])[:int(os.environ.get('SILK_CANDS', 60))]   # best spots per pad
+    field = list(options)
+    if os.environ.get('SILK_DEBUG'):
+        print('silk: field options', {r_: len(o) for r_, o in options.items()})
+        json.dump({r_: [[c_, list(cand), list(bx_)] for c_, cand, bx_ in o] for r_, o in options.items()},
+                  open(os.environ['SILK_DEBUG'], 'w'))
+    best = [None, None]
+    budget = [300000]                      # search steps: bounded whatever the board
+    def search(domains, chosen, cost):
+        """Most-constrained pad first; every choice prunes the neighbours' spots it crowds (forward check)."""
+        budget[0] -= 1
+        if budget[0] < 0 or (best[0] is not None and cost >= best[0]):
+            return
+        if not domains:
+            best[0], best[1] = cost, dict(chosen); return
+        ref = min(domains, key=lambda r_: len(domains[r_]))
+        for c_, cand, bx_ in domains[ref]:
+            rest = {r_: [o for o in d if not overlap(bx_, o[2], FIELD_GAP)] for r_, d in domains.items() if r_ != ref}
+            if all(rest.values()):
+                chosen[ref] = (cand, bx_)
+                search(rest, chosen, cost + c_)
+                del chosen[ref]
+    search({r_: options[r_] for r_ in field}, {}, 0.0)
+    if os.environ.get('SILK_DEBUG'):
+        print('silk: field search budget left', budget[0], 'cost', best[0])
+    if best[1] is None:
+        print('silk: service field labels: no complete arrangement')
+    for ref, (cand, bx_) in (best[1] or {}).items():
+        t = text(fps[ref].GetValue(), cand[0], cand[1], 'B', 0.8, angle=cand[2])
+        placed['B'].append(tbox(t))
+    for ref in tps:
+        if ref in FIELD and best[1] and (ref in best[1] or (ref in shared and shared[ref][0] in best[1])):
+            continue
         f = fps[ref]
         x, y = centre(ref)
         r = 0.6 if f.GetValue() in ('GND', '3V3', 'SYS', 'BAT', 'VBUS') else 0.5
         wd = 0.6 * len(f.GetValue()) + 0.2
         side_c = [(x + r + 0.68, y), (x - (r + 0.68), y)]          # vertical, beside the pad
         flat_c = [(x, y + r + 0.7), (x, y - (r + 0.7)), (x + r + 0.45 + wd / 2, y), (x - (r + 0.45 + wd / 2), y)]
-        if ref in FIELD:                   # service field: names beside their pads, reading upwards; row 2's on
-            row2 = abs(y - (-2.9)) < 0.5   # the right, rows 1 and 3 on the left, so stacked names never touch
-            label(f.GetValue(), side_c if row2 else side_c[::-1], 'B', angle=270)
-        else:
-            label(f.GetValue(), flat_c + [(cx_, cy_, 270) for cx_, cy_ in side_c], 'B')
+        label(f.GetValue(), flat_c + [(cx_, cy_, 270) for cx_, cy_ in side_c], 'B', anchor=(x, y, r))
+
+    # ---- face side: IMU axes (ODD JOBS 156), from ST AN5192 Fig. 1: pin 1 top left, +X towards pins 8-11,
+    # +Y towards pins 12-14, +Z out of the top. U401 sits on F at 0 deg: +X = board +x, +Y = towards 12 o'clock.
+    ix, iy = centre('U401')
+    spots = [(ix + dx, iy + dy) for dx in (3.2, 3.6, 4.0, -4.6) for dy in (1.5, 1.1, 0.7, 1.9)]
+    for ox, oy in spots:
+        glyph = (ox - 0.2, oy - 1.7, ox + 1.75, oy + 0.2)
+        if all(clear(q, 'F') for q in (measure('+X', ox + 2.55, oy, 'F'), measure('+Y', ox, oy - 2.45, 'F'), glyph)):
+            break
+    else:
+        ox, oy = spots[0]
+        print('silk: IMU axes: no clear spot')
+    tx_ = text('+X', ox + 2.55, oy, 'F', 0.8)
+    ty_ = text('+Y', ox, oy - 2.45, 'F', 0.8)
+    placed['F'] += [tbox(tx_), tbox(ty_), (ox - 0.2, oy - 1.7, ox + 1.75, oy + 0.2)]
+    for (x0, y0, x1, y1) in ((ox, oy, ox + 1.5, oy), (ox, oy, ox, oy - 1.5)):      # shafts from the origin
+        line(x0, y0, x1, y1, 'F')
+    for (x0, y0, x1, y1) in ((ox + 1.5, oy, ox + 1.15, oy - 0.3), (ox + 1.5, oy, ox + 1.15, oy + 0.3),
+                             (ox, oy - 1.5, ox - 0.3, oy - 1.15), (ox, oy - 1.5, ox + 0.3, oy - 1.15)):
+        line(x0, y0, x1, y1, 'F')                                                   # arrow heads
 
     tb = b.GetTitleBlock()                 # drawings plotted from the board (assembly PDFs) carry the identity too
     tb.SetTitle('MAO_MAIN A0')
     tb.SetRevision('A0')
     tb.SetDate(DATE)
     tb.SetCompany('ODD JOBS')
-    tb.SetComment(0, 'Main board, 6 layers, 1.6 mm, ENIG, black mask')
+    tb.SetComment(0, 'Main board, 4 layers (JLC04161H-1080), 1.6 mm, ENIG, black mask')
     tb.SetComment(1, 'docs/hardware/mao-rev-a0-review.md')
     pcb.SaveBoard(str(TARGET), b)
     import project
@@ -269,11 +393,13 @@ def main():
     print('silk: %d items' % sum(len(list(g.GetItems())) for g in groups.values()))
 
 
-BRAND_CENTRE = (5.5, 13.6)       # F, under the module's right half: no parts, only a few inner-layer runs
-ANTENNA_TEXT = (-4.6, 21.5)      # F, along the notch, clear of the maker's mark column
-B_MARK = (12.1, 12.6)            # B, 4 o'clock corner outside the cell: what you see when the base is off
-PRODUCT_B = (19.4, 12.6)
-SN_BOX = (17.4, 15.95)           # label / Data Matrix area (ODD JOBS 101)
+# service field: preferred spot per pad, ('side', +1 right / -1 left) upright, ('flat', -1 above / +1 below)
+FIELD_GAP = 0.5                    # between two service-field names (as everywhere: closer reads as one word)
+FIELD_SHARED = [('TP1', 'TP16')]   # the row-2 ground pair: one GND name between them
+FIELD_SPOT = {ref: [('side', 1)] for ref in ('TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP8', 'TP9', 'TP10', 'TP11', 'TP16')}
+BRAND_CENTRE = (-6.6, 8.6)       # F, under the module's left half: the calmest free field on the face side
+ANTENNA_TEXT = (3.4, 21.5)       # F, along the notch, beside the identity column
+B_MARK = (19.4, 12.0)            # B, beside the module's right column, below the cell: seen when the base is off
 
 if __name__ == '__main__':
     if '--build' not in sys.argv:

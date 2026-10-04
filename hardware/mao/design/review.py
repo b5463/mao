@@ -48,7 +48,7 @@ def drc(refill=True, show=40):
     return d
 
 
-def to_png(svg, png, zoom=4.0):
+def to_png(svg, png, zoom=10.0):
     py = os.environ.get('PYMUPDF_PY')
     code = ('import pymupdf,sys;d=pymupdf.open(sys.argv[1]);p=d[0];'
             'p.get_pixmap(matrix=pymupdf.Matrix(%f,%f)).save(sys.argv[2])' % (zoom, zoom))
@@ -60,13 +60,16 @@ def plots(outdir):
     sets = {
         'front': 'F.Cu,F.SilkS,F.Fab,F.CrtYd,Edge.Cuts,F.Mask',
         'back': 'B.Cu,B.SilkS,B.Fab,B.CrtYd,Edge.Cuts,B.Mask',
-        'inner': 'In1.Cu,In2.Cu,In3.Cu,In4.Cu,Edge.Cuts',
+        'L1-F': 'F.Cu,Edge.Cuts',
+        'L2-In1': 'In1.Cu,Edge.Cuts',
+        'L3-In2': 'In2.Cu,Edge.Cuts',
+        'L4-B': 'B.Cu,Edge.Cuts',
         'silk-front': 'F.SilkS,F.Mask,Edge.Cuts',
         'silk-back': 'B.SilkS,B.Mask,Edge.Cuts',
     }
     for name, layers in sets.items():
         svg = os.path.join(outdir, name + '.svg')
-        extra = ['--mirror'] if name in ('back', 'silk-back') else []
+        extra = ['--mirror'] if name in ('back', 'silk-back', 'L4-B') else []
         cli('pcb', 'export', 'svg', '--layers', layers, '--mode-single', '--exclude-drawing-sheet',
             '--fit-page-to-board', *extra, '-o', svg, PCB)
         to_png(svg, svg[:-4] + '.png')

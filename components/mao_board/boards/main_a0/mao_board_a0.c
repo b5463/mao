@@ -160,6 +160,17 @@ esp_err_t mao_board_init(void)
     ESP_RETURN_ON_ERROR(gpio_config(&mic), TAG, "mic power");
     gpio_set_level(MAO_PIN_MIC_PWR, 0);
 
+    /* Display TE (tearing effect): an input; the pull-down holds it low while
+     * the panel rail is off. */
+    const gpio_config_t te = {
+        .pin_bit_mask = 1ULL << MAO_PIN_LCD_TE,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    ESP_RETURN_ON_ERROR(gpio_config(&te), TAG, "lcd te");
+
     ESP_RETURN_ON_ERROR(config_irq_inputs(), TAG, "irq inputs");
 
     s_id_mv = read_board_id_mv();

@@ -19,6 +19,7 @@ from parts import Builder
 
 c = Circuit()
 b = Builder(c)
+G = pinmap.native_by_net()       # GPIO numbers in notes come from the pin map, so they cannot drift
 
 c.sheets = [
     ('power', 'Power', 'USB-C entry, charger with power path, battery, fuel gauge, 3.3 V buck-boost, display rail'),
@@ -30,7 +31,8 @@ c.sheets = [
 c.root_notes = [
     'MAO_MAIN A0 - ODD JOBS / MAO round puck main board',
     'GPIO0 = face-press switch = BOOT strap: holding the face while plugging USB enters download mode.',
-    'GPIO45 must read 0 at reset (3.3 V flash); GPIO46 pulled down (backlight off, download-boot strap).',
+    'GPIO45 (VDD_SPI strap) must read 0 at reset for the 3.3 V flash: the backlight gate pull-down holds it low. '
+    'GPIO46 (download-boot strap) is NC with its internal pull-down.',
     'Expander TCA6408A outputs are high-Z until firmware writes them: every default is set by the resistors shown.',
     'Pin map: hardware/mao/design/pinmap.py (also generates the firmware header and docs/hardware/mao-pin-map.md).',
 ]
@@ -159,7 +161,7 @@ mod = {'GND': 'GND', '3V3': '+3V3', 'EN': 'MCU_EN'}
 names = {0: 'IO0', 43: 'TXD0', 44: 'RXD0', 19: 'USB_D-', 20: 'USB_D+'}
 for gpio, net, d, fn, note in pinmap.NATIVE:
     name = names.get(gpio, 'IO%d' % gpio)
-    mod[name] = net if net else 'IO%d_SPARE' % gpio if gpio == 35 else NC
+    mod[name] = net if net else NC
 b.part('U6', 'RF_Module:ESP32-S3-WROOM-1', 'RF_Module:ESP32-S3-WROOM-1', 'ESP32-S3-WROOM-1-N8R2', mod,
        lcsc='C2913204', mpn='ESP32-S3-WROOM-1-N8R2', mfr='Espressif', note='8 MB flash, 2 MB quad PSRAM, -40..85 C')
 b.C('C11', '22u', '+3V3', pkg='0603', note='module bulk (Espressif HDG)')
@@ -182,7 +184,7 @@ for bit, net, d, fn, pull in pinmap.EXPANDER:
 b.part('U7', 'Interface_Expansion:TCA6408ARGT', 'Package_DFN_QFN:VQFN-16-1EP_3x3mm_P0.5mm_EP1.45x1.45mm_ThermalVias',
        'TCA6408ARGTR', exp, lcsc='C181499', mpn='TCA6408ARGTR', mfr='TI', note='8-bit I2C GPIO expander')
 b.C('C14', '100n', '+3V3', note='expander')
-b.R('R22', '10k', '+3V3', 'EXP_RST_N', note='expander reset released; GPIO37 can pull it low (recovery)')
+b.R('R22', '10k', '+3V3', 'EXP_RST_N', note='expander reset released; GPIO%d can pull it low (recovery)' % G['EXP_RST_N'])
 b.R('R23', '100k', '+3V3', 'EXP_INT_N', note='INT pull-up')
 b.R('R24', '100k', 'LCD_RST_N', 'GND', note='P0 default: panel held in reset')
 # R17 (LCD_PWR_EN) sits with the load switch
@@ -207,7 +209,7 @@ for ref, net, label in [('TP1', 'GND', 'GND'), ('TP2', 'GND', 'GND'), ('TP3', '+
                         ('TP4', 'VSYS', 'SYS'), ('TP5', 'VBAT', 'BAT'), ('TP6', 'VBUS', 'VBUS'),
                         ('TP7', 'MCU_EN', 'RST'), ('TP8', 'PRESS_N', 'BOOT'), ('TP9', 'I2C_SDA', 'SDA'),
                         ('TP10', 'I2C_SCL', 'SCL'), ('TP11', 'EXP_RST_N', 'XRST'),
-                        ('TP12', 'IO35_SPARE', 'IO35'), ('TP13', '3V3_LCD', 'LCD'), ('TP14', 'MIC_VDD', 'MIC'),
+                        ('TP13', '3V3_LCD', 'LCD'), ('TP14', 'MIC_VDD', 'MIC'),
                         ('TP15', 'IR_RX_VCC', 'IRV'), ('TP16', 'GND', 'GND')]:
     # switched rails (TP13-15): the fixture proves each one really switches (firmware reads back only
     # the enables); signal pads 1.0 mm, rails and supplies 1.2 mm (ODD JOBS 37: 1-1.5 mm; 1.2 leaves each
@@ -251,13 +253,17 @@ c.custom_symbols['MAO:MAX98357A'] = kicadlib.derive_symbol(
     'Audio:MAX98357A', 'MAO:MAX98357A', value='MAX98357A',
     pin_types={'17': 'passive'})   # exposed pad: not internally connected, soldered to GND
 
-c.custom_symbols['MAO:LH128R_FPC'] = kicadlib.make_ic_symbol('MAO:LH128R_FPC', 'J', [
-    # Limito LH128R-IG01 drawing 20190710: FPC pin definitions
-    pin(1, 'GND', 'passive', R), pin(2, 'LEDK', 'passive', R), pin(3, 'LEDA', 'passive', R),
-    pin(4, 'VDD', 'passive', R), pin(5, 'GND', 'passive', R), pin(6, 'GND', 'passive', R),
-    pin(7, 'D/C', 'passive', R), pin(8, 'CS', 'passive', R), pin(9, 'SCL', 'passive', R),
-    pin(10, 'SDA', 'passive', R), pin(11, '~{RESET}', 'passive', R), pin(12, 'GND', 'passive', R),
-], 'LH128R-IG01 round GC9A01 panel, 12-pin 0.7 mm solder FPC')
+c.custom_symbols['MAO:ROUND_LCD_FPC18'] = kicadlib.make_ic_symbol('MAO:ROUND_LCD_FPC18', 'J', [
+    # 18-pin round-panel standard (Winstar WF0128BTYAA4DNN0 / -DNF10 pin definition): 1-6 the touch
+    # controller of touch variants (NC on plain panels), 7-18 the GC9A01 panel
+    pin(1, 'TP_INT', 'passive', L), pin(2, 'TP_SDA', 'passive', L), pin(3, 'TP_SCL', 'passive', L),
+    pin(4, 'TP_RST', 'passive', L), pin(5, 'TP_GND', 'passive', L), pin(6, 'TP_VDD', 'passive', L),
+    pin(7, 'VLED+', 'passive', R), pin(8, 'VLED-', 'passive', R), pin(9, 'GND', 'passive', R),
+    pin(10, 'CS', 'passive', R), pin(11, 'SCL', 'passive', R), pin(12, 'SDA', 'passive', R),
+    pin(13, 'RS', 'passive', R), pin(14, 'TE', 'passive', R), pin(15, '~{RESET}', 'passive', R),
+    pin(16, 'VCI', 'passive', R), pin(17, 'NC', 'passive', R), pin(18, 'GND', 'passive', R),
+    pin('MP', 'MP', 'passive', B_),
+], 'FPC connector for 1.28" round GC9A01 panels with the 18-pin 0.5 mm tail')
 
 c.custom_symbols['MAO:Electrode'] = kicadlib.make_ic_symbol('MAO:Electrode', 'E', [
     pin(1, 'E', 'passive', L),
@@ -274,29 +280,34 @@ SPRING_FP = 'MAO:BAT_BW0019BG_SpringContact_3.5x1.5mm'
 # INTERFACE
 # --------------------------------------------------------------------------------------------
 b.at('interface', 'DISPLAY',
-     'Limito LH128R-IG01 1.28" GC9A01 (same panel as the LCDkit). 12-pin 0.7 mm FPC folded under the panel '
-     'and soldered to the land (fingers down). 22R on SCLK/MOSI damps 80 MHz edges (ODD JOBS 29). '
-     'Panel, backlight and FPC land all on the switched 3V3_LCD rail; RST held low until firmware.')
-b.part('J301', 'MAO:LH128R_FPC', 'MAO:Limito_LH128R_FPC_12P_P0.7mm_SolderLand', 'LCD',
-       {'1': 'GND', '2': 'LCD_BL_K', '3': '3V3_LCD', '4': '3V3_LCD', '5': 'GND', '6': 'GND', '7': 'LCD_DC',
-        '8': 'LCD_CS', '9': 'LCD_SCLK_P', '10': 'LCD_MOSI_P', '11': 'LCD_RST_N', '12': 'GND'},
-       mpn='PCB feature: LH128R-IG01 FPC land', note='panel pin order per Limito drawing 20190710: '
-       '1 GND, 2 LEDK, 3 LEDA, 4 VDD, 5 GND, 6 GND, 7 D/C, 8 CS, 9 SCL, 10 SDA, 11 RESET, 12 GND',
-       **{'Exclude from BOM': 'yes'})
+     'Plug-in display: 1.28" round GC9A01 panel (Winstar WF0128BTYAA4DNN0, 240x240 IPS) on an 18-pin 0.5 mm '
+     'FPC tail, folded under the panel into a 1.0 mm high back-flip connector with top and bottom contacts, '
+     'so any panel of this 18-pin standard plugs in either way up and can be swapped without solder. '
+     'Pins 1-6 serve the touch controller of touch variants: not wired (MAO\'s face is a pressed window), '
+     'TP_GND to GND. TE to GPIO%d for tear-free frames. 22R on SCLK/MOSI damps 80 MHz edges (ODD JOBS 29). ' % G['LCD_TE'] +
+     'Panel and backlight on the switched 3V3_LCD rail; RST held low until firmware.')
+b.part('J301', 'MAO:ROUND_LCD_FPC18', 'MAO:HDGC_0.5K-HX-18PWB_1x18-1MP_P0.5mm_Horizontal', 'LCD',
+       {'1': NC, '2': NC, '3': NC, '4': NC, '5': 'GND', '6': NC, '7': '3V3_LCD', '8': 'LCD_BL_K', '9': 'GND',
+        '10': 'LCD_CS', '11': 'LCD_SCLK_P', '12': 'LCD_MOSI_P', '13': 'LCD_DC', '14': 'LCD_TE',
+        '15': 'LCD_RST_N', '16': '3V3_LCD', '17': NC, '18': 'GND', 'MP': 'GND'},
+       lcsc='C2919497', mpn='0.5K-HX-18PWB', mfr='HDGC',
+       note='0.5 mm 18P FPC connector, 1.0 mm high, back flip, top and bottom contacts; panel pinout: '
+       '1 TP_INT, 2 TP_SDA, 3 TP_SCL, 4 TP_RST, 5 TP_GND, 6 TP_VDD, 7 VLED+, 8 VLED-, 9 GND, 10 CS, 11 SCL, '
+       '12 SDA, 13 RS, 14 TE, 15 RESET, 16 VCI, 17 NC, 18 GND')
 b.R('R301', '22R', 'LCD_SCLK', 'LCD_SCLK_P', note='series damping, at the module')
 b.R('R302', '22R', 'LCD_MOSI', 'LCD_MOSI_P', note='series damping, at the module')
 b.C('C301', '100n', '3V3_LCD', note='panel VDD, at the land')
 b.C('C302', '4.7u', '3V3_LCD', pkg='0603', note='panel + backlight bulk (ODD JOBS 15)')
 
 b.at('interface', 'BACKLIGHT',
-     'Two parallel white LEDs, Vf 2.9-3.1 V at 40 mA (panel spec). Low-side AO3400A, PWM on GPIO46. 10R from '
-     '3V3_LCD sets ~20-40 mA like the LCDkit. Gate pull-down: dark until firmware (ODD JOBS 116).')
+     'Two parallel white LEDs, VLED 2.8-3.2 V (3.0 typ) at 40 mA (panel spec). Low-side AO3400A, PWM on GPIO%d. ' % G['LCD_BL_PWM'] +
+     '10R from 3V3_LCD sets ~30 mA. Gate pull-down: dark until firmware (ODD JOBS 116).')
 b.R('R303', '10R', 'LCD_BL_K', 'LCD_BL_D', pkg='0603', note='LED current: (3.3 - Vf) / 10R')
 b.part('Q301', 'Transistor_FET:AO3400A', 'Package_TO_SOT_SMD:SOT-23', 'AO3400A',
        {'1': 'LCD_BL_G', '2': 'GND', '3': 'LCD_BL_D'}, lcsc='C20917', mpn='AO3400A', mfr='AOS',
        note='backlight switch')
 b.R('R304', '100R', 'LCD_BL_PWM', 'LCD_BL_G', note='gate resistor')
-b.R('R305', '100k', 'LCD_BL_G', 'GND', note='backlight off by default; also holds strap GPIO46 low')
+b.R('R305', '100k', 'LCD_BL_G', 'GND', note='backlight off by default; also holds the VDD_SPI strap GPIO%d low' % G['LCD_BL_PWM'])
 
 b.at('interface', 'RING DIAL',
      'Two DRV5012 Hall latches under the 30-pole magnet ring, 6 deg apart (half a pole = 90 deg electrical): '
@@ -365,7 +376,7 @@ b.part('U403', 'MAO:OPT3004', 'MAO:TI_DNP0006A_USON-6_2x2mm_P0.65mm_EP0.65x1.35m
 b.C('C405', '100n', '+3V3', note='ALS VDD')
 
 b.at('sense', 'MICROPHONE',
-     'SPH0641 bottom-port PDM mic on B.Cu, port through the board (0.5 mm hole) to the top. Powered from GPIO13 '
+     'SPH0641 bottom-port PDM mic on B.Cu, port through the board (0.5 mm hole) to the top. Powered from GPIO%d ' % G['MIC_PWR'] +
      'through 100R/1 uF only while listening: it draws 80 uA even with the clock stopped. SEL low.')
 b.part('MK401', 'Sensor_Audio:SPH0641LU4H-1', 'Sensor_Audio:Knowles_LGA-5_3.5x2.65mm', 'SPH0641LU4H-1',
        {'1': 'MIC_DATA', '2': 'GND', '3': 'GND', '4': 'MIC_CLK', '5': 'MIC_VDD'},
@@ -423,7 +434,7 @@ b.C('C506', '10u', 'VSYS', pkg='0603', note='IR pulse reservoir')
 b.at('feedback', 'IR RECEIVE',
      'IRM-H638T (as LCDkit), top-view, looking up through the window border. Powered from expander P5 through '
      '100R/4.7 uF only when listening (0.4 mA). OUT pull-up goes to the switched supply, never to +3V3, '
-     'so an unpowered receiver is never back-powered and GPIO36 reads a defined low while it is off.')
+     'so an unpowered receiver is never back-powered and GPIO%d reads a defined low while it is off.' % G['IR_RX'])
 b.part('U503', 'Interface_Optical:IRM-H6xxT', 'OptoDevice:Everlight_IRM-H6xxT', 'IRM-H638T/TR2',
        {'1': 'GND', '2': 'GND', '3': 'IR_RX', '4': 'IR_RX_VCC'}, lcsc='C91447', mpn='IRM-H638T/TR2',
        mfr='Everlight', note='38 kHz IR receiver')

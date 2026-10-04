@@ -350,177 +350,6 @@
 		)
 		(embedded_fonts no)
 	)
-	(symbol "LH128R_FPC"
-		(pin_names (offset 0.762))
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(property "Reference" "J"
-			(at -7.62 19.05 0)
-			(effects
-				(font (size 1.27 1.27))
-				(justify left bottom)
-			)
-		)
-		(property "Value" "LH128R_FPC"
-			(at -7.62 -16.51 0)
-			(effects
-				(font (size 1.27 1.27))
-				(justify left top)
-			)
-		)
-		(property "Footprint" ""
-			(at 0 0 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 0 0 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(property "Description" "LH128R-IG01 round GC9A01 panel, 12-pin 0.7 mm solder FPC"
-			(at 0 0 0)
-			(effects
-				(font (size 1.27 1.27))
-				(hide yes)
-			)
-		)
-		(symbol "LH128R_FPC_0_1"
-			(rectangle
-				(start -7.62 17.78)
-				(end 7.62 -15.24)
-				(stroke (width 0.254) (type default))
-				(fill (type background))
-			)
-		)
-		(symbol "LH128R_FPC_1_1"
-			(pin passive line
-				(at 10.16 15.24 180)
-				(length 2.54)
-				(name "GND" (effects
-	(font (size 1.27 1.27))
-))
-				(number "1" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 12.7 180)
-				(length 2.54)
-				(name "LEDK" (effects
-	(font (size 1.27 1.27))
-))
-				(number "2" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 10.16 180)
-				(length 2.54)
-				(name "LEDA" (effects
-	(font (size 1.27 1.27))
-))
-				(number "3" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 7.62 180)
-				(length 2.54)
-				(name "VDD" (effects
-	(font (size 1.27 1.27))
-))
-				(number "4" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 5.08 180)
-				(length 2.54)
-				(name "GND" (effects
-	(font (size 1.27 1.27))
-))
-				(number "5" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 2.54 180)
-				(length 2.54)
-				(name "GND" (effects
-	(font (size 1.27 1.27))
-))
-				(number "6" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 0 180)
-				(length 2.54)
-				(name "D/C" (effects
-	(font (size 1.27 1.27))
-))
-				(number "7" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 -2.54 180)
-				(length 2.54)
-				(name "CS" (effects
-	(font (size 1.27 1.27))
-))
-				(number "8" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 -5.08 180)
-				(length 2.54)
-				(name "SCL" (effects
-	(font (size 1.27 1.27))
-))
-				(number "9" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 -7.62 180)
-				(length 2.54)
-				(name "SDA" (effects
-	(font (size 1.27 1.27))
-))
-				(number "10" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 -10.16 180)
-				(length 2.54)
-				(name "~{RESET}" (effects
-	(font (size 1.27 1.27))
-))
-				(number "11" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 10.16 -12.7 180)
-				(length 2.54)
-				(name "GND" (effects
-	(font (size 1.27 1.27))
-))
-				(number "12" (effects
-	(font (size 1.27 1.27))
-))
-			)
-		)
-	)
 	(symbol "LSM6DSOX"
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1348,6 +1177,247 @@
 	(font (size 1.27 1.27))
 ))
 				(number "7" (effects
+	(font (size 1.27 1.27))
+))
+			)
+		)
+	)
+	(symbol "ROUND_LCD_FPC18"
+		(pin_names (offset 0.762))
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(property "Reference" "J"
+			(at -10.16 21.59 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Value" "ROUND_LCD_FPC18"
+			(at -10.16 -19.05 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+			)
+		)
+		(property "Footprint" ""
+			(at 0 0 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "Description" "FPC connector for 1.28\" round GC9A01 panels with the 18-pin 0.5 mm tail"
+			(at 0 0 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(symbol "ROUND_LCD_FPC18_0_1"
+			(rectangle
+				(start -10.16 20.32)
+				(end 10.16 -17.78)
+				(stroke (width 0.254) (type default))
+				(fill (type background))
+			)
+		)
+		(symbol "ROUND_LCD_FPC18_1_1"
+			(pin passive line
+				(at -12.7 17.78 0)
+				(length 2.54)
+				(name "TP_INT" (effects
+	(font (size 1.27 1.27))
+))
+				(number "1" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at -12.7 15.24 0)
+				(length 2.54)
+				(name "TP_SDA" (effects
+	(font (size 1.27 1.27))
+))
+				(number "2" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at -12.7 12.7 0)
+				(length 2.54)
+				(name "TP_SCL" (effects
+	(font (size 1.27 1.27))
+))
+				(number "3" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at -12.7 10.16 0)
+				(length 2.54)
+				(name "TP_RST" (effects
+	(font (size 1.27 1.27))
+))
+				(number "4" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at -12.7 7.62 0)
+				(length 2.54)
+				(name "TP_GND" (effects
+	(font (size 1.27 1.27))
+))
+				(number "5" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at -12.7 5.08 0)
+				(length 2.54)
+				(name "TP_VDD" (effects
+	(font (size 1.27 1.27))
+))
+				(number "6" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 17.78 180)
+				(length 2.54)
+				(name "VLED+" (effects
+	(font (size 1.27 1.27))
+))
+				(number "7" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 15.24 180)
+				(length 2.54)
+				(name "VLED-" (effects
+	(font (size 1.27 1.27))
+))
+				(number "8" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 12.7 180)
+				(length 2.54)
+				(name "GND" (effects
+	(font (size 1.27 1.27))
+))
+				(number "9" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 10.16 180)
+				(length 2.54)
+				(name "CS" (effects
+	(font (size 1.27 1.27))
+))
+				(number "10" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 7.62 180)
+				(length 2.54)
+				(name "SCL" (effects
+	(font (size 1.27 1.27))
+))
+				(number "11" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 5.08 180)
+				(length 2.54)
+				(name "SDA" (effects
+	(font (size 1.27 1.27))
+))
+				(number "12" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 2.54 180)
+				(length 2.54)
+				(name "RS" (effects
+	(font (size 1.27 1.27))
+))
+				(number "13" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 0 180)
+				(length 2.54)
+				(name "TE" (effects
+	(font (size 1.27 1.27))
+))
+				(number "14" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 -2.54 180)
+				(length 2.54)
+				(name "~{RESET}" (effects
+	(font (size 1.27 1.27))
+))
+				(number "15" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 -5.08 180)
+				(length 2.54)
+				(name "VCI" (effects
+	(font (size 1.27 1.27))
+))
+				(number "16" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 -7.62 180)
+				(length 2.54)
+				(name "NC" (effects
+	(font (size 1.27 1.27))
+))
+				(number "17" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 -10.16 180)
+				(length 2.54)
+				(name "GND" (effects
+	(font (size 1.27 1.27))
+))
+				(number "18" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 0 -20.32 90)
+				(length 2.54)
+				(name "MP" (effects
+	(font (size 1.27 1.27))
+))
+				(number "MP" (effects
 	(font (size 1.27 1.27))
 ))
 			)

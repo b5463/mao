@@ -27,7 +27,7 @@
 #define A0_EXP_REG_CONFIG           0x03   /* 1 = input */
 #define A0_EXP_INPUT_MASK           ((1u << MAO_EXP_CHG_N) | (1u << MAO_EXP_SENSE_ALRT_N))
 
-/* --- Display: Limito LH128R-IG01 (GC9A01), same panel as the LCDkit ------- */
+/* --- Display: 1.28" round GC9A01 panel in the J301 18-pin FPC connector ---- */
 #define A0_LCD_H_RES                240
 #define A0_LCD_V_RES                240
 #define A0_LCD_PCLK_HZ              (80 * 1000 * 1000)
@@ -35,15 +35,18 @@
 #define A0_LCD_RESET_LOW_MS         10
 #define A0_LCD_RESET_WAIT_MS        120    /* reset released -> first command */
 /* Colour handling and the panel-native orientation are properties of the
- * LH128R glass + GC9A01, identical to the LCDkit (same panel). VERIFY AT
- * BRING-UP: colour order / inversion. */
+ * glass + GC9A01; these are the LCDkit's values for the same 1.28" IPS round
+ * glass. The plug-in panel's tail leaves at 9 o'clock (as the LCDkit's did at
+ * its own carrier), and any panel of the 18-pin standard may be fitted.
+ * VERIFY AT BRING-UP: colour order / inversion and the mirror flags against the
+ * fitted panel's datasheet. */
 #define A0_LCD_INVERT_COLOR         true
 #define A0_LCD_BGR                  true
 #define A0_LCD_PANEL_MIRROR_X       true
 #define A0_LCD_PANEL_MIRROR_Y       false
 #define A0_LCD_PANEL_SWAP_XY        false
 #define A0_LCD_SWAP_BYTES           true
-/* How the panel is turned in the puck (FPC land at 9 o'clock): Kconfig
+/* How the panel is turned in the puck (tail at 9 o'clock): Kconfig
  * MAO_A0_LCD_ROTATION, default 90. VERIFY AT BRING-UP (try 270 live with
  * "mao rotate"). Applied by mao_display as an LVGL / MADCTL rotation. */
 #define A0_LCD_ROTATION_DEG         CONFIG_MAO_A0_LCD_ROTATION_DEG
@@ -73,7 +76,7 @@
 /* VERIFY AT BRING-UP: receiver supply goes through an RC filter; ~1 ms. */
 #define A0_IR_RX_SETTLE_MS          1
 
-/* --- Board ID divider (ADC1 on GPIO3) ------------------------------------- */
+/* --- Board ID divider (ADC1 on GPIO8) ------------------------------------- */
 #define A0_ID_A0_MIN_MV             1400
 #define A0_ID_A0_MAX_MV             1900
 #define A0_ID_SAMPLES               8

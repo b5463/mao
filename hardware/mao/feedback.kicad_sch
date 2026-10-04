@@ -4603,14 +4603,14 @@
 		)
 		(uuid "4a1303b7-6738-5a19-b5be-259b5078c32c")
 	)
-	(text "GPIO36 reads a defined low while it is off."
+	(text "GPIO40 reads a defined low while it is off."
 		(exclude_from_sim no)
 		(at 165.1 138.43 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "322de96a-232e-51b9-9b3b-95b96f4dc188")
+		(uuid "3bd82f86-56ce-58ce-a7d2-8568a04d026b")
 	)
 	(symbol
 		(lib_id "Interface_Optical:IRM-H6xxT")

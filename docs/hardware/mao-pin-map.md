@@ -11,19 +11,19 @@ channel, ADC1 = ADC usable with Wi-Fi on.
 |---:|---|---|---|---|---|
 | 0 | `PRESS_N` | in | face-press switch (to GND), BOOT strap | strap, RTC | S R; 10k pull-up; hold at reset = download mode, like the LCDkit knob |
 | 1 | `TOUCH_RIGHT` | analog | touch T1, right rim electrode | RTC, touch, ADC1 | T R; 510R series at the module |
-| 2 | `IMU_INT1` | in | IMU INT1: wake-on-motion, tap | RTC, touch, ADC1 | R; deep-sleep wake (ext1, active low) |
-| 3 | `BOARD_ID` | analog | board revision divider (ADC1_CH2): A0 = 1M/1M + 100 nF = 1.65 V | strap, RTC, touch, ADC1 | S: JTAG-source strap, inert unless EFUSE_STRAP_JTAG_SEL is burnt (never on MAO); read once at boot |
-| 4 | `TOUCH_LEFT` | analog | touch T4, left rim electrode | RTC, touch, ADC1 | T R; 510R series |
+| 2 | `HALL_FAST` | out | Hall sensors: high = fast sampling, low = low-power | RTC, touch, ADC1 | R (held in deep sleep); 100k pull-down; right column beside the Hall pair |
+| 3 | `USB_PRESENT_N` | in | charger PGOOD (open-drain), low = USB power valid | strap, RTC, touch, ADC1 | R; 100k pull-up; deep-sleep wake. S: JTAG-source strap, inert unless EFUSE_STRAP_JTAG_SEL is burnt (never on MAO). Top-row corner pin: drops through a via between the pad rows to L3 |
+| 4 | `TOUCH_LEFT` | analog | touch T4, left rim electrode | RTC, touch, ADC1 | T R; 510R series; the three touch pins (4-6) leave in the order of their electrodes: left rim (outermost lead), top spring, rear spring |
 | 5 | `TOUCH_TOP` | analog | touch T5, window-border electrode (spring) | RTC, touch, ADC1 | T R; 510R series |
-| 6 | `TOUCH_REAR` | analog | touch T6, base electrode (spring) | RTC, touch, ADC1 | T R; 510R series |
+| 6 | `TOUCH_REAR` | analog | touch T6, base electrode (spring at 10 o'clock) | RTC, touch, ADC1 | T R; 510R series |
 | 7 | `I2C_SDA` | io | I2C data (all sensors, expander, gauge, haptic) | RTC, touch, ADC1 | R; 2.2k pull-up to +3V3; left-column pin below the I2S group: the bus reaches the haptic driver under the I2S lanes |
-| 8 | `USB_PRESENT_N` | in | charger PGOOD (open-drain), low = USB power valid | RTC, touch, ADC1 | R; 100k pull-up; deep-sleep wake |
-| 9 | `LCD_DC` | out | display data/command | RTC, touch, ADC1 |  |
-| 10 | `LCD_CS` | out | display chip select (FSPICS0 IO_MUX) | RTC, touch, ADC1 |  |
-| 11 | `LCD_MOSI` | out | display data (FSPID IO_MUX) | RTC, touch | 22R series option (ODD JOBS 29) |
-| 12 | `LCD_SCLK` | out | display clock (FSPICLK IO_MUX) | RTC, touch | 22R series option (ODD JOBS 29) |
-| 13 | `MIC_PWR` | out | microphone supply (GPIO-powered through 100R/1uF) | RTC, touch | R; 100k pull-down: mic off at reset. SPH0641 draws 80 uA even with the clock stopped, so it is powered only while listening |
-| 14 | `HALL_FAST` | out | Hall sensors: high = fast sampling, low = low-power | RTC, touch | R (held in deep sleep); 100k pull-down |
+| 8 | `BOARD_ID` | analog | board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.65 V | RTC, touch, ADC1 | read once at boot; the static line runs on L3 to its divider |
+| 9 | `LCD_TE` | in | display tearing-effect output: frame sync for tear-free animation | RTC, touch, ADC1 | R; the display group (pins 17-21: TE, DC, MOSI, SCLK, CS) is in the connector's own pin order: no crossing |
+| 10 | `LCD_DC` | out | display data/command | RTC, touch, ADC1 | R |
+| 11 | `LCD_MOSI` | out | display data (FSPID IO_MUX) | RTC, touch | R; 22R series (ODD JOBS 29) |
+| 12 | `LCD_SCLK` | out | display clock (FSPICLK IO_MUX) | RTC, touch | R; 22R series (ODD JOBS 29) |
+| 13 | `LCD_CS` | out | display chip select (GPIO matrix; SCLK/MOSI stay on IO_MUX) | RTC, touch | R |
+| 14 | `IMU_INT1` | in | IMU INT1: wake-on-motion, tap | RTC, touch | R; deep-sleep wake (ext1, active low); top row beside the IMU |
 | 15 | `I2C_SCL` | out | I2C clock | RTC | R; 2.2k pull-up to +3V3 |
 | 16 | `AMP_DIN` | out | I2S1 data (left column, with BCLK/LRCLK on the next two pins) | RTC | R |
 | 17 | `AMP_BCLK` | out | I2S1 bit clock to the amplifier | RTC | R |
@@ -31,22 +31,22 @@ channel, ADC1 = ADC usable with Wi-Fi on.
 | 19 | `USB_DN` | io | USB D- | RTC | native USB-Serial/JTAG |
 | 20 | `USB_DP` | io | USB D+ | RTC | native USB-Serial/JTAG |
 | 21 | `EXP_INT_N` | in | expander interrupt (charger status, gauge/light alerts) | RTC | R; 100k pull-up; deep-sleep wake |
-| 35 | — | nc | spare |  | to test pad TP12 (fixture handshake); nothing on the board drives it |
-| 36 | `MIC_CLK` | out | I2S0 PDM clock to the microphone |  | right column above the expander reset: runs over the microphone into its far pad 4 |
-| 37 | `EXP_RST_N` | out | expander RESET: pulse low to recover a wedged TCA6408A without a power cycle |  | R; 10k pull-up: released from power-on; drive open-drain |
-| 38 | `MIC_DATA` | in | I2S0 PDM data from the microphone |  | straight into MK401 pad 1 from below |
+| 35 | `MIC_PWR` | out | microphone supply (GPIO-powered through 100R/1uF) |  | 100k pull-down: mic off at reset and in deep sleep (pad high-Z). SPH0641 draws 80 uA even with the clock stopped, so it is powered only while listening. Right column: the mic group (pins 28-30) leaves together towards MK401 |
+| 36 | `MIC_DATA` | in | I2S0 PDM data from the microphone |  | mic group |
+| 37 | `MIC_CLK` | out | I2S0 PDM clock to the microphone |  | mic group |
+| 38 | `EXP_RST_N` | out | expander RESET: pulse low to recover a wedged TCA6408A without a power cycle |  | 10k pull-up: released from power-on; drive open-drain |
 | 39 | `IR_TX` | out | IR LED driver gate (RMT carrier) |  | 100k pull-down: LED off at reset (ODD JOBS 117) |
 | 40 | `IR_RX` | in | IR receiver output (RMT) |  | 10k pull-up R506 to the receiver supply |
 | 41 | `HALL_A` | in | ring dial channel A |  | push-pull from the Hall latch |
 | 42 | `HALL_B` | in | ring dial channel B |  |  |
 | 43 | `UART_TX` | out | UART0 TX (service) |  | service pad |
 | 44 | `UART_RX` | in | UART0 RX (service) |  | service pad |
-| 45 | — | nc | spare | strap | S (VDD_SPI strap, must read 0): left NC with its internal pull-down |
-| 46 | `LCD_BL_PWM` | out | backlight PWM (LEDC) | strap | S (must read 0 for download boot): 100k pull-down keeps the backlight off |
+| 45 | `LCD_BL_PWM` | out | backlight PWM (LEDC) | strap | S (VDD_SPI strap, must read 0 at reset): the 100k gate pull-down R305 (through 100R) holds it low, which also keeps the backlight off. Top-row end pin: the line leaves on L3 clear of the display bus |
+| 46 | — | nc | spare | strap | S (must read 0 for download boot): left NC with its internal pull-down; boxed in by the display bus, so not used |
 | 47 | `IMU_INT2` | in | IMU INT2: orientation, free-fall |  |  |
 | 48 | `TOF_INT_N` | in | proximity GPIO1: threshold interrupt |  | 10k pull-up (ST application circuit) |
 
-34 of 36 module signal pins used; spare: GPIO 35, 45.
+35 of 36 module signal pins used; spare: GPIO 46.
 
 ## TCA6408A expander (I2C 0x20)
 
@@ -71,7 +71,7 @@ so the external resistors below are the hardware defaults (ODD JOBS 116/117).
 | 0x20 | TCA6408A expander (ADDR low) |
 | 0x29 | VL53L4CD proximity (default) |
 | 0x36 | MAX17048 fuel gauge |
-| 0x44 | OPT3001 ambient light (ADDR to GND) |
+| 0x44 | OPT3004 ambient light (ADDR to GND) |
 | 0x5A | DRV2605L haptic driver |
 | 0x6A | IMU (SA0 low) |
 

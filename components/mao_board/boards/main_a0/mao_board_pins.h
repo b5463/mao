@@ -7,32 +7,33 @@
 /* ESP32-S3 GPIOs */
 #define MAO_PIN_PRESS_N             0   /* face-press switch (to GND), BOOT strap */
 #define MAO_PIN_TOUCH_RIGHT         1   /* touch T1, right rim electrode */
-#define MAO_PIN_IMU_INT1            2   /* IMU INT1: wake-on-motion, tap */
-#define MAO_PIN_BOARD_ID            3   /* board revision divider (ADC1_CH2): A0 = 1M/1M + 100 nF = 1.65 V */
+#define MAO_PIN_HALL_FAST           2   /* Hall sensors: high = fast sampling, low = low-power */
+#define MAO_PIN_USB_PRESENT_N       3   /* charger PGOOD (open-drain), low = USB power valid */
 #define MAO_PIN_TOUCH_LEFT          4   /* touch T4, left rim electrode */
 #define MAO_PIN_TOUCH_TOP           5   /* touch T5, window-border electrode (spring) */
-#define MAO_PIN_TOUCH_REAR          6   /* touch T6, base electrode (spring) */
+#define MAO_PIN_TOUCH_REAR          6   /* touch T6, base electrode (spring at 10 o'clock) */
 #define MAO_PIN_I2C_SDA             7   /* I2C data (all sensors, expander, gauge, haptic) */
-#define MAO_PIN_USB_PRESENT_N       8   /* charger PGOOD (open-drain), low = USB power valid */
-#define MAO_PIN_LCD_DC              9   /* display data/command */
-#define MAO_PIN_LCD_CS             10   /* display chip select (FSPICS0 IO_MUX) */
+#define MAO_PIN_BOARD_ID            8   /* board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.65 V */
+#define MAO_PIN_LCD_TE              9   /* display tearing-effect output: frame sync for tear-free animation */
+#define MAO_PIN_LCD_DC             10   /* display data/command */
 #define MAO_PIN_LCD_MOSI           11   /* display data (FSPID IO_MUX) */
 #define MAO_PIN_LCD_SCLK           12   /* display clock (FSPICLK IO_MUX) */
-#define MAO_PIN_MIC_PWR            13   /* microphone supply (GPIO-powered through 100R/1uF) */
-#define MAO_PIN_HALL_FAST          14   /* Hall sensors: high = fast sampling, low = low-power */
+#define MAO_PIN_LCD_CS             13   /* display chip select (GPIO matrix; SCLK/MOSI stay on IO_MUX) */
+#define MAO_PIN_IMU_INT1           14   /* IMU INT1: wake-on-motion, tap */
 #define MAO_PIN_I2C_SCL            15   /* I2C clock */
 #define MAO_PIN_AMP_DIN            16   /* I2S1 data (left column, with BCLK/LRCLK on the next two pins) */
 #define MAO_PIN_AMP_BCLK           17   /* I2S1 bit clock to the amplifier */
 #define MAO_PIN_AMP_LRCLK          18   /* I2S1 word select */
 #define MAO_PIN_EXP_INT_N          21   /* expander interrupt (charger status, gauge/light alerts) */
-#define MAO_PIN_MIC_CLK            36   /* I2S0 PDM clock to the microphone */
-#define MAO_PIN_EXP_RST_N          37   /* expander RESET: pulse low to recover a wedged TCA6408A without a power cycle */
-#define MAO_PIN_MIC_DATA           38   /* I2S0 PDM data from the microphone */
+#define MAO_PIN_MIC_PWR            35   /* microphone supply (GPIO-powered through 100R/1uF) */
+#define MAO_PIN_MIC_DATA           36   /* I2S0 PDM data from the microphone */
+#define MAO_PIN_MIC_CLK            37   /* I2S0 PDM clock to the microphone */
+#define MAO_PIN_EXP_RST_N          38   /* expander RESET: pulse low to recover a wedged TCA6408A without a power cycle */
 #define MAO_PIN_IR_TX              39   /* IR LED driver gate (RMT carrier) */
 #define MAO_PIN_IR_RX              40   /* IR receiver output (RMT) */
 #define MAO_PIN_HALL_A             41   /* ring dial channel A */
 #define MAO_PIN_HALL_B             42   /* ring dial channel B */
-#define MAO_PIN_LCD_BL_PWM         46   /* backlight PWM (LEDC) */
+#define MAO_PIN_LCD_BL_PWM         45   /* backlight PWM (LEDC) */
 #define MAO_PIN_IMU_INT2           47   /* IMU INT2: orientation, free-fall */
 #define MAO_PIN_TOF_INT_N          48   /* proximity GPIO1: threshold interrupt */
 
@@ -50,6 +51,6 @@
 #define MAO_I2C_ADDR_EXPANDER     0x20 /* TCA6408A expander (ADDR low) */
 #define MAO_I2C_ADDR_TOF          0x29 /* VL53L4CD proximity (default) */
 #define MAO_I2C_ADDR_FUEL_GAUGE   0x36 /* MAX17048 fuel gauge */
-#define MAO_I2C_ADDR_ALS          0x44 /* OPT3001 ambient light (ADDR to GND) */
+#define MAO_I2C_ADDR_ALS          0x44 /* OPT3004 ambient light (ADDR to GND) */
 #define MAO_I2C_ADDR_HAPTIC       0x5A /* DRV2605L haptic driver */
 #define MAO_I2C_ADDR_IMU          0x6A /* IMU (SA0 low) */

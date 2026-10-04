@@ -19,7 +19,13 @@ PCB_THICK = 1.6
 
 # Display: 1.28" round GC9A01 panel, centred on the axis, image "up" towards 12 o'clock.
 DISPLAY_ACTIVE_D = 32.4
-DISPLAY_STANDOFF = 2.2      # panel rear to PCB top surface (foam + carrier)
+DISPLAY_STANDOFF = 2.7      # panel rear to PCB top surface (foam + carrier)
+DISPLAY_STACK_H = 2.0      # panel (1.56) on its carrier face
+WINDOW_AIR = 0.2           # panel glass to window underside
+WINDOW_Z = DISPLAY_STANDOFF + DISPLAY_STACK_H + WINDOW_AIR   # window underside above F.Cu: 4.9
+PRESS_TRAVEL = 0.25        # the face assembly moves down this far when pressed
+# The tallest part under the window border is the IR receiver (IRM-H6xxT, 4.0 +-0.3 mm with its dome): the
+# window keeps WINDOW_Z - PRESS_TRAVEL - 4.3 = 0.35 mm over it at worst case, pressed (ODD JOBS 135).
 ZONE_A_MAX_H = 1.2          # max part height on F.Cu under the panel (ODD JOBS 75)
 
 # Ring dial: rotating ring, the face window is fixed inside it.
