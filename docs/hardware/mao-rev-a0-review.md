@@ -43,7 +43,7 @@ BOM: every fitted part has an LCSC number, checked against LCSC on 2026-10-04 an
 | Reverse polarity | AO3401A P-FET: drain to the cell, source to VBAT, gate 10 k to GND. Reversed cell: the body diode blocks and Vgs = 0, so the FET stays off. Correct cell: the FET is enhanced and conducts both ways, so charging works | ✓; Vgs max ±12 V ≥ 4.2 V |
 | BAT link | R108 0 Ω 1206 (2 A class) in the cell path: lift it to measure battery current (ODD JOBS 110) | ✓ |
 | Gauge MAX17048 | VDD/CELL on VBAT; CTG, QSTRT, GND tied. ALRT is open-drain, wired-OR with the light sensor's INT to expander P7 through a 100 k pull-up, so a latched alert costs 33 µA, not 330 | ✓ |
-| Buck-boost TPS63802 | EN divider 1 M / 510 k: on at 1.1 V × 2.96 = 3.26 V, off at 2.96 V. This is the hardware UVLO, independent of firmware. FB 560 k / 100 k: 0.5 V × 6.6 = 3.30 V. MODE = GND → power save (11 µA Iq). PG unused. L 0.47 µH DFE201612E (Isat 5.5 A). CIN 10 µF at VIN. COUT 2 × 22 µF (TI typical application) | ✓ SLVSEU9D. No 100 nF at VIN: TI's reference layout has none, and the 10 µF is 0.25 mm from the pin |
+| Buck-boost TPS63802 | EN divider 470 k / 240 k: on at 1.1 V × 2.958 = 3.25 V, off at 2.96 V. This is the hardware UVLO, independent of firmware. Worst case over 1 % resistors, the EN thresholds and the 0.2 µA EN leakage: off 2.75–3.16 V, on 3.05–3.46 V (simulation S1; the 1 M / 510 k draft reached 2.65 V) FB 560 k / 100 k: 0.5 V × 6.6 = 3.30 V. MODE = GND → power save (11 µA Iq). PG unused. L 0.47 µH DFE201612E (Isat 5.5 A). CIN 10 µF at VIN. COUT 2 × 22 µF (TI typical application) | ✓ SLVSEU9D. No 100 nF at VIN: TI's reference layout has none, and the 10 µF is 0.25 mm from the pin |
 | Display rail TPS22917 | ON pulled down (off until firmware). CT 1 nF to **VIN**, as the datasheet specifies for this part (≈ 3.8 ms ramp, CT rated 7 V). QOD to VOUT through 100 Ω: controlled discharge | ✓ SLVSDN2 |
 | Battery protection | Cell PCM (mandatory, checked on receipt), hardware UVLO, NTC window, firmware critical-battery shutdown, reverse-polarity FET | ✓ (no second protector IC; see the architecture doc) |
 
@@ -75,9 +75,9 @@ BOM: every fitted part has an LCSC number, checked against LCSC on 2026-10-04 an
 
 | Block | Check | Result |
 |---|---|---|
-| Amp MAX98357A | VDD = VSYS (≤ 4.4 V < 5.5 V). SD_MODE from the expander: low → shutdown, 0.6 µA; 3.3 V (> 1.4 V) → left channel. GAIN_SLOT open → 9 dB. 10 µF + 100 nF at VDD, the datasheet's decoupling. EP to GND with thermal vias. I2S on GPIO16/17/18. Speaker LS501: Same Sky CMS-150803-088S-X8 (8 Ω, 0.8 W nominal, 1.2 W max), its spring contacts on two pads; the A0 audio gain (0.58 at 100 % volume) keeps it under about 0.4 W | ✓ |
+| Amp MAX98357A | VDD = VSYS (≤ 4.4 V < 5.5 V). SD_MODE from the expander: low → shutdown, 0.6 µA; 3.3 V (> 1.4 V) → left channel. GAIN_SLOT open → 9 dB. 10 µF + 100 nF at VDD, the datasheet's decoupling. EP to GND with thermal vias. I2S on GPIO16/17/18. Speaker LS501: Same Sky CMS-150803-088S-X8 (8 Ω, 0.8 W nominal, 1.2 W max), its spring contacts on two pads; full scale is 2.1 dBV + 9 dB = 3.59 Vrms; the A0 audio gain (0.58 at 100 % volume) gives 2.08 Vrms: 0.54 W into 8 Ω, 0.68 W at the 6.4 Ω impedance minimum, under the 0.8 W rating (simulation S12) | ✓ |
 | Haptic DRV2605L | VDD (pin 10) = VSYS (2–5.2 V). Pin 6 VDD/NC left open: the datasheet allows tying it to VDD or leaving it floating. REG 1 µF (required). IN/TRIG = GND. EN from the expander (4 µA off) | ✓ SLOS854D |
-| IR TX | 47 Ω 0603 per LED from VSYS: 36–68 mA peaks at 33 % duty (average ≤ 23 mA, well under 65 mA). AO3400A low side on GPIO39, gate 100 k pull-down | ✓ |
+| IR TX | 56 Ω 0603 per LED from VSYS: 26–59 mA peaks at 33 % duty over VSYS 3.0–4.5 V and the Vf spread, under the 65 mA rating at every point (simulation S4; the 47 Ω draft reached 70 mA on USB). AO3400A low side on GPIO39, gate 100 k pull-down | ✓ |
 | IR RX IRM-H638T | Supply from expander P5 through 100 Ω / 4.7 µF. R506 10 k pull-up to the switched supply: a defined level, and an unpowered receiver is never back-powered. Output on GPIO40 | ✓ |
 
 ### 1.5 Changes made in the reviews
@@ -122,6 +122,9 @@ Rows 1–14 come from the first (6-layer) review and still hold. Rows 15–29 ar
 | 34 | Face on three printed flexures, rocking on its lip, instead of a 0.1 mm sliding fit; LRA click on every press | FDM cannot hold the sliding fit; one switch works for presses anywhere |
 | 35 | Firmware: LEFT touch zone holds its reading while the amplifier runs (+150 ms) | the speaker lies partly over that electrode and the class-D outputs switch at ~330 kHz |
 | 36 | Pipeline: footprint-geometry cache rebuilt in the `place` step; placement imported lazily by `build_pcb.py` | a new footprint can no longer break placement |
+| 37 | UVLO divider R111 / R112: 470 k / 240 k instead of 1 M / 510 k | simulation S1: the 0.2 µA EN leakage × 1 MΩ put the worst-case cut-off at 2.65 V; now 2.75–3.16 V (`mao-a0-verification.md`) |
+| 38 | IR LED resistors R501 / R502: 56 Ω instead of 47 Ω | S4: 66–70 mA on USB, over the IR12-21C 65 mA rating; now ≤ 59 mA |
+| 39 | Firmware: 100 % brightness = 80 % backlight PWM | S3: the 2.8 V panel bin draws 50 mA at full PWM; the average now stays ≤ 40 mA |
 
 ## 2. PCB review
 
@@ -206,7 +209,7 @@ Reviewed as if looking for reasons not to order.
 | I2C addresses compatible? | 0x20, 0x29, 0x36, 0x44, 0x5A, 0x6A: unique |
 | Interrupt lines valid / wake? | IMU INT1 (GPIO14), expander INT (GPIO21), face (GPIO0), touch, USB plug (GPIO3): deep-sleep wake. ToF via light-sleep GPIO wake |
 | Display interface correct? | J301 pinout traced pin by pin against the Winstar 18-pin definition. 22 Ω on SCLK/MOSI; reset and TE lines; switched rail with soft start |
-| Speaker, haptic, IR drive? | MAX98357A from VSYS, shut down by default; DRV2605L closed-loop LRA; IR 36–68 mA pulses, low-side NMOS |
+| Speaker, haptic, IR drive? | MAX98357A from VSYS, shut down by default; DRV2605L closed-loop LRA; IR 26–59 mA pulses, low-side NMOS |
 | Microphone, IMU placement sane? | Mic bottom port at 3–4 o'clock with a gasket tube to the window. IMU near the puck axis on F, beside the face switch, with known axes |
 | Touch electrodes viable? | Rim arcs with planes cut, series R and ESD; thresholds are a VERIFY AT BRING-UP item |
 | ToF optical access? | Ø3 clear aperture at 11 o'clock; light-blocking gasket from sensor to window (AN5231); factory crosstalk calibration |

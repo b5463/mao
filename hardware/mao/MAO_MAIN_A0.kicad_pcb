@@ -18482,7 +18482,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "47R"
+		(property "Value" "56R"
 			(at 0 -1.43 270)
 			(layer "B.Fab")
 			(hide yes)
@@ -18532,7 +18532,7 @@
 				(justify mirror)
 			)
 		)
-		(property "MPN" "0603WAF470JT5E"
+		(property "MPN" "0603WAF560JT5E"
 			(at 0 0 270)
 			(layer "B.Fab")
 			(hide yes)
@@ -18558,7 +18558,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC" "C23182"
+		(property "LCSC" "C25196"
 			(at 0 0 270)
 			(layer "B.Fab")
 			(hide yes)
@@ -22404,7 +22404,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "1M"
+		(property "Value" "470k"
 			(at 0 -1.17 270)
 			(layer "B.Fab")
 			(hide yes)
@@ -22429,7 +22429,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" "UVLO divider top"
+		(property "Description" "UVLO divider top (470k, not 1M: the 0.2 uA EN leakage moves the trip only +/-0.1 V)"
 			(at 0 0 270)
 			(layer "B.Fab")
 			(hide yes)
@@ -22454,7 +22454,7 @@
 				(justify mirror)
 			)
 		)
-		(property "MPN" "0402WGF1004TCE"
+		(property "MPN" "0402WGF4703TCE"
 			(at 0 0 270)
 			(layer "B.Fab")
 			(hide yes)
@@ -22480,7 +22480,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC" "C26083"
+		(property "LCSC" "C25790"
 			(at 0 0 270)
 			(layer "B.Fab")
 			(hide yes)
@@ -32915,7 +32915,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "47R"
+		(property "Value" "56R"
 			(at 0 -1.43 270)
 			(layer "B.Fab")
 			(hide yes)
@@ -32965,7 +32965,7 @@
 				(justify mirror)
 			)
 		)
-		(property "MPN" "0603WAF470JT5E"
+		(property "MPN" "0603WAF560JT5E"
 			(at 0 0 270)
 			(layer "B.Fab")
 			(hide yes)
@@ -32991,7 +32991,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC" "C23182"
+		(property "LCSC" "C25196"
 			(at 0 0 270)
 			(layer "B.Fab")
 			(hide yes)
@@ -33497,7 +33497,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "510k"
+		(property "Value" "240k"
 			(at 0 -1.17 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -33547,7 +33547,7 @@
 				(justify mirror)
 			)
 		)
-		(property "MPN" "0402WGF5103TCE"
+		(property "MPN" "0402WGF2403TCE"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -33573,7 +33573,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC" "C11616"
+		(property "LCSC" "C64043"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)

@@ -2603,7 +2603,7 @@
 	)
 	(rectangle
 		(start 148.59 20.32)
-		(end 265.43 72.39)
+		(end 265.43 74.93)
 		(stroke (width 0.15) (type dash) (color 120 120 120 1))
 		(fill (type none))
 		(uuid "bb86bdbf-0db6-54ea-a9ba-68d3b84d8737")
@@ -2626,14 +2626,23 @@
 		)
 		(uuid "14d1b85b-7ef8-5002-9927-cbf49335b5ac")
 	)
-	(text "3V3_LCD sets ~30 mA. Gate pull-down: dark until firmware (ODD JOBS 116)."
+	(text "3V3_LCD: 17-50 mA by panel Vf bin, 33 mA typ; firmware caps PWM at 80 % so the average stays within the panel 40 mA on"
 		(exclude_from_sim no)
 		(at 151.13 68.58 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "24410cfd-39dd-5980-8446-6a216c33536a")
+		(uuid "e58c6e94-5981-5cdf-b0dc-a27d17c8d4ec")
+	)
+	(text "every bin. Gate pull-down: dark until firmware (ODD JOBS 116)."
+		(exclude_from_sim no)
+		(at 151.13 71.12 0)
+		(effects
+			(font (size 1 1))
+			(justify left bottom)
+		)
+		(uuid "377491b1-61db-5e38-b213-f8decdde300e")
 	)
 	(symbol
 		(lib_id "Device:R")

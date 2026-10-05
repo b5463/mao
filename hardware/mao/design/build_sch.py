@@ -62,8 +62,9 @@ def main():
     svgdir = OUTPUTS / 'sch-svg'
     svgdir.mkdir(exist_ok=True)
     run('sch', 'export', 'svg', '--exclude-drawing-sheet', '-o', str(svgdir), sch)
-    print('BOM parts:', sum(1 for p in c.parts if not p.fields.get('Exclude from BOM')),
-          'of', len(c.parts), '| nets:', len(c.nets()))
+    bom = [p for p in c.parts if not p.fields.get('Exclude from BOM')]
+    print('BOM parts: %d fitted + %d DNP, of %d | nets: %d'
+          % (sum(1 for p in bom if not p.dnp), sum(1 for p in bom if p.dnp), len(c.parts), len(c.nets())))
     return 1 if viol else 0
 
 

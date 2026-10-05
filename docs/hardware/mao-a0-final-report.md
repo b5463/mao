@@ -122,7 +122,7 @@ Bought separately (not on the BOM):
 - NTC 0–50 °C, timers on.
 
 **VSYS** (4.4 V on USB, the cell voltage on battery) feeds:
-- the TPS63802, which makes +3V3 (2 A) and whose EN divider is a hardware UVLO (on 3.26 V, off 2.96 V);
+- the TPS63802, which makes +3V3 (2 A) and whose EN divider is a hardware UVLO (on 3.25 V, off 2.96 V; 470 k / 240 k);
 - the amplifier;
 - the haptic driver;
 - the IR LEDs.
@@ -146,9 +146,9 @@ On the board, VSYS is an L3 band plus wide B tracks, and +3V3 is the L3 plane.
 
 | State | Battery current | Runtime |
 |---|---:|---:|
-| Active | ~137 mA | ~3.6 h |
+| Active | ~133 mA | ~3.8 h |
 | Drowsy | ~1.6 mA | ~13 days |
-| Deep sleep | ~70 µA | ~10 months |
+| Deep sleep | ~73 µA | ~9 months |
 
 ### GPIO
 

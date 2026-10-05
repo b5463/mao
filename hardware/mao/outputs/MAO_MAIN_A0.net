@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "/Users/moravcik/Library/Application Support/Claude/scratch-workspaces/fd95d868-fd9f-42b4-ab0f-1fa3f0ecd399/883b8d98-75ff-4844-b199-4b97bf4e807f/scratch-2026-10-03-a0bc0e/mao/hardware/mao/MAO_MAIN_A0.kicad_sch")
-		(date "2026-10-05T02:40:31")
+		(date "2026-10-05T03:53:21")
 		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
@@ -2078,23 +2078,23 @@
 		)
 		(comp
 			(ref "R111")
-			(value "1M")
+			(value "470k")
 			(footprint "Resistor_SMD:R_0402_1005Metric")
-			(description "UVLO divider top")
+			(description "UVLO divider top (470k, not 1M: the 0.2 uA EN leakage moves the trip only +/-0.1 V)")
 			(fields
 				(field
-					(name "MPN") "0402WGF1004TCE")
+					(name "MPN") "0402WGF4703TCE")
 				(field
 					(name "Manufacturer") "UNI-ROYAL")
 				(field
-					(name "LCSC") "C26083")
+					(name "LCSC") "C25790")
 				(field
 					(name "Footprint") "Resistor_SMD:R_0402_1005Metric")
 				(field
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "UVLO divider top")
+					(name "Description") "UVLO divider top (470k, not 1M: the 0.2 uA EN leakage moves the trip only +/-0.1 V)")
 			)
 			(libsource
 				(lib "Device")
@@ -2103,7 +2103,7 @@
 			)
 			(property
 				(name "MPN")
-				(value "0402WGF1004TCE")
+				(value "0402WGF4703TCE")
 			)
 			(property
 				(name "Manufacturer")
@@ -2111,7 +2111,7 @@
 			)
 			(property
 				(name "LCSC")
-				(value "C26083")
+				(value "C25790")
 			)
 			(property
 				(name "Sheetname")
@@ -2150,16 +2150,16 @@
 		)
 		(comp
 			(ref "R112")
-			(value "510k")
+			(value "240k")
 			(footprint "Resistor_SMD:R_0402_1005Metric")
 			(description "UVLO divider bottom: 1.1 V rising / 1.0 V falling at EN")
 			(fields
 				(field
-					(name "MPN") "0402WGF5103TCE")
+					(name "MPN") "0402WGF2403TCE")
 				(field
 					(name "Manufacturer") "UNI-ROYAL")
 				(field
-					(name "LCSC") "C11616")
+					(name "LCSC") "C64043")
 				(field
 					(name "Footprint") "Resistor_SMD:R_0402_1005Metric")
 				(field
@@ -2175,7 +2175,7 @@
 			)
 			(property
 				(name "MPN")
-				(value "0402WGF5103TCE")
+				(value "0402WGF2403TCE")
 			)
 			(property
 				(name "Manufacturer")
@@ -2183,7 +2183,7 @@
 			)
 			(property
 				(name "LCSC")
-				(value "C11616")
+				(value "C64043")
 			)
 			(property
 				(name "Sheetname")
@@ -10486,16 +10486,16 @@
 		)
 		(comp
 			(ref "R501")
-			(value "47R")
+			(value "56R")
 			(footprint "Resistor_SMD:R_0603_1608Metric")
 			(description "IR LED current")
 			(fields
 				(field
-					(name "MPN") "0603WAF470JT5E")
+					(name "MPN") "0603WAF560JT5E")
 				(field
 					(name "Manufacturer") "UNI-ROYAL")
 				(field
-					(name "LCSC") "C23182")
+					(name "LCSC") "C25196")
 				(field
 					(name "Footprint") "Resistor_SMD:R_0603_1608Metric")
 				(field
@@ -10511,7 +10511,7 @@
 			)
 			(property
 				(name "MPN")
-				(value "0603WAF470JT5E")
+				(value "0603WAF560JT5E")
 			)
 			(property
 				(name "Manufacturer")
@@ -10519,7 +10519,7 @@
 			)
 			(property
 				(name "LCSC")
-				(value "C23182")
+				(value "C25196")
 			)
 			(property
 				(name "Sheetname")
@@ -10558,16 +10558,16 @@
 		)
 		(comp
 			(ref "R502")
-			(value "47R")
+			(value "56R")
 			(footprint "Resistor_SMD:R_0603_1608Metric")
 			(description "IR LED current")
 			(fields
 				(field
-					(name "MPN") "0603WAF470JT5E")
+					(name "MPN") "0603WAF560JT5E")
 				(field
 					(name "Manufacturer") "UNI-ROYAL")
 				(field
-					(name "LCSC") "C23182")
+					(name "LCSC") "C25196")
 				(field
 					(name "Footprint") "Resistor_SMD:R_0603_1608Metric")
 				(field
@@ -10583,7 +10583,7 @@
 			)
 			(property
 				(name "MPN")
-				(value "0603WAF470JT5E")
+				(value "0603WAF560JT5E")
 			)
 			(property
 				(name "Manufacturer")
@@ -10591,7 +10591,7 @@
 			)
 			(property
 				(name "LCSC")
-				(value "C23182")
+				(value "C25196")
 			)
 			(property
 				(name "Sheetname")

@@ -85,7 +85,7 @@ Then raise the limit to 500 mA.
 2. **Without USB:** VBAT at TP5 = cell voltage − Q101 drop (< 20 mV at light load). The board runs from the cell, and the current drawn should match `mao-power-budget.md` per state.
 3. **With USB:** charge current through R108's pads (link lifted, ammeter inserted) is 270–300 mA, falling in the constant-voltage phase. CHG reads low while charging.
 4. **NTC:** warm the cell's NTC to above 50 °C (hot air, carefully) or swap in a 3.3 k resistor: charging must stop. Cooling (or 27 k) must also stop it below 0 °C.
-5. **UVLO:** feed VSYS from a supply through TP4 with USB removed and the cell disconnected. Ramp down: +3V3 must drop at 2.96 V ± 3 % and restart at 3.26 V ± 3 %.
+5. **UVLO:** feed VSYS from a supply through TP4 with USB removed and the cell disconnected. Ramp down: +3V3 must drop at 2.96 V ± 4 % and restart at 3.25 V ± 4 % (room temperature; the worst case over temperature is in simulation S1).
 6. **Gauge:** `mao power` shows VCELL within 20 mV of the DMM. SOC converges within one charge cycle.
 
 ## 5. Each subsystem
@@ -99,7 +99,8 @@ Then raise the limit to 500 mA.
 | ToF | `mao sense` (distance), window fitted | 50–1300 mm on a hand. Run crosstalk calibration with the window in place |
 | Light | `mao sense` (lux) | covered < 3 lux, office 200–800 lux. The Ø2 window aperture narrows the view to about ±17°: record the lux scale factor against a meter |
 | Touch | `mao sense` (touch) | each zone ≥ 2 % change through the enclosure wall; LEFT with the speaker fitted, and steady while a sound plays |
-| Ring | turn the ring | 30 steps per turn, each with a haptic tick; direction correct (else swap in firmware) |
+| Backlight | brightness 100 %, DMM across R303 (DC average) | V(R303) / 10 Ω between 15 and 40 mA. The panel's LED bin sets it (simulation S3: 14–40 mA average with the 80 % PWM cap); record the value |
+| Ring | gaussmeter at the Hall height with the ring off, then turn the ring | strip ≥ 8 mT peak; 30 steps per turn, each with a haptic tick; three turns read 90 ± 1 (S11); direction correct (else swap in firmware) |
 | IR | `mao ir rx on`, `mao ir send <addr> <cmd>` under the fixture lid | RX sees TX through the lid reflection; a TV remote is received |
 | Radio | ODD BUS self-test / flood tool (M2) against LAMP at 1 m / 5 m, board in the enclosure | RSSI within 6 dB of the LCDkit at the same distances |
 | Enclosure fit | assemble with the printed shell, the flexure-hung face (window, panel, carrier), ToF gasket, mic tube and the speaker in its cradle (`mao-mechanical.md` §1, §4, §5, §8) | press the face at the centre and at the rim all round: one clean click everywhere, never touching the IR receiver dome; the TOP spring presses its boss; the ToF gasket seats on the sensor cap; the speaker's contacts press on LS501 (speaker test passes) |
@@ -110,10 +111,10 @@ Through R108's pads with the link lifted, on the cell (4.0 V), USB unplugged:
 
 | State | How | Estimate |
 |---|---|---|
-| Active | face on, radio listening | ~137 mA |
-| Idle | dimmed face | ~118 mA |
+| Active | face on, radio listening | ~133 mA |
+| Idle | dimmed face | ~116 mA |
 | Drowsy | panel sleep, light sleep | ~1.6 mA |
-| Deep sleep | `mao sleep` | ~70 µA incl. PCM (board only, without the cell's PCM: ~55 µA) |
+| Deep sleep | `mao sleep` | ~73 µA incl. PCM (board only, without the cell's PCM: ~58 µA) |
 
 A deep-sleep figure above 150 µA means a rail or pull-up is leaking. Find it by lifting one rail at a time: check the test pads TP13–15 read 0 V.
 

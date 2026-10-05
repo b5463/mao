@@ -34,6 +34,11 @@
 #define A0_LCD_PWR_SETTLE_MS        10     /* load switch on -> reset sequence */
 #define A0_LCD_RESET_LOW_MS         10
 #define A0_LCD_RESET_WAIT_MS        120    /* reset released -> first command */
+/* Backlight ceiling: 100 % brightness = 80 % PWM. Two LEDs from 3V3_LCD through
+ * 10R draw 17-50 mA by panel Vf bin (2.8-3.2 V, simulation S3 in
+ * docs/hardware/mao-a0-verification.md); 80 % keeps the average at or under the
+ * panel's 40 mA on every bin. */
+#define A0_BACKLIGHT_MAX_PCT        80
 /* Colour handling and the panel-native orientation are properties of the
  * glass + GC9A01; these are the LCDkit's values for the same 1.28" IPS round
  * glass. The plug-in panel's tail leaves at 9 o'clock (as the LCDkit's did at

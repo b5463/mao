@@ -123,7 +123,7 @@ b.part('U3', 'MAO:MAX17048', 'Package_DFN_QFN:TDFN-8-1EP_2x2mm_P0.5mm_EP0.8x1.2m
 b.C('C4', '100n', 'VBAT', note='gauge VDD')
 
 b.at('power', '3V3 BUCK-BOOST',
-     'TPS63802: VSYS 2.9-4.4 V to +3V3, 2 A, 11 uA Iq. EN divider = hardware UVLO: on at 3.26 V, off at 2.96 V '
+     'TPS63802: VSYS 2.9-4.4 V to +3V3, 2 A, 11 uA Iq. EN divider = hardware UVLO: on at 3.25 V, off at 2.96 V '
      '(protects the cell even if firmware fails). MODE low = PFM. FB 560k/100k = 3.30 V. L = 0.47 uH only.')
 b.part('U4', 'MAO:TPS63802', 'MAO:TI_DLA0010A_VSON-HR-10_2x3mm_P0.5mm', 'TPS63802DLAR',
        {'10': 'VSYS', '1': 'BB_EN', '2': 'GND', '9': 'BB_L1', '7': 'BB_L2', '6': '+3V3', '4': 'BB_FB', '5': NC,
@@ -134,8 +134,8 @@ b.part('L1', 'Device:L', 'Inductor_SMD:L_Murata_DFE201610P', '0.47uH', {'1': 'BB
 b.C('C5', '10u', 'VSYS', pkg='0603', note='buck-boost CIN, 0.25 mm from VIN (TI layout: no separate HF cap)')
 b.C('C7', '22u', '+3V3', pkg='0603', note='COUT')
 b.C('C8', '22u', '+3V3', pkg='0603', note='COUT')
-b.R('R13', '1M', 'VSYS', 'BB_EN', note='UVLO divider top')
-b.R('R14', '510k', 'BB_EN', 'GND', note='UVLO divider bottom: 1.1 V rising / 1.0 V falling at EN')
+b.R('R13', '470k', 'VSYS', 'BB_EN', note='UVLO divider top (470k, not 1M: the 0.2 uA EN leakage moves the trip only +/-0.1 V)')
+b.R('R14', '240k', 'BB_EN', 'GND', note='UVLO divider bottom: 1.1 V rising / 1.0 V falling at EN')
 b.R('R15', '560k', '+3V3', 'BB_FB', note='FB top')
 b.R('R16', '100k', 'BB_FB', 'GND', note='FB bottom: 0.5 V x 6.6 = 3.30 V')
 
@@ -301,7 +301,8 @@ b.C('C302', '4.7u', '3V3_LCD', pkg='0603', note='panel + backlight bulk (ODD JOB
 
 b.at('interface', 'BACKLIGHT',
      'Two parallel white LEDs, VLED 2.8-3.2 V (3.0 typ) at 40 mA (panel spec). Low-side AO3400A, PWM on GPIO%d. ' % G['LCD_BL_PWM'] +
-     '10R from 3V3_LCD sets ~30 mA. Gate pull-down: dark until firmware (ODD JOBS 116).')
+     '10R from 3V3_LCD: 17-50 mA by panel Vf bin, 33 mA typ; firmware caps PWM at 80 % so the average stays '
+     'within the panel 40 mA on every bin. Gate pull-down: dark until firmware (ODD JOBS 116).')
 b.R('R303', '10R', 'LCD_BL_K', 'LCD_BL_D', pkg='0603', note='LED current: (3.3 - Vf) / 10R')
 b.part('Q301', 'Transistor_FET:AO3400A', 'Package_TO_SOT_SMD:SOT-23', 'AO3400A',
        {'1': 'LCD_BL_G', '2': 'GND', '3': 'LCD_BL_D'}, lcsc='C20917', mpn='AO3400A', mfr='AOS',
@@ -420,14 +421,15 @@ b.part('J501', 'Connector_Generic:Conn_01x02', 'MAO:WirePads_1x02_P2.5mm_1.0x1.8
        **{'Exclude from BOM': 'yes'})
 
 b.at('feedback', 'IR TRANSMIT',
-     'Two side-emitting 940 nm LEDs at the back edge (B.Cu), each with its own 47R from VSYS (42-66 mA pulses at '
-     '38 kHz, 33 % duty, within the 65 mA rating). AO3400A low side, gate pulled down: dark at reset (117).')
+     'Two side-emitting 940 nm LEDs at the back edge (B.Cu), each with its own 56R from VSYS (26-59 mA pulses at '
+     '38 kHz, 33 % duty: under the 65 mA rating at any VSYS up to 4.5 V and any Vf). AO3400A low side, gate '
+     'pulled down: dark at reset (117).')
 b.part('D501', 'Device:LED', 'MAO:Everlight_IR12-21C_RightAngle_3x1mm', 'IR12-21C', {'1': 'IR_LED_K', '2': 'IR_LED_A1'},
        lcsc='C53672', mpn='IR12-21C/TR8', mfr='Everlight', note='940 nm side-emitting IR LED')
 b.part('D502', 'Device:LED', 'MAO:Everlight_IR12-21C_RightAngle_3x1mm', 'IR12-21C', {'1': 'IR_LED_K', '2': 'IR_LED_A2'},
        lcsc='C53672', mpn='IR12-21C/TR8', mfr='Everlight', note='940 nm side-emitting IR LED')
-b.R('R501', '47R', 'VSYS', 'IR_LED_A1', pkg='0603', note='IR LED current')
-b.R('R502', '47R', 'VSYS', 'IR_LED_A2', pkg='0603', note='IR LED current')
+b.R('R501', '56R', 'VSYS', 'IR_LED_A1', pkg='0603', note='IR LED current')
+b.R('R502', '56R', 'VSYS', 'IR_LED_A2', pkg='0603', note='IR LED current')
 b.part('Q501', 'Transistor_FET:AO3400A', 'Package_TO_SOT_SMD:SOT-23', 'AO3400A',
        {'1': 'IR_TX_G', '2': 'GND', '3': 'IR_LED_K'}, lcsc='C20917', mpn='AO3400A', mfr='AOS', note='IR LED switch')
 b.R('R503', '100R', 'IR_TX', 'IR_TX_G', note='gate resistor')

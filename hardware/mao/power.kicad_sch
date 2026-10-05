@@ -6930,14 +6930,14 @@
 		)
 		(uuid "1cc3fd59-d8c1-50f9-a651-41bf975cd7a7")
 	)
-	(text "TPS63802: VSYS 2.9-4.4 V to +3V3, 2 A, 11 uA Iq. EN divider = hardware UVLO: on at 3.26 V, off at 2.96 V (protects the cell even if firmware fails)."
+	(text "TPS63802: VSYS 2.9-4.4 V to +3V3, 2 A, 11 uA Iq. EN divider = hardware UVLO: on at 3.25 V, off at 2.96 V (protects the cell even if firmware fails)."
 		(exclude_from_sim no)
 		(at 215.9 175.26 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "d293961d-6883-53db-b541-3e57ab447924")
+		(uuid "1f4781bd-ddce-5fa9-a072-dd82302a6942")
 	)
 	(text "MODE low = PFM. FB 560k/100k = 3.30 V. L = 0.47 uH only."
 		(exclude_from_sim no)
@@ -7990,7 +7990,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1M"
+		(property "Value" "470k"
 			(at 349.25 130.81 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8011,14 +8011,14 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "UVLO divider top"
+		(property "Description" "UVLO divider top (470k, not 1M: the 0.2 uA EN leakage moves the trip only +/-0.1 V)"
 			(at 346.71 129.54 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "MPN" "0402WGF1004TCE"
+		(property "MPN" "0402WGF4703TCE"
 			(at 346.71 129.54 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8032,7 +8032,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C26083"
+		(property "LCSC" "C25790"
 			(at 346.71 129.54 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8129,7 +8129,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "510k"
+		(property "Value" "240k"
 			(at 264.16 161.29 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8157,7 +8157,7 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" "0402WGF5103TCE"
+		(property "MPN" "0402WGF2403TCE"
 			(at 261.62 160.02 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -8171,7 +8171,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C11616"
+		(property "LCSC" "C64043"
 			(at 261.62 160.02 0)
 			(effects
 				(font (size 1.27 1.27))

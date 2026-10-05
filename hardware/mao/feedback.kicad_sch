@@ -3470,23 +3470,23 @@
 		)
 		(uuid "dcb1bfd6-8f95-59fa-bf12-802545fc8263")
 	)
-	(text "Two side-emitting 940 nm LEDs at the back edge (B.Cu), each with its own 47R from VSYS (42-66 mA pulses at 38 kHz, 33 % duty, within the 65 mA"
+	(text "Two side-emitting 940 nm LEDs at the back edge (B.Cu), each with its own 56R from VSYS (26-59 mA pulses at 38 kHz, 33 % duty: under the 65 mA"
 		(exclude_from_sim no)
 		(at 257.81 69.85 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "8e8c667c-7df6-5346-a0f9-093713437472")
+		(uuid "be3d8417-494d-5bb7-9423-bba575196986")
 	)
-	(text "rating). AO3400A low side, gate pulled down: dark at reset (117)."
+	(text "rating at any VSYS up to 4.5 V and any Vf). AO3400A low side, gate pulled down: dark at reset (117)."
 		(exclude_from_sim no)
 		(at 257.81 72.39 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "8ee18622-6d81-5b3a-a6f9-15502e46ecf9")
+		(uuid "d86cae9e-90fb-5a92-bdc0-8aae459082c1")
 	)
 	(symbol
 		(lib_id "Device:LED")
@@ -3707,7 +3707,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "47R"
+		(property "Value" "56R"
 			(at 288.29 40.64 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3735,7 +3735,7 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" "0603WAF470JT5E"
+		(property "MPN" "0603WAF560JT5E"
 			(at 285.75 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3749,7 +3749,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C23182"
+		(property "LCSC" "C25196"
 			(at 285.75 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3846,7 +3846,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "47R"
+		(property "Value" "56R"
 			(at 300.99 40.64 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3874,7 +3874,7 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" "0603WAF470JT5E"
+		(property "MPN" "0603WAF560JT5E"
 			(at 298.45 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3888,7 +3888,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C23182"
+		(property "LCSC" "C25196"
 			(at 298.45 39.37 0)
 			(effects
 				(font (size 1.27 1.27))

@@ -58,7 +58,7 @@ chips, split radio stack). Every slow line moves there; every wake or fast line 
 ```
 USB-C ─ ESD/TVS ─ VBUS ─► BQ24073 (linear, DPPM, USB500, 297 mA) ─► VSYS (4.4 V on USB, ≈VBAT on battery)
                                    │ BAT                               ├─► TPS63802 buck-boost ─► +3V3 (2 A)
-                     cell (PCM, NTC) ─ R108 0R link ─ Q101 RPP ─ VBAT   │      EN = UVLO divider: on 3.26 V / off 2.96 V
+                     cell (PCM, NTC) ─ R108 0R link ─ Q101 RPP ─ VBAT   │      EN = UVLO divider: on 3.25 V / off 2.96 V
                                    │                                    ├─► MAX98357A speaker amp
                      MAX17048 gauge on VBAT                             ├─► DRV2605L haptic driver
                                                                         └─► 2 × IR LEDs
@@ -108,7 +108,7 @@ The character never reads hardware; a sensor never maps straight to an animation
 |---|---|---|
 | Speaker | MAX98357A I2S class-D from VSYS, 9 dB, into a Same Sky CMS-150803-088S-X8 (15 × 8 × 3 mm, 8 Ω) whose own spring contacts press on pads LS501 | replaces the always-on NS4150: 0.6 µA shutdown, no PDM RC filter, same synthesised vocabulary; the 15 × 8 mm speaker is what fits beside the cell |
 | Haptics | DRV2605L + LD0832AA LRA (235 Hz) | closed-loop, auto-resonance; vocabulary tick/heartbeat/annoyed/… |
-| IR | 2 × IR12-21C side-emitting at the back edge | 42–66 mA pulses, NMOS low side |
+| IR | 2 × IR12-21C side-emitting at the back edge | 26–59 mA pulses, NMOS low side |
 | Status LED | **removed** | the WS2812 only flashed tiny pulses; the face and haptics carry that now (no gratuitous RGB, brief §45/46) |
 
 ## 6. Board

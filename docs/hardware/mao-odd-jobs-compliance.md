@@ -87,7 +87,7 @@ No rule is open.
 | 56 | Analog separation | ✓ | The only ADC input is the static BOARD_ID divider (100 nF), read once at boot. Touch leads run at the rim (mostly on F), away from SPI, DC/DC and PWM |
 | 57 | ADC RC filter | ✓ | BOARD_ID: 1 MΩ / 1 MΩ + 100 nF |
 | 58 | PWM lines | ✓ | Backlight PWM gate is 26 mm from the antenna, with a short LED loop through R303 and Q301. LRA leads are 2.0 / 3.4 mm, speaker outputs 9.2 / 11.9 mm |
-| 59 | LEDs | ✓ | IR LEDs: 47 Ω each, low-side NMOS with gate pull-down (0 standby). Backlight: 10 Ω, about 30 mA. IR is invisible, so there is no light bleed |
+| 59 | LEDs | ✓ | IR LEDs: 56 Ω each, 26–59 mA peaks, under the 65 mA rating at any VSYS and Vf (simulation S4); low-side NMOS with gate pull-down (0 standby). Backlight: 10 Ω, 17–50 mA by panel Vf bin, and firmware caps PWM at 80 %, so the average stays at or under the panel's 40 mA (S3). IR is invisible, so there is no light bleed |
 | 60 | Status LED placement | N/A | No status LED: the display is MAO's face. The IR LEDs fire through wall windows (`mao-mechanical.md` §5) |
 
 ## 5. Display, inputs and mechanics (61–84)
@@ -155,7 +155,7 @@ No rule is open.
 | 109 | Intentional 0 Ω | ✓ | R108 BAT LINK only (current measurement) |
 | 110 | Current measurement link | ✓ | R108 0 Ω 1206 in the cell path, labelled BAT LINK, 4 mm from J102 |
 | 111 | No permanent power LED | ✓ | None |
-| 112 | Quiescent current | ✓ | Budgeted in `mao-power-budget.md`: deep sleep about 70 µA. Mic and IR receiver are powered only while used; Hall sensors sample at 20 Hz asleep; pull-ups are 100 kΩ where the speed allows |
+| 112 | Quiescent current | ✓ | Budgeted in `mao-power-budget.md`: deep sleep about 73 µA. Mic and IR receiver are powered only while used; Hall sensors sample at 20 Hz asleep; pull-ups are 100 kΩ where the speed allows |
 | 113 | No back-powering | ✓\* | IR receiver pull-up goes to its own switched supply. Display reset and backlight are held low while the rail is off. The mic is GPIO-powered and its clock idles low. A service UART adapter can feed RXD0 while the board is off: use a 3.3 V adapter and power the board first (`mao-bringup.md`) |
 | 114 | Power sequencing | ✓ | The display rail soft-starts (TPS22917, about 3.8 ms) with RESET held low until firmware releases it |
 | 115 | Enable pins defined | ✓ | TPS63802 EN divider (hardware UVLO), TPS22917 ON pull-down, charger /CE to GND, every expander enable pulled down |
@@ -196,7 +196,7 @@ No rule is open.
 | 145 | MLCC flex cracking | ✓ | No large MLCC beside holes, edge or USB-C; bulk 0603/0805 parts sit inboard |
 | 146 | DC-bias derating | ✓\* | Buck output 2 × 22 µF 6.3 V 0603 at 3.3 V: about 40 % effective. Measure ripple; A1 fallback is 47 µF 0805 (risk 7). The charger caps meet TI's minimums after derating |
 | 147 | Voltage margin | ✓ | VBUS-side caps 25 V, VSYS/VBAT 10–16 V, 3.3 V rails 6.3–16 V |
-| 148 | Resistor power | ✓ | IR LED 47 Ω, 0603 (0.1 W): 0.22 W in each 8.8 µs carrier pulse at the 68 mA worst case; about 0.03 W averaged over an NEC frame. Backlight 10 Ω 0603: about 9 mW. R108 1206 link: under 5 mW. Dividers and pull-ups: µW |
+| 148 | Resistor power | ✓ | IR LED 56 Ω, 0603 (0.1 W): 0.20 W in each 8.8 µs carrier pulse at the 59 mA worst case; about 0.03 W averaged over an NEC frame. Backlight 10 Ω 0603: about 9 mW. R108 1206 link: under 5 mW. Dividers and pull-ups: µW |
 | 149 | Inductor saturation | ✓ | DFE201612E-R47M, Isat 5.5 A. Normal peak inductor current is about 1.5 A (0.7 A load from a 3 V cell, plus ripple). The converter's peak limit is 5 A typical (3.8 A in buck mode), so only an overload reaches Isat, and this metal-composite part saturates softly |
 | 150 | Diode ratings | ✓ | SMF15A: 15 V standoff, 200 W. ESD diodes within ratings. AO3401A body diode is only used for reverse blocking |
 | 151 | Connector current | ✓ | USB-C VBUS contacts are rated well above the 1.07 A input limit. JST SH is rated 1 A against cell peaks of about 0.6 A. The springs carry only touch signals; the speaker's own contacts carry ≤ 0.4 A peak |

@@ -1,8 +1,8 @@
 """Part helpers and the verified part catalogue for MAO_MAIN A0.
 
-Every LCSC number here was checked against JLCPCB/LCSC on 2026-10-03 (research notes in
-docs/hardware/mao-bom-notes.md). Values without a verified number carry lcsc='' and are filled
-by bom_verify.py, which refuses to release a BOM with an empty or unverified C-number.
+Every LCSC number here was checked against JLCPCB/LCSC on 2026-10-03; 470k, 240k and 56R were added
+on 2026-10-05 from the JLCPCB parts search (part number, value, package and stock). fab.py refuses to
+write a BOM line without an LCSC number, so a value missing from this table stops the release.
 """
 from model import Part
 
@@ -19,13 +19,14 @@ PASSIVES = {
     ('1M', '0402'): ('C26083', '0402WGF1004TCE', 'UNI-ROYAL'),
     ('3.0k', '0402'): ('C25784', '0402WGF3001TCE', 'UNI-ROYAL'),
     ('560k', '0402'): ('C132339', '0402WGF5603TCE', 'UNI-ROYAL'),
-    ('510k', '0402'): ('C11616', '0402WGF5103TCE', 'UNI-ROYAL'),
+    ('470k', '0402'): ('C25790', '0402WGF4703TCE', 'UNI-ROYAL'),
+    ('240k', '0402'): ('C64043', '0402WGF2403TCE', 'UNI-ROYAL'),
     ('0R', '1206'): ('C17888', '1206W4F0000T5E', 'UNI-ROYAL'),
     ('22R', '0402'): ('C25092', '0402WGF220JTCE', 'UNI-ROYAL'),
     ('100R', '0402'): ('C25076', '0402WGF1000TCE', 'UNI-ROYAL'),
     ('510R', '0402'): ('C25123', '0402WGF5100TCE', 'UNI-ROYAL'),
     ('10R', '0603'): ('C22859', '0603WAF100JT5E', 'UNI-ROYAL'),
-    ('47R', '0603'): ('C23182', '0603WAF470JT5E', 'UNI-ROYAL'),
+    ('56R', '0603'): ('C25196', '0603WAF560JT5E', 'UNI-ROYAL'),
     ('100n', '0402'): ('C1525', 'CL05B104KO5NNNC', 'Samsung'),
     ('1u', '0402'): ('C52923', 'CL05A105KA5NQNC', 'Samsung'),
     ('2.2u', '0402'): ('C12530', 'CL05A225MQ5NSNC', 'Samsung'),

@@ -85,7 +85,7 @@ esp_err_t mao_board_backlight_set(uint8_t percent)
         percent = 100;
     }
     const uint32_t max_duty = (1u << BACKLIGHT_LEDC_RES) - 1;
-    const uint32_t duty = (max_duty * percent) / 100;
+    const uint32_t duty = (max_duty * percent * A0_BACKLIGHT_MAX_PCT) / (100u * 100u);
     ESP_RETURN_ON_ERROR(ledc_set_duty(LEDC_LOW_SPEED_MODE, BACKLIGHT_LEDC_CHANNEL, duty), TAG, "duty");
     return ledc_update_duty(LEDC_LOW_SPEED_MODE, BACKLIGHT_LEDC_CHANNEL);
 }
