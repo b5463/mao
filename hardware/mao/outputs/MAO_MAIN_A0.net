@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "/Users/moravcik/Library/Application Support/Claude/scratch-workspaces/fd95d868-fd9f-42b4-ab0f-1fa3f0ecd399/883b8d98-75ff-4844-b199-4b97bf4e807f/scratch-2026-10-03-a0bc0e/mao/hardware/mao/MAO_MAIN_A0.kicad_sch")
-		(date "2026-10-05T07:36:19")
+		(date "2026-10-05T15:50:14")
 		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
@@ -586,7 +586,7 @@
 			(ref "C105")
 			(value "10uF 10V")
 			(footprint "Capacitor_SMD:C_0603_1608Metric")
-			(description "buck-boost CIN, 0.25 mm from VIN (TI layout: no separate HF cap)")
+			(description "buck-boost CIN, about 1 mm from VIN (TI layout: no separate HF cap)")
 			(fields
 				(field
 					(name "MPN") "CL10A106KP8NNNC")
@@ -600,7 +600,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "buck-boost CIN, 0.25 mm from VIN (TI layout: no separate HF cap)")
+					(name "Description") "buck-boost CIN, about 1 mm from VIN (TI layout: no separate HF cap)")
 			)
 			(libsource
 				(lib "Device")
@@ -4394,7 +4394,7 @@
 			(ref "R204")
 			(value "1M")
 			(footprint "Resistor_SMD:R_0402_1005Metric")
-			(description "board ID bottom: A0 = 1.65 V")
+			(description "board ID bottom: A0 = half of +3V3, 1.59 V")
 			(fields
 				(field
 					(name "MPN") "0402WGF1004TCE")
@@ -4408,7 +4408,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "board ID bottom: A0 = 1.65 V")
+					(name "Description") "board ID bottom: A0 = half of +3V3, 1.59 V")
 			)
 			(libsource
 				(lib "Device")

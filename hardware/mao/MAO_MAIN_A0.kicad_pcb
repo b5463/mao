@@ -14599,7 +14599,7 @@
 				)
 			)
 		)
-		(property "Description" "board ID bottom: A0 = 1.65 V"
+		(property "Description" "board ID bottom: A0 = half of +3V3, 1.59 V"
 			(at 0 0 180)
 			(layer "F.Fab")
 			(hide yes)
@@ -29010,7 +29010,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" "buck-boost CIN, 0.25 mm from VIN (TI layout: no separate HF cap)"
+		(property "Description" "buck-boost CIN, about 1 mm from VIN (TI layout: no separate HF cap)"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
