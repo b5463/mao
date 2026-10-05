@@ -59,6 +59,18 @@ GAPS = [.25 * i for i in range(1, 17)]
 VERT = {'F': 90, 'B': 270}
 INSIDE_OK = set()                # nothing inside a part outline: the XIAO socket references between the pin rows were hidden by the fitted modules
 
+LEADERS = 'assembly reference leaders'
+if '--placed' not in sys.argv:          # this script's leaders from an earlier run go first (they would block), in a
+    b = pcb.LoadBoard(str(TARGET))      # pass of their own: Remove() leaves the other proxies unusable (SWIG)
+    old = [g_ for g_ in b.Groups() if g_.GetName() == LEADERS]
+    if old:
+        for g_ in old:
+            for it_ in list(g_.GetItems()):
+                b.Remove(it_)
+            b.Remove(g_)
+        pcb.SaveBoard(str(TARGET), b)
+    sys.stdout.flush()
+    os.execv(sys.executable, [sys.executable, __file__, '--placed'])
 b = pcb.LoadBoard(str(TARGET)); fs = {f.GetReference(): f for f in b.GetFootprints()}
 MARKS = {r for r in fs if r.startswith(('FID', 'H', 'TP'))}   # fiducials, holes, test pads: obstacles, never labelled here
 SILK_REF = ('U', 'J', 'Q', 'D', 'SW', 'MK', 'L', 'E')
@@ -282,6 +294,72 @@ while moved:
                     done = moved = True; break
                 if done: break
             if done: break
+# Leaders (ODD JOBS 177, the silk policy): a part with no clear spot beside it gets its reference up to 6 mm away
+# with a straight 0.15 mm silk leader from just off the text to 0.25 mm short of its own outline. The leader keeps
+# 0.125 mm from every other part's outline, hole, via, fastener and silkscreen text and from other leaders, and
+# the silk clearance from every footprint's silk graphics; the
+# reference box keeps the usual clearances. Shortest leader wins; vertical text costs a little.
+LEADER_W, LEADER_CLR = .15, .05
+SILK_CLR = .15 + .03                     # the board's min_silk_clearance, edge to edge, plus margin
+leader_grp = None
+vias_c = [(pos(t_), pcb.ToMM(t_.GetWidth(pcb.F_Cu)) / 2) for t_ in b.GetTracks() if isinstance(t_, pcb.PCB_VIA)]
+sgfx = {'F': Bins(), 'B': Bins()}       # every footprint's silk graphics (outlines, pin-1 marks)
+for r_, f_ in fs.items():
+    for g_ in f_.GraphicalItems():
+        if g_.GetLayer() in (pcb.F_SilkS, pcb.B_SilkS) and not isinstance(g_, pcb.PCB_TEXT):
+            sgfx['B' if g_.GetLayer() == pcb.B_SilkS else 'F'].add(r_ + ' silk', box(g_.GetBoundingBox()))
+def leader_ok(s, r, a, c):
+    L = math.hypot(c[0] - a[0], c[1] - a[1]); n = max(2, int(L / .1))
+    e = LEADER_W / 2 + LEADER_CLR
+    for i in range(n + 1):
+        x = a[0] + (c[0] - a[0]) * i / n; y = a[1] + (c[1] - a[1]) * i / n
+        q = (x - e, y - e, x + e, y + e)
+        if not on_board(q, EDGE): return False
+        h = hard[s].hits(q) - {r, r + ' hole'}
+        if h or text[s].hit(q): return False
+        if any(math.hypot(x - vx, y - vy) < vr + LEADER_W / 2 + .05 for (vx, vy), vr in vias_c): return False
+        if sgfx[s].hit((x - LEADER_W / 2 - SILK_CLR, y - LEADER_W / 2 - SILK_CLR, x + LEADER_W / 2 + SILK_CLR, y + LEADER_W / 2 + SILK_CLR)):
+            return False
+    return True
+def nearest(q, p):
+    return (min(max(p[0], q[0]), q[2]), min(max(p[1], q[1]), q[3]))
+for r in [r for r in list(unplaced) if r not in fab_only]:
+    f = fs[r]; s = side_of(f); size = SIZES[0]; style(f, size); best = None
+    o = own_rect[r]; cx, cy = (o[0] + o[2]) / 2, (o[1] + o[3]) / 2
+    for vertical in (False, True):
+        w, h, ox, oy = shape(f, vertical)
+        for g in [.5 + .25 * i for i in range(35)]:
+            kx, ky = int(((o[2] - o[0]) / 2 + w / 2 + 3) / .25), int(((o[3] - o[1]) / 2 + h / 2 + 3) / .25)
+            cands = [(cx + k * .25, o[3] + g + h / 2) for k in range(-kx, kx + 1)] + \
+                    [(cx + k * .25, o[1] - g - h / 2) for k in range(-kx, kx + 1)] + \
+                    [(o[0] - g - w / 2, cy + k * .25) for k in range(-ky, ky + 1)] + \
+                    [(o[2] + g + w / 2, cy + k * .25) for k in range(-ky, ky + 1)]
+            for c in cands:
+                q = (c[0] - w / 2, c[1] - h / 2, c[0] + w / 2, c[1] + h / 2)
+                if not on_board(q, EDGE) or hard[s].hit(grow(q, BODY_GAP)) or text[s].hit(grow(q, TEXT_GAP)):
+                    continue
+                end = min((nearest(grow(ob, .25), c) for ob in own_boxes[r]), key=lambda p_: math.hypot(p_[0] - c[0], p_[1] - c[1]))
+                st = nearest(grow(q, LEADER_W / 2 + SILK_CLR), end)      # silk clearance to its own text
+                L = math.hypot(end[0] - st[0], end[1] - st[1])
+                if L > 9.0 or (best and L + (.3 if vertical else 0) >= best[0]):
+                    continue
+                if L < .05 or not leader_ok(s, r, st, end):
+                    continue
+                best = (L + (.3 if vertical else 0), vertical, c, (ox, oy), st, end)
+            if best and g > best[0] + 1: break
+    if not best: continue
+    _, vertical, c, offs, st, end = best
+    style(f, size); shape(f, vertical)
+    j = (0., 0., round(math.hypot(end[0] - st[0], end[1] - st[1]), 2))
+    commit(f, vertical, c, offs, j, 'leader', size)
+    ln = pcb.PCB_SHAPE(b); ln.SetShape(pcb.SHAPE_T_SEGMENT); ln.SetLayer(pcb.B_SilkS if s == 'B' else pcb.F_SilkS)
+    ln.SetStart(pt(50 + st[0], 50 + st[1])); ln.SetEnd(pt(50 + end[0], 50 + end[1])); ln.SetWidth(pcb.FromMM(LEADER_W))
+    b.Add(ln)
+    if leader_grp is None:
+        leader_grp = pcb.PCB_GROUP(b); leader_grp.SetName(LEADERS); b.Add(leader_grp)
+    leader_grp.AddItem(ln)
+    e_ = LEADER_W / 2 + .05
+    text[s].add(r + ' leader', (min(st[0], end[0]) - e_, min(st[1], end[1]) - e_, max(st[0], end[0]) + e_, max(st[1], end[1]) + e_))
 for r in unplaced:                       # recorded, not dropped: the assembly drawing keeps it at the part centre
     f = fs[r]; t = f.Reference(); style(f, SIZES[-1]); t.SetLayer(pcb.B_Fab if f.IsFlipped() else pcb.F_Fab)
     t.SetTextSize(pt(.6, .6)); t.SetTextThickness(pcb.FromMM(.09))

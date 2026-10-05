@@ -12,6 +12,9 @@ highest vertex or box, 0.1 inch units), with the footprint's model scale, offset
   B, under the speaker      no part but its contact pads LS501
   B, the tail corridor      no part between the slot and J301 (the folded FPC lies there)
   fasteners                 no part in the insert boss (F) or screw head (B) keep-outs, nor at the peg
+  wall                      every body inside the board circle (r <= PCB_R: 1 mm to the wall at r 30), except the
+                            parts that reach into a wall opening by design (USB-C, the IR LEDs); the speaker's
+                            outline (mechanical.py, it has no footprint body) >= 0.8 mm from the wall
 Springs that touch the enclosure by design (J302 TOP, J303 REAR) and the parts with no body (pads, holes,
 fiducials, electrodes, test pads) are listed, not tested. Writes outputs/MECH-CHECK.json; exits 1 on a finding.
 """
@@ -33,6 +36,9 @@ WINDOW_MAX = m.WINDOW_Z - m.PRESS_TRAVEL - 0.3
 DESIGNED_CONTACT = {'J302': 'TOP spring: presses the window-border electrode',
                     'J303': 'REAR spring: presses the base electrode', 'SW301': 'face switch: its stem meets the carrier boss'}
 NO_BODY = ('H', 'FID', 'TP', 'E', 'LS', 'J201', 'J501')   # pads, holes, marks, electrodes, Tag-Connect, LRA lead pads
+WALL_R = m.PUCK_OD / 2 - m.WALL
+WALL_OPENING = {'J101': 'USB-C: mating face in the wall opening', 'D501': 'IR LED: fires through the wall',
+                'D502': 'IR LED: fires through the wall'}
 
 _cache = {}
 
@@ -149,6 +155,11 @@ def main():
         rmax = max(math.hypot(x, y) for x, y in corners(body))
         rows.append({'ref': ref, 'side': side, 'height_mm': None if h is None else round(h, 2),
                      'r_mm': [round(rmin, 2), round(rmax, 2)]})
+        if rmax > m.PCB_R + 1e-3 and ref not in WALL_OPENING:
+            found.append({'ref': ref, 'rule': 'wall clearance', 'side': side, 'r_max_mm': round(rmax, 2),
+                          'wall_clearance_mm': round(WALL_R - rmax, 2), 'limit_r_mm': m.PCB_R})
+        elif ref in WALL_OPENING:
+            rows[-1]['note'] = WALL_OPENING[ref]
         for c, rf, rb in mounts:
             if not ref.startswith('H') and near_circle(boxes, c, rf if side == 'F' else rb, ref.startswith('FID')):
                 found.append({'ref': ref, 'rule': 'fastener keep-out', 'side': side, 'at': [round(v, 2) for v in c]})
@@ -177,8 +188,12 @@ def main():
         rows[-1]['limit_mm'] = round(limit, 2)
         if h > limit + 1e-3:
             found.append({'ref': ref, 'rule': zone, 'height_mm': round(h, 2), 'limit_mm': round(limit, 2)})
-    out = {'board': TARGET.name, 'parts': len(rows), 'findings': found,
-           'limits_mm': {'under the panel': m.ZONE_A_MAX_H, 'under the window (pressed)': round(WINDOW_MAX, 2),
+    spk_wall = WALL_R - max(math.hypot(x, y) for x, y in corners([speaker]))
+    if spk_wall < 0.8 - 1e-3:
+        found.append({'ref': 'speaker', 'rule': 'wall clearance', 'wall_clearance_mm': round(spk_wall, 2), 'limit_mm': 0.8})
+    out = {'board': TARGET.name, 'parts': len(rows), 'findings': found, 'speaker_wall_clearance_mm': round(spk_wall, 2),
+           'max_body_r_mm': max((r_['r_mm'][1], r_['ref']) for r_ in rows if r_['ref'] not in WALL_OPENING),
+           'limits_mm': {'wall: body r max': m.PCB_R, 'under the panel': m.ZONE_A_MAX_H, 'under the window (pressed)': round(WINDOW_MAX, 2),
                          'under the ring lip': RING_LIP_MAX, 'B side': m.ZONE_B_MAX_H},
            'parts_detail': rows}
     (ROOT / 'outputs' / 'MECH-CHECK.json').write_text(json.dumps(out, indent=1) + '\n')

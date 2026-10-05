@@ -9,8 +9,8 @@ BOARD
 - Copper 1 oz outer, 0.5 oz inner (default). No impedance control ordered: USB 2.0 full speed only.
 - ENIG. Black solder mask, white silkscreen (visible product board, ODD JOBS 172). Green is acceptable
   for the 5-unit EVT build if black costs schedule: inspection is easier on green (ODD JOBS 173).
-- Through vias only (no blind/buried): 126 x 0.3 mm drill / 0.6 mm pad (plane and power vias) and
-  66 x 0.2 / 0.5 mm (designed fan-out beside fine-pitch parts and the module pin rows), all tented both
+- Through vias only (no blind/buried): 149 x 0.3 mm drill / 0.6 mm pad (plane and power vias) and
+  60 x 0.2 / 0.5 mm (designed fan-out beside fine-pitch parts and the module pin rows), all tented both
   sides. 24 x 0.2 mm thermal vias inside the U102 / U202 / U501 exposed pads and the module ground pad.
   Via-in-pad: choose epoxy-filled and capped (POFV) if JLC offers it for this order; otherwise
   tented / unplugged is acceptable for A0. Min track 0.15 mm, min clearance 0.15 mm: JLC standard
@@ -18,7 +18,7 @@ BOARD
 - Milled outline incl. the antenna notch with 1.0 mm inner radii, and one internal slot for the display's FPC
   tail at 9 o'clock: 1.0 x 11.5 mm with round ends, centred 18.8 mm left of the board centre (Edge.Cuts,
   non-plated, no copper within 0.25 mm). No V-score. Order single boards. If the assembly needs a panel or
-  rails, put two breakaway tabs at about 2 o'clock (59 deg clockwise from the USB-C, 2.6 mm clear) and about 8 o'clock (235 deg clockwise from the USB-C, 3.9 mm clear): the rim spots with the most room to every pad, track,
+  rails, put two breakaway tabs at about 4 o'clock (130 deg clockwise from the USB-C; no copper within 1.55 mm of the edge and no part within 1.35 mm, over 4 mm of rim) and about 11 o'clock (320 deg clockwise from the USB-C; no copper within 1.55 mm of the edge and no part within 2.13 mm, over 4 mm of rim): the rim spots with the most room to every pad, track,
   part and keep-out. Never at 3 or 9 o'clock (touch electrode arcs at the rim, the tail slot), 12 (USB-C,
   IR LEDs) or 6 (antenna notch).
 - Order number: print it only where the face-side silkscreen reads JLCJLCJLCJLC (under the 6 x 6 mm S/N
@@ -37,9 +37,11 @@ ASSEMBLY (JLC PCBA, both sides)
   tail passes through the slot and plugs in after assembly (no soldering), contacts either way up.
 - DNP: R110 (battery NTC substitute, fit only for a 2-wire cell).
 - Fiducials: FID1-3 front, FID4-6 back (1 mm copper, 2 mm mask opening).
-- Assembly drawing: ASSEMBLY-MAO_MAIN_A0-top.pdf / -bottom.pdf (every reference). Resistors and capacitors
-  that no procedure names, and C407, D101, J303, Q101, Q501, R106, R108, R213, R214, R505, U102, U103, U104, U301 (no clear silk spot) are identified there only; the silkscreen carries the other ICs,
-  connectors, transistors and diodes, the service resistors and capacitors, and the test-pad names.
+- Assembly drawing: ASSEMBLY-MAO_MAIN_A0-top.pdf / -bottom.pdf, one A3 sheet per side at 4.5:1 (the back seen
+  from the back), every reference legible: in its part or beside it with a leader, pads drawn without
+  numbers. Resistors and capacitors that no procedure names, and C407, J303, R108, R205, R213, R214, U104, U303 (no clear silk spot) are identified there only; the
+  silkscreen carries the other ICs, connectors, transistors and diodes (some with a short leader), the
+  service resistors and capacitors, and the test-pad names.
 - Placement file: KiCad rotations. Check every polarised part and pin 1 in JLC's preview, bottom side
   mirrored: SOT-23 (Q101, Q501), SC70-6 (U105), SOT-553 (U101), VQFN/TQFN/TDFN/VSON (U102, U103,
   U104, U202, U501), DFN-8 2 x 2 (U303), LGA (U401), DFN (U403), VL53L4CD (U402), SPH0641 (MK401), DRV5012

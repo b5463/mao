@@ -180,6 +180,9 @@ def sector_pts(r1, r2, a1, a2, n=24):
     return out
 
 
+SILK_MIN_W = 0.15
+
+
 def trim_silk(board, margin=0.25):
     """Footprint silk that would cross the board edge (the module's antenna outline over the notch,
     the USB-C body lines at the rim) is cut back to `margin` inside it: the fab would clip it anyway,
@@ -195,6 +198,8 @@ def trim_silk(board, margin=0.25):
         for g in list(f.GraphicalItems()):
             if not isinstance(g, pcb.PCB_SHAPE) or g.GetLayer() not in (pcb.F_SilkS, pcb.B_SilkS):
                 continue
+            if 0 < g.GetWidth() < pcb.FromMM(SILK_MIN_W):       # library outlines and pin-1 dots at 0.10-0.12 mm
+                g.SetWidth(pcb.FromMM(SILK_MIN_W))              # print as 0.15 mm (ODD JOBS 95)
             if g.GetShape() != pcb.SHAPE_T_SEGMENT:
                 bb = g.GetBoundingBox()
                 xs = [pcb.ToMM(v) - ORIGIN for v in (bb.GetLeft(), bb.GetRight())]
@@ -333,6 +338,16 @@ def build():
                 hole.Append(MM(x + ORIGIN), MM(y + ORIGIN))
             hole.SetClosed(True)
             z.Outline().AddHole(hole)
+    # Breakaway tab spots: laminate only near the edge (ODD JOBS 142)
+    for a in m.TAB_ANGLES:
+        half = math.degrees((m.TAB_ARC / 2 + m.TAB_CLEAR) / m.PCB_R)   # the clearance at the arc's ends too
+        keepout(board, allcu, sector_pts(m.PCB_R - m.TAB_CLEAR, m.PCB_R + 1.0, a - half, a + half, 8),
+                'TAB %d' % int(a), pads=False)
+    # Service-field names: no via where a probe pad's name goes (vias only; tracks may pass under silk)
+    for ref, spec in m.FIELD_NAMES.items():
+        x0, y0, x1, y1 = m.field_name_box(PLACE[ref][0], PLACE[ref][1], *spec)
+        keepout(board, allcu, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], 'NAME %s' % ref,
+                tracks=False, vias=True, pads=False, pours=False)
     # Display tail: no part between the slot and J301 on B, none on the slot's inboard side on F.
     for layer, (x0, y0, x1, y1), name in ((pcb.B_Cu, m.TAIL_CORRIDOR, 'TAIL CORRIDOR'),
                                          (pcb.F_Cu, m.TAIL_F_CLEAR, 'TAIL CLEAR')):

@@ -10,7 +10,7 @@ Rails:
   VBAT       after the reverse-polarity P-FET: charger BAT, fuel gauge
   VSYS       charger power-path output: 4.4 V on USB, ~VBAT on battery
   +3V3       buck-boost output: MCU, sensors, expander (always on)
-  3V3_LCD    switched display rail (TPS22917)
+  3V3_LCD    switched display rail (TPS22919)
 """
 import kicadlib
 import pinmap
@@ -136,7 +136,7 @@ b.part('U4', 'MAO:TPS63802', 'MAO:TI_DLA0010A_VSON-HR-10_2x3mm_P0.5mm', 'TPS6380
        note='buck-boost; PG not used')
 b.part('L1', 'Device:L', 'Inductor_SMD:L_Murata_DFE201610P', '0.47uH', {'1': 'BB_L1', '2': 'BB_L2'},
        lcsc='C668312', mpn='DFE201612E-R47M=P2', mfr='Murata', note='0.47 uH, Isat 5.5 A, 26 mOhm, 2016')
-b.C('C5', '10u', 'VSYS', pkg='0603', note='buck-boost CIN, 0.25 mm from VIN (TI layout: no separate HF cap)')
+b.C('C5', '10u', 'VSYS', pkg='0603', note='buck-boost CIN, about 1 mm from VIN (TI layout: no separate HF cap)')
 b.C('C7', '22u', '+3V3', pkg='0603', note='COUT')
 b.C('C8', '22u', '+3V3', pkg='0603', note='COUT')
 b.R('R13', '470k', 'VSYS', 'BB_EN', note='UVLO divider top (470k, not 1M: the 0.2 uA EN leakage moves the trip only +/-0.1 V)')
@@ -174,7 +174,7 @@ b.R('R18', '10k', '+3V3', 'MCU_EN', note='EN pull-up')
 b.C('C13', '1u', 'MCU_EN', note='EN delay (10k x 1 uF)')
 b.R('R19', '10k', '+3V3', 'PRESS_N', note='GPIO0 pull-up: normal boot')
 b.R('R20', '1M', '+3V3', 'BOARD_ID', note='board ID divider top (1M: 1.65 uA, ODD JOBS 112)')
-b.R('R21', '1M', 'BOARD_ID', 'GND', note='board ID bottom: A0 = 1.65 V')
+b.R('R21', '1M', 'BOARD_ID', 'GND', note='board ID bottom: A0 = half of +3V3, 1.59 V')
 b.C('C15', '100n', 'BOARD_ID', note='holds the divider for the ADC sample (1M source)')
 
 b.at('compute', 'EXPANDER',

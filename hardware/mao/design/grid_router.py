@@ -30,7 +30,7 @@ RASTER = RES * 0.7072          # obstacles mark every cell they touch: copper li
 VIA_D, VIA_COST, BEND = 0.6, float(os.environ.get('GR_VIACOST', 90.0)), (0.0, 3.0, 8.0, 20.0, 200.0)  # in cells: via = 2.2 mm of track; bend cost per 45-degree step
 from netrules import COPPER, PLANE_LAYERS, SLOW_LAYER
 LAYERS = list(COPPER); NLAY = len(LAYERS)
-SL = LAYERS.index(SLOW_LAYER)
+SL = LAYERS.index(SLOW_LAYER); BL = LAYERS.index("B")
 ROUTE = tuple(i for i, n in enumerate(LAYERS) if n not in PLANE_LAYERS)
 L3COST = float(os.environ.get('GR_L3COST', 2.0))
 LCOST = {i: (L3COST if i == SL else 1.0) for i in ROUTE}
@@ -45,6 +45,7 @@ nets = {'': -2}
 def nid(n):
     if n not in nets: nets[n] = len(nets)
     return nets[n]
+GND_ID = nid('GND')
 lab = np.zeros((NLAY, H, W), np.int32)      # inflated: every cell copper touches (clearance)
 exact = np.zeros((NLAY, H, W), np.int32)    # shrunk: cells whose centre is 0.03 mm inside copper (connectivity)
 via_forbid = np.zeros((H, W), bool)
@@ -131,7 +132,7 @@ for k in dump['keepouts']:
     if k['tracks']:
         for l in (L[n] for n in k['layers'] if n not in PLANE_LAYERS):   # planes carry no tracks; vias must pass them
             sl = lab[l]; sl[m & (sl == 0)] = -1; ko[l] |= m
-    if k['vias']: via_forbid |= m
+    if k['vias']: via_forbid |= distance_transform_edt(~m) * RES < VIA_D / 2 + 0.02   # the ring stays out, not just the centre
 HOLE_GAP = 0.25                          # board rule min_hole_to_hole
 holes = [(v['x'], v['y'], 0.15) for v in dump['vias']] +         [(p['x'], p['y'], p['drill'] / 2) for p in dump['pads'] if p['kind'] != 'SMD']
 drill = np.zeros((H, W), bool)          # cells where copper joins all layers (vias, plated holes)
@@ -155,6 +156,8 @@ outside = (np.hypot(_X, _Y) > _m.PCB_R - edge) | ((np.abs(_X) < _m.NOTCH_W / 2 +
 band |= outside
 for l in range(NLAY): lab[l][band & (lab[l] == 0)] = -1
 via_forbid |= outside
+_vedge = 1.3                             # a via ring keeps >= 1.0 mm from the milled edge (ODD JOBS 144)
+via_forbid |= (np.hypot(_X, _Y) > _m.PCB_R - _vedge) | ((np.abs(_X) < _m.NOTCH_W / 2 + _vedge) & (_Y > _m.NOTCH_Y - _vedge))
 
 l3_forbid = np.zeros((H, W), bool)       # L3 power-region cores (power_regions.py): signals stay out
 import power_regions as _pr
@@ -174,9 +177,13 @@ def layer_ok(l, net, okl, j0, j1, i0, i1):
 # Each L3 plane (the +3V3 default fill and every power region) is modelled as its zone would fill: inside its
 # outline (minus higher-priority regions and their 0.2 mm clearance), 0.2 mm from foreign copper, at least
 # 0.2 mm wide. Centre cells of that fill are labelled; a plane's pieces are the labels its own vias touch.
+# A plane's own outline is eroded by one extra grid cell (MARGIN): where two regions meet, the rasterised
+# boundary can land a cell early, and a neck along it that is exactly at the limit fills thinner than the
+# minimum width in KiCad and drops out, so the model must not count it as a joint.
 # A route that raises any plane's piece count is undone and retried on F and B (plane_check.py has the
 # final word on the filled board).
 ZCLR, ZMIN = 0.2, 0.2
+MARGIN = RES
 def _poly(poly):
     img = Image.new('1', (W, H), 0)
     ImageDraw.Draw(img).polygon([((x - x0) / RES - 0.5, (y - y0) / RES - 0.5) for x, y in poly], fill=1, outline=1)
@@ -188,7 +195,7 @@ for _net, _prio, _outline, _ in sorted(_pr.zones(), key=lambda r: -r[1]):
     _a = _poly(_outline) & _inside & (distance_transform_edt(~_taken) * RES >= ZCLR)
     PLANES.append((_net, _a)); _taken |= _a
 PLANES.append(('+3V3', _inside & (distance_transform_edt(~_taken) * RES >= ZCLR)))
-PLANES = [(n_, a_ & (distance_transform_edt(a_) * RES >= ZMIN / 2)) for n_, a_ in PLANES]
+PLANES = [(n_, a_ & (distance_transform_edt(a_) * RES >= ZMIN / 2 + MARGIN)) for n_, a_ in PLANES]
 from scipy.ndimage import label as _label
 
 def plane_pieces(net, area):
@@ -291,6 +298,9 @@ VIA_M = 0.45            # via centre to own pad edge: the 0.6 mm via ring stays 
 TRACK_JOIN = 6.0        # cost (cells) of ending on a track instead of a pad or via centre
 OWN_PEN = 2.0           # cost per cell of running over existing same-net copper (no overlapping tracks)
 NEAR_PEN, NEAR_BAND = 1.5, 3   # soft cost per cell within 0.15 mm beyond the clearance (no hugging)
+BROAD_PEN = 6.0         # cost per cell of running on L3 under, or on B over, another net's copper on the other of
+                        # the two (L3-L4 is the thin 1080 prepreg: stacked lines couple; ODD JOBS 124). A right-angle
+                        # crossing costs a few cells, a 5 mm parallel run about four vias
 SEARCH_LIMIT, H_WEIGHT = int(os.environ.get('GR_LIMIT', 30_000_000)), 2.0   # GR_LIMIT raises the budget for one long run    # state pops per attempt; weighted A*: bend and via costs keep paths tidy
 MIN_RUN = 6             # grid steps between two bends (0.30 mm straight, 0.42 mm diagonal): no micro-jogs
 pads_by_net = {}
@@ -368,7 +378,7 @@ def route(a, b, net, w, pad_mm, keep=True):
     bx0 = min(a['box'][0], b['box'][0]); by0 = min(a['box'][1], b['box'][1])
     bx1 = max(a['box'][2], b['box'][2]); by1 = max(a['box'][3], b['box'][3])
     i0, j0, i1, j1 = window(bx0, by0, bx1, by1, pad_mm)
-    need = (w / 2 + CLR + RASTER) / RES; vneed = (VIA_D / 2 + CLR + RASTER) / RES
+    need = (w / 2 + CLR + RASTER) / RES; vneed = (VIA_D / 2 + CLR + RASTER) / RES + 1   # + one cell: via-to-via measured 0.11 mm short
     ok, pen, near = {}, {}, {}; vok = ~via_forbid[j0:j1, i0:i1] & ~hole_block[j0:j1, i0:i1]
     signal = keep and w <= 0.25 and not POWER.match(net)
     for l in range(NLAY):
@@ -387,6 +397,11 @@ def route(a, b, net, w, pad_mm, keep=True):
             ok[l] = layer_ok(l, net, ok[l], j0, j1, i0, i1)
             vok &= ~block & ~vnear         # no via in or touching an own pad
             pen[l] = np.where(d < need + NEAR_BAND, NEAR_PEN, 0.0) + np.where(own, OWN_PEN, 0.0)
+            if l in (SL, BL):              # broadside: the other layer of the L3/L4 pair, other nets, GND excepted
+                osub = lab[BL if l == SL else SL, j0:j1, i0:i1]
+                oth = (osub > 0) & (osub != n) & (osub != GND_ID)
+                if oth.any():
+                    pen[l] = pen[l] + np.where(distance_transform_edt(~oth) * RES < w / 2 + 0.1, BROAD_PEN, 0.0)
         vok &= d >= vneed
     global SMOOTH_CTX; SMOOTH_CTX = (ok, i0, j0)    # to_copper smooths the found path on these masks
     S = component(cells_of(a), n, i0, j0, i1, j1)

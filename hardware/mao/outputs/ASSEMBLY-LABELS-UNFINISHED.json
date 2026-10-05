@@ -1,19 +1,13 @@
 {
   "unplaced": [
-    "Q501",
-    "D101",
-    "R106",
-    "U103",
-    "U102",
     "U104",
-    "Q101",
     "R108",
     "J303",
+    "U303",
     "R214",
     "R213",
-    "R505",
-    "C407",
-    "U301"
+    "R205",
+    "C407"
   ],
   "reason": "no clear position beside the part; reference kept on Fab at the part centre"
 }

@@ -76,6 +76,11 @@ def main():
     sw, sl, sh = m.SPEAKER_SIZE                       # speaker beside it, also below the PCB
     sx, sy = m.SPEAKER_CENTRE
     e.append(rect(sx - sw / 2, sy - sl / 2, sx + sw / 2, sy + sl / 2, '#c80', 'none', 1.0))
+    # display-tail slot and the tail's path under the board to J301
+    sl = m.TAIL_SLOT
+    e.append(rect(sl[0], sl[1], sl[2], sl[3], '#36c', '#36c', 1.0))
+    e.append(rect(m.TAIL_CORRIDOR[0], -m.TAIL_W / 2, PLACE['J301'][0] - 0.8, m.TAIL_W / 2, '#36c', '#eef3ff', 0.8, '3,2'))
+    e.append(text(sl[2] + 3.6, sl[1] - 1.0, 'tail slot 1.0 x 11.5', 10, 'middle', '#36c'))
     # fasteners
     for a in m.SCREW_ANGLES:
         x, y = m.polar(m.MOUNT_R, a)
@@ -87,7 +92,7 @@ def main():
     e.append(text(x + 2.8, y + 0.4, 'peg Ø%.1f (plastic) %.2f, %.2f' % (m.PEG_HOLE_D, x, y), 10))
     # interfaces from the placement
     marks = [('J101', 'USB-C (B), face at y %.1f' % m.USB_FRONT_Y, '#111'),
-             ('D501', 'IR out (B)', '#a0a'), ('D502', 'IR out (B)', '#a0a'), ('J301', 'display FPC (F)', '#36c'),
+             ('D501', 'IR out (B)', '#a0a'), ('D502', 'IR out (B)', '#a0a'), ('J301', 'display FPC (B), 70 mm tail through the slot', '#36c'),
              ('U402', 'ToF window', '#0a5'), ('U403', 'light window', '#0a5'), ('U503', 'IR receive window', '#0a5'),
              ('MK401', 'mic port (Ø0.5 hole)', '#0a5'), ('SW301', 'face-press stem', '#111'),
              ('J302', 'TOP spring', '#c80'), ('J303', 'REAR spring (B)', '#c80'),
@@ -123,6 +128,7 @@ def main():
             ('Springs', 'BW0019BG: working height 3.0 mm (2.5-3.8)'),
             ('Window', 'sensor band r %.1f-%.1f mm: IR-clear at 11, 1, 3 o\'clock' % m.WINDOW_ANNULUS),
             ('Fixing', '2 x M2 into heat-set inserts, 1 plastic peg'),
+            ('Tail', 'stock 70.1 mm FPC: S-fold in the carrier, slot x %.1f..%.1f, to J301 on B' % (m.TAIL_SLOT[0], m.TAIL_SLOT[2])),
             ]
     y = -28.0
     for k, v in rows:

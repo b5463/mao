@@ -74,9 +74,11 @@ ASSEMBLY (JLC PCBA, both sides)
   tail passes through the slot and plugs in after assembly (no soldering), contacts either way up.
 - DNP: R110 (battery NTC substitute, fit only for a 2-wire cell).
 - Fiducials: FID1-3 front, FID4-6 back (1 mm copper, 2 mm mask opening).
-- Assembly drawing: ASSEMBLY-MAO_MAIN_A0-top.pdf / -bottom.pdf (every reference). Resistors and capacitors
-  that no procedure names{unplaced} are identified there only; the silkscreen carries the other ICs,
-  connectors, transistors and diodes, the service resistors and capacitors, and the test-pad names.
+- Assembly drawing: ASSEMBLY-MAO_MAIN_A0-top.pdf / -bottom.pdf, one A3 sheet per side at 4.5:1 (the back seen
+  from the back), every reference legible: in its part or beside it with a leader, pads drawn without
+  numbers. Resistors and capacitors that no procedure names{unplaced} are identified there only; the
+  silkscreen carries the other ICs, connectors, transistors and diodes (some with a short leader), the
+  service resistors and capacitors, and the test-pad names.
 - Placement file: KiCad rotations. Check every polarised part and pin 1 in JLC's preview, bottom side
   mirrored: SOT-23 (Q101, Q501), SC70-6 (U105), SOT-553 (U101), VQFN/TQFN/TDFN/VSON (U102, U103,
   U104, U202, U501), DFN-8 2 x 2 (U303), LGA (U401), DFN (U403), VL53L4CD (U402), SPH0641 (MK401), DRV5012

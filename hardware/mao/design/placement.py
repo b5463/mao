@@ -139,7 +139,7 @@ P['R108'] = (UX + 15.26, UY + 1.635, 90, 'B')
 P['J102'] = (UX + 16.26, UY + 7.285, 180, 'B')
 P['U103'] = (13.7, -14.55, 0, 'B')           # gauge in the charger's old B spot: clear of the H2 screw head
 P['C104'] = (11.3, -15.05, 90, 'B')         # gauge VDD beside its VBAT pins
-P['R109'] = (UX + 11.25, UY + 3.0, 270, 'B')
+P['R109'] = (UX + 11.25, UY + 3.0, 0, 'B')        # gate pull-down, flat between the FET and the BAT probe pad
 P['R110'] = (UX + 17.75, UY + 3.25, 0, 'B')
 P['R106'] = (9.16, -15.1, 90, 'F')          # PGOOD pull-up at pin 7
 P['R117'] = (11.9, -14.6, 90, 'F')           # /CE pull-down below pin 4: charging on from reset
@@ -166,7 +166,7 @@ P['J301'] = (round(m.TAIL_ENTRY_X + 2.85, 3), 0.0, 90, 'B')
 pin('R301', 90, 'B', '1', 'U201', '20', 0.0, -1.7)   # 22R on SCLK and MOSI at the module pins
 pin('R302', 90, 'B', '1', 'U201', '19', 0.0, -1.7)
 # Backlight: AW9364 above the bus, LED sinks towards VLED- (pad 11), VIN and its cap at VLED+ (pad 12).
-P['U303'] = (-8.3, -2.4, 270, 'B')
+P['U303'] = (-8.3, -3.65, 270, 'B')
 pin('C305', 90, 'B', '1', 'U303', '3', 0.0, -1.4, reach=3.0)   # VIN cap under pin 3
 # Display rail switch on F under the panel, its output dropping to pad 3 (VCI) through one via.
 P['U105'] = (-11.4, -9.15, 0, 'F')           # left of the USB pair (x -7.6/-6.8 on F), below the amp's caps
@@ -177,18 +177,20 @@ P['C301'] = (-11.3, 3.1, 0, 'F')           # panel VCI HF beside the VCI via (J3
 P['C302'] = (-11.6, 1.5, 0, 'F')           # panel bulk
 
 # ==== module support (B) ===============================================================================
+# Parts at the module's pins are drawn at the module's pre-audit position and move with it (MODULE_SHIFT).
+DYM = m.MODULE_SHIFT
 # touch series R on F, on their pin rows: pins 4/5/6 rise through one via each and the three electrode
 # leads leave as nested lanes on F (route_local.py), clear of the back's haptic and audio corner
 for _ref, _pin in (('R307', '4'), ('R309', '5'), ('R310', '6')):
     import geo as _geo
     _x, _y = _geo.pad('U201', _pin, P['U201'])
     P[_ref] = (round(_x - 2.75, 3), round(_y, 3), 180, 'F')
-P['R201'] = (-10.45, 19.3, 90, 'B')        # EN pull-up between pins 2 and 3
-P['C203'] = (-11.7, 18.3, 90, 'B')        # EN delay: EN end on the EN row, GND end above it
-P['C202'] = (-10.75, 21.05, 0, 'B')        # 3V3 HF: GND end at pin 1, 3V3 end under R201
-P['C201'] = (-13.4, 20.15, 180, 'B')        # 3V3 bulk at the end of the 3V3 row
+P['R201'] = (-10.45, round(19.3 + DYM, 3), 90, 'B')        # EN pull-up between pins 2 and 3
+P['C203'] = (-11.7, round(18.3 + DYM, 3), 90, 'B')        # EN delay: EN end on the EN row, GND end above it
+P['C202'] = (-10.75, round(20.85 + DYM, 3), 0, 'B')        # 3V3 HF: GND end at pin 1, 3V3 end under R201 (1.5 mm off the notch)
+P['C201'] = (-13.4, round(20.15 + DYM, 3), 180, 'B')        # 3V3 bulk at the end of the 3V3 row
 
-P['R202'] = (10.4, 3.25, 270, 'B')         # GPIO0 pull-up beside pin 27, PRESS_N end towards the pin
+P['R202'] = (10.4, round(3.25 + DYM, 3), 270, 'B')         # GPIO0 pull-up beside pin 27, PRESS_N end towards the pin
 
 # ==== audio: amplifier beside the speaker, 9 o'clock (B) ===============================================
 P['U501'] = (-14.4, -8.7, 0, 'B')           # 10 o'clock, above the tail corridor: I2S pins face the corridor the
@@ -205,22 +207,22 @@ P['R208'] = (-15.95, -9.96, 90, 'F')        # SD_MODE pull-down on F, beside the
 P['R507'] = (-13.6, -14.9, 180, 'F')        # SD_MODE series resistor on its F line, at the expander's via
 
 # ==== haptic: driver at the LRA, 7-8 o'clock (B) =======================================================
-P['U502'] = (-15.6, 12.4, 180, 'B')         # SCL/SDA level with the module's I2C pins, LRA side to the pads
+P['U502'] = (-15.6, round(12.4 + DYM, 3), 180, 'B')         # SCL/SDA level with the module's I2C pins, LRA side to the pads
 P['J501'] = rim(23.6, 242.0, 'B')[:2] + (90, 'B')   # LRA lead pads (wire pads: rotation cardinal, ODD JOBS 90)
-P['C503'] = (-17.0, 10.0, 0, 'B')          # VDD above pin 10, GND end towards the body
-P['C504'] = (-14.4, 9.4, 90, 'B')          # REG, above the driver: the I2C lanes stay open
-P['R209'] = (-12.4, 14.85, 270, 'B')       # EN pull-down below pin 5, clear of the SDA lane
+P['C503'] = (-17.0, round(10.0 + DYM, 3), 0, 'B')          # VDD above pin 10, GND end towards the body
+P['C504'] = (-14.4, round(9.4 + DYM, 3), 90, 'B')          # REG, above the driver: the I2C lanes stay open
+P['R209'] = (-12.4, round(14.85 + DYM, 3), 270, 'B')       # EN pull-down below pin 5, clear of the SDA lane
 
 
 # ==== expander: upper left (B), among the loads it switches ==========================================
 P['U202'] = (-9.0, -13.1, 0, 'B')
 P['C205'] = (-9.27, -10.2, 180, 'B')     # VCC over pins 14/15, GND end over pin 16
 P['R206'] = (-3.87, -12.85, 180, 'B')      # INT pull-up beyond the expander's fan-out vias, +3V3 end into core 1
-# board ID divider (static, read once at boot) left of the expander; its line arrives on L3
-# board ID divider (static, read once at boot) in the charger's old B spot; its line arrives on L3
-P['R204'] = (7.3, -14.7, 90, 'B')
-P['R203'] = (8.4, -14.7, 90, 'B')
-P['C204'] = (6.2, -14.7, 90, 'B')
+# board ID divider (static, read once at boot) on F over GPIO8's via: the only ADC line stays ~2 mm long, away
+# from USB, the buck-boost and the speaker (ODD JOBS 56); the panel is 2.7 mm above (zone A: 0402 is 0.35 mm)
+P['C204'] = (-11.6, round(7.24 + DYM, 3), 180, 'F')          # filter cap nearest the pin; BOARD_ID ends east
+P['R204'] = (-11.6, round(7.24 + DYM + 1.2, 3), 180, 'F')
+P['R203'] = (-11.6, round(7.24 + DYM + 2.4, 3), 0, 'F')
 pin('R207', 90, 'B', '1', 'U202', '2', 0.0, -1.6, reach=4.0)   # display reset pull-down at the expander's P0
 P['R116'] = (-12.2375, -7.0, 270, 'F')      # rail switch ON pull-down, straight below pin 3 (clear of its courtyard)
 
@@ -249,8 +251,8 @@ pin('D303', 0, 'F', '1', 'J302', '1', 1.8, 0.8, reach=4.0)   # TOP spring ESD be
 pin('D304', 0, 'B', '1', 'J303', '1', 2.0, 0.0)
 
 # ==== Tag-Connect at the module's UART pins (B) ========================================================
-P['J201'] = (15.2, 17.6, 90, 'B')       # RXD, TXD level with the module's pins 36, 37; GND below
-P['R308'] = (11.6, 19.6, 0, 'B')           # TOUCH_RIGHT series R beside pin 39, inboard of the antenna fringe
+P['J201'] = (15.2, round(17.6 + DYM, 3), 90, 'B')       # RXD, TXD level with the module's pins 36, 37; GND below
+P['R308'] = (11.6, round(19.6 + DYM, 3), 0, 'B')           # TOUCH_RIGHT series R beside pin 39, inboard of the antenna fringe
 
 # ==== F: window-border sensors, Hall pair ==============================================================
 P['U402'] = rim(m.TOF_R, m.TOF_ANGLE, 'F')      # its field of view is set by the window aperture, axis radial
@@ -278,16 +280,18 @@ P['R306'] = rim(24.0, 130.0, 'F')[:2] + (0, 'F')     # GND end east, its via sou
 # ==== service field: one compact zone (B) below the power section ======================================
 #   rails straight from the power section above, a ground beside every rail (ODD JOBS 39);
 #   signals from the module below
-_field = {'TP2': (6.0, -5.7), 'TP3': (8.8, -5.7), 'TP4': (11.6, -5.7), 'TP5': (14.4, -5.7),
-          'TP10': (6.0, -2.7), 'TP1': (11.6, -2.7), 'TP16': (14.4, -2.7),
-          'TP9': (6.0, 0.3), 'TP11': (8.8, 0.3), 'TP8': (11.6, 0.3), 'TP7': (14.4, 0.3)}
+#   rows 2.8 mm apart (probe pitch >= 2.54): the module's top row and its escape vias sit 1.45 mm below the last
+_field = {'TP2': (6.0, -6.1), 'TP3': (8.8, -6.1), 'TP4': (11.6, -6.1), 'TP5': (14.3, -6.1),
+          'TP10': (6.0, -3.3), 'TP1': (11.6, -3.3), 'TP16': (14.3, -3.3),
+          'TP9': (6.0, -0.5), 'TP11': (8.8, -0.5), 'TP8': (11.6, -0.5), 'TP7': (14.3, -0.5)}   # (east column 2.7 mm
+                                                                                              # in: its names clear J102)
 for _ref, (_x, _y) in _field.items():
     P[_ref] = (_x, _y, 0, 'B')
 P['TP6'] = (5.5, -16.95, 0, 'B')           # VBUS on the VBUS bus at the TVS
-P['R214'] = (8.2, -2.7, 270, 'B')           # I2C pull-ups in the field's free position: SCL beside TP10,
-P['R213'] = (9.44, -2.7, 270, 'B')          # SDA from TP9 round it; +3V3 ends up to TP3
+P['R214'] = (8.2, -3.3, 270, 'B')           # I2C pull-ups in the field's free position: SCL beside TP10,
+P['R213'] = (9.44, -3.3, 270, 'B')          # SDA from TP9 round it; +3V3 ends up to TP3
 # pull-ups that sit on a probed line go beside its probe pad, clear of every fan-out
-pin('R205', 90, 'B', '2', 'TP11', '1', 1.6, 0.0)     # expander RESET
+P['R205'] = (11.7, 1.61, 90, 'B')          # expander RESET pull-up between the GPIO0 pull-up and TP8
 P['TP13'] = (-6.4, -7.2, 0, 'B')           # LCD rail probe on B, beside the backlight driver
 pin('TP14', 0, 'B', '1', 'C406', '1', -1.0, 2.6, reach=4.0)   # MIC supply at its filter
 pin('TP15', 0, 'B', '1', 'U503', '4', -0.6, 2.0)      # IR receiver supply, under the receiver

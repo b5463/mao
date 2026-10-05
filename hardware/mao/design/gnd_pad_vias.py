@@ -19,6 +19,9 @@ whose track keeps 0.15 mm on its own layer. Run DRC with --refill-zones afterwar
                                                 # stub instead of drilling its own; parts of the --pour
                                                 # classes join GND through the outer pour (gnd_stitch.py
                                                 # ties any fragment that is left without a via)
+    python gnd_pad_vias.py --decap 1.6 --within 1.2
+                                                # after routing: every capacitor GND pad more than 1.6 mm from
+                                                # a GND via gets its own, where one fits within 1.2 mm
 """
 import math, sys
 import pcbnew as pcb
@@ -71,8 +74,8 @@ track_areas += [z for f in b.GetFootprints() for z in f.Zones() if z.GetIsRuleAr
 fiducials = [f.GetPosition() for f in b.GetFootprints() if f.GetReference().startswith('FID')]
 def inside_ok(at):
     x, y = pcb.ToMM(at.x) - ORIGIN, pcb.ToMM(at.y) - ORIGIN
-    if math.hypot(x, y) > m.PCB_R - 0.8: return False
-    if abs(x) < m.NOTCH_W / 2 + 0.8 and y > m.NOTCH_Y - 0.8: return False
+    if math.hypot(x, y) > m.PCB_R - 1.2: return False             # via ring >= 0.9 mm from the milled edge
+    if abs(x) < m.NOTCH_W / 2 + 1.2 and y > m.NOTCH_Y - 1.2: return False   # (ODD JOBS 144)
     for z in areas:
         if z.Outline().Collide(at, pcb.FromMM(0.3)): return False
     if any((at - c).EuclideanNorm() < pcb.FromMM(2.2) for c in fiducials): return False   # 2 mm mask ring + gap
@@ -117,7 +120,8 @@ def opt(flag, default):
     return sys.argv[sys.argv.index(flag) + 1] if flag in sys.argv else default
 SHARE = pcb.FromMM(float(opt('--share', 0)))
 POUR = set(filter(None, opt('--pour', '').split(',')))
-flagvals = {opt(f, None) for f in ('--net', '--share', '--pour')}
+WITHIN = float(opt('--within', 3.0))
+flagvals = {opt(f, None) for f in ('--net', '--share', '--pour', '--decap', '--within')}
 names = [a for a in sys.argv[1:] if not a.startswith('--') and a not in flagvals]
 def share(c, layer):
     """A plane via of this net within SHARE of pad centre c that a straight stub reaches cleanly."""
@@ -147,6 +151,16 @@ if '--all' in sys.argv:
             names.append('%s.%s' % (ref, p.GetNumber()))
     first = {'U': 0, 'J': 1, 'D': 2, 'Q': 3}           # ICs and connectors drill first; their caps share
     names = sorted(set(names), key=lambda n: (first.get(n[0], 4), n.split('.')[0], n))
+if '--decap' in sys.argv:
+    far = pcb.FromMM(float(opt('--decap', 1.6)))
+    sites = [t.GetPosition() for t in tracks if isinstance(t, pcb.PCB_VIA) and t.GetNetCode() == code]
+    sites += [p.GetPosition() for p in pads if p.GetNetCode() == code and p.GetAttribute() == pcb.PAD_ATTRIB_PTH]
+    for f in b.GetFootprints():
+        if not f.GetReference().startswith('C'): continue
+        for p in f.Pads():
+            if p.GetNetCode() == code and p.GetAttribute() == pcb.PAD_ATTRIB_SMD and \
+               min((p.GetPosition() - s_).EuclideanNorm() for s_ in sites) > far:
+                names.append('%s.%s' % (f.GetReference(), p.GetNumber()))
 done_pads = set()
 for name in names:
     if '>' in name: log.append(link(name)); continue
@@ -170,7 +184,7 @@ for name in names:
       out = math.atan2(c.y - fc.y, c.x - fc.x) if (c - fc).EuclideanNorm() > pcb.FromMM(0.2) else 0.0
       order = sorted(range(8), key=lambda k: (k % 2, abs(math.remainder(math.pi / 4 * k - out, 2 * math.pi))))
       edge = max(pad.GetSize(pcb.F_Cu).x, pad.GetSize(pcb.F_Cu).y) / 2e6
-      for r10 in range(int((edge + 0.6) * 10), 31):
+      for r10 in range(int((edge + 0.6) * 10), int(WITHIN * 10) + 1):
           r = r10 / 10
           for k in order:                                  # centre lines first, outward first
               a = math.pi / 4 * k
@@ -182,7 +196,7 @@ for name in names:
               if not inside_ok(at) or not stub_ok(c, at, layer): continue
               best = (r, at); break
           if best: break
-      if not best: log.append(f'{name}: NO SITE within 3 mm'); continue
+      if not best: log.append(f'{name}: NO SITE within {WITHIN:g} mm'); continue
       if SHARE:                        # a site beside an existing via of this net: use that via (no twin vias)
           twins = [t for t in tracks + added if isinstance(t, pcb.PCB_VIA) and t.GetNetCode() == code
                    and (t.GetPosition() - best[1]).EuclideanNorm() < pcb.FromMM(1.1)]
@@ -197,7 +211,7 @@ for name in names:
       t = pcb.PCB_TRACK(b); t.SetStart(c); t.SetEnd(best[1]); t.SetWidth(pcb.FromMM(0.3)); t.SetLayer(layer)
       t.SetNetCode(code); t.SetLocked(True); b.Add(t)
       added += [v, t]
-      log.append(f'{name}: {best[0]:.1f} mm')
+      log.append(f'{name}: {best[0]:.1f} mm' + (f' at ({mm(best[1].x):.2f}, {mm(best[1].y):.2f})' if DRY else ''))
     continue
     pad = None
     layer = pcb.B_Cu if fps[ref].IsFlipped() else pcb.F_Cu

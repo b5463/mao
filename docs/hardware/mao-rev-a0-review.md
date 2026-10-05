@@ -38,13 +38,13 @@ BOM: every fitted part has an LCSC number, checked against LCSC on 2026-10-04 an
 |---|---|---|
 | USB-C J101 | Rd 5.1 k on CC1 and CC2 (sink, default power). D+/D− both rows joined. VBUS pins both sides joined. Shell to GND | ✓ |
 | VBUS ESD | SMF15A: 15 V standoff, clamps below the BQ24073's 28 V absolute maximum. TPD2E2U06 on D+/D− (1.5 pF) | ✓ |
-| BQ24073 | /CE = GND (charge on). EN2 = GND, EN1 = VSYS → USB500. ISET 3.0 k → 297 mA (0.6 C). ILIM 1.5 k → 1.07 A (must not be open). TD = 0 Ω to GND → termination on. TMR open → default safety timers. TS ← cell NTC 10 k (0–50 °C). OUT regulated to 4.4 V on USB | ✓ datasheet SLUS810 |
+| BQ24073 (U102, on F under the panel) | /CE from expander P6 with a 100 k pull-down R117 (charging on by default; firmware pauses at ≥ 43 °C board temperature, resumes ≤ 40 °C: the cell allows 0–45 °C, the chip's TS window is 0–50 °C). EN2 = GND, EN1 = +3V3 → USB500 once the rail is up (USB100 before). ISET 4.3 k → 207 mA (185–227 mA; the cell's 0.5C is 250 mA). ILIM 1.5 k → 1.07 A (must not be open). TD = 0 Ω to GND → termination on. TMR open → default safety timers. TS ← cell NTC 10 k. OUT regulated to 4.4 V on USB. /CHG unused | ✓ datasheet SLUS810 |
 | Caps | IN 1 µF 25 V; OUT 10 µF; BAT 10 µF (≥ 4.7 µF each required) | ✓ |
 | Reverse polarity | AO3401A P-FET: drain to the cell, source to VBAT, gate 10 k to GND. Reversed cell: the body diode blocks and Vgs = 0, so the FET stays off. Correct cell: the FET is enhanced and conducts both ways, so charging works | ✓; Vgs max ±12 V ≥ 4.2 V |
 | BAT link | R108 0 Ω 1206 (2 A class) in the cell path: lift it to measure battery current (ODD JOBS 110) | ✓ |
 | Gauge MAX17048 | VDD/CELL on VBAT; CTG, QSTRT, GND tied. ALRT is open-drain, wired-OR with the light sensor's INT to expander P7 through a 100 k pull-up, so a latched alert costs 33 µA, not 330 | ✓ |
-| Buck-boost TPS63802 | EN divider 470 k / 240 k: on at 1.1 V × 2.958 = 3.25 V, off at 2.96 V. This is the hardware UVLO, independent of firmware. Worst case over 1 % resistors, the EN thresholds and the 0.2 µA EN leakage: off 2.75–3.16 V, on 3.05–3.46 V (simulation S1; the 1 M / 510 k draft reached 2.65 V) FB 560 k / 100 k: 0.5 V × 6.6 = 3.30 V. MODE = GND → power save (11 µA Iq). PG unused. L 0.47 µH DFE201612E (Isat 5.5 A). CIN 10 µF at VIN. COUT 2 × 22 µF (TI typical application) | ✓ SLVSEU9D. No 100 nF at VIN: TI's reference layout has none, and the 10 µF is 0.25 mm from the pin |
-| Display rail TPS22917 | ON pulled down (off until firmware). CT 1 nF to **VIN**, as the datasheet specifies for this part (≈ 3.8 ms ramp, CT rated 7 V). QOD to VOUT through 100 Ω: controlled discharge | ✓ SLVSDN2 |
+| Buck-boost TPS63802 | EN divider 470 k / 240 k: on at 1.1 V × 2.958 = 3.25 V, off at 2.96 V. This is the hardware UVLO, independent of firmware. Worst case over 1 % resistors, the EN thresholds and the 0.2 µA EN leakage: off 2.75–3.16 V, on 3.05–3.46 V (simulation S1; the 1 M / 510 k draft reached 2.65 V) FB 536 k / 100 k: 0.5 V × 6.36 = 3.18 V (3.10–3.28 V worst case, under the Winstar VCI 3.3 V maximum). EN filter 100 nF (C111). MODE = GND → power save (11 µA Iq). PG unused. L 0.47 µH DFE201612E (Isat 5.5 A). CIN 10 µF at VIN. COUT 2 × 22 µF (TI typical application) | ✓ SLVSEU9D. No 100 nF at VIN: TI's reference layout has none, and the 10 µF is 0.25 mm from the pin |
+| Display rail TPS22919 (U105, SC70-6) | ON pulled down by R116 (off until firmware; the part's smart pull-down too). Fixed slew: 1.7 ms at 3.18 V, 26 mA inrush (S10). QOD to VOUT through 100 Ω (R115): controlled discharge. VIN cap C110 1 µF at pin 1, VOUT cap C109 1 µF. SC70-6 is 1.1 mm: it sits under the panel (zone A ≤ 1.2 mm) | ✓ SLVSEN5B |
 | Battery protection | Cell PCM (mandatory, checked on receipt), hardware UVLO, NTC window, firmware critical-battery shutdown, reverse-polarity FET | ✓ (no second protector IC; see the architecture doc) |
 
 ### 1.2 Compute
@@ -54,7 +54,7 @@ BOM: every fitted part has an LCSC number, checked against LCSC on 2026-10-04 an
 | Module | ESP32-S3-WROOM-1-N8R2 (quad PSRAM keeps GPIO35–37 free; 85 °C). 22 µF + 100 nF at 3V3. EN 10 k / 1 µF (Espressif HDG RC) | ✓ |
 | Straps | GPIO0: face switch to GND, 10 k pull-up, **no capacitor** (BOOT). GPIO3: charger PGOOD input with 100 k pull-up (JTAG-source strap, inert unless its eFuse is burnt). GPIO45 (VDD_SPI strap, must read 0 for the 3.3 V flash): backlight PWM, held low at reset by the 100 k gate pull-down R305. GPIO46 (must read 0 for download boot): NC with its internal pull-down | ✓ |
 | Board ID | 1 M / 1 M + 100 nF on GPIO8 (ADC1_CH7) → 1.65 V (A0); 1.65 µA | ✓ |
-| Expander TCA6408A 0x20 | Every output has a pull-down default (rails off, panel in reset, amp shut down). Inputs: CHG (100 k pull-up) and SENSE_ALRT (100 k). RESET has a 10 k pull-up **and GPIO38** (recovery without a power cycle). INT to GPIO21 (deep-sleep wake) | ✓ |
+| Expander TCA6408A 0x20 | Every output has a pull-down default (rails off, panel in reset, amp shut down, charging on). P6 = charger /CE (output). Input: SENSE_ALRT (P7, 100 k). RESET has a 10 k pull-up **and GPIO39** (recovery without a power cycle). INT to GPIO21 (deep-sleep wake) | ✓ |
 | I2C | One bus, 2.2 k pull-ups, 400 kHz, 6 devices. Addresses 0x20, 0x29, 0x36, 0x44, 0x5A, 0x6A: unique | ✓ |
 | Service | Tag-Connect TC2030-NL (GND, EN, TXD0, 3V3, RXD0, GPIO0) + 15 probe pads | ✓ |
 
@@ -62,7 +62,7 @@ BOM: every fitted part has an LCSC number, checked against LCSC on 2026-10-04 an
 
 | Block | Check | Result |
 |---|---|---|
-| Display | **J301: HDGC 0.5K-HX-18PWB**, 18-pin 0.5 mm back-flip FPC connector with contacts top and bottom (LCSC C2919497). The panel plugs in and can be swapped without solder. Pinout follows the 18-pin round-panel standard (Winstar WF0128BTYAA4DNN0): 7 VLED+, 8 VLED−, 9 GND, 10 CS, 11 SCL, 12 SDA, 13 RS, 14 TE, 15 RESET, 16 VCI, 18 GND. Pins 1–6 are the touch controller of touch variants: TP_GND to GND, the rest NC. TE goes to GPIO9 for tear-free frames. 22 Ω series on SCLK/MOSI at the module. 100 nF + 4.7 µF at the connector. Backlight: 2 parallel LEDs, 10 Ω from 3V3_LCD → ≈ 30 mA, AO3400A low side, gate 100 k pull-down | ✓ |
+| Display | **J301: HDGC 0.5K-HX-18PWB**, 18-pin 0.5 mm back-flip FPC connector with contacts top and bottom (LCSC C2919497). The panel plugs in and can be swapped without solder. Pinout follows the 18-pin round-panel standard (Winstar WF0128BTYAA4DNN0): 7 VLED+, 8 VLED−, 9 GND, 10 CS, 11 SCL, 12 SDA, 13 RS, 14 TE, 15 RESET, 16 VCI, 18 GND. Pins 1–6 are the touch controller of touch variants: TP_GND to GND, the rest NC. TE goes to GPIO9 for tear-free frames. 22 Ω series on SCLK/MOSI at the module. 100 nF + 4.7 µF at the connector. J301 sits on B: the stock panel's 70 mm tail passes through a routed slot at 9 o'clock (panel pin k on pad 19 − k). Backlight: VLED+ on VSYS, VLED− into an AW9364 (U303) LED1 + LED2: 40 mA nominal (33–47 mA), 16 steps by EN pulses on GPIO45, 150 k EN pull-down (dark from reset) | ✓ |
 | Ring dial | 2 × DRV5012, 6° apart, under 30 poles (12° per pole): 90° electrical, 2 transitions per detent, 30 detents. HALL_FAST (GPIO2) pulled down → 20 Hz sampling asleep (1.6 µA). The poles are a flexible ferrite strip in the ring (no metal sweeps over the antenna); DRV5012 operates at ≤ ±3.3 mT, the strip is specified for ≥ 8 mT at the 1.5 mm gap. Detents are haptic ticks from the LRA | ✓ |
 | Face press | SKQG on GPIO0. The face rocks on its lip on three printed flexures (mechanical §4): centre ≈ 2.6 N / 0.25 mm, rim ≈ 1.3 N / 0.5 mm; an LRA click on every press | ✓ |
 | Touch | 510 Ω series within ≈ 1 mm of the module pins (on F, under the pins), 0.42 pF ESD at each electrode, no plane under the rim arcs | ✓ |
@@ -77,7 +77,7 @@ BOM: every fitted part has an LCSC number, checked against LCSC on 2026-10-04 an
 |---|---|---|
 | Amp MAX98357A | VDD = VSYS (≤ 4.4 V < 5.5 V). SD_MODE from the expander: low → shutdown, 0.6 µA; 3.3 V (> 1.4 V) → left channel. GAIN_SLOT open → 9 dB. 10 µF + 100 nF at VDD, the datasheet's decoupling. EP to GND with thermal vias. I2S on GPIO16/17/18. Speaker LS501: Same Sky CMS-150803-088S-X8 (8 Ω, 0.8 W nominal, 1.2 W max), its spring contacts on two pads; full scale is 2.1 dBV + 9 dB = 3.59 Vrms; the A0 audio gain (0.58 at 100 % volume) gives 2.08 Vrms: 0.54 W into 8 Ω, 0.68 W at the 6.4 Ω impedance minimum, under the 0.8 W rating (simulation S12) | ✓ |
 | Haptic DRV2605L | VDD (pin 10) = VSYS (2–5.2 V). Pin 6 VDD/NC left open: the datasheet allows tying it to VDD or leaving it floating. REG 1 µF (required). IN/TRIG = GND. EN from the expander (4 µA off) | ✓ SLOS854D |
-| IR TX | 56 Ω 0603 per LED from VSYS: 26–59 mA peaks at 33 % duty over VSYS 3.0–4.5 V and the Vf spread, under the 65 mA rating at every point (simulation S4; the 47 Ω draft reached 70 mA on USB). AO3400A low side on GPIO39, gate 100 k pull-down | ✓ |
+| IR TX | 56 Ω 0603 per LED from VSYS: 26–59 mA peaks at 33 % duty over VSYS 3.0–4.5 V and the Vf spread, under the 65 mA rating at every point (simulation S4; the 47 Ω draft reached 70 mA on USB). AO3400A low side on GPIO38 (no reset pull-up on that pin), gate 100 k pull-down: dark at reset | ✓ |
 | IR RX IRM-H638T | Supply from expander P5 through 100 Ω / 4.7 µF. R506 10 k pull-up to the switched supply: a defined level, and an unpowered receiver is never back-powered. Output on GPIO40 | ✓ |
 
 ### 1.5 Changes made in the reviews
@@ -86,7 +86,7 @@ Rows 1–14 come from the first (6-layer) review and still hold. Rows 15–29 ar
 
 | # | Change | Why |
 |---|---|---|
-| 1 | Expander RESET on a GPIO (now GPIO38); TP11 named XRST | recover a wedged I2C expander without a power cycle (firmware `exp_recover()`) |
+| 1 | Expander RESET on a GPIO (now GPIO39); TP11 named XRST | recover a wedged I2C expander without a power cycle (firmware `exp_recover()`) |
 | 2 | TP13–TP15 on 3V3_LCD, MIC_VDD, IR_RX_VCC | the fixture proves the switched rails really switch; firmware only sees the enables |
 | 3 | R506 IR receiver pull-up to its own switched supply | removes reliance on an undocumented internal pull-up |
 | 4 | C106 (100 nF at the TPS63802 VIN) removed | TI's reference layout; the 10 µF CIN is 0.25 mm from the pin |
@@ -104,7 +104,7 @@ Rows 1–14 come from the first (6-layer) review and still hold. Rows 15–29 ar
 | 16 | L3 split into regions (`power_regions.py`): +3V3 plane over most of the board, a VSYS band (with a notch for the haptic lines), a VBUS strip under the receptacle. The router may not put L3 signals inside "cores" under the buck output, module supply, display lanes, I2S lanes and PDM pair | L4's fast lanes keep an unbroken reference; the planes stay whole |
 | 17 | Placement re-done for 4 layers: IMU U401 on F at (3.2, 7.0); touch series resistors on F under the module pins; expander U202 on B at (−9.0, −13.1); J201 at (15.2, 17.6), turned 90°; service field on a 2.8 × 3.0 mm grid | each fan-out gets its own escape on the layer it needs; no route wraps around a part |
 | 18 | **Plug-in display**: the Limito 12-pin solder land became J301, the HDGC 18-pin back-flip connector, for the Winstar WF0128BTYAA4DNN0 panel standard. The TE line was added (GPIO9) | the panel can be swapped without solder; tear-free frames |
-| 19 | 4-layer pin map: display group GPIO9–13 in the connector's own pin order; IMU_INT1 GPIO14; BOARD_ID GPIO8 (ADC1); USB_PRESENT_N GPIO3; HALL_FAST GPIO2; mic group GPIO35–37 (power, data, clock); EXP_RST_N GPIO38; backlight GPIO45 (strap held low by its gate pull-down); GPIO46 NC; spare TP12 (IO35) removed | each group leaves the module towards its part without crossing another |
+| 19 | 4-layer pin map: display group GPIO9–13 in the connector's own pin order; IMU_INT1 GPIO14; BOARD_ID GPIO8 (ADC1); USB_PRESENT_N GPIO3; HALL_FAST GPIO2; mic group GPIO35–37 (power, data, clock); EXP_RST_N GPIO39 and IR_TX GPIO38 (swapped in the A0 revision: MTCK's reset pull-up); backlight EN GPIO45 (strap held low by the AW9364's EN pull-down); GPIO46 NC; spare TP12 (IO35) removed | each group leaves the module towards its part without crossing another |
 | 20 | Via policy: plane vias shared within 1.6 mm, pour classes for small pads, twins merged, designed links. **194 vias** (6-layer board: 230) | fewer drills; every pad still has a short ground |
 | 21 | `via_off_pad.py`: no via may touch an SMD pad, guaranteed after routing | ODD JOBS 82 |
 | 22 | `plane_check.py` in the pipeline: every In1/In2 zone must fill as one piece | a split plane fails the build, not the review |
@@ -124,7 +124,8 @@ Rows 1–14 come from the first (6-layer) review and still hold. Rows 15–29 ar
 | 36 | Pipeline: footprint-geometry cache rebuilt in the `place` step; placement imported lazily by `build_pcb.py` | a new footprint can no longer break placement |
 | 37 | UVLO divider R111 / R112: 470 k / 240 k instead of 1 M / 510 k | simulation S1: the 0.2 µA EN leakage × 1 MΩ put the worst-case cut-off at 2.65 V; now 2.75–3.16 V (`mao-a0-verification.md`) |
 | 38 | IR LED resistors R501 / R502: 56 Ω instead of 47 Ω | S4: 66–70 mA on USB, over the IR12-21C 65 mA rating; now ≤ 59 mA |
-| 39 | Firmware: 100 % brightness = 80 % backlight PWM | S3: the 2.8 V panel bin draws 50 mA at full PWM; the average now stays ≤ 40 mA |
+| 39 | ~~Firmware: 100 % brightness = 80 % backlight PWM~~ | superseded by the A0 revision: the AW9364 sets the current |
+| 40 | A0 revision (2026-10-05): stock Winstar panel with its 70 mm tail through a slot to J301 on B; AW9364 backlight from VSYS; TPS22919 rail switch with its VIN cap; +3V3 3.18 V; charger ISET 4.3 k, /CE on expander P6, charger on F; SD_MODE 2.2 k; GPIO38/39 swap; U503/ToF inside the ring lip; boss / head keep-outs; new silk | the verification audits (`mao-a0-verification.md`, Revision) |
 
 ## 2. PCB review
 
@@ -201,7 +202,7 @@ Reviewed as if looking for reasons not to order.
 | GPIO conflicts? | None: `pinmap.py` is the single source; the header, pin-map doc and schematic notes are generated from it |
 | Boot-strap conflicts? | None: GPIO0 face switch with pull-up and no capacitor; GPIO3 input (JTAG strap inert); GPIO45 held low by the backlight gate pull-down; GPIO46 NC with pull-down |
 | USB-C correct? | Sink, 5.1 k Rd on CC1/CC2, both D± rows joined, TVS + ESD at the connector |
-| Charging safe? | BQ24073 at 297 mA (0.6 C), NTC window 0–50 °C, timers on, cell PCM required, reverse-polarity FET |
+| Charging safe? | BQ24073 at 207 mA (0.4 C), NTC window 0–50 °C plus the firmware pause at 43 °C board temperature (cell 0–45 °C), timers on, cell PCM required, reverse-polarity FET |
 | Operates while charging? | Yes (DPPM: VSYS from USB, the cell takes the rest) |
 | Battery polarity unambiguous? | JST SH keyed; silk "− T +" at the plug; reverse-polarity FET as backstop; pinout check on receipt (`mao-mechanical.md` §7) |
 | Fuel gauge correct? | MAX17048 on VBAT, ALRT wired-OR to the expander |

@@ -29,7 +29,7 @@ import mechanical as m
 DATE = '2026-10'
 FIELD = {'TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP8', 'TP9', 'TP10', 'TP11', 'TP16'}
 GROUPS = ('MAO silk F', 'MAO silk B', 'ODD JOBS maker mark', 'MAO easter eggs')
-IDENT, CONN, DEBUG = 1.5, 1.2, 0.85         # type scale (references 0.8, mao_labels.py)
+IDENT, CONN, DEBUG = 1.5, 1.2, m.FIELD_TEXT  # type scale: identity, connectors, test pads (references 0.8)
 STROKE = 0.15
 ART_STROKE = 0.16                  # easter-egg line art (JLC silk minimum 0.153 mm)
 
@@ -307,27 +307,52 @@ def main():
     label('TOP', [(tx, ty + 2.6), (tx, ty - 2.6), (tx + 2.6, ty, 90), (tx - 2.6, ty, 90)], 'F', CONN,
           anchor=(tx, ty, 1.6))
     ny = m.NOTCH_Y
-    label('ANTENNA KEEP CLEAR', [(0.0, ny - 0.9), (0.0, ny - 1.2), (0.0, ny - 1.5)], 'F')
+    one = [(0.0, ny - 0.9), (0.0, ny - 0.8), (0.0, ny - 0.7), (0.0, ny - 1.2), (0.0, ny - 1.5)] + \
+          [(dx_, ny - 1.8 - 0.3 * k) for k in range(5) for dx_ in (0.0, -0.5, 0.5, -1.0, 1.0)]
+    if any(clear(measure('ANTENNA KEEP CLEAR', x_, y_, 'F'), 'F') for x_, y_ in one):
+        label('ANTENNA KEEP CLEAR', one, 'F')
+    else:                                  # two lines between the vias of the antenna-edge stitching row
+        label('ANTENNA\nKEEP CLEAR', [(x_ / 10, ny - 1.3 - 0.1 * k) for k in range(6)
+                                       for x_ in sorted(range(-60, 41, 5), key=lambda v_: abs(v_ + 10))], 'F')
 
     # ---- back: maker's mark and product line beside the module, outside the cell (seen with the base off) --
     bw = B_MARK_W                          # the back mark (4.6 mm: its finest strokes stay >= 0.15 mm), the product
     bh = bw * (data['pixel_bounds'][3] - 1) / (data['pixel_bounds'][2] - 1)   # line centred under it
-    def block(cx_, cy_):
-        lines_ = [('MAO A0', cy_ + bh / 2 + 0.95, 1.0, True), (DATE, cy_ + bh / 2 + 2.4, 0.8, False)]
+    def block(cx_, cy_, ident=1.5):        # identity 1.5 mm (1.3 / 1.2 where the back has no field for it)
+        lines_ = [('MAO A0', cy_ + bh / 2 + 0.45 + ident / 2, ident, True), (DATE, cy_ + bh / 2 + ident + 1.45, 0.8, False)]
         boxes_ = [(cx_ - bw / 2, cy_ - bh / 2, cx_ + bw / 2, cy_ + bh / 2)]
         boxes_ += [measure(s_, cx_, y_, 'B', size) for s_, y_, size, _ in lines_]
         return lines_, boxes_
-    spots = sorted(((x_, y_) for x_ in [B_MARK_AT[0] + 0.2 * k for k in range(-10, 11)]
-                    for y_ in [B_MARK_AT[1] + 0.2 * k for k in range(-10, 11)]),
-                   key=lambda p_: math.hypot(p_[0] - B_MARK_AT[0], p_[1] - B_MARK_AT[1]))
-    for cx_, cy_ in spots:
-        lines_, boxes_ = block(cx_, cy_)
-        if all(clear(q, 'B') for q in boxes_):
+    cx0, cy0 = m.BATTERY_CENTRE            # anywhere on the back, best outside the cell (visible with the base off)
+    cell = (cx0 - m.BATTERY_ENVELOPE[0] / 2, cy0 - m.BATTERY_ENVELOPE[1] / 2,
+            cx0 + m.BATTERY_ENVELOPE[0] / 2, cy0 + m.BATTERY_ENVELOPE[1] / 2)
+    def under_cell(cx_, cy_):
+        q = (cx_ - bw / 2, cy_ - bh / 2, cx_ + bw / 2, cy_ + bh / 2 + 3.4)
+        ix = max(0.0, min(q[2], cell[2]) - max(q[0], cell[0])) * max(0.0, min(q[3], cell[3]) - max(q[1], cell[1]))
+        return ix / ((q[2] - q[0]) * (q[3] - q[1]))
+    spots = sorted(((x_ / 5, y_ / 5) for x_ in range(-130, 131) for y_ in range(-130, 131)
+                    if math.hypot(x_ / 5, y_ / 5) < m.PCB_R - 4.0),
+                   key=lambda p_: 8.0 * under_cell(*p_) + 0.1 * math.hypot(p_[0] - B_MARK_AT[0], p_[1] - B_MARK_AT[1]))
+    found = None
+    for ident in (1.5, 1.3, 1.2):
+        for cx_, cy_ in spots:
+            if not clear((cx_ - bw / 2, cy_ - bh / 2, cx_ + bw / 2, cy_ + bh / 2), 'B'):
+                continue                   # the mark first: cheap, and most spots fail here
+            lines_, boxes_ = block(cx_, cy_, ident)
+            if all(clear(q, 'B') for q in boxes_):
+                found = (cx_, cy_, ident)
+                break
+        if found:
             break
+    if found:
+        cx_, cy_, ident = found
+        lines_, boxes_ = block(cx_, cy_, ident)
+        print('silk: back mark at (%.1f, %.1f), identity %.1f mm, %.0f %% over the cell outline' % (
+            cx_, cy_, ident, 100 * under_cell(cx_, cy_)))
     else:
         cx_, cy_ = B_MARK_AT
         lines_, boxes_ = block(cx_, cy_)
-        print('silk: back mark: no clear spot')
+        print('silk: back mark: no clear spot |', [why(q, 'B') for q in boxes_])
     b_mark = (cx_, cy_)
     mark(b_mark, bw, 'B')
     placed['B'].append(boxes_[0])
@@ -367,7 +392,8 @@ def main():
     gx, gy = centre('J201')                # Tag-Connect: name along its module-side column
     label('TAG', [(gx - 2.6, gy, 270), (gx - 0.3, gy + 3.65, 0), (gx + 2.5, gy, 270)], 'B', CONN, anchor=(gx, gy, 2.6))
     kx, ky = centre('R108')
-    label('BAT\nLINK', [(kx + 2.65, ky - 0.4), (kx + 2.8, ky - 0.4)], 'B')
+    label('BAT\nLINK', [(kx + 2.65, ky - 0.4), (kx + 2.8, ky - 0.4)] +
+          [(kx + dx_, ky + dy_) for dx_ in (2.65, 2.4, 2.9, -2.65, -2.9) for dy_ in (0.0, -0.8, 0.8, -1.2, 1.2)], 'B')
 
     # ---- back: test pads by function (ODD JOBS 103) --------------------------------------------------------
     # The service field is labelled as one set: every name upright beside its pad or level above / below it,
@@ -457,8 +483,20 @@ def main():
         line(x0, y0, x1, y1, 'F')                                                   # arrow heads
 
     # ---- easter eggs (module docstring): after every functional label, so they only take space left over -------
-    import eggart
+    # The references mao_labels.py puts on silk come after this script, so their room is held back here: no egg
+    # within 1.4 mm of a part whose reference the silk policy wants (ICs, connectors, semiconductors, the switch,
+    # mic, inductor, electrodes and every R/C a procedure names)
+    import eggart, re
     EGG = 'MAO easter eggs'
+    named = {r for d in ('mao-bringup.md', 'mao-factory-test.md')
+             for r in re.findall(r'\b[RC]\d{3}\b', (ROOT.parents[1] / 'docs' / 'hardware' / d).read_text(encoding='utf-8'))}
+    held = {'F': [], 'B': []}
+    for r_, f_ in fps.items():
+        if (''.join(c_ for c_ in r_ if c_.isalpha()) in ('U', 'J', 'Q', 'D', 'SW', 'MK', 'L', 'E') or r_ in named) \
+                and r_ != 'SW301':         # the switch has room all round: 'boop' is its nose
+            held[side_of(f_)] += [(q[0] - 1.4, q[1] - 1.4, q[2] + 1.4, q[3] + 1.4) for q in courtyard_boxes(f_)]
+    for sd_ in ('F', 'B'):
+        placed[sd_] += held[sd_]
 
     def art_pts(lines_, dots_, ox, oy, sd):
         mir = -1 if sd == 'B' else 1       # the back reads mirrored: flip x so the art faces the right way
@@ -514,10 +552,15 @@ def main():
     label('meow', [(sx + dx_, sy + dy_, 270) for dx_ in (2.2, 1.6, 2.8, 0.8) for dy_ in (4.6, -4.6, 3.6, -3.6, 5.4, -5.4)],
           'B', 0.8, gname=EGG, inside=('LS501',), quiet=True)          # under the speaker
     qx, qy = centre('Q101')                # the reverse-polarity FET: a cell put in backwards is survived
-    label('9 lives', [], 'B', 0.8, gname=EGG, anchor=(qx, qy, 1.6), quiet=True)
+    jx_, jy_ = centre('J102')              # ... or at the cell's own plug
+    label('9 lives', ring(qx, qy, 1.6) + ring(jx_, jy_, 2.6) +
+          [(jx_ + dx_ / 5, jy_ + dy_ / 5, a_) for dx_ in range(-40, 41, 2) for dy_ in range(-40, 41, 2) for a_ in (0, 270)],
+          'B', 0.8, gname=EGG, quiet=True)
     label('MADE FOR\nBAD IDEAS', [(x_, y_) for x_, y_ in grid(*BAD_IDEAS_AT, face, 0.4)][:1500], 'F', 0.8, gname=EGG,
           quiet=True)
 
+    for sd_ in ('F', 'B'):                 # the held room is for the references, not a placed item
+        placed[sd_] = [q for q in placed[sd_] if q not in held[sd_]]
     tb = b.GetTitleBlock()                 # drawings plotted from the board (assembly PDFs) carry the identity too
     tb.SetTitle('MAO_MAIN A0')
     tb.SetRevision('A0')
@@ -537,9 +580,10 @@ def main():
 
 
 # service field: preferred spot per pad, ('side', +1 right / -1 left) upright, ('flat', -1 above / +1 below)
-FIELD_GAP = 0.5                    # between two service-field names (as everywhere: closer reads as one word)
-FIELD_SHARED = [('TP1', 'TP16')]   # the row-2 ground pair: one GND name between them
-FIELD_SPOT = {ref: [('side', 1)] for ref in ('TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP8', 'TP9', 'TP10', 'TP11', 'TP16')}
+FIELD_GAP = 0.4                    # between two service-field names: half the 0.8 mm name height (closer reads as
+                                   # one word); 0.5 has no arrangement in the 2.8 mm grid
+FIELD_SHARED = []                  # (every probe pad carries its own name)
+FIELD_SPOT = {ref: [('side', 1) if spec[1] == 'right' else ('flat', -1)] for ref, spec in m.FIELD_NAMES.items()}
 BRAND_CENTRE = (-6.6, 8.6)       # F, under the module's left half: the calmest free field on the face side
 SN_SPOTS = [(x_ / 10, y_ / 10) for y_ in (140, 142, 138, 144, 136, 146) for x_ in (0, 2, -2, 4, -4, 6, -6, 8, -8)]
                                  # F: centre of the 6 x 6 mm S/N field (the back has no clear 6 x 6 field)

@@ -72,6 +72,7 @@ STEPS = {
     'place': lambda: (run(KIPY, 'fp_cache.py'), run(KIPY, 'build_pcb.py'), run(KIPY, 'stackup.py'), run(KIPY, 'models3d.py'),
                       snapshot('placed')),
     'power': lambda: (run(KIPY, 'route_power.py', 'add'), run(KIPY, 'route_local.py', 'add'),
+                      run(KIPY, 'gnd_fence.py', '--pre') if os.environ.get('FENCE_PRE') else None,
                       run(sys.executable, 'project.py'), snapshot('power')),
     'planevias': lambda: (run(KIPY, 'gnd_pad_vias.py', *EP_LINKS, log='gnd-links.log'),
                           run(KIPY, 'gnd_pad_vias.py', '--all', *SHARE, '--pour', 'R,TP,SW', *POUR_BOXED, log='gnd-vias.log'),
@@ -89,7 +90,9 @@ STEPS = {
                           run(KIPY, 'route_freerouting.py', 'import'), run(sys.executable, 'project.py'),
                           snapshot('freerouted')),
     'tidy': lambda: (run(KIPY, 'tidy_routes.py'), run(sys.executable, 'project.py')),
-    'stitch': lambda: (run(KIPY, 'gnd_stitch.py'), run(sys.executable, 'project.py')),
+    'stitch': lambda: (run(KIPY, 'gnd_stitch.py'), run(KIPY, 'gnd_fence.py'),
+                       run(KIPY, 'gnd_pad_vias.py', '--decap', '1.6', '--within', '1.2', log='decap-vias.log'),
+                       run(sys.executable, 'project.py')),
     'starved': lambda: (run(KIPY, 'gnd_pad_vias.py', *SHARE, *starved_pads()) if starved_pads() else None,
                         run(sys.executable, 'project.py')),
     'prune': lambda: (run(KIPY, 'prune_stubs.py'), run(sys.executable, 'project.py')),
@@ -100,7 +103,8 @@ STEPS = {
     'models': lambda: run(KIPY, 'models3d.py'),
     'mech': lambda: run(KIPY, 'mech_check.py'),
     'tabs': lambda: run(KIPY, 'panel_tabs.py'),
-    'fab': lambda: (run(KIPY, 'panel_tabs.py'), run(KIPY, 'fab.py')),
+    'fab': lambda: (run(KIPY, 'panel_tabs.py'), run(KIPY, 'fab.py'), run(KIPY, 'asm_dump.py'),
+                    run(VENV or sys.executable, 'assembly_drawing.py')),     # replaces kicad-cli's assembly PDFs
 }
 SEQ = {
     'all': ['capture', 'footprints', 'place', 'power', 'planevias', 'drc', 'gridroute', 'drc',

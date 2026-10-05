@@ -71,8 +71,12 @@ TAIL_F_CLEAR = (-19.4, -6.4, -17.7, 6.4)   # F.Cu on the slot's inboard side: no
 MODULE_ANGLE = 180.0        # 6 o'clock
 MODULE_W, MODULE_L = 18.0, 25.5
 ANTENNA_L = 6.4             # module antenna section length (no copper underneath)
-MODULE_OUTER_R = PCB_R - 0.3          # antenna end just inside the board circle
-MODULE_CY = MODULE_OUTER_R - MODULE_L / 2          # module centre (y), 15.95
+# The module's antenna-end corners (x +-9) set its position, not its axis: they stay inside the board circle
+# (r 28.89), so the module keeps the board's 1 mm to the wall (ODD JOBS 135, 136). Until rev A0 audit 2 the
+# end sat at r 28.7 on the axis and the corners reached r 30.08, into the wall.
+MODULE_OUTER_R = 27.45                # antenna end (y)
+MODULE_CY = MODULE_OUTER_R - MODULE_L / 2          # module centre (y), 14.70
+MODULE_SHIFT = MODULE_CY - 15.95      # designed copper drawn for the old position moves with the module
 ANTENNA_EDGE_Y = MODULE_CY + 6.75                  # antenna section starts here (footprint F.Fab)
 NOTCH_W = MODULE_W + 6.0              # board cut-out under the antenna: 3 mm each side
 NOTCH_Y = ANTENNA_EDGE_Y              # notch inner edge = antenna boundary (no copper beneath)
@@ -101,7 +105,7 @@ PRESS_SIDE = 'F'
 BATTERY_ENVELOPE = (35.5, 30.0, 5.1)     # w, d, h: PKCELL LP503035 class, 500 mAh, PCM, 10k NTC
 # Cell lead: leaves the cell's 3 o'clock end and plugs into J102 (JST SH 3-pin, 2 o'clock on B.Cu,
 # opening towards 6 o'clock): ~25 mm of lead, re-terminated to 1 BAT- / 2 NTC / 3 BAT+.
-BATTERY_CENTRE = (0.0, -5.0)
+BATTERY_CENTRE = (0.0, -5.6)         # cell edges y -20.6 / 9.4: 12.05 mm from the antenna boundary (y 21.45)
 ZONE_B_MAX_H = 3.2
 # Speaker: Same Sky CMS-150803-088S-X8 (15 x 8 x 3 mm, own spring contacts) under the board at 9 o'clock, long
 # side along the rim: 1.8 mm from the cell, >= 0.8 mm from the wall at its corners. A round 15 mm part does not
@@ -128,6 +132,28 @@ PEG_KEEPOUT_D_B = 3.0        # only the peg tip (d 1.9) passes below B
 # Edge (ODD JOBS 71, 144, 145): pours and planes stop 0.5 mm from the milled edge; MLCC pads >= 1.5 mm from it.
 POUR_EDGE = 0.5
 MLCC_EDGE = 1.5
+# Breakaway tabs for a panelised order (ODD JOBS 142, 145): two fixed spots, clear of the touch arcs, the antenna
+# band, USB-C and the IR LEDs; at each, no copper on any layer within TAB_CLEAR of the edge over TAB_ARC of rim
+# (a mouse bite then cuts laminate only).
+TAB_ANGLES = (130.0, 320.0)
+TAB_ARC, TAB_CLEAR = 4.0, 1.5
+# Service-field names (silk.py): each probe pad's name has a via-free spot of its own, so no router, stitching or
+# pad via lands where the name has to go (ODD JOBS 103). ref: (name, side) with side 'right' (upright beside the
+# pad) or 'above' (level, over it). The pad positions come from placement.py.
+FIELD_NAMES = {'TP2': ('GND', 'right'), 'TP3': ('3V3', 'right'), 'TP4': ('SYS', 'right'), 'TP5': ('BAT', 'right'),
+               'TP10': ('SCL', 'right'), 'TP1': ('GND', 'right'), 'TP16': ('GND', 'right'),
+               'TP9': ('SDA', 'right', -0.3), 'TP11': ('XRST', 'right'), 'TP8': ('BOOT', 'right'), 'TP7': ('RST', 'right')}
+FIELD_TEXT = 0.8                   # the names' height: the rows are 2.8 mm apart
+
+
+def field_name_box(x, y, name, side, dy=0.0):
+    """Board box a service-field name takes beside (or over) its pad at (x, y), slid dy along the pad."""
+    r = 0.6 if name in ('GND', '3V3', 'SYS', 'BAT', 'VBUS') else 0.5
+    L = 0.62 * len(name) + 0.2
+    y += dy
+    if side == 'right':                    # the name's box (0.95 mm across) and its 0.05 mm gap to a via
+        return (x + r + 0.15, y - L / 2 - 0.1, x + r + 1.3, y + L / 2 + 0.1)
+    return (x - L / 2 - 0.1, y - r - 1.3, x + L / 2 + 0.1, y - r - 0.15)
 
 
 def polar(r, angle_deg):

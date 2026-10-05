@@ -21,7 +21,7 @@ by review (one L3 island per rail).
 # route_power.py.
 VSYS_BAND = [(5.7, -11.0), (7.4, -11.0), (7.4, -21.0), (10.4, -21.0), (10.4, -18.8),
              (12.6, -18.8), (12.6, -26.0), (-25.0, -26.0), (-25.0, 12.6), (-18.0, 12.6),
-             (-18.0, 9.7), (-16.3, 9.7), (-16.3, 8.1), (-18.0, 8.1),       # notch: the haptic driver's via
+             (-18.0, 8.45), (-16.3, 8.45), (-16.3, 6.85), (-18.0, 6.85),   # notch: the haptic driver's via
              (-18.0, -10.4), (-10.4, -10.4), (-10.4, -1.4), (-8.4, -1.4), (-8.4, -11.6), (-18.0, -11.6),  # 10 o'clock branch
              (-18.0, -19.6), (-16.0, -21.6), (5.7, -21.6)]       # chamfer: the top band meets the rim 2.6 mm wide
 # VBUS: joins the receptacle's two VBUS contact pairs (A4/B9 over A9/B4) under the USB pair's escape.

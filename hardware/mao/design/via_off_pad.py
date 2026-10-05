@@ -7,7 +7,9 @@ spot where its ring clears every SMD pad and keeps 0.15 mm from copper of other 
 crosses, and where the ends of the tracks that met it, moved with it, keep the same clearance on their
 layers and stay out of rule areas. Connectivity is unchanged: only the via and the track ends that meet
 it move. Exposed-pad thermal vias belong to their footprint and are not board vias, so they are not
-touched. Run DRC afterwards.
+touched. A second pass does the same for a router via (never a designed, locked one) that keeps less than
+0.15 mm from copper of another net on any layer: the grid's raster can land a via a few hundredths short of
+the rule beside another via. Run DRC afterwards (snap45.py squares the moved track ends).
 
     python via_off_pad.py [--dry]
 """
@@ -65,18 +67,39 @@ def in_area(shape, layer, via):
     return False
 
 
-moved, stuck = [], []
-for v in vias:
+def clash(v):
+    """Position of the nearest copper of another net that the via ring comes within 0.15 mm of, else None."""
     c, r, net = v.GetPosition(), v.GetWidth(pcb.F_Cu) // 2, v.GetNetCode()
-    pad = on_smd(c, r)
-    if not pad:
-        continue
+    ring = pcb.SHAPE_CIRCLE(c, r)
+    for ly in LAYERS:
+        for t in segs + vias:
+            if t is v or t.GetNetCode() == net or not t.IsOnLayer(ly):
+                continue
+            if t.GetEffectiveShape(ly).Collide(ring, CLR - 1):
+                if isinstance(t, pcb.PCB_VIA):
+                    return t.GetPosition()
+                a_, b_ = t.GetStart(), t.GetEnd()
+                L2 = (b_.x - a_.x) ** 2 + (b_.y - a_.y) ** 2
+                u = 0 if L2 == 0 else max(0, min(1, ((c.x - a_.x) * (b_.x - a_.x) + (c.y - a_.y) * (b_.y - a_.y)) / L2))
+                return pcb.VECTOR2I(int(a_.x + u * (b_.x - a_.x)), int(a_.y + u * (b_.y - a_.y)))
+        for p in pads:
+            if p.GetNetCode() != net and p.IsOnLayer(ly) and p.GetEffectiveShape(ly).Collide(ring, CLR - 1):
+                return p.GetPosition()
+    return None
+
+
+moved, stuck = [], []
+todo = [(v, on_smd(v.GetPosition(), v.GetWidth(pcb.F_Cu) // 2)) for v in vias]
+todo = [(v, p_.GetPosition(), p_.GetParentFootprint().GetReference() + '.' + p_.GetNumber()) for v, p_ in todo if p_]
+todo += [(v, q_, 'clearance') for v in vias if not v.IsLocked() for q_ in [clash(v)] if q_ is not None]
+for v, away, why_ in todo:
+    c, r, net = v.GetPosition(), v.GetWidth(pcb.F_Cu) // 2, v.GetNetCode()
     ends = [(t, 'start' if t.GetStart() == c else 'end') for t in segs if t.GetNetCode() == net
             and (t.GetStart() == c or t.GetEnd() == c)]
-    dx, dy = c.x - pad.GetPosition().x, c.y - pad.GetPosition().y
+    dx, dy = c.x - away.x, c.y - away.y
     base = math.atan2(dy, dx) if (dx or dy) else 0.0
     done = None
-    for turn in (0.0, math.pi / 4, -math.pi / 4):
+    for turn in (0.0, math.pi / 4, -math.pi / 4, math.pi / 2, -math.pi / 2):
         a = base + turn
         for k in range(1, 21):
             d = pcb.FromMM(0.05 * k)
@@ -97,10 +120,9 @@ for v in vias:
         if done:
             break
     if not done:
-        stuck.append((v.GetNetname(), round(mm(c.x), 2), round(mm(c.y), 2), pad.GetParentFootprint().GetReference()))
+        stuck.append((v.GetNetname(), round(mm(c.x), 2), round(mm(c.y), 2), why_))
         continue
-    moved.append((v.GetNetname(), round(mm(c.x), 2), round(mm(c.y), 2), round(mm(done.x), 2), round(mm(done.y), 2),
-                  pad.GetParentFootprint().GetReference() + '.' + pad.GetNumber()))
+    moved.append((v.GetNetname(), round(mm(c.x), 2), round(mm(c.y), 2), round(mm(done.x), 2), round(mm(done.y), 2), why_))
     if not DRY:
         v.SetPosition(done)
         for t, which in ends:

@@ -14,6 +14,9 @@
 <rect x="200.2" y="200.0" width="319.5" height="270.0" stroke="#777" fill="none" stroke-width="1.0" stroke-dasharray="2,3"/>
 <text x="342.0" y="461.0" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#777" font-weight="normal">cell envelope 35.5 x 30 x 5.1 (below the PCB)</text>
 <rect x="110.3" y="317.9" width="72.0" height="135.0" stroke="#c80" fill="none" stroke-width="1.0"/>
+<rect x="186.3" y="328.2" width="9.0" height="103.5" stroke="#36c" fill="#36c" stroke-width="1.0"/>
+<rect x="195.3" y="337.2" width="57.1" height="85.5" stroke="#36c" fill="#eef3ff" stroke-width="0.8" stroke-dasharray="3,2"/>
+<text x="227.7" y="319.2" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#36c" font-weight="normal">tail slot 1.0 x 11.5</text>
 <circle cx="192.8" cy="229.4" r="9.9" stroke="#111" fill="#fff" stroke-width="1.2"/>
 <circle cx="192.8" cy="229.4" r="20.7" stroke="#111" fill="none" stroke-width="1.2" stroke-dasharray="2,2"/>
 <text x="218.0" y="233.0" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="start" fill="#111" font-weight="normal">M2 -18.58, -16.73</text>
@@ -28,20 +31,20 @@
 <text x="270.7" y="151.3" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#a0a" font-weight="bold">2</text>
 <circle cx="449.3" cy="147.3" r="8.1" stroke="#a0a" fill="#fff" stroke-width="1.2"/>
 <text x="449.3" y="151.3" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#a0a" font-weight="bold">3</text>
-<circle cx="252.0" cy="380.0" r="8.1" stroke="#36c" fill="#fff" stroke-width="1.2"/>
-<text x="252.0" y="384.1" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#36c" font-weight="bold">4</text>
-<circle cx="270.4" cy="211.5" r="8.1" stroke="#0a5" fill="#fff" stroke-width="1.2"/>
-<text x="270.4" y="215.6" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#0a5" font-weight="bold">5</text>
+<circle cx="259.6" cy="380.0" r="8.1" stroke="#36c" fill="#fff" stroke-width="1.2"/>
+<text x="259.6" y="384.1" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#36c" font-weight="bold">4</text>
+<circle cx="271.7" cy="213.9" r="8.1" stroke="#0a5" fill="#fff" stroke-width="1.2"/>
+<text x="271.7" y="218.0" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#0a5" font-weight="bold">5</text>
 <circle cx="449.6" cy="211.5" r="8.1" stroke="#0a5" fill="#fff" stroke-width="1.2"/>
 <text x="449.6" y="215.6" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#0a5" font-weight="bold">6</text>
-<circle cx="552.6" cy="380.0" r="8.1" stroke="#0a5" fill="#fff" stroke-width="1.2"/>
-<text x="552.6" y="384.1" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#0a5" font-weight="bold">7</text>
+<circle cx="549.0" cy="380.0" r="8.1" stroke="#0a5" fill="#fff" stroke-width="1.2"/>
+<text x="549.0" y="384.1" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#0a5" font-weight="bold">7</text>
 <circle cx="550.3" cy="434.6" r="8.1" stroke="#0a5" fill="#fff" stroke-width="1.2"/>
 <text x="550.3" y="438.6" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#0a5" font-weight="bold">8</text>
 <circle cx="360.0" cy="357.5" r="8.1" stroke="#111" fill="#fff" stroke-width="1.2"/>
 <text x="360.0" y="361.6" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#111" font-weight="bold">9</text>
-<circle cx="180.7" cy="445.3" r="8.1" stroke="#c80" fill="#fff" stroke-width="1.2"/>
-<text x="180.7" y="449.3" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#c80" font-weight="bold">10</text>
+<circle cx="165.6" cy="445.7" r="8.1" stroke="#c80" fill="#fff" stroke-width="1.2"/>
+<text x="165.6" y="449.8" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#c80" font-weight="bold">10</text>
 <circle cx="158.4" cy="300.8" r="8.1" stroke="#c80" fill="#fff" stroke-width="1.2"/>
 <text x="158.4" y="304.9" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#c80" font-weight="bold">11</text>
 <circle cx="146.3" cy="385.4" r="8.1" stroke="#c80" fill="#fff" stroke-width="1.2"/>
@@ -72,22 +75,23 @@
 <text x="720" y="322.4" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Springs</tspan>  BW0019BG: working height 3.0 mm (2.5-3.8)</text>
 <text x="720" y="344.0" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Window</tspan>  sensor band r 18.3-23.5 mm: IR-clear at 11, 1, 3 o'clock</text>
 <text x="720" y="365.6" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Fixing</tspan>  2 x M2 into heat-set inserts, 1 plastic peg</text>
-<text x="720" y="401.6" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold">Interfaces (board mm, top view)</text>
-<text x="720" y="423.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold"> 1</tspan>  J101  USB-C (B), face at y -29.6  (0.00, -25.95)</text>
-<text x="720" y="440.3" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#a0a"><tspan font-weight="bold"> 2</tspan>  D501  IR out (B)  (-9.93, -25.86)</text>
-<text x="720" y="457.4" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#a0a"><tspan font-weight="bold"> 3</tspan>  D502  IR out (B)  (9.93, -25.86)</text>
-<text x="720" y="474.5" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold"> 4</tspan>  J301  display FPC (F)  (-12.00, 0.00)</text>
-<text x="720" y="491.6" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 5</tspan>  U402  ToF window  (-9.95, -18.72)</text>
-<text x="720" y="508.7" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 6</tspan>  U403  light window  (9.95, -18.72)</text>
-<text x="720" y="525.8" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 7</tspan>  U503  IR receive window  (21.40, -0.00)</text>
-<text x="720" y="542.9" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 8</tspan>  MK401  mic port (Ø0.5 hole)  (21.15, 6.06)</text>
-<text x="720" y="560.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold"> 9</tspan>  SW301  face-press stem  (0.00, -2.50)</text>
-<text x="720" y="577.1" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">10</tspan>  J302  TOP spring  (-19.92, 7.25)</text>
-<text x="720" y="594.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">11</tspan>  J303  REAR spring (B)  (-22.40, -8.80)</text>
-<text x="720" y="611.3" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">12</tspan>  LS501  speaker below the PCB, outline; contacts on B  (-23.74, 0.60)</text>
-<text x="720" y="628.4" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">13</tspan>  J501  LRA leads (B)  (-20.84, 11.08)</text>
-<text x="720" y="645.5" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold">14</tspan>  U301  Hall A  (22.78, 13.15)</text>
-<text x="720" y="662.6" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold">15</tspan>  U302  Hall B  (21.28, 15.46)</text>
-<text x="720" y="679.7" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold">16</tspan>  J201  Tag-Connect (B)  (15.20, 17.60)</text>
-<text x="720" y="696.8" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c00"><tspan font-weight="bold">17</tspan>  J102  battery plug (B), opening to 6 o'clock  (19.26, -3.71)</text>
+<text x="720" y="387.2" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Tail</tspan>  stock 70.1 mm FPC: S-fold in the carrier, slot x -19.3..-18.3, to J301 on B</text>
+<text x="720" y="423.2" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold">Interfaces (board mm, top view)</text>
+<text x="720" y="444.8" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold"> 1</tspan>  J101  USB-C (B), face at y -29.6  (0.00, -25.95)</text>
+<text x="720" y="461.9" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#a0a"><tspan font-weight="bold"> 2</tspan>  D501  IR out (B)  (-9.93, -25.86)</text>
+<text x="720" y="479.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#a0a"><tspan font-weight="bold"> 3</tspan>  D502  IR out (B)  (9.93, -25.86)</text>
+<text x="720" y="496.1" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold"> 4</tspan>  J301  display FPC (B), 70 mm tail through the slot  (-11.15, 0.00)</text>
+<text x="720" y="513.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 5</tspan>  U402  ToF window  (-9.81, -18.45)</text>
+<text x="720" y="530.3" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 6</tspan>  U403  light window  (9.95, -18.72)</text>
+<text x="720" y="547.4" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 7</tspan>  U503  IR receive window  (21.00, -0.00)</text>
+<text x="720" y="564.5" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 8</tspan>  MK401  mic port (Ø0.5 hole)  (21.15, 6.06)</text>
+<text x="720" y="581.6" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold"> 9</tspan>  SW301  face-press stem  (0.00, -2.50)</text>
+<text x="720" y="598.7" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">10</tspan>  J302  TOP spring  (-21.60, 7.30)</text>
+<text x="720" y="615.8" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">11</tspan>  J303  REAR spring (B)  (-22.40, -8.80)</text>
+<text x="720" y="632.9" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">12</tspan>  LS501  speaker below the PCB, outline; contacts on B  (-23.74, 0.60)</text>
+<text x="720" y="650.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">13</tspan>  J501  LRA leads (B)  (-20.84, 11.08)</text>
+<text x="720" y="667.1" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold">14</tspan>  U301  Hall A  (22.78, 13.15)</text>
+<text x="720" y="684.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold">15</tspan>  U302  Hall B  (21.28, 15.46)</text>
+<text x="720" y="701.3" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold">16</tspan>  J201  Tag-Connect (B)  (15.20, 17.60)</text>
+<text x="720" y="718.4" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c00"><tspan font-weight="bold">17</tspan>  J102  battery plug (B), opening to 6 o'clock  (19.26, -3.71)</text>
 </svg>

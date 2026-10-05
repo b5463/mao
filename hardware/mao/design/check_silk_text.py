@@ -13,8 +13,10 @@ this checks every visible silkscreen text (component references and board labels
           breaks the print (ODD JOBS 94)
   small   text under 0.8 mm high or 0.12 mm stroke (board minimum, rule 95)
   crowded two texts on one side closer than 0.5 mm: they read as one word (lines stacked in one
-          board text block, at least 0.3 mm apart, are line spacing)
-  ambiguous  a reference nearer another part's outline than its own (rule 91: readable references)
+          board text block, at least 0.3 mm apart, are line spacing); two service-field names (0.8 mm in
+          the 2.8 mm probe grid, mechanical.FIELD_NAMES) need 0.4 mm, half their height
+  ambiguous  a reference nearer another part's outline than its own (rule 91: readable references), unless
+             mao_labels.py drew it a leader to its part
   direction  vertical text that does not read bottom to top from its own side, or upside-down text
              (front 90 degrees; back 270 degrees mirrored; keep-upright folds 90..270 by 180)
 Boxes are the stroked glyph outline. Writes outputs/SILK-TEXT.json; exits 1 on any finding.
@@ -46,6 +48,11 @@ def reads(t, s):
     if t.IsKeepUpright() and 90 < a <= 270: a = (a + 180) % 360
     return a in ((0, 90) if s == 'F' else (0, 270))
 
+import mechanical as _m
+FIELD = {spec[0] for spec in _m.FIELD_NAMES.values()}  # the service-field names
+_lab = ROOT / 'outputs' / 'ASSEMBLY-LABELS.json'
+LEADER_REFS = {q['reference'] for q in json.loads(_lab.read_text())['labels'] if q.get('placement') == 'leader'} \
+    if _lab.exists() else set()
 texts = []                                             # (name, side, box, text item, owner ref)
 for f in b.GetFootprints():
     t = f.Reference()
@@ -93,9 +100,9 @@ for d in b.GetDrawings():
 for i, (name, s, q, t, own) in enumerate(texts):
     for name2, s2, q2, _, _ in texts[i + 1:]:
         if s == s2 and hit(q, q2): found.append({'kind': 'text', 'side': s, 'a': name, 'b': name2})
-        elif s == s2 and dist(q, q2) < 0.5 - 1e-3 and not stacked(q, q2, own, texts[i + 1 + [n for n, *_ in texts[i + 1:]].index(name2)][4]): found.append({'kind': 'crowded', 'side': s, 'a': name, 'b': name2, 'gap_mm': round(dist(q, q2), 2)})
+        elif s == s2 and dist(q, q2) < (0.4 if {name, name2} <= FIELD else 0.5) - 1e-3 and not stacked(q, q2, own, texts[i + 1 + [n for n, *_ in texts[i + 1:]].index(name2)][4]): found.append({'kind': 'crowded', 'side': s, 'a': name, 'b': name2, 'gap_mm': round(dist(q, q2), 2)})
     if not reads(t, s): found.append({'kind': 'direction', 'side': s, 'a': name, 'b': f'{t.GetTextAngle().AsDegrees():.0f} deg'})
-    if own:
+    if own and own not in LEADER_REFS:   # a reference with a leader points at its part; nearness does not
         d_own = min(dist(q, o) for r, o in outlines[s] if r == own)
         near = min(((dist(q, o), r) for r, o in outlines[s] if r != own), default=(99, None))
         if near[0] < d_own - 1e-3: found.append({'kind': 'ambiguous', 'side': s, 'a': name, 'b': near[1], 'own_mm': round(d_own, 2), 'other_mm': round(near[0], 2)})
