@@ -208,13 +208,13 @@ A0 support was committed as `faa39f7`; the panel-clock option followed with this
 | Item | Value |
 |---|---|
 | Stackup | JLC04161H-1080, 1.6 mm. F / 0.0764 prepreg / In1 GND / 1.265 core / In2 power / 0.0764 prepreg / B. 1 oz outer, 0.5 oz inner |
-| Planes | L2 GND one piece, 2000 mm², no tracks. L3: +3V3 1359 mm², VSYS 324 mm², VBUS 33 mm², each one piece |
-| Vias | **208** (148 × 0.6/0.3, 60 × 0.5/0.2), vs 230 on the 6-layer board; 74 of them GND, 12 at the rim. 24 × 0.2 mm thermal vias in exposed pads. No via touches an SMD pad |
-| Copper | F 686 mm, B 772 mm, L3 231 mm (14 slow nets). All 930 segments at 0/45/90° |
+| Planes | L2 GND one piece, 2002 mm², no tracks. L3: +3V3 1348 mm², VSYS 332 mm², VBUS 33 mm², each one piece; the GND plane and the rail bands have no neck under 0.5 mm (`plane_check.py`) |
+| Vias | **205** (146 × 0.6/0.3, 59 × 0.5/0.2), vs 230 on the 6-layer board; 73 of them GND, 12 at the rim. 24 × 0.2 mm thermal vias in exposed pads. No via touches an SMD pad |
+| Copper | F 675 mm, B 774 mm, L3 227 mm (13 slow nets). All 921 segments at 0/45/90° |
 | USB | D± on F over L2 (28.2 mm each, plus 2.2 / 6.1 mm on B at the ends); full speed |
-| Fast lanes | Display SPI, I2S and PDM on B over their own uncrossed L3 cores, with no vias; no L3 track under any of them. L3/L4 broadside 17.4 mm in all, all of it slow lines |
+| Fast lanes | Display SPI, I2S and PDM on B over their own uncrossed L3 cores, with no vias; no L3 track under any of them. The speaker outputs lie over the VSYS band. L3/L4 broadside 13.8 mm in all, all of it slow lines |
 | Enclosure fit | Every part bodied; heights, keep-outs, the wall (every body inside r 29.0 except the wall-opening parts), the tail path and the tab spots checked by script |
-| Silkscreen | 84 texts, checker 0 findings. Mark, MAO / MAIN A0 / 2026-10 and an S/N field on the face; mark and identity on the back; every test pad named; references for every IC, connector and semiconductor and every procedure-named R/C, the rest on the assembly drawing. Five small eggs, each hidden once assembled: a sleeping cat with paw prints and "boop" at the face switch and ODD JOBS' "MADE FOR BAD IDEAS" under the panel, "9 lives" under the cell, "meow" under the speaker (MAO is Mandarin for cat) |
+| Silkscreen | 83 texts, checker 0 findings. Mark, MAO / MAIN A0 / 2026-10 and an S/N field on the face; mark and identity on the back; every test pad named; references for every IC, connector and semiconductor and every procedure-named R/C, the rest on the assembly drawing. Five small eggs, each hidden once assembled: a sleeping cat with paw prints and "boop" at the face switch and ODD JOBS' "MADE FOR BAD IDEAS" under the panel, "9 lives" under the cell, "meow" under the speaker (MAO is Mandarin for cat) |
 
 ### Manufacturing
 
@@ -225,7 +225,7 @@ A0 support was committed as `faa39f7`; the panel-clock option followed with this
 - Through vias only: 0.3/0.6 and 0.2/0.5 mm, tented.
 - Epoxy-filled and capped (POFV) for the exposed-pad vias if offered.
 - No impedance control (USB full speed only).
-- Order single boards. Panel tabs, if needed, only at 130° and 320° (about 4 and 11 o'clock), where copper on
+- Order single boards. Panel tabs, if needed, only at 130° and 328° (about 4 and 11 o'clock), where copper on
   every layer is pulled back 1.55 mm from the edge (FAB-NOTES).
 
 **Assembly:**
@@ -251,7 +251,7 @@ A0 support was committed as `faa39f7`; the panel-clock option followed with this
 - Silkscreen checker: 0 findings.
 - Enclosure check (`mech_check.py`): 0 findings.
 - 45°: every segment.
-- Gerbers reviewed outside KiCad (`plots/mao-main-a0-gerbers.png`); the drill file reconciles with the board (0.3 mm × 152 = 148 vias + 4 electrode joins; 0.2 mm × 84 = 60 vias + 24 exposed-pad vias; 4 slots; 9 NPTH).
+- Gerbers reviewed outside KiCad (`plots/mao-main-a0-gerbers.png`); the drill file reconciles with the board (0.3 mm × 150 = 146 vias + 4 electrode joins; 0.2 mm × 83 = 59 vias + 24 exposed-pad vias; 4 slots; 9 NPTH).
 - Simulations S1–S14 pass (`mao-a0-verification.md`).
 
 ### Known risks
@@ -320,8 +320,50 @@ Full procedure: `mao-bringup.md`.
 
 ### ODD JOBS standard
 
-<!-- AUDIT3-ODDJOBS -->
+All 200 rules are checked one by one in [`mao-odd-jobs-compliance.md`](mao-odd-jobs-compliance.md): 141 ✓, 45 ✓\* (met,
+with the reason or bring-up check recorded), 6 ◐ (partly met, A1 action named), 8 N/A. No rule fails. The third
+independent ODD JOBS audit found no FAIL (audit 2: 15) and the fixes it recommended are in. The partly met rules are
+cosmetic or documentary: router hairpins (88), library outlines over tented vias and the S/N field over the module's
+thermal vias (94, 101), the label-connected schematic (187, 188) and the missing 1:1 footprint print (193). The release
+gate is **EVT** (engineering prototype), and the DVT items for antenna, connectors, ESD and power architecture are
+already met.
+
+The golden rule:
+
+| Question | Answer |
+|---|---|
+| Can it boot? | Yes: straps defined, every rail and enable off at reset |
+| Can it be flashed? | Yes: USB, plus the Tag-Connect UART |
+| Can it be recovered? | Yes: ROM loader by holding the face or TP8 during a reset (TP7, Tag-Connect EN, or USB with no cell) |
+| Can it be measured? | Yes: 15 named pads and BAT LINK |
+| Can it physically fit? | On paper, yes: every part bodied and checked for height, keep-outs, the wall and the tail path. No enclosure CAD yet, so the first print confirms it |
 
 ### Final status
 
-<!-- AUDIT3-STATUS -->
+**READY FOR 5-UNIT A0 PROTOTYPE ORDER — 4 LAYER**
+
+Three rounds of independent audits ran on this board (`mao-a0-verification.md`). The first withdrew the board
+(blockers in the backlight, the panel tail, the IR reset state and the window parts). The second found the module in
+the enclosure wall, a creased tail fold and 13 more ODD JOBS failures. The third, on the final board, found no
+electrical blocker and no failed ODD JOBS rule; its one electrical issue (a 0.27 mm neck in the VSYS feed) and its
+recommended fixes are made and re-measured.
+
+Every gate of the 4-layer review passes (`mao-rev-a0-review.md` §2.1):
+- DRC/ERC/parity 0 and nothing unconnected;
+- L2 continuous, every L3 rail band without a neck under 0.5 mm;
+- power robust;
+- USB and SPI references uninterrupted;
+- I2S/PDM clean;
+- touch and antenna keep-outs correct;
+- no functionality removed;
+- service access;
+- visual standard.
+
+Accepted for the EVT (user decisions and named checks): no enclosure CAD (risk 1, the first print is the fit check);
+the speaker under the LEFT touch arc (firmware holds LEFT); the LRA 7.4 mm from the antenna (RSSI A/B check).
+
+At order time:
+- choose JLC04161H-1080, black mask and ENIG, as in FAB-NOTES;
+- check JLC's placement preview (FAB-NOTES lists every polarised part);
+- get the Winstar WF0128BTYAA4DNN0 specification with the panels and keep it with the design files: bring-up
+  checks the tail's orientation against it before the first plug-in.

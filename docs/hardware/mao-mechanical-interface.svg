@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1250" height="760" viewBox="0 0 1250 760">
+<svg xmlns="http://www.w3.org/2000/svg" width="1250" height="820" viewBox="0 0 1250 820">
 <rect width="100%" height="100%" fill="#fff"/>
 <text x="360.0" y="78.5" font-family="Helvetica, Arial, sans-serif" font-size="16" text-anchor="middle" fill="#111" font-weight="bold">MAO_MAIN A0: enclosure interface (top view, from the face)</text>
 <path d="M 468.0 617.6 A 261.0 261.0 0 1 0 252.0 617.6 L 252.0 573.0 L 468.0 573.0 L 468.0 617.6 Z" fill="#f4f4f0" stroke="#111" stroke-width="1.6"/>
@@ -10,14 +10,16 @@
 <text x="360.0" y="178.4" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#c80" font-weight="normal">ring ID</text>
 <rect x="279.0" y="573.0" width="162.0" height="54.0" stroke="#c00" fill="#fde" stroke-width="1.0"/>
 <text x="360.0" y="596.5" font-family="Helvetica, Arial, sans-serif" font-size="11" text-anchor="middle" fill="#c00" font-weight="normal">ANTENNA</text>
-<text x="360.0" y="612.6" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#c00" font-weight="normal">no metal within 15 mm (LRA can 7.4 mm: RSSI A/B check)</text>
+<text x="360.0" y="612.6" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#c00" font-weight="normal">no metal within 15 mm</text>
+<circle cx="211.1" cy="496.4" r="36.0" stroke="#c00" fill="none" stroke-width="1.2" stroke-dasharray="2,2"/>
+<text x="252.5" y="500.0" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="start" fill="#c00" font-weight="normal">LRA (base): 7.4 mm from the antenna, RSSI A/B check</text>
 <rect x="200.2" y="194.6" width="319.5" height="270.0" stroke="#777" fill="none" stroke-width="1.0" stroke-dasharray="2,3"/>
 <text x="342.0" y="455.6" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#777" font-weight="normal">cell envelope 35.5 x 30 x 5.1 (below the PCB)</text>
 <rect x="110.3" y="317.9" width="72.0" height="135.0" stroke="#c80" fill="none" stroke-width="1.0"/>
 <rect x="186.3" y="328.2" width="9.0" height="103.5" stroke="#36c" fill="#36c" stroke-width="1.0"/>
 <rect x="195.3" y="337.2" width="57.1" height="85.5" stroke="#36c" fill="#eef3ff" stroke-width="0.8" stroke-dasharray="3,2"/>
 <rect x="414.0" y="328.2" width="54.0" height="103.5" stroke="#36c" fill="#eef3ff" stroke-width="0.8" stroke-dasharray="3,2"/>
-<text x="441.0" y="451.6" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#36c" font-weight="normal">tail loop well</text>
+<text x="441.0" y="321.1" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="#36c" font-weight="normal">tail loop well</text>
 <text x="227.7" y="319.2" font-family="Helvetica, Arial, sans-serif" font-size="10" text-anchor="middle" fill="#36c" font-weight="normal">tail slot 1.0 x 11.5</text>
 <circle cx="192.8" cy="229.4" r="9.9" stroke="#111" fill="#fff" stroke-width="1.2"/>
 <circle cx="192.8" cy="229.4" r="20.7" stroke="#111" fill="none" stroke-width="1.2" stroke-dasharray="2,2"/>
@@ -77,23 +79,25 @@
 <text x="720" y="322.4" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Springs</tspan>  BW0019BG: working height 3.0 mm (2.5-3.8)</text>
 <text x="720" y="344.0" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Window</tspan>  sensor band r 18.3-23.5 mm: IR-clear at 11, 1, 3 o'clock</text>
 <text x="720" y="365.6" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Fixing</tspan>  2 x M2 into heat-set inserts, 1 plastic peg</text>
-<text x="720" y="387.2" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Tail</tspan>  stock 70.1 mm FPC: one loop under the panel (turns in a 2.4 mm carrier well at x 6..12), slot x -19.3..-18.3, to J301 on B</text>
-<text x="720" y="423.2" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold">Interfaces (board mm, top view)</text>
-<text x="720" y="444.8" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold"> 1</tspan>  J101  USB-C (B), face at y -29.6  (0.00, -25.95)</text>
-<text x="720" y="461.9" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#a0a"><tspan font-weight="bold"> 2</tspan>  D501  IR out (B)  (-9.93, -25.86)</text>
-<text x="720" y="479.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#a0a"><tspan font-weight="bold"> 3</tspan>  D502  IR out (B)  (9.93, -25.86)</text>
-<text x="720" y="496.1" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold"> 4</tspan>  J301  display FPC (B), 70 mm tail through the slot  (-11.15, 0.00)</text>
-<text x="720" y="513.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 5</tspan>  U402  ToF window  (-9.81, -18.45)</text>
-<text x="720" y="530.3" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 6</tspan>  U403  light window  (9.95, -18.72)</text>
-<text x="720" y="547.4" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 7</tspan>  U503  IR receive window  (21.00, -0.00)</text>
-<text x="720" y="564.5" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 8</tspan>  MK401  mic port (Ø0.5 hole)  (21.15, 6.06)</text>
-<text x="720" y="581.6" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold"> 9</tspan>  SW301  face-press stem  (0.00, -2.50)</text>
-<text x="720" y="598.7" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">10</tspan>  J302  TOP spring  (-21.60, 7.30)</text>
-<text x="720" y="615.8" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">11</tspan>  J303  REAR spring (B)  (-22.40, -8.80)</text>
-<text x="720" y="632.9" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">12</tspan>  LS501  speaker below the PCB, outline; contacts on B  (-23.74, 0.60)</text>
-<text x="720" y="650.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">13</tspan>  J501  LRA leads (B)  (-20.84, 11.08)</text>
-<text x="720" y="667.1" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold">14</tspan>  U301  Hall A  (22.78, 13.15)</text>
-<text x="720" y="684.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold">15</tspan>  U302  Hall B  (21.28, 15.46)</text>
-<text x="720" y="701.3" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold">16</tspan>  J201  Tag-Connect (B)  (15.20, 16.35)</text>
-<text x="720" y="718.4" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c00"><tspan font-weight="bold">17</tspan>  J102  battery plug (B), opening to 6 o'clock  (19.26, -3.71)</text>
+<text x="720" y="387.2" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Tail</tspan>  stock 70.1 mm FPC, one loop under the panel turning in a 2.4 mm well</text>
+<text x="720" y="408.8" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold"></tspan>  of the carrier (x 6..12), through the slot (x -19.3..-18.3) to J301 on B</text>
+<text x="720" y="430.4" font-family="Helvetica, Arial, sans-serif" font-size="12"><tspan font-weight="bold">Panel tabs</tspan>  130 and 328 deg clockwise from the USB-C: no copper within 1.55 mm of the rim</text>
+<text x="720" y="466.4" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold">Interfaces (board mm, top view)</text>
+<text x="720" y="488.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold"> 1</tspan>  J101  USB-C (B), face at y -29.6  (0.00, -25.95)</text>
+<text x="720" y="505.1" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#a0a"><tspan font-weight="bold"> 2</tspan>  D501  IR out (B)  (-9.93, -25.86)</text>
+<text x="720" y="522.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#a0a"><tspan font-weight="bold"> 3</tspan>  D502  IR out (B)  (9.93, -25.86)</text>
+<text x="720" y="539.3" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold"> 4</tspan>  J301  display FPC (B), 70 mm tail through the slot  (-11.15, 0.00)</text>
+<text x="720" y="556.4" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 5</tspan>  U402  ToF window  (-9.81, -18.45)</text>
+<text x="720" y="573.5" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 6</tspan>  U403  light window  (9.95, -18.72)</text>
+<text x="720" y="590.6" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 7</tspan>  U503  IR receive window  (21.00, -0.00)</text>
+<text x="720" y="607.7" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#0a5"><tspan font-weight="bold"> 8</tspan>  MK401  mic port (Ø0.5 hole)  (21.15, 6.06)</text>
+<text x="720" y="624.8" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold"> 9</tspan>  SW301  face-press stem  (0.00, -2.50)</text>
+<text x="720" y="641.9" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">10</tspan>  J302  TOP spring  (-21.60, 7.30)</text>
+<text x="720" y="659.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">11</tspan>  J303  REAR spring (B)  (-22.40, -8.80)</text>
+<text x="720" y="676.1" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">12</tspan>  LS501  speaker below the PCB, outline; contacts on B  (-23.74, 0.60)</text>
+<text x="720" y="693.2" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c80"><tspan font-weight="bold">13</tspan>  J501  LRA leads (B)  (-20.84, 11.08)</text>
+<text x="720" y="710.3" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold">14</tspan>  U301  Hall A  (22.78, 13.15)</text>
+<text x="720" y="727.4" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#36c"><tspan font-weight="bold">15</tspan>  U302  Hall B  (21.28, 15.46)</text>
+<text x="720" y="744.5" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#111"><tspan font-weight="bold">16</tspan>  J201  Tag-Connect (B)  (15.20, 16.35)</text>
+<text x="720" y="761.6" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#c00"><tspan font-weight="bold">17</tspan>  J102  battery plug (B), opening to 6 o'clock  (19.26, -3.71)</text>
 </svg>

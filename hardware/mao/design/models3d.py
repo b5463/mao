@@ -79,8 +79,9 @@ def main():
     for fp in b.GetFootprints():
         k = HEIGHT_SCALE.get(fp.GetReference())
         if k:
-            for m in fp.Models():
-                m.m_Scale.z = k
+            ms = fp.Models()
+            for i in range(len(ms)):                    # by index: iterating Models() yields copies
+                m = ms[i]; sc = m.m_Scale; sc.z = k; m.m_Scale = sc
             set_on.append(fp.GetReference() + ' (z x%.1f)' % k)
     if set_on:
         pcb.SaveBoard(str(TARGET), b)

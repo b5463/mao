@@ -14,7 +14,7 @@ from placement import PLACE
 
 OUT = ROOT.parents[1] / 'docs' / 'hardware' / 'mao-mechanical-interface.svg'
 S = 9.0            # px per mm
-W, H = 1250, 760
+W, H = 1250, 820
 CX, CY = 360, 380   # board origin in px (top view)
 
 
@@ -67,7 +67,10 @@ def main():
     # antenna
     e.append(rect(-m.MODULE_W / 2, m.ANTENNA_EDGE_Y, m.MODULE_W / 2, m.MODULE_OUTER_R, '#c00', '#fde', 1.0))
     e.append(text(0, m.ANTENNA_EDGE_Y + 2.6, 'ANTENNA', 11, 'middle', '#c00'))
-    e.append(text(0, m.ANTENNA_EDGE_Y + 4.4, 'no metal within 15 mm (LRA can 7.4 mm: RSSI A/B check)', 10, 'middle', '#c00'))
+    e.append(text(0, m.ANTENNA_EDGE_Y + 4.4, 'no metal within 15 mm', 10, 'middle', '#c00'))
+    lx, ly = m.polar(m.LRA_R, m.LRA_ANGLE)          # the one exception: the LRA's steel can in the base
+    e.append(circle(lx, ly, 4.0, '#c00', dash='2,2'))
+    e.append(text(lx + 4.6, ly + 0.4, 'LRA (base): 7.4 mm from the antenna, RSSI A/B check', 9, 'start', '#c00'))
     # battery
     bw, bd, bh = m.BATTERY_ENVELOPE
     bx, by = m.BATTERY_CENTRE
@@ -82,7 +85,7 @@ def main():
     e.append(rect(m.TAIL_CORRIDOR[0], -m.TAIL_W / 2, PLACE['J301'][0] - 0.8, m.TAIL_W / 2, '#36c', '#eef3ff', 0.8, '3,2'))
     w_ = m.TAIL_WELL                       # where the tail's loop turns, in the carrier's 2.4 mm well
     e.append(rect(w_[0], w_[1], w_[2], w_[3], '#36c', '#eef3ff', 0.8, '3,2'))
-    e.append(text((w_[0] + w_[2]) / 2, w_[3] + 2.2, 'tail loop well', 9, 'middle', '#36c'))
+    e.append(text((w_[0] + w_[2]) / 2, w_[1] - 0.8, 'tail loop well', 9, 'middle', '#36c'))
     e.append(text(sl[2] + 3.6, sl[1] - 1.0, 'tail slot 1.0 x 11.5', 10, 'middle', '#36c'))
     # fasteners
     for a in m.SCREW_ANGLES:
@@ -131,7 +134,9 @@ def main():
             ('Springs', 'BW0019BG: working height 3.0 mm (2.5-3.8)'),
             ('Window', 'sensor band r %.1f-%.1f mm: IR-clear at 11, 1, 3 o\'clock' % m.WINDOW_ANNULUS),
             ('Fixing', '2 x M2 into heat-set inserts, 1 plastic peg'),
-            ('Tail', 'stock 70.1 mm FPC: one loop under the panel (turns in a 2.4 mm carrier well at x %.0f..%.0f), slot x %.1f..%.1f, to J301 on B' % (m.TAIL_WELL[0], m.TAIL_WELL[2], m.TAIL_SLOT[0], m.TAIL_SLOT[2])),
+            ('Tail', 'stock 70.1 mm FPC, one loop under the panel turning in a 2.4 mm well'),
+            ('', 'of the carrier (x %.0f..%.0f), through the slot (x %.1f..%.1f) to J301 on B' % (m.TAIL_WELL[0], m.TAIL_WELL[2], m.TAIL_SLOT[0], m.TAIL_SLOT[2])),
+            ('Panel tabs', '%s deg clockwise from the USB-C: no copper within %.2f mm of the rim' % (' and '.join('%.0f' % a_ for a_ in m.TAB_ANGLES), m.TAB_CLEAR + 0.05)),
             ]
     y = -28.0
     for k, v in rows:

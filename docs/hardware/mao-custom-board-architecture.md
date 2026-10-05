@@ -127,8 +127,9 @@ The character never reads hardware; a sensor never maps straight to an animation
   the UART pins. Supplies and grounds on 1.2 mm pads, signals on 1.0 mm.
   IC ground and supply pins reach their plane through a via of their own or one shared with a neighbouring pin of
   the same net within 1.6 mm (`gnd_pad_vias.py`). Decoupling capacitors get a GND via within 1.2 mm of their pad
-  where the board has room; four do not (`STACKUP-CHECK.json`: C202 4.3 mm, C105 2.4, C302 2.3, C502 2.1) and return
-  through the outer pour. Pull-down resistors, test pads and the switch join GND through the outer pour; every pour
+  where the board has room; five do not (`STACKUP-CHECK.json`). C202 (4.3 mm) and C205 (2.4) close their loop on their
+  IC's own ground pin; C205 sits over the VSYS bar, where a via would neck that rail. C105 (2.4), C302 (2.3) and
+  C502 (2.1) return through the outer pour. Pull-down resistors, test pads and the switch join GND through the outer pour; every pour
   fragment is stitched to L2. Twelve GND vias stand near the rim (r > 26, `gnd_fence.py`); the only gaps wider than
   26° are where the rim carries a touch arc or the antenna notch (ODD JOBS 5, 14, 16, 17).
 - Antenna notch 24.0 mm wide, inner edge at y 21.45. The "ANTENNA KEEP-OUT" rule area takes every layer from 3 mm past

@@ -21,12 +21,12 @@ Every finding was verified before it was acted on. The revision's changes are li
 | ERC (all checks KiCad runs by default) | 0 violations |
 | DRC, all severities, warnings included | 0 violations, 0 unconnected, 0 schematic parity |
 | Plane continuity (L2 GND, L3 +3V3 / VSYS / VBUS) | every plane one piece (`outputs/PLANES.json`) |
-| Silk text check (`check_silk_text.py`: overlaps, pads, vias, holes, crowding, size, direction, ambiguity) | 84 texts, 0 findings |
+| Silk text check (`check_silk_text.py`: overlaps, pads, vias, holes, crowding, size, direction, ambiguity) | 83 texts, 0 findings (incl. no text on touch-electrode copper) |
 | Enclosure check (`mech_check.py`: every part's 3D-model height against the stack, keep-outs, wall clearance, tail path) | 142 parts, 0 findings; every body inside r 29.0 except the wall-opening parts; speaker 1.1 mm from the wall |
-| Panel tabs (`panel_tabs.py`) | 130° and 320°: no copper within 1.55 mm of the edge on any layer, no part within 1.35 / 2.13 mm |
+| Panel tabs (`panel_tabs.py`) | 130° and 328°: no copper within 1.55 mm of the edge on any layer, no part within 1.35 / 1.45 mm |
 | Fab package | 12 Gerbers, 4 drill files, BOM 48 lines / 112 fitted parts, CPL 112 rows; 1 DNP (R110) |
-| Vias | 208 through vias (148 × 0.6/0.3 mm, 60 × 0.5/0.2 mm; 74 GND, 12 of them at the rim), 24 thermal vias in exposed pads; the 6-layer first pass had 230. Drill file reconciles: 0.2 × 84, 0.3 × 152 (148 + 4 electrode joins), 4 PTH slots, 9 NPTH |
-| Routing | 930 segments, all at 0/45/90° (none off by more than 0.05°); 108.5 mm at 0.15 mm; L3/L4 broadside 17.4 mm (was 53.7) |
+| Vias | 205 through vias (146 × 0.6/0.3 mm, 59 × 0.5/0.2 mm; 73 GND, 12 of them at the rim), 24 thermal vias in exposed pads; the 6-layer first pass had 230. Drill file reconciles: 0.2 × 83, 0.3 × 150 (146 + 4 electrode joins), 4 PTH slots, 9 NPTH |
+| Routing | 921 segments, all at 0/45/90° (none off by more than 0.05°); 108.5 mm at 0.15 mm; L3/L4 broadside 13.8 mm (was 53.7) |
 | Firmware | 5 configurations (S3 dev / factory / release, C3 dev / release): 0 errors, 0 warnings |
 | Host tests | 240 checks, 0 failures |
 | Simulation (S1–S15) | all pass |
@@ -122,10 +122,10 @@ Both faces were rendered from the final board (`renders/mao-main-a0-top.jpg`, `-
 - Black mask with ENIG, white silk.
 
 `check_silk_text.py` measures what a review by eye misses: no text over a pad, via, hole or the slot, no crowding,
-no ambiguous reference. 46 references are on silk; 8 of them (D101, D502, Q101, Q501, R505, U102, U105, U301) stand
-0.8–4.1 mm from their part with a 0.15 mm leader, at least one text height long so it reads as a pointer. Nine
-policy parts found no clear spot even with a leader (C111, C407, J303, R108, R205, R213, R214, U104, U303; J303 and
-R108 carry their function names REAR and BAT LINK). They are on the assembly drawing (A3, 4.5:1, every reference
+no ambiguous reference. 45 references are on silk; 8 of them (C406, D101, D502, Q101, Q501, R505, U102, U301) stand
+0.8–4.1 mm from their part with a 0.15 mm leader, at least one text height long so it reads as a pointer, ending
+0.3 mm off its own part and nearer it than any other. Ten policy parts found no clear spot even with a leader
+(C111, C407, D304, J303, R108, R205, R213, R214, U104, U303; J303 and R108 carry their function names REAR and BAT LINK). They are on the assembly drawing (A3, 4.5:1, every reference
 legible, `plots/mao-main-a0-assembly-*.png`) with every other reference, and FAB-NOTES lists them.
 
 ## Audits
@@ -151,12 +151,12 @@ blocker. The electrical audit raised 2 documentation issues and 17 notes. The OD
 |---|---|---|
 | X1 The module's antenna-end corners reached r 30.08, into the enclosure wall | `MODULE_OUTER_R` held only on the axis; `mech_check.py` never tested the wall | Module 1.25 mm inward: corners at r 28.89, inside the board circle. The notch and keep-out follow, and everything attached to the module moved with it. New wall test: every body r ≤ 29.0 except the parts that sit in wall openings |
 | X2 Tail slack S-folded in a 0.4 mm pocket: no bend radius possible | mechanical spec | One long loop turning in a 2.4 mm well of the carrier (≥ 1 mm radius). F.Cu under the well is part-free (`TAIL_WELL`, checked) |
-| X4 L3 tracks under B tracks for 53.7 mm, including SPK_N over HAPTIC_EN | broadside scan | Router penalty for L3 under / B over another net's copper; 17.4 mm left, longest 3.0 mm. No L3 track under a display, I2S or PDM lane |
+| X4 L3 tracks under B tracks for 53.7 mm, including SPK_N over HAPTIC_EN | broadside scan | Router penalty for L3 under / B over another net's copper; 17.4 mm left after round 2, 13.8 mm after round 3. No L3 track under a display, I2S or PDM lane |
 | X5 (part) BOARD_ID: 89.8 mm with 5 vias, under the USB-C shell and along the speaker | board | Divider beside GPIO8: 4.1 mm, 1 via |
-| X6 Stitching: 61 GND vias, 1 at the rim; module pins 1/40 4.1 / 4.2 mm from a via | board | `gnd_fence.py` (ring and coverage vias, removed again if they neck a plane) and decoupling vias: 74 GND vias, 12 at the rim (the remaining gaps are the touch arcs and the antenna); pins 40 / 1 at 1.46 / 2.75 mm |
+| X6 Stitching: 61 GND vias, 1 at the rim; module pins 1/40 4.1 / 4.2 mm from a via | board | `gnd_fence.py` (ring and coverage vias, removed again if they neck a plane) and decoupling vias: 74 GND vias after round 2 (73 now), 12 at the rim (the remaining gaps are the touch arcs and the antenna); pins 40 / 1 at 1.46 / 2.75 mm |
 | X7 Policy references missing from silk; the assembly drawing was illegible | `SILK-TEXT.json`, rasterised PDFs | References with leaders where no adjacent spot is unambiguous (8). 9 Fab-only parts, listed in FAB-NOTES. Assembly drawing rebuilt: A3, 4.5:1, every reference legible, no pad numbers |
 | X8 Schematic with 0 wires, orphan blocks and overprinted notes | schematic PDF | Regenerated: wired local nets, one frame per block, no duplicate notes |
-| W-e Panel-tab spots had copper on every layer | `tabs.py` | Tabs at 130° and 320° with all-layer keep-outs: copper ≥ 1.55 mm from the edge, parts ≥ 1.35 mm |
+| W-e Panel-tab spots had copper on every layer | `tabs.py` | Tabs at 130° and 320° (now 328°, round 3) with all-layer keep-outs: copper ≥ 1.55 mm from the edge, parts ≥ 1.35 mm |
 | W-i VSYS through two 0.2 mm vias; the amplifier VDD through one | board | VSYS vias 0.6 / 0.3 mm (two at the charger, one at the amplifier) |
 | W-v, W-w Service-field names nearer a neighbour than their pad | silk check | Field re-laid on a 2.8 mm grid, each name upright beside its pad on a via-free spot reserved for it |
 | W-x Footprint outlines 0.10–0.12 mm | Gerber | Every silk outline widened to ≥ 0.15 mm |
@@ -181,4 +181,31 @@ Accepted, with a reason:
 - **N-4, N-6, N-7, N-8, N-11 – N-14.** Notes with no action needed for A0; A1 options are recorded in the
   electrical audit.
 
-**Third round:** an independent ODD JOBS audit and electrical audit of the final board. The results are below.
+**Third round: ready for the EVT order.** A fresh pair of independent audits ran on the board above. The electrical
+audit found no blocker and one issue. The ODD JOBS audit found no FAIL among the 200 rules (147 PASS, 45 WEAK, 8 N/A;
+audit 2 had 15 FAIL). Both recommended a short list of fixes. Each was checked, made in the design scripts, and the
+board rebuilt and re-measured:
+
+| Finding | Evidence | Fix |
+|---|---|---|
+| Electrical I-1: the L3 VSYS band, sole feed of the amplifier, haptic driver and backlight, necked to 0.27 mm | exact polygon measurement at the 320° tab keep-out beside H1's screw ring; a second 0.26 mm neck at a GND via in the bar's corner | Tab moved to 328°, clear of the ring; a via-free corner where the branch turns into the backlight bar. `plane_check.py` now refills GND and the rail bands at a 0.5 mm minimum width and fails on any neck (the +3V3 mesh is reported) |
+| Speaker outputs over the VSYS/+3V3 zone gap (SPK_N 4.47 mm unreferenced), LCD_RST_N on L3 under SPK_N | `refplane`, broadside scan | VSYS branch extended under both speaker lines (SPK_N 0.21 mm, SPK_P 0.84 mm unreferenced where they cross its edge); LCD_RST_N off L3; broadside 17.4 → 13.8 mm |
+| Leaders ending between two parts (Q501, U105, D101) | leader-end distances | Leaders end 0.3 mm off their own part (body and pads) and at least 0.1 mm nearer it than any other part |
+| REAR and MIC printed on touch-electrode copper | silk vs pad polygons | Electrode copper is now a silk obstacle for labels and references, and a checker finding |
+| Schematic note lines touching; a stale tail note | PDF text geometry | Note lines on a 2.54 mm pitch (a 2.29 mm pitch snapped to the 1.27 mm grid); note says one loop in a well |
+| LRA 7.4 mm from the antenna corner; drawing says "no metal within 15 mm" | `mechanical.py` | Drawing states the exception; bring-up RSSI test with and without the LRA (3 dB limit) |
+| Board-ID self-test limit 1700 mV against a 1.697 V corner | arithmetic with the FB bias current | 1720 mV |
+| L101's 3D body 1.0 mm for a 1.2 mm part | 3D model scale | `models3d.py` scaled the model on a copy; fixed, now 1.2 mm |
+| Stale rail range, dropout, slew and clock comments; D101 drawn bidirectional; one track 0.08 mm off its via | source review | Comments corrected; D101 as a unidirectional TVS; via on the track's axis; EXP_RST_N's leg to TP11 designed |
+
+Accepted with a reason: the +3V3 plane's 22 mΩ from the buck-boost to the module (a mesh round the L3 slow lines;
+11 mV at 0.5 A); TOF_INT_N's 0.6 mm under the regulator's switch copper (~0.1 pF into a 10 k open-drain line);
+five decoupling grounds over 1.6 mm from a via (C202 and C205 close on their IC's own ground pin, C205 above the VSYS
+bar; C105, C302, C502 through the pour); C105's input loop and the Hall caps (A1). Partly met, A1: router cosmetics
+(rule 88), library outlines over tented vias and the S/N field over the module's thermal vias (94, 101), the
+label-connected schematic (187, 188), a 1:1 footprint print (193). Rule by rule: `mao-odd-jobs-compliance.md`
+(141 ✓, 45 ✓\*, 6 ◐, 8 N/A).
+
+After the fixes every check ran again on the final board: ERC 0; DRC 0 / 0 unconnected / 0 parity; planes one piece
+with no rail neck under 0.5 mm; silk 83 texts, 0 findings; enclosure check 0; panel tabs pass; firmware 5
+configurations with 0 warnings, 240 host checks; the merge patch applies to `b17187e` and builds there.

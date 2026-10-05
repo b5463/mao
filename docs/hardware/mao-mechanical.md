@@ -44,9 +44,10 @@ Total ≈ 17.3 mm. With 0.6 mm top lip and 0.4 mm foot it comes to an 18.3 mm pu
   `mech_check.py` tests it for every part: each body stays inside the board circle (r ≤ 29.0) except the parts that
   sit in a wall opening by design (USB-C, the two IR LEDs). Largest: the speaker contact pads LS501 at r 28.96; the
   speaker itself keeps 1.1 mm from the wall.
-- **Panel tabs** (for a panelised order): at 130° and 320° clockwise from the USB-C (about 4 and 11 o'clock). Over 4 mm
-  of rim at each, no copper on any layer within 1.55 mm of the edge and no part within 1.35 / 2.13 mm, so a mouse
-  bite cuts laminate only (`panel_tabs.py`, PANEL-TABS.json).
+- **Panel tabs** (for a panelised order): at 130° and 328° clockwise from the USB-C (about 4 and 11 o'clock). Over 4 mm
+  of rim at each, no copper on any layer within 1.55 mm of the edge and no part within 1.35 / 1.45 mm, so a mouse
+  bite cuts laminate only (`panel_tabs.py`, PANEL-TABS.json). 328°, not 320°: there the tab's keep-out would
+  neck the L3 VSYS band where it rounds H1's screw ring.
 
 ## 3. Ring dial (contactless)
 
