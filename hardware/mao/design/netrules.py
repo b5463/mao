@@ -31,9 +31,9 @@ ROUTE_LAYERS = ('F', 'I2', 'B')
 SLOW_OK = {
     'I2C_SDA', 'I2C_SCL',
     'LCD_PWR_EN', 'HAPTIC_EN', 'TOF_XSHUT', 'IR_RX_PWR', 'AMP_SD_N', 'LCD_RST_N',
-    'CHG_N', 'SENSE_ALRT_N', 'USB_PRESENT_N', 'EXP_INT_N', 'EXP_RST_N', 'TOF_INT_N',
+    'SENSE_ALRT_N', 'USB_PRESENT_N', 'EXP_INT_N', 'EXP_RST_N', 'TOF_INT_N',
     'IMU_INT1', 'IMU_INT2', 'LCD_TE', 'HALL_A', 'HALL_B', 'HALL_FAST', 'IR_RX', 'IR_TX',
-    'UART_TX', 'UART_RX', 'MCU_EN', 'PRESS_N', 'MIC_PWR', 'LCD_BL_PWM', 'BOARD_ID',
+    'UART_TX', 'UART_RX', 'MCU_EN', 'PRESS_N', 'MIC_PWR', 'LCD_BL_CTRL', 'BOARD_ID', 'CHG_CE_N', 'AMP_SD',
 }
 INNER_OK = re.compile(r'(%s)$' % '|'.join(sorted(SLOW_OK)))
 INNER_FAST = re.compile(r'(USB_D[PN]|LCD_(SCLK|MOSI|CS|DC)\w*|AMP_(DIN|BCLK|LRCLK)|MIC_(CLK|DATA)|SPK_[PN]|BB_L\d)$')
@@ -78,14 +78,16 @@ def priority(net):
 ROUTE_ORDER = [
     'USB_DP', 'USB_DN', 'USB_CC1', 'USB_CC2',
     'LCD_SCLK_P', 'LCD_MOSI_P', 'LCD_CS', 'LCD_DC', 'LCD_SCLK', 'LCD_MOSI', 'LCD_RST_N', 'LCD_PWR_EN',
-    'LCD_BL_PWM', 'LCD_BL_G', 'LCD_BL_K', 'LCD_BL_D', '3V3_LCD', 'LCD_SW_CT', 'LCD_SW_QOD',
+    'LCD_BL_CTRL', 'LCD_BL_K', '3V3_LCD', 'LCD_SW_QOD',
     'I2C_SDA', 'I2C_SCL',
+    # the long expander and status lines cross the north half on L3: they take their lanes before the sensors'
+    'CHG_CE_N', 'USB_PRESENT_N', 'IR_TX', 'HAPTIC_EN', 'TOF_INT_N', 'EXP_INT_N', 'IR_RX',
     'MIC_CLK', 'MIC_DATA', 'MIC_PWR', 'MIC_VDD',
     'HALL_A', 'HALL_B', 'HALL_FAST',
-    'IR_TX', 'IR_TX_G', 'IR_LED_K', 'IR_LED_A1', 'IR_LED_A2', 'IR_RX', 'IR_RX_PWR', 'IR_RX_VCC',
-    'UART_TX', 'UART_RX', 'MCU_EN', 'PRESS_N', 'EXP_RST_N', 'LCD_TE',
-    'IMU_INT1', 'IMU_INT2', 'TOF_INT_N', 'TOF_XSHUT',
-    'AMP_SD_N', 'HAPTIC_EN', 'HAP_REG', 'CHG_N', 'SENSE_ALRT_N', 'EXP_INT_N', 'USB_PRESENT_N',
+    'IR_TX_G', 'IR_LED_K', 'IR_LED_A1', 'IR_LED_A2', 'IR_RX_PWR', 'IR_RX_VCC', 'SENSE_ALRT_N', 'EXP_RST_N',
+    'UART_TX', 'UART_RX', 'MCU_EN', 'PRESS_N', 'LCD_TE',
+    'IMU_INT1', 'IMU_INT2', 'TOF_XSHUT',
+    'AMP_SD_N', 'AMP_SD', 'HAP_REG',
     'TOUCH_LEFT', 'TOUCH_RIGHT', 'TOUCH_TOP', 'TOUCH_REAR',
     'TOUCH_LEFT_E', 'TOUCH_RIGHT_E', 'TOUCH_TOP_E', 'TOUCH_REAR_E',
 ]

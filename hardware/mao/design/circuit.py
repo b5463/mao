@@ -31,7 +31,8 @@ c.sheets = [
 c.root_notes = [
     'MAO_MAIN A0 - ODD JOBS / MAO round puck main board',
     'GPIO0 = face-press switch = BOOT strap: holding the face while plugging USB enters download mode.',
-    'GPIO45 (VDD_SPI strap) must read 0 at reset for the 3.3 V flash: the backlight gate pull-down holds it low. '
+    'GPIO45 (VDD_SPI strap) reads 0 at reset through the backlight driver EN pull-down; on this PSRAM module the '
+    'flash voltage is fixed by eFuse (WROOM-1 datasheet section 8), so the strap only has to be defined. '
     'GPIO46 (download-boot strap) is NC with its internal pull-down.',
     'Expander TCA6408A outputs are high-Z until firmware writes them: every default is set by the resistors shown.',
     'Pin map: hardware/mao/design/pinmap.py (also generates the firmware header and docs/hardware/mao-pin-map.md).',
@@ -84,27 +85,30 @@ b.part('U1', 'Power_Protection:TPD2E2U06DRL', 'Package_TO_SOT_SMD:SOT-553', 'TPD
 
 b.at('power', 'CHARGER',
      'BQ24073 linear charger with power path (DPPM): runs MAO from USB while charging. USB500 input limit '
-     '(EN2=0, EN1=1), ISET 3.0k = 297 mA charge, ILIM 1.5k, default timers, pack NTC on TS (0-50 C window).')
+     '(EN2=0, EN1=+3V3), ISET 4.3k = 207 mA charge (cell maximum 250 mA = 0.5C), ILIM 1.5k, default timers. '
+     'Pack NTC on TS: the charger stops outside 0-50 C; the cell allows 0-45 C, so firmware pauses charging '
+     'through /CE (expander P6) above 43 C board temperature; charging state comes from the gauge (CRATE) and PGOOD, '
+     'so /CHG is not used. On F under the panel: its heat stays off the cell.')
 b.part('U2', 'Battery_Management:BQ24073RGT', 'Package_DFN_QFN:VQFN-16-1EP_3x3mm_P0.5mm_EP1.68x1.68mm_ThermalVias',
        'BQ24073RGTR', {'13': 'VBUS', '10': 'VSYS', '11': 'VSYS', '2': 'VBAT', '3': 'VBAT', '1': 'BAT_NTC',
-                       '4': 'GND', '5': 'GND', '6': 'VSYS', '7': 'USB_PRESENT_N', '9': 'CHG_N', '8': 'GND',
+                       '4': 'CHG_CE_N', '5': 'GND', '6': '+3V3', '7': 'USB_PRESENT_N', '9': NC, '8': 'GND',
                        '17': 'GND', '12': 'CHG_ILIM', '14': NC, '15': 'CHG_TD', '16': 'CHG_ISET'},
        lcsc='C15220', mpn='BQ24073RGTR', mfr='TI',
-       note='/CE=GND charge enabled; EN2=GND, EN1=VSYS -> USB500; TMR open = 30 min / 5 h timers; '
-            'TD via R7 to GND = termination on. BQ24074 drop-in: R7 becomes RITERM (DNP = 10 %)')
+       note='/CE from expander P6, pulled low = charge enabled; EN2=GND, EN1=+3V3 -> USB500 (USB100 until the rail is up); TMR open = 30 min / 5 h '
+            'timers; /CHG unused; TD via {R7} to GND = termination on. BQ24074 drop-in: {R7} becomes RITERM (DNP = 10 %)')
 b.C('C1', '1u', 'VBUS', voltage='25V', note='charger IN')
 b.C('C2', '10u', 'VSYS', pkg='0603', note='charger OUT')
 b.C('C3', '10u', 'VBAT', pkg='0603', note='charger BAT')
-b.R('R5', '3.0k', 'CHG_ISET', 'GND', note='ICHG = 890/3.0k = 297 mA (0.6C on a 500 mAh cell)')
+b.R('R5', '4.3k', 'CHG_ISET', 'GND', note='ICHG = 890/4.3k = 207 mA (185-227 mA); the LP503035 cell allows 250 mA (0.5C)')
 b.R('R6', '1.5k', 'CHG_ILIM', 'GND', note='ILIM 1.07 A (unused in USB500, but ILIM open disables charging)')
 b.R('R7', '0R', 'CHG_TD', 'GND', note='BQ24073 TD low: termination and timers on')
 b.R('R8', '100k', 'USB_PRESENT_N', '+3V3', note='PGOOD pull-up')
-b.R('R9', '100k', 'CHG_N', '+3V3', note='CHG pull-up')
 
 b.at('power', 'BATTERY',
      'JST SH 3-pin: 1 = BAT-, 2 = NTC, 3 = BAT+ (same order as KINO J1100, ODD JOBS 41/167). Cell MUST carry '
-     'its own protection PCM and a 10k NTC. R10 = 0R link to measure battery current (110). '
-     'Q1 blocks a reversed cell (51). R11 fits only for cells without NTC.')
+     'its own protection PCM and a 10k NTC. {R10} = 0R link to measure battery current (110). '
+     '{Q1} blocks a reversed cell (51); with USB in, the charger stays in its 4-11 mA short probe. '
+     '{R11} fits only for cells without NTC.')
 b.part('J2', 'Connector_Generic:Conn_01x03', 'Connector_JST:JST_SH_SM03B-SRSS-TB_1x03-1MP_P1.00mm_Horizontal',
        'BAT', {'1': 'GND', '2': 'BAT_NTC', '3': 'BAT_RAW'}, lcsc='C7430445', mpn='ZX-SH1.0-3PWT (JST SM03B-SRSS-TB compatible)',
        mfr='Megastar', note='battery: 1 BAT-, 2 NTC, 3 BAT+. 2.9 mm tall: fits over the cell. 1 A (peaks ~0.6 A)')
@@ -124,7 +128,8 @@ b.C('C4', '100n', 'VBAT', note='gauge VDD')
 
 b.at('power', '3V3 BUCK-BOOST',
      'TPS63802: VSYS 2.9-4.4 V to +3V3, 2 A, 11 uA Iq. EN divider = hardware UVLO: on at 3.25 V, off at 2.96 V '
-     '(protects the cell even if firmware fails). MODE low = PFM. FB 560k/100k = 3.30 V. L = 0.47 uH only.')
+     '(protects the cell even if firmware fails), 100 nF so load steps cannot trip it. MODE low = PFM. '
+     'FB 536k/100k = 3.18 V (3.10-3.28 V worst case: under the panel VCI 3.3 V maximum). L = 0.47 uH only.')
 b.part('U4', 'MAO:TPS63802', 'MAO:TI_DLA0010A_VSON-HR-10_2x3mm_P0.5mm', 'TPS63802DLAR',
        {'10': 'VSYS', '1': 'BB_EN', '2': 'GND', '9': 'BB_L1', '7': 'BB_L2', '6': '+3V3', '4': 'BB_FB', '5': NC,
         '3': 'GND', '8': 'GND'}, lcsc='C2845237', mpn='TPS63802DLAR', mfr='TI',
@@ -136,17 +141,16 @@ b.C('C7', '22u', '+3V3', pkg='0603', note='COUT')
 b.C('C8', '22u', '+3V3', pkg='0603', note='COUT')
 b.R('R13', '470k', 'VSYS', 'BB_EN', note='UVLO divider top (470k, not 1M: the 0.2 uA EN leakage moves the trip only +/-0.1 V)')
 b.R('R14', '240k', 'BB_EN', 'GND', note='UVLO divider bottom: 1.1 V rising / 1.0 V falling at EN')
-b.R('R15', '560k', '+3V3', 'BB_FB', note='FB top')
-b.R('R16', '100k', 'BB_FB', 'GND', note='FB bottom: 0.5 V x 6.6 = 3.30 V')
+b.R('R15', '536k', '+3V3', 'BB_FB', note='FB top')
+b.R('R16', '100k', 'BB_FB', 'GND', note='FB bottom: 0.5 V x 6.36 = 3.18 V')
 
 b.at('power', 'DISPLAY RAIL',
-     'TPS22917 switches 3V3_LCD (panel + backlight). ON pulled down: off until firmware enables it. '
-     'CT 1 nF: ~4 ms soft start, so panel inrush cannot brown out the MCU. QOD to VOUT: clean power-down.')
-b.part('U5', 'Power_Management:TPS22917DBV', 'Package_TO_SOT_SMD:SOT-23-6', 'TPS22917DBVR',
-       {'1': '+3V3', '2': 'GND', '3': 'LCD_PWR_EN', '4': 'LCD_SW_CT', '5': 'LCD_SW_QOD', '6': '3V3_LCD'},
-       lcsc='C2681320', mpn='TPS22917DBVR', mfr='TI', note='load switch, 0.5 uA Iq')
-b.part('C9', 'Device:C', 'Capacitor_SMD:C_0402_1005Metric', '1nF 50V', {'1': 'LCD_SW_CT', '2': '+3V3'},
-       lcsc='C1523', mpn='0402B102K500NT', mfr='FH', note='CT to VIN per TPS22917 datasheet (X7R 50 V)')
+     'TPS22919 switches 3V3_LCD (panel logic; the backlight runs from VSYS). ON pulled down: off until firmware enables it. '
+     'Fixed 1.6 ms soft start (datasheet 1.75 ms at 3.6 V), so the ~20 mA panel inrush cannot brown out the MCU. '
+     'QOD to VOUT through 100R: clean power-down. SC70-6, 1.1 mm: it sits under the panel (zone A <= 1.2 mm).')
+b.part('U5', 'Power_Management:TPS22919DCK', 'Package_TO_SOT_SMD:SOT-363_SC-70-6', 'TPS22919DCKR',
+       {'1': '+3V3', '2': 'GND', '3': 'LCD_PWR_EN', '4': NC, '5': 'LCD_SW_QOD', '6': '3V3_LCD'},
+       lcsc='C2149796', mpn='TPS22919DCKR', mfr='TI', note='load switch, 8 uA Iq, fixed rise time')
 b.C('C10', '1u', '3V3_LCD', note='switch output')
 b.R('R32', '100R', 'LCD_SW_QOD', '3V3_LCD', note='QOD output discharge through 100R (datasheet option): clean panel power-down')
 b.R('R17', '100k', 'LCD_PWR_EN', 'GND', note='default off')
@@ -188,7 +192,7 @@ b.R('R22', '10k', '+3V3', 'EXP_RST_N', note='expander reset released; GPIO%d can
 b.R('R23', '100k', '+3V3', 'EXP_INT_N', note='INT pull-up')
 b.R('R24', '100k', 'LCD_RST_N', 'GND', note='P0 default: panel held in reset')
 # R17 (LCD_PWR_EN) sits with the load switch
-b.R('R25', '100k', 'AMP_SD_N', 'GND', note='P2 default: amplifier shut down (silent at power-up, ODD JOBS 116)')
+b.R('R25', '100k', 'AMP_SD', 'GND', note='P2 default: amplifier shut down (silent at power-up, ODD JOBS 116); at the amp pin')
 b.R('R26', '100k', 'HAPTIC_EN', 'GND', note='P3 default: haptic off')
 b.R('R27', '100k', 'TOF_XSHUT', 'GND', note='P4 default: proximity sensor off')
 b.R('R28', '100k', 'IR_RX_PWR', 'GND', note='P5 default: IR receiver unpowered')
@@ -202,14 +206,14 @@ b.at('compute', 'SERVICE',
      'Tag-Connect TC2030-NL (no part fitted): 1 GND, 2 EN, 3 TXD0, 4 3V3, 5 RXD0, 6 GPIO0 - recovery '
      'without USB (ODD JOBS 33-35, 157). Pinout chosen so TXD0/RXD0 run straight from the module pins. '
      'Probe pads: rails beside the charger, comms in one field, switched rails at their sources (36-39).')
-b.part('J3', 'Connector:TC2030', 'Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical', 'SERVICE',
+b.part('J3', 'Connector:TC2030', 'Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical', 'TAG',
        {'1': 'GND', '2': 'MCU_EN', '3': 'UART_TX', '4': '+3V3', '5': 'UART_RX', '6': 'PRESS_N'},
        mpn='PCB feature, no part', note='Tag-Connect TC2030-IDC-NL footprint', **{'Exclude from BOM': 'yes'})
 for ref, net, label in [('TP1', 'GND', 'GND'), ('TP2', 'GND', 'GND'), ('TP3', '+3V3', '3V3'),
                         ('TP4', 'VSYS', 'SYS'), ('TP5', 'VBAT', 'BAT'), ('TP6', 'VBUS', 'VBUS'),
                         ('TP7', 'MCU_EN', 'RST'), ('TP8', 'PRESS_N', 'BOOT'), ('TP9', 'I2C_SDA', 'SDA'),
                         ('TP10', 'I2C_SCL', 'SCL'), ('TP11', 'EXP_RST_N', 'XRST'),
-                        ('TP13', '3V3_LCD', 'LCD'), ('TP14', 'MIC_VDD', 'MIC'),
+                        ('TP13', '3V3_LCD', 'LCDV'), ('TP14', 'MIC_VDD', 'MIC'),
                         ('TP15', 'IR_RX_VCC', 'IRV'), ('TP16', 'GND', 'GND')]:
     # switched rails (TP13-15): the fixture proves each one really switches (firmware reads back only
     # the enables); signal pads 1.0 mm, rails and supplies 1.2 mm (ODD JOBS 37: 1-1.5 mm; 1.2 leaves each
@@ -253,15 +257,23 @@ c.custom_symbols['MAO:MAX98357A'] = kicadlib.derive_symbol(
     'Audio:MAX98357A', 'MAO:MAX98357A', value='MAX98357A',
     pin_types={'17': 'passive'})   # exposed pad: not internally connected, soldered to GND
 
+c.custom_symbols['MAO:AW9364'] = kicadlib.make_ic_symbol('MAO:AW9364', 'U', [
+    # Awinic AW9364 V2.3 pin definition, DFN2x2-8L: 1 PGND, 2 EN, 3 VIN, 4 AGND, 5-8 LED4..LED1, 9 EP
+    pin(3, 'VIN', 'power_in', L), pin(2, 'EN', 'input', L),
+    pin(8, 'LED1', 'passive', R), pin(7, 'LED2', 'passive', R), pin(6, 'LED3', 'passive', R), pin(5, 'LED4', 'passive', R),
+    pin(1, 'PGND', 'power_in', B_), pin(4, 'AGND', 'power_in', B_), pin(9, 'EP', 'passive', B_),
+], 'AW9364 4-channel low-dropout LED current sink, 20 mA per channel, 1-wire 16-step dimming')
+
+# Panel pin k lands on connector pad 19 - k: J301 sits on B.Cu (mirrored), and the tail keeps its lateral order
+# through every fold, so panel pin 1 meets the connector end at 12 o'clock, which is pad 18 on the flipped part.
+PANEL_PINS = [(1, 'TP_INT', L), (2, 'TP_SDA', L), (3, 'TP_SCL', L), (4, 'TP_RST', L), (5, 'TP_GND', L),
+              (6, 'TP_VDD', L), (7, 'VLED+', R), (8, 'VLED-', R), (9, 'GND', R), (10, 'CS', R), (11, 'SCL', R),
+              (12, 'SDA', R), (13, 'RS', R), (14, 'TE', R), (15, '~{RESET}', R), (16, 'VCI', R), (17, 'NC', R),
+              (18, 'GND', R)]
 c.custom_symbols['MAO:ROUND_LCD_FPC18'] = kicadlib.make_ic_symbol('MAO:ROUND_LCD_FPC18', 'J', [
     # 18-pin round-panel standard (Winstar WF0128BTYAA4DNN0 / -DNF10 pin definition): 1-6 the touch
-    # controller of touch variants (NC on plain panels), 7-18 the GC9A01 panel
-    pin(1, 'TP_INT', 'passive', L), pin(2, 'TP_SDA', 'passive', L), pin(3, 'TP_SCL', 'passive', L),
-    pin(4, 'TP_RST', 'passive', L), pin(5, 'TP_GND', 'passive', L), pin(6, 'TP_VDD', 'passive', L),
-    pin(7, 'VLED+', 'passive', R), pin(8, 'VLED-', 'passive', R), pin(9, 'GND', 'passive', R),
-    pin(10, 'CS', 'passive', R), pin(11, 'SCL', 'passive', R), pin(12, 'SDA', 'passive', R),
-    pin(13, 'RS', 'passive', R), pin(14, 'TE', 'passive', R), pin(15, '~{RESET}', 'passive', R),
-    pin(16, 'VCI', 'passive', R), pin(17, 'NC', 'passive', R), pin(18, 'GND', 'passive', R),
+    # controller of touch variants (NC on plain panels), 7-18 the GC9A01 panel. Symbol pin = connector pad.
+    *[pin(19 - k, '%s/P%d' % (name, k), 'passive', side) for k, name, side in PANEL_PINS],
     pin('MP', 'MP', 'passive', B_),
 ], 'FPC connector for 1.28" round GC9A01 panels with the 18-pin 0.5 mm tail')
 
@@ -285,30 +297,29 @@ b.at('interface', 'DISPLAY',
      'so any panel of this 18-pin standard plugs in either way up and can be swapped without solder. '
      'Pins 1-6 serve the touch controller of touch variants: not wired (MAO\'s face is a pressed window), '
      'TP_GND to GND. TE to GPIO%d for tear-free frames. 22R on SCLK/MOSI damps 80 MHz edges (ODD JOBS 29). ' % G['LCD_TE'] +
-     'Panel and backlight on the switched 3V3_LCD rail; RST held low until firmware.')
+     'Panel logic on the switched 3V3_LCD rail, backlight anode on VSYS through the constant-current driver; RST held '
+     'low until firmware. The stock 70 mm tail S-folds in the face carrier, drops through the board slot at 9 '
+     "o'clock and plugs into J301 on B.Cu.")
 b.part('J301', 'MAO:ROUND_LCD_FPC18', 'MAO:HDGC_0.5K-HX-18PWB_1x18-1MP_P0.5mm_Horizontal', 'LCD',
-       {'1': NC, '2': NC, '3': NC, '4': NC, '5': 'GND', '6': NC, '7': '3V3_LCD', '8': 'LCD_BL_K', '9': 'GND',
-        '10': 'LCD_CS', '11': 'LCD_SCLK_P', '12': 'LCD_MOSI_P', '13': 'LCD_DC', '14': 'LCD_TE',
-        '15': 'LCD_RST_N', '16': '3V3_LCD', '17': NC, '18': 'GND', 'MP': 'GND'},
+       dict({str(19 - k): net for k, net in ((1, NC), (2, NC), (3, NC), (4, NC), (5, 'GND'), (6, NC), (7, 'VSYS'),
+                                             (8, 'LCD_BL_K'), (9, 'GND'), (10, 'LCD_CS'), (11, 'LCD_SCLK_P'),
+                                             (12, 'LCD_MOSI_P'), (13, 'LCD_DC'), (14, 'LCD_TE'), (15, 'LCD_RST_N'),
+                                             (16, '3V3_LCD'), (17, NC), (18, 'GND'))}, MP='GND'),
        lcsc='C2919497', mpn='0.5K-HX-18PWB', mfr='HDGC',
-       note='0.5 mm 18P FPC connector, 1.0 mm high, back flip, top and bottom contacts; panel pinout: '
-       '1 TP_INT, 2 TP_SDA, 3 TP_SCL, 4 TP_RST, 5 TP_GND, 6 TP_VDD, 7 VLED+, 8 VLED-, 9 GND, 10 CS, 11 SCL, '
-       '12 SDA, 13 RS, 14 TE, 15 RESET, 16 VCI, 17 NC, 18 GND')
+       note='0.5 mm 18P FPC connector, 1.0 mm high, back flip, top and bottom contacts, on B.Cu: panel pin k on pad '
+       '19-k. Panel pinout: 1 TP_INT, 2 TP_SDA, 3 TP_SCL, 4 TP_RST, 5 TP_GND, 6 TP_VDD, 7 VLED+, 8 VLED-, 9 GND, '
+       '10 CS, 11 SCL, 12 SDA, 13 RS, 14 TE, 15 RESET, 16 VCI, 17 NC, 18 GND')
 b.R('R301', '22R', 'LCD_SCLK', 'LCD_SCLK_P', note='series damping, at the module')
 b.R('R302', '22R', 'LCD_MOSI', 'LCD_MOSI_P', note='series damping, at the module')
 b.C('C301', '100n', '3V3_LCD', note='panel VDD, at the land')
-b.C('C302', '4.7u', '3V3_LCD', pkg='0603', note='panel + backlight bulk (ODD JOBS 15)')
+b.C('C302', '4.7u', '3V3_LCD', pkg='0603', note='panel bulk (ODD JOBS 15)')
 
 b.at('interface', 'BACKLIGHT',
-     'Two parallel white LEDs, VLED 2.8-3.2 V (3.0 typ) at 40 mA (panel spec). Low-side AO3400A, PWM on GPIO%d. ' % G['LCD_BL_PWM'] +
-     '10R from 3V3_LCD: 17-50 mA by panel Vf bin, 33 mA typ; firmware caps PWM at 80 % so the average stays '
-     'within the panel 40 mA on every bin. Gate pull-down: dark until firmware (ODD JOBS 116).')
-b.R('R303', '10R', 'LCD_BL_K', 'LCD_BL_D', pkg='0603', note='LED current: (3.3 - Vf) / 10R')
-b.part('Q301', 'Transistor_FET:AO3400A', 'Package_TO_SOT_SMD:SOT-23', 'AO3400A',
-       {'1': 'LCD_BL_G', '2': 'GND', '3': 'LCD_BL_D'}, lcsc='C20917', mpn='AO3400A', mfr='AOS',
-       note='backlight switch')
-b.R('R304', '100R', 'LCD_BL_PWM', 'LCD_BL_G', note='gate resistor')
-b.R('R305', '100k', 'LCD_BL_G', 'GND', note='backlight off by default; also holds the VDD_SPI strap GPIO%d low' % G['LCD_BL_PWM'])
+     'Panel LEDs (one group of two) need VLED+ 3.0/3.2/3.4 V at 40 mA (Winstar spec 4.2): more than 3V3 can drive. '
+     'AW9364 constant-current sinks from VSYS (40-50 mV dropout): LED1+LED2 on VLED- = 2 x 20 mA = 40 mA nominal '
+     '(33-47 mA: +-17.5 %% part tolerance), set by the part, not by firmware. 16 steps by EN pulses on GPIO%d; its 150k EN '
+     'pull-down keeps the panel dark from reset (ODD JOBS 116). Full 40 mA down to VSYS 3.4 V on the typical 3.2 V '
+     'bin, 3.6 V on the 3.4 V bin (sim S3); dimmer below.' % G['LCD_BL_CTRL'])
 
 b.at('interface', 'RING DIAL',
      'Two DRV5012 Hall latches under the ring\'s 30-pole ferrite strip, 6 deg apart (half a pole = 90 deg electrical): '
@@ -391,11 +402,12 @@ b.R('R403', '100k', 'MIC_PWR', 'GND', note='mic off at reset')
 # FEEDBACK
 # --------------------------------------------------------------------------------------------
 b.at('feedback', 'SPEAKER AMP',
-     'MAX98357A I2S class-D from VSYS. SD_MODE from the expander: low = 0.6 uA shutdown, 3.3 V = left channel. '
+     'MAX98357A I2S class-D from VSYS. SD_MODE from the expander through 2.2k (datasheet: series R when VDDIO can '
+     'exceed VDD): low = 0.6 uA shutdown, 3.2 V = left channel. '
      'GAIN_SLOT open = 9 dB (datasheet state, deliberate). Speaker: Same Sky CMS-150803-088S-X8 (15 x 8 x 3 mm, '
      '8 ohm, 0.8 W) in the base at 9 o\'clock; its own spring contacts press on two pads on B.Cu (LS501).')
 b.part('U501', 'MAO:MAX98357A', 'Package_DFN_QFN:TQFN-16-1EP_3x3mm_P0.5mm_EP1.23x1.23mm_ThermalVias', 'MAX98357AETE+T',
-       {'1': 'AMP_DIN', '2': NC, '3': 'GND', '4': 'AMP_SD_N', '5': NC, '6': NC, '7': 'VSYS', '8': 'VSYS',
+       {'1': 'AMP_DIN', '2': NC, '3': 'GND', '4': 'AMP_SD', '5': NC, '6': NC, '7': 'VSYS', '8': 'VSYS',
         '9': 'SPK_P', '10': 'SPK_N', '11': 'GND', '12': NC, '13': NC, '14': 'AMP_LRCLK', '15': 'GND',
         '16': 'AMP_BCLK', '17': 'GND'},
        lcsc='C910544', mpn='MAX98357AETE+T', mfr='Analog Devices', note='3.2 W mono I2S class-D')
@@ -422,8 +434,8 @@ b.part('J501', 'Connector_Generic:Conn_01x02', 'MAO:WirePads_1x02_P2.5mm_1.0x1.8
 
 b.at('feedback', 'IR TRANSMIT',
      'Two side-emitting 940 nm LEDs at the back edge (B.Cu), each with its own 56R from VSYS (26-59 mA pulses at '
-     '38 kHz, 33 % duty: under the 65 mA rating at any VSYS up to 4.5 V and any Vf). AO3400A low side, gate '
-     'pulled down: dark at reset (117).')
+     '38 kHz, 33 %% duty: under the 65 mA rating at any VSYS up to 4.5 V and any Vf). AO3400A low side, gate '
+     'pulled down and driven from GPIO%d, a pin without a reset pull-up: dark at reset (117).' % G['IR_TX'])
 b.part('D501', 'Device:LED', 'MAO:Everlight_IR12-21C_RightAngle_3x1mm', 'IR12-21C', {'1': 'IR_LED_K', '2': 'IR_LED_A1'},
        lcsc='C53672', mpn='IR12-21C/TR8', mfr='Everlight', note='940 nm side-emitting IR LED')
 b.part('D502', 'Device:LED', 'MAO:Everlight_IR12-21C_RightAngle_3x1mm', 'IR12-21C', {'1': 'IR_LED_K', '2': 'IR_LED_A2'},
@@ -449,21 +461,67 @@ b.R('R506', '10k', 'IR_RX_VCC', 'IR_RX', note='OUT pull-up to the switched suppl
 
 
 # --------------------------------------------------------------------------------------------
+# A0 revision (2026-10-05 verification): parts added at the end of their sheets, so every earlier
+# reference keeps its number (docs and bring-up procedures name them). Each joins its block.
+# --------------------------------------------------------------------------------------------
+b.at('power', 'DISPLAY RAIL')
+b.C('C90', '1u', '+3V3', note='TPS22919 VIN, at pin 1 (datasheet CIN; ODD JOBS 14)')
+b.at('power', '3V3 BUCK-BOOST')
+b.C('C91', '100n', 'BB_EN', note='UVLO filter: 16 ms with the 159k divider source, rides through load steps')
+b.at('power', 'CHARGER')
+b.R('R90', '100k', 'CHG_CE_N', 'GND', note='/CE default low: charging on from reset and in deep sleep')
+b.at('interface', 'BACKLIGHT')
+b.part('U303', 'MAO:AW9364', 'Package_DFN_QFN:DFN-8-1EP_2x2mm_P0.5mm_EP0.6x1.2mm', 'AW9364DNR',
+       {'3': 'VSYS', '2': 'LCD_BL_CTRL', '8': 'LCD_BL_K', '7': 'LCD_BL_K', '6': 'GND', '5': 'GND',
+        '1': 'GND', '4': 'GND', '9': 'GND'}, lcsc='C401007', mpn='AW9364DNR', mfr='Awinic',
+       note='backlight current sinks: LED1+LED2 = 40 mA max, LED3/LED4 to GND (datasheet: unused channel)')
+b.C('C305', '1u', 'VSYS', note='AW9364 VIN (datasheet 1 uF), also the LED anode bypass at J301 pin 7')
+b.at('feedback', 'SPEAKER AMP')
+b.R('R507', '2.2k', 'AMP_SD_N', 'AMP_SD', note='SD_MODE series resistor (MAX98357A datasheet, VDDIO > VDD case)')
+
+# Parts removed by the revision: their numbers stay retired so later references do not move.
+RETIRED = {'Q301', 'R303', 'R304', 'R305', 'R107', 'C108'}
+
+
+# --------------------------------------------------------------------------------------------
 # Reference designators: one hundred-block per sheet (power 1xx ... feedback 5xx), in capture order.
+# Notes may name a part by its capture reference in braces, e.g. {R10}; renumber() rewrites them to
+# the final reference, so a note can never drift from the board (ODD JOBS 189).
 # --------------------------------------------------------------------------------------------
 def renumber():
+    import re
     base = {'power': 100, 'compute': 200, 'interface': 300, 'sense': 400, 'feedback': 500}
     keep = ('TP', 'FID', 'H')
     counters = {}
+    final = {}
     for p in c.parts:
         prefix = ''.join(ch for ch in p.ref if ch.isalpha())
         if prefix in keep:
             continue
         k = (p.sheet, prefix)
-        counters[k] = counters.get(k, 0) + 1
-        p.ref = '%s%d' % (prefix, base[p.sheet] + counters[k])
+        while True:
+            counters[k] = counters.get(k, 0) + 1
+            ref = '%s%d' % (prefix, base[p.sheet] + counters[k])
+            if ref not in RETIRED:
+                break
+        final[p.ref] = ref
+        p.ref = ref
     refs = [p.ref for p in c.parts]
     assert len(refs) == len(set(refs)), 'duplicate references after renumbering'
+
+    def resolve(text):
+        def one(m):
+            assert m.group(1) in final, ('note names an unknown part', m.group(1))
+            return final[m.group(1)]
+        return re.sub(r'\{([A-Z]+[0-9]+)\}', one, text)
+    for k in list(c.blocks):
+        c.blocks[k] = resolve(c.blocks[k])
+    for p in c.parts:
+        p.note = resolve(p.note)
+        for f in list(p.fields):
+            if isinstance(p.fields[f], str):
+                p.fields[f] = resolve(p.fields[f])
+    c.root_notes = [resolve(n) for n in c.root_notes]
 
 
 renumber()

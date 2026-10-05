@@ -49,7 +49,7 @@ EP_LINKS = ['U501.3>U501.17', 'U501.11>U501.17', 'U501.15>U501.17', 'U202.6>U202
 # 4 layers: neighbouring plane pins share one via to In1 / In2 (brief: fewer vias than the 6-layer A0)
 SHARE = ['--share', '1.6']
 # pour-joined resistors whose GND pad the routing boxes in (DRC: starved thermal / island): own via up front
-POUR_BOXED = ['R105.2', 'R114.2', 'R116.2', 'R207.2', 'R208.2', 'R211.2', 'R504.2', 'SW301.2', 'TP2.1']
+POUR_BOXED = ['R105.2', 'R114.2', 'R116.2', 'R207.2', 'R211.2', 'R403.2', 'R504.2', 'SW301.2', 'TP2.1']
 
 def starved_pads():
     """GND pads DRC reports as starved thermals (pour-joined resistors boxed in by routing): each gets its own via."""
@@ -98,7 +98,9 @@ STEPS = {
     'checksilk': lambda: run(KIPY, 'check_silk_text.py'),
     'stackup': lambda: run(KIPY, 'stackup.py'),
     'models': lambda: run(KIPY, 'models3d.py'),
-    'fab': lambda: run(KIPY, 'fab.py'),
+    'mech': lambda: run(KIPY, 'mech_check.py'),
+    'tabs': lambda: run(KIPY, 'panel_tabs.py'),
+    'fab': lambda: (run(KIPY, 'panel_tabs.py'), run(KIPY, 'fab.py')),
 }
 SEQ = {
     'all': ['capture', 'footprints', 'place', 'power', 'planevias', 'drc', 'gridroute', 'drc',

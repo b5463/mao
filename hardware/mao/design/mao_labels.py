@@ -17,8 +17,8 @@ Each silk reference is placed beside its own part body: candidates sit
 along each side of the part outline, 0.25 to 3 mm away, sliding in 0.25 mm steps, horizontal or
 vertical. A candidate must keep
   - 0.15 mm from every part outline on that side (the outline includes the courtyard, so pads stay
-    at least 0.4 mm clear), 0.2 mm from the through-holes of parts on the other side, clear of the
-    fasteners,
+    at least 0.4 mm clear), 0.2 mm from the through-holes of parts on the other side, 0.05 mm from every
+    via (a tented via breaks the print), clear of the fasteners,
   - 0.5 mm from every other silkscreen text or marking, so neighbouring references read as
     separate words,
   - 0.5 mm inside the board edge.
@@ -52,7 +52,7 @@ def on_board(q, edge):
     return not (q[2] > -m.NOTCH_W / 2 - edge and q[0] < m.NOTCH_W / 2 + edge and q[3] > m.NOTCH_Y - edge)
 
 prototype = True                 # MAO A0 is a prototype: references stay on silk (ODD JOBS 177)
-SIZES = [(1.0, .15), (.8, .15)] if prototype else [(.8, .15)]   # 0.15 mm stroke: the fab's minimum legend line
+SIZES = [(.8, .15)]             # type scale: identity 1.5 > connectors 1.2 > test pads 0.9 > references 0.8 (0.15 mm stroke)
 BODY_GAP, TEXT_GAP, EDGE, AMBIGUITY = .15, .25, .5, .3
 ALIGN = float(__import__('os').environ.get('LBL_ALIGN', .6))                     # score per mm a label sits off the middle of its part's side
 GAPS = [.25 * i for i in range(1, 17)]
@@ -111,6 +111,12 @@ for d in b.GetDrawings():
         text['B' if d.GetLayer() == pcb.B_SilkS else 'F'].add('board marking', tbox(d, TEXT_GAP) if isinstance(d, pcb.PCB_TEXT) else box(d.GetBoundingBox(), TEXT_GAP))
 for x, y in INSERT_CENTRES:
     for s in 'FB': hard[s].add('fastener', (x - 3.5, y - 3.5, x + 3.5, y + 3.5))
+sl_ = m.TAIL_SLOT                       # the display-tail slot (Edge.Cuts inside the board): 0.5 mm clear
+for s in 'FB': hard[s].add('slot', (sl_[0] - .5, sl_[1] - .5, sl_[2] + .5, sl_[3] + .5))
+for t_ in b.GetTracks():                # tented vias print through: a reference keeps 0.05 mm off them (the box is
+    if isinstance(t_, pcb.PCB_VIA):     # shrunk by BODY_GAP - 0.05 because candidates are grown by BODY_GAP)
+        x, y = pos(t_); r_ = pcb.ToMM(t_.GetWidth(pcb.F_Cu)) / 2 - (BODY_GAP - .05)
+        for s in 'FB': hard[s].add('via', (x - r_, y - r_, x + r_, y + r_))
 for r in MARKS:                         # fiducials: no silk within 1 mm of the 2 mm mask opening
     if r.startswith('FID'):
         x, y = pos(fs[r]); hard[side_of(fs[r])].add(r + ' clear', (x - 2.05, y - 2.05, x + 2.05, y + 2.05))
@@ -303,7 +309,7 @@ amb = [q['reference'] for q in records if q['ambiguity_mm'] > 0]
     'board': TARGET.name, 'text_height_mm': [s[0] for s in SIZES], 'text_stroke_mm': [s[1] for s in SIZES],
     'reference_layers': 'F.SilkS/B.SilkS (plus a Fab copy at the part centre for the assembly drawing)', 'reference_count': len(records),
     'silk_reference_classes': list(SILK_REF), 'service_passives': sorted(SERVICE & set(fs)), 'fab_by_policy': sorted(POLICY_FAB),
-    'at_fallback_height': small, 'ambiguous': amb, 'duplicate_centre_references_removed': True,
+    'at_fallback_height': small, 'ambiguous': amb, 'without_silk_spot': sorted(unplaced), 'duplicate_centre_references_removed': True,
     'component_outline_margin_mm': .18 + BODY_GAP, 'text_to_text_gap_mm': 2 * TEXT_GAP,
     'placement': 'beside its own part, clear of bodies, pads, through-holes, fasteners and other silkscreen text',
     'labels': records}, indent=2) + '\n')

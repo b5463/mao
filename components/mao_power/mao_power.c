@@ -76,7 +76,7 @@ static const char *TAG = "MAO_POWER";
 #define CRITICAL_NOTE           ", critical-battery shutdown OFF"
 #endif
 
-typedef enum { REQ_STATE = 0, REQ_DEEP_SLEEP, REQ_DROWSY_FOR } request_kind_t;
+typedef enum { REQ_STATE = 0, REQ_DEEP_SLEEP, REQ_DROWSY_FOR, REQ_CHARGE_HOLD } request_kind_t;
 
 typedef struct {
     request_kind_t kind;
@@ -126,6 +126,7 @@ static int64_t s_critical_deadline_us;
 
 /* Charge limit state (task only). */
 static bool s_charge_paused;
+static bool s_charge_hold;               /* dev console: charging held off by hand (bring-up check of /CE) */
 static int64_t s_next_charge_check_us;
 static bool s_temp_fail_logged;
 
@@ -322,12 +323,15 @@ static void charge_limit(bool force)
         s_temp_fail_logged = !valid;
     }
 
-    const bool pause = mao_policy_charge_pause(usb, s_charge_paused, valid, temp);
+    const bool pause = s_charge_hold || mao_policy_charge_pause(usb, s_charge_paused, valid, temp);
     if (pause != s_charge_paused) {
         const esp_err_t err = mao_board_charge_enable(!pause);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "charge limit: could not %s the charger (%s), retrying", pause ? "pause" : "enable",
                      esp_err_to_name(err));
+        } else if (pause && s_charge_hold) {
+            s_charge_paused = true;
+            ESP_LOGW(TAG, "charging held off from the console (/CE high)");
         } else if (pause) {
             s_charge_paused = true;
             ESP_LOGW(TAG, "charging paused: board %.1f C >= %.0f C (cell limit 45 C)", (double)temp,
@@ -568,6 +572,10 @@ static void handle_request(const request_t *req)
     case REQ_DEEP_SLEEP:
         enter_deep_sleep(req->seconds, req->reason);
         break;
+    case REQ_CHARGE_HOLD:
+        s_charge_hold = req->seconds != 0;
+        charge_limit(true);
+        break;
     default:
         break;
     }
@@ -736,7 +744,22 @@ esp_err_t mao_power_gauge_version(uint16_t *version)
 
 static void devcmd_power(const char *args)
 {
-    (void)args;
+    if (strncmp(args, "charge", 6) == 0) {    /* power charge off | on: hold /CE high by hand, or release it */
+        const char *v = args + 6;
+        while (*v == ' ') {
+            v++;
+        }
+        if (!s_caps.charge_control || (strcmp(v, "off") != 0 && strcmp(v, "on") != 0)) {
+            ESP_LOGW(TAG, "power charge off | on%s", s_caps.charge_control ? "" : ": no charge control on this board");
+            return;
+        }
+        const request_t req = { .kind = REQ_CHARGE_HOLD, .seconds = strcmp(v, "off") == 0 };
+        if (send_request(&req) == ESP_OK) {
+            ESP_LOGI(TAG, "charging %s", req.seconds ? "held off (temperature limit still applies when released)"
+                                                     : "released to the temperature limit");
+        }
+        return;
+    }
     mao_power_status_t st;
     update_gauge();
     mao_power_get_status(&st);
@@ -747,7 +770,8 @@ static void devcmd_power(const char *args)
         ESP_LOGI(TAG, "battery: no fuel gauge");
     }
     ESP_LOGI(TAG, "charger: usb=%d charging=%d%s%s; state %s", st.usb_present, st.charging,
-             s_chg_line ? "" : " (estimated from the gauge)", st.charge_paused ? ", PAUSED (temperature)" : "",
+             s_chg_line ? "" : " (estimated from the gauge)",
+             st.charge_paused ? (s_charge_hold ? ", PAUSED (console hold)" : ", PAUSED (temperature)") : "",
              mao_power_state_name(s_state));
     if (s_caps.charge_control) {
         if (st.temp_valid) {
@@ -778,7 +802,8 @@ static void devcmd_sleep(const char *args)
 
 static void register_devcmds(void)
 {
-    mao_devcmd_register("power", "power  (battery, charger, power state, sleep continuity)", devcmd_power);
+    mao_devcmd_register("power", "power [charge off|on]  (battery, charger, power state, sleep continuity; "
+                        "hold charging off by hand)", devcmd_power);
     mao_devcmd_register("sleep", "sleep [seconds] | sleep light [seconds]  (deep / light-sleep test)",
                         devcmd_sleep);
 }

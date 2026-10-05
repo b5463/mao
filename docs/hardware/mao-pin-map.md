@@ -17,7 +17,7 @@ channel, ADC1 = ADC usable with Wi-Fi on.
 | 5 | `TOUCH_TOP` | analog | touch T5, window-border electrode (spring) | RTC, touch, ADC1 | T R; 510R series |
 | 6 | `TOUCH_REAR` | analog | touch T6, base electrode (spring at 10 o'clock) | RTC, touch, ADC1 | T R; 510R series |
 | 7 | `I2C_SDA` | io | I2C data (all sensors, expander, gauge, haptic) | RTC, touch, ADC1 | R; 2.2k pull-up to +3V3; left-column pin below the I2S group: the bus reaches the haptic driver under the I2S lanes |
-| 8 | `BOARD_ID` | analog | board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.65 V | RTC, touch, ADC1 | read once at boot; the static line runs on L3 to its divider |
+| 8 | `BOARD_ID` | analog | board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.59 V (3.18 V rail) | RTC, touch, ADC1 | read once at boot; the static line runs on L3 to its divider |
 | 9 | `LCD_TE` | in | display tearing-effect output: frame sync for tear-free animation | RTC, touch, ADC1 | R; the display group (pins 17-21: TE, DC, MOSI, SCLK, CS) is in the connector's own pin order: no crossing |
 | 10 | `LCD_DC` | out | display data/command | RTC, touch, ADC1 | R |
 | 11 | `LCD_MOSI` | out | display data (FSPID IO_MUX) | RTC, touch | R; 22R series (ODD JOBS 29) |
@@ -30,7 +30,7 @@ channel, ADC1 = ADC usable with Wi-Fi on.
 | 18 | `AMP_LRCLK` | out | I2S1 word select | RTC | R |
 | 19 | `USB_DN` | io | USB D- | RTC | native USB-Serial/JTAG |
 | 20 | `USB_DP` | io | USB D+ | RTC | native USB-Serial/JTAG |
-| 21 | `EXP_INT_N` | in | expander interrupt (charger status, gauge/light alerts) | RTC | R; 100k pull-up; deep-sleep wake |
+| 21 | `EXP_INT_N` | in | expander interrupt (gauge/light alerts on P7) | RTC | R; 100k pull-up; deep-sleep wake |
 | 35 | `MIC_PWR` | out | microphone supply (GPIO-powered through 100R/1uF) |  | 100k pull-down: mic off at reset and in deep sleep (pad high-Z). SPH0641 draws 80 uA even with the clock stopped, so it is powered only while listening. Right column: the mic group (pins 28-30) leaves together towards MK401 |
 | 36 | `MIC_DATA` | in | I2S0 PDM data from the microphone |  | mic group |
 | 37 | `MIC_CLK` | out | I2S0 PDM clock to the microphone |  | mic group |

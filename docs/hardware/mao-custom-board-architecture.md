@@ -41,7 +41,7 @@ Mechanical datums: `hardware/mao/design/mechanical.py`; drawing and enclosure in
 
 | Requirement | ESP32-C3 (LCDkit) | ESP32-S3 |
 |---|---|---|
-| Signals needed (42) | 15 usable GPIO: impossible | Every module GPIO used natively except the strap GPIO46 (NC), incl. USB, UART and the display TE line; GPIO45 (VDD_SPI strap) drives the backlight gate behind its 100 k pull-down; + 8 on the expander |
+| Signals needed (42) | 15 usable GPIO: impossible | Every module GPIO used natively except the strap GPIO46 (NC), incl. USB, UART and the display TE line; GPIO45 (VDD_SPI strap, held low by the backlight driver's 150 k EN pull-down) drives the AW9364's 1-wire dimming; + 8 on the expander |
 | Body touch | none | 14 native channels, deep-sleep touch wake |
 | Microphone | no PDM RX | I2S0 PDM RX with hardware PDM→PCM |
 | Speaker + mic together | one I2S | I2S0 (mic) + I2S1 (amp) concurrently |
@@ -56,24 +56,25 @@ chips, split radio stack). Every slow line moves there; every wake or fast line 
 ## 3. Power
 
 ```
-USB-C ─ ESD/TVS ─ VBUS ─► BQ24073 (linear, DPPM, USB500, 297 mA) ─► VSYS (4.4 V on USB, ≈VBAT on battery)
-                                   │ BAT                               ├─► TPS63802 buck-boost ─► +3V3 (2 A)
+USB-C ─ ESD/TVS ─ VBUS ─► BQ24073 (linear, DPPM, USB500, 207 mA) ─► VSYS (4.4 V on USB, ≈VBAT on battery)
+                       /CE ◄ expander P6   │ BAT                       ├─► TPS63802 buck-boost ─► +3V3 (3.18 V, 2 A)
                      cell (PCM, NTC) ─ R108 0R link ─ Q101 RPP ─ VBAT   │      EN = UVLO divider: on 3.25 V / off 2.96 V
                                    │                                    ├─► MAX98357A speaker amp
                      MAX17048 gauge on VBAT                             ├─► DRV2605L haptic driver
-                                                                        └─► 2 × IR LEDs
-+3V3 ─► TPS22917 ─► 3V3_LCD (panel + backlight, soft start, discharge)
+                                                                        ├─► 2 × IR LEDs
+                                                                        └─► panel LEDs ─► AW9364 sinks (40 mA, 16 steps)
++3V3 ─► TPS22919 ─► 3V3_LCD (panel logic, soft start, discharge)
 GPIO35 ─ RC ─► MIC_VDD      expander P5 ─ RC ─► IR_RX_VCC
 ```
 
 | Topic | Decision |
 |---|---|
-| Charger | BQ24073: linear (no second switch node near the mic and IMU), runs MAO while charging (DPPM), CHG/PGOOD to the MCU, NTC window 0–50 °C, timers. BQ24074 drop-in via R105 |
-| 3.3 V | TPS63802 buck-boost: uses the whole cell (an LDO would strand the last 10–15 %), 11 µA Iq, precise EN used as hardware UVLO |
+| Charger | BQ24073: linear (no second switch node near the mic and IMU), runs MAO while charging (DPPM), PGOOD to the MCU, /CE from the expander (firmware pauses charging above 43 °C board temperature: the cell allows 0–45 °C, the chip's NTC window is 0–50 °C), 207 mA (0.4C), timers. BQ24074 drop-in via R105. On the face side under the panel, so its heat stays off the cell |
+| 3.3 V rail | TPS63802 buck-boost at 3.18 V (3.10–3.28 V: the Winstar panel's VCI maximum is 3.3 V): uses the whole cell (an LDO would strand the last 10–15 %), 11 µA Iq, precise EN used as hardware UVLO |
 | Battery protection | Cell PCM (mandatory in the cell spec, checked on receipt) + hardware UVLO + NTC charge window + firmware cut-off from the gauge + reverse-polarity P-FET. No second protector IC: the pin-out of the common FS8205A could not be verified, and the UVLO covers over-discharge (ODD JOBS 49/51) |
 | Fuel gauge | MAX17048 ModelGauge: real SOC without a sense resistor, 3 µA hibernate |
-| Rail control | Display (load switch), mic (GPIO supply), IR receiver (expander supply), amp (SD), haptic (EN), ToF (XSHUT), Hall sampling (SEL). Each can be off; all are off at reset. The three switched rails have probe pads (TP13–15) so the fixture can prove they switch |
-| Expander recovery | GPIO38 drives the TCA6408A RESET (10 k pull-up): firmware resets and reprograms a wedged expander without a power cycle |
+| Rail control | Display logic (load switch), backlight (AW9364 EN), mic (GPIO supply), IR receiver (expander supply), amp (SD), haptic (EN), ToF (XSHUT), Hall sampling (SEL), charging (/CE). Each can be off; all loads are off at reset and charging is on. The three switched rails have probe pads (TP13–15) so the fixture can prove they switch |
+| Expander recovery | GPIO39 drives the TCA6408A RESET (10 k pull-up R205; GPIO39's own reset pull-up agrees with it): firmware resets and reprograms a wedged expander without a power cycle |
 | USB-C | Sink only (2 × 5.1 kΩ Rd), USB 2.0 FS to the S3's native USB-Serial-JTAG (flashing, console, JTAG, recovery), TPD2E2U06 + SMF15A at the connector |
 
 Power budget and runtimes: `mao-power-budget.md`.
@@ -89,8 +90,8 @@ Power budget and runtimes: `mao-power-budget.md`.
 | Touch (4 zones) | ESP32-S3 native | TOUCH1/4/5/6 | yes (TOP channel) |
 | Dial | 2 × DRV5012 | GPIO41/42 | — |
 | Press | SKQG | GPIO0 | yes |
-| Power events | BQ24073 PGOOD/CHG, MAX17048 ALRT | GPIO3, expander | yes (USB plug, alerts) |
-| IR | IRM-H638T | RMT RX GPIO40 (TX GPIO39) | — |
+| Power events | BQ24073 PGOOD, MAX17048 ALRT | GPIO3, expander | yes (USB plug, alerts) |
+| IR | IRM-H638T | RMT RX GPIO40 (TX GPIO38) | — |
 
 Firmware data flow (see `docs/firmware/mao-a0-firmware.md`):
 
@@ -113,15 +114,15 @@ The character never reads hardware; a sensor never maps straight to an animation
 
 ## 6. Board
 
-- Ø58 mm disc, 1.6 mm, **4 layers** (JLCPCB standard JLC04161H-1080: 1080 prepreg, so L1 sits 0.076 mm over L2): **L1 (F)** parts and the critical lines (USB pair, IMU, touch leads, PRESS) / **L2 (In1) solid GND**: no tracks, no splits; only the touch-arc cuts and the antenna keep-out shape it / **L3 (In2) power**: a +3V3 plane over most of the board, a VSYS band from the power section along the 12 o'clock edge and down the 9 o'clock rim, a VBUS strip under the receptacle, plus the slow lines (enables, interrupts, resets, the I2C trunk) / **L4 (B)** parts and short fan-outs over the L3 planes. USB, the display SPI, I2S and the PDM clock never touch L3. The first A0 was routed on 6 layers; this board was re-placed from scratch for 4 layers with designed escapes (`design/route_local.py`), so every fast line keeps one outer layer over an unbroken reference and the board needs fewer vias than the 6-layer one.
-- Power section at 1–2 o'clock on B, laid out by hand (`design/route_power.py`): one straight chain from the cell
-  (J102) through the 0 Ω link R108 and reverse-polarity FET Q101 to the charger, then VSYS straight into the
-  buck-boost. The buck-boost follows TI's reference layout: inductor over the power pins, CIN at VIN,
+- Ø58 mm disc, 1.6 mm, **4 layers** (JLCPCB standard JLC04161H-1080: 1080 prepreg, so L1 sits 0.076 mm over L2): **L1 (F)** parts and the critical lines (USB pair, IMU, touch leads, PRESS) / **L2 (In1) solid GND**: no tracks, no splits; only the touch-arc cuts and the antenna keep-out shape it / **L3 (In2) power**: a +3V3 plane over most of the board, a VSYS band from the power section along the 12 o'clock edge and down the 9 o'clock rim, a VBUS strip under the receptacle, a 10 o'clock VSYS branch to the amplifier and backlight driver, plus the slow lines (enables, interrupts, resets, the I2C trunk), placed so that every plane stays one piece (the router undoes any L3 route that would cut one off) / **L4 (B)** parts and short fan-outs over the L3 planes. USB, the display SPI, I2S and the PDM clock never touch L3. The first A0 was routed on 6 layers; this board was re-placed from scratch for 4 layers with designed escapes (`design/route_local.py`), so every fast line keeps one outer layer over an unbroken reference and the board needs fewer vias than the 6-layer one.
+- Power section at 1–2 o'clock, laid out by hand (`design/route_power.py`): one straight chain from the cell
+  (J102 on B) through the 0 Ω link R108 and reverse-polarity FET Q101 to the charger (on F, under the panel), then
+  VSYS straight down two vias into the buck-boost on B. The buck-boost follows TI's reference layout: inductor over the power pins, CIN at VIN,
   COUT at VOUT, a PGND strip between the pin rows with a via under the IC. VSYS reaches the amplifier,
   haptics and IR on F.Cu over the In1 ground plane.
 - Probe pads on B where their signals are: a service field between the charger and the module (GND, 3V3, SYS, BAT,
   SDA, SCL, XRST, BOOT, RST on a 3.0 × 3.2 mm grid, a ground beside every rail), VBUS at the USB TVS,
-  LCD/MIC/IRV at their switches. Tag-Connect TC2030-NL at the UART pins. Supplies and grounds on 1.2 mm pads, signals on 1.0 mm.
+  LCDV/MIC/IRV at their switches. Tag-Connect TC2030-NL at the UART pins. Supplies and grounds on 1.2 mm pads, signals on 1.0 mm.
   Every IC, capacitor and connector GND / +3V3 pad reaches its plane through a via of its own or one shared with a
   neighbouring pin of the same net within 1.6 mm; pull-down resistors join GND through the outer pour, and every pour
   fragment is stitched to L2 (ODD JOBS 14/16/17).
@@ -129,7 +130,8 @@ The character never reads hardware; a sensor never maps straight to an animation
 - Two M2 screws (heat-set inserts in the chassis) on the back half, one plastic locating peg on the antenna half (ODD JOBS 69).
 - Matte black solder mask, white silk, ENIG (visible product board; rule 173 caveat noted for inspection).
 - Design rules inside JLCPCB standard capability with margin: 0.15 mm track/space minimum (0.2 default), through vias only: 0.6/0.3 mm for planes and power, 0.5/0.2 mm for the designed fan-out at fine-pitch parts and the module pin rows, 0.2 mm thermal vias in the exposed pads.
-- Silkscreen: maker's mark and identity on both faces (MAO / MAIN A0 / 2026-10, S/N box on the back), connector and test-pad names by function, references for every IC, connector, transistor, diode and for each passive a service procedure names; the remaining resistors and capacitors are on the assembly drawing (`outputs/fab/ASSEMBLY-*.pdf`), see `design/mao_labels.py`.
+- Silkscreen: maker's mark and identity on both faces (MAO / MAIN A0 / 2026-10), a 6 × 6 mm S/N field on the face side with JLC's order-number placeholder under it, connector and test-pad names by function (type scale 1.5 / 1.2 / 0.9 / 0.8 mm), references for every IC, connector, transistor, diode and for each passive a service procedure names; the remaining resistors and capacitors are on the assembly drawing (`outputs/fab/ASSEMBLY-*.pdf`), see `design/mao_labels.py`. A few easter eggs hide under the cell, the speaker and the panel.
+- Display: the stock Winstar panel's 70 mm FPC tail passes through a routed slot at 9 o'clock to J301 on B (`mao-mechanical.md` §4).
 
 ## 7. What was evaluated and left out
 

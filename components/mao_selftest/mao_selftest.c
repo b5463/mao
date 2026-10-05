@@ -87,9 +87,12 @@ static const char *TAG = "MAO_SELFTEST";
 #define IR_TEST_ADDRESS         0xA5
 #define IR_TEST_COMMAND         0x3C
 /* Switched rails at their probe pads (TP13 3V3_LCD, TP14 MIC_VDD, TP15
- * IR_RX_VCC), measured to GND by the fixture DMM or the operator. */
+ * IR_RX_VCC), measured to GND by the fixture DMM or the operator. The A0
+ * rail is 3.18 V (3.10-3.28 V); TP14/TP15 sit behind 100 R and their load
+ * (0.6 / 0.7 mA + the 10 k pull-up), so a low rail reads ~2.97 V there
+ * (sim S5/S6). The floor keeps the IR receiver's 2.7 V minimum in sight. */
 #define LIM_PAD_OFF_MAX_MV      300
-#define LIM_PAD_ON_MIN_MV       3000
+#define LIM_PAD_ON_MIN_MV       2850
 #define LIM_PAD_ON_MAX_MV       3400       /* load switch / expander-fed rails */
 #define LIM_PAD_MIC_ON_MAX_MV   3350       /* GPIO35 through 100 R: always a little below 3V3 */
 #define MEASURE_AUTO_TIMEOUT_MS 5000       /* automatic mode: a fixture DMM answers at once */

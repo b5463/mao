@@ -88,8 +88,26 @@ def draw_via(x, y, d, n):
 
 L = {n: i for i, n in enumerate(LAYERS)}
 HOLE_CLR = 0.25                          # board rule min_hole_clearance (copper to a non-plated hole)
+from scipy.ndimage import binary_dilation, binary_erosion
+
+def fill_polys(layers, polys, n):
+    """A pad by its real outline: every cell it touches (one cell of dilation) is copper for clearance, its
+    eroded interior for connectivity."""
+    xs = [x for o in polys for x, _ in o]; ys = [y for o in polys for _, y in o]
+    i0, j0, i1, j1 = window(min(xs), min(ys), max(xs), max(ys), 0.2)
+    img = Image.new('1', (i1 - i0, j1 - j0), 0)
+    for o in polys:
+        ImageDraw.Draw(img).polygon([((x - x0) / RES - 0.5 - i0, (y - y0) / RES - 0.5 - j0) for x, y in o], fill=1, outline=1)
+    m = np.array(img, bool)
+    for l in layers:
+        lab[l, j0:j1, i0:i1][binary_dilation(m)] = n
+        exact[l, j0:j1, i0:i1][binary_erosion(m)] = n
+
 for p in dump['pads']:
     ls = [L[l] for l in p['layers']]
+    if p.get('polys') and p['kind'] == 'SMD':
+        fill_polys(ls, p['polys'], nid(p['net']))
+        continue
     extra = max(p.get('clr', 0.0), HOLE_CLR if p['kind'] == 'NPTH' else 0.0) - CLR   # rules stricter than 0.15 mm
     if extra > 0:                         # inflate the obstacle only; connectivity (exact) stays the real pad
         b_ = p['box']; r_ = p.get('r')
@@ -145,10 +163,62 @@ for poly in _pr.cores():
     ImageDraw.Draw(img).polygon([((x - x0) / RES - 0.5, (y - y0) / RES - 0.5) for x, y in poly], fill=1, outline=1)
     l3_forbid |= np.array(img, bool)
 
+NO_L3 = set()                            # nets whose L3 route would cut a plane piece off: F and B only
+
 def layer_ok(l, net, okl, j0, j1, i0, i1):
     if l != SL: return okl
-    if not INNER_OK.match(net): return np.zeros_like(okl)
+    if not INNER_OK.match(net) or net in NO_L3: return np.zeros_like(okl)
     return okl & ~l3_forbid[j0:j1, i0:i1]
+
+# ---- L3 plane continuity (brief: slow lines may cross a region but never cut a piece off) ----
+# Each L3 plane (the +3V3 default fill and every power region) is modelled as its zone would fill: inside its
+# outline (minus higher-priority regions and their 0.2 mm clearance), 0.2 mm from foreign copper, at least
+# 0.2 mm wide. Centre cells of that fill are labelled; a plane's pieces are the labels its own vias touch.
+# A route that raises any plane's piece count is undone and retried on F and B (plane_check.py has the
+# final word on the filled board).
+ZCLR, ZMIN = 0.2, 0.2
+def _poly(poly):
+    img = Image.new('1', (W, H), 0)
+    ImageDraw.Draw(img).polygon([((x - x0) / RES - 0.5, (y - y0) / RES - 0.5) for x, y in poly], fill=1, outline=1)
+    return np.array(img, bool)
+_inside = ~((np.hypot(_X, _Y) > _m.PCB_R - _m.POUR_EDGE) |
+            ((np.abs(_X) < _m.NOTCH_W / 2 + _m.POUR_EDGE) & (_Y > _m.NOTCH_Y - _m.POUR_EDGE)))
+PLANES, _taken = [], np.zeros((H, W), bool)
+for _net, _prio, _outline, _ in sorted(_pr.zones(), key=lambda r: -r[1]):
+    _a = _poly(_outline) & _inside & (distance_transform_edt(~_taken) * RES >= ZCLR)
+    PLANES.append((_net, _a)); _taken |= _a
+PLANES.append(('+3V3', _inside & (distance_transform_edt(~_taken) * RES >= ZCLR)))
+PLANES = [(n_, a_ & (distance_transform_edt(a_) * RES >= ZMIN / 2)) for n_, a_ in PLANES]
+from scipy.ndimage import label as _label
+
+def plane_pieces(net, area):
+    n = nets.get(net, -99)
+    foreign = (lab[SL] != 0) & (lab[SL] != n)
+    centre = area & (distance_transform_edt(~foreign) * RES >= ZCLR + ZMIN / 2)
+    own = [v for v in all_vias if v['net'] == net]
+    for v in own:                                    # a via ring joins every piece of fill that touches it
+        i0, j0, m = capsule(v['x'], v['y'], v['x'], v['y'], 2 * (v['d'] / 2 + ZMIN / 2 + RES))
+        centre[j0:j0 + m.shape[0], i0:i0 + m.shape[1]] |= m
+    lbl, _ = _label(centre)
+    return {int(lbl[iy(v['y']), ix(v['x'])]) for v in own} - {0}
+
+def plane_counts():
+    return {n_: len(plane_pieces(n_, a_)) for n_, a_ in PLANES}
+
+def stranded(net_):
+    """Own vias of the plane `net_` outside its largest piece (diagnosis for an undone route)."""
+    area = dict(PLANES)[net_]
+    n = nets.get(net_, -99)
+    foreign = (lab[SL] != 0) & (lab[SL] != n)
+    centre = area & (distance_transform_edt(~foreign) * RES >= ZCLR + ZMIN / 2)
+    own = [v for v in all_vias if v['net'] == net_]
+    for v in own:
+        i0, j0, m = capsule(v['x'], v['y'], v['x'], v['y'], 2 * (v['d'] / 2 + ZMIN / 2 + RES))
+        centre[j0:j0 + m.shape[0], i0:i0 + m.shape[1]] |= m
+    lbl, _ = _label(centre)
+    tags = [int(lbl[iy(v['y']), ix(v['x'])]) for v in own]
+    main_ = max(set(tags), key=tags.count)
+    return [(round(v['x'], 2), round(v['y'], 2)) for v, t in zip(own, tags) if t != main_]
 
 POWER_IDS = np.array([i for k, i in nets.items() if POWER.match(k)] or [0])
 SWITCH_IDS = np.array([i for k, i in nets.items() if SWITCH.match(k)] or [0])
@@ -486,19 +556,47 @@ def main():
     routes, failed = [], []
     def save(r, f): (CACHE / os.environ.get('GR_OUT', 'grid-routes.json')).write_text(json.dumps({'routes': r, 'failed': f}, indent=1))
     skip = set(filter(None, os.environ.get('GR_SKIP_REF', '').split(',')))   # GR_SKIP_REF=U700: leave that part's pads for designed routes
-    for a, b in conns:
-        net = a['net']
-        if only and net not in only: continue
-        if a.get('ref') in skip or b.get('ref') in skip: continue
-        done = None
+    counts = plane_counts()
+    print('L3 planes before routing (pieces with vias):', counts, flush=True)
+    def attempt(a, b, net):
         for w in width_for(net, (a, b)):
             for keep in (True, False):
                 for pad_mm in ((4.0, 10.0) if keep else (4.0, 10.0, 30.0)):
                     res = route(a, b, net, w, pad_mm, keep)
-                    if res:
-                        done = to_copper(res[0], net, w, res[1], res[2]); done['keepaway'] = keep; break
-                if done: break
-            if done: break
+                    if res: return res, w, keep
+        return None
+    for a, b in conns:
+        net = a['net']
+        if only and net not in only: continue
+        if a.get('ref') in skip or b.get('ref') in skip: continue
+        done, via_retries = None, 0
+        while True:
+            got = attempt(a, b, net)
+            if not got: break
+            res, w, keep = got
+            snap_ = (lab.copy(), exact.copy(), drill.copy(), hole_block.copy(), len(all_tracks), len(all_vias))
+            done = to_copper(res[0], net, w, res[1], res[2]); done['keepaway'] = keep
+            now = plane_counts()
+            worse = {k: (counts[k], now[k]) for k in now if now[k] > counts[k]}
+            if not worse: counts = now; break
+            uses_l3 = any(s[0] == SLOW_LAYER for s in done['segments'])
+            if (not uses_l3 or net in NO_L3) and (not done['vias'] or via_retries >= 3):
+                print('  plane warning', net, worse, flush=True); counts = now; break     # plane_check reports it
+            lab[:], exact[:], drill[:], hole_block[:] = snap_[0], snap_[1], snap_[2], snap_[3]
+            del all_tracks[snap_[4]:]; del all_vias[snap_[5]:]
+            if os.environ.get('GR_PLANE_DEBUG'):
+                print('    stranded', {k: stranded(k) for k in worse}, flush=True)
+            if not uses_l3 or net in NO_L3:          # its vias cut a neck of a plane: no via there, try again
+                for vx, vy in done['vias']:
+                    i0, j0, m = capsule(vx, vy, vx, vy, 1.4)
+                    via_forbid[j0:j0 + m.shape[0], i0:i0 + m.shape[1]] |= m
+                via_retries += 1
+                print('  undone', net, 'vias would split', worse, '- retry without those via sites', flush=True)
+            else:
+                print('  undone', net, 'L3 route would split', worse, '- retry on F/B', flush=True)
+                NO_L3.add(net)
+            done = None
+        NO_L3.discard(net)
         if done: routes.append(done); save(routes, failed); print('routed', net, done['width'], len(done['segments']), 'seg', len(done['vias']), 'via', '' if done['keepaway'] else 'MIN-CLEARANCE (review)', flush=True)
         else: failed.append(net); print('FAILED', net, a.get('ref', a['kind']), b.get('ref', b['kind']), why.get('r'), flush=True)
     (CACHE / os.environ.get('GR_OUT', 'grid-routes.json')).write_text(json.dumps({'routes': routes, 'failed': failed}, indent=1))

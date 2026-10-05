@@ -36,6 +36,128 @@ index ff72633..6fedd3e 100644
  esp_err_t mao_board_irq_get(mao_board_irq_t irq, mao_board_irq_desc_t *out)
  {
      (void)irq;
+diff --git a/components/mao_board/boards/main_a0/aw9364_dimming.c b/components/mao_board/boards/main_a0/aw9364_dimming.c
+new file mode 100644
+index 0000000..c26a8c3
+--- /dev/null
++++ b/components/mao_board/boards/main_a0/aw9364_dimming.c
+@@ -0,0 +1,51 @@
++/*
++ * AW9364 pulse-count dimming (pure logic). See aw9364_dimming.h.
++ */
++#include "aw9364_dimming.h"
++
++#define FULL_SCALE_UA   20000u      /* 20 mA per channel at step 1 */
++
++static uint8_t clamp_step(uint8_t step)
++{
++    return step > AW9364_STEPS ? AW9364_STEPS : step;
++}
++
++uint8_t aw9364_step_from_percent(uint8_t percent)
++{
++    if (percent == 0) {
++        return 0;
++    }
++    if (percent > 100) {
++        percent = 100;
++    }
++    /* ceil(16 * percent / 100) is 1..16 for percent 1..100 */
++    const unsigned sixteenths = (AW9364_STEPS * (unsigned)percent + 99u) / 100u;
++    return (uint8_t)(AW9364_STEPS + 1u - sixteenths);
++}
++
++uint32_t aw9364_step_current_ua(uint8_t step)
++{
++    if (step == 0 || step > AW9364_STEPS) {
++        return 0;
++    }
++    return FULL_SCALE_UA * (uint32_t)(AW9364_STEPS + 1u - step) / AW9364_STEPS;
++}
++
++aw9364_plan_t aw9364_plan(uint8_t from_step, uint8_t to_step)
++{
++    from_step = clamp_step(from_step);
++    to_step = clamp_step(to_step);
++    if (to_step == from_step) {
++        return (aw9364_plan_t) { .shutdown = false, .edges = 0 };
++    }
++    if (to_step == 0) {
++        return (aw9364_plan_t) { .shutdown = true, .edges = 0 };
++    }
++    if (from_step != 0 && to_step > from_step) {
++        /* Dimmer: count on from where the driver is. */
++        return (aw9364_plan_t) { .shutdown = false, .edges = (uint8_t)(to_step - from_step) };
++    }
++    /* From off, or brighter: start over from edge 1 after a full shutdown
++     * (never edge 17: the datasheet does not say whether it wraps). */
++    return (aw9364_plan_t) { .shutdown = true, .edges = to_step };
++}
+diff --git a/components/mao_board/boards/main_a0/aw9364_dimming.h b/components/mao_board/boards/main_a0/aw9364_dimming.h
+new file mode 100644
+index 0000000..f3a3b17
+--- /dev/null
++++ b/components/mao_board/boards/main_a0/aw9364_dimming.h
+@@ -0,0 +1,59 @@
++/*
++ * Awinic AW9364 backlight driver: 1-wire pulse-count dimming, pure logic
++ * (no ESP-IDF). PRIVATE to mao_board; host-tested in tests/host.
++ *
++ * Datasheet V2.3 (Feb 2018), "Enable Input", table 1 and figure 7:
++ *   - EN has an internal 150 k pull-down: the driver is off from reset.
++ *   - The rising edge that enables the device is edge 1 = 20 mA per channel.
++ *     Edge n sets (17 - n) / 16 x 20 mA, so 16 steps from 20 mA down to
++ *     1.25 mA. The current is held while EN stays high.
++ *   - Ready time after the enable edge > 20 us (TON); between edges EN low
++ *     0.5 .. 500 us (TLO), high > 0.5 us (THI).
++ *   - EN low for longer than TOFF (0.8 .. 2.5 ms) shuts the device down.
++ *   - The datasheet does not say what edge 17 does. The plan below never
++ *     relies on it: a brighter step (smaller n) shuts the driver down and
++ *     counts again from edge 1; a dimmer one adds the missing edges.
++ *
++ * "Step" here is the edge number n: 0 = off, 1 = brightest .. 16 = dimmest.
++ */
++#pragma once
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#define AW9364_STEPS            16
++#define AW9364_T_READY_US       30      /* > 20 us after the enable edge */
++#define AW9364_T_LOW_US         2       /* 0.5 .. 500 us between edges */
++#define AW9364_T_HIGH_US        2       /* > 0.5 us */
++#define AW9364_T_SHUTDOWN_US    3000    /* > TOFF max 2.5 ms: guaranteed off */
++
++/* Brightness percent -> step: 0 = off, else n = 17 - ceil(16 * percent / 100)
++ * clamped to 1..16 (values above 100 count as 100). The step's current is
++ * never below the requested share: 1 % gives step 16 (1.25 mA), 50 % step 9
++ * (10 mA), 100 % step 1 (20 mA per channel). */
++uint8_t aw9364_step_from_percent(uint8_t percent);
++
++/* Per-channel current of a step in microamps (0 for step 0 or out of range). */
++uint32_t aw9364_step_current_ua(uint8_t step);
++
++typedef struct {
++    /* Drive EN low first. If to_step is 0 it stays low (off). Otherwise EN
++     * must have been low for AW9364_T_SHUTDOWN_US before the first edge,
++     * which then is the enable edge (step 1). */
++    bool shutdown;
++    /* Rising edges to emit after that (or on top of the current step when
++     * shutdown is false). */
++    uint8_t edges;
++} aw9364_plan_t;
++
++/* How to get from from_step (what the driver is set to now, 0 = off) to
++ * to_step. Steps above 16 are treated as 16. */
++aw9364_plan_t aw9364_plan(uint8_t from_step, uint8_t to_step);
++
++#ifdef __cplusplus
++}
++#endif
 diff --git a/components/mao_board/boards/main_a0/mao_board_a0.c b/components/mao_board/boards/main_a0/mao_board_a0.c
 index a894978..cca9475 100644
 --- a/components/mao_board/boards/main_a0/mao_board_a0.c
@@ -551,10 +673,24 @@ index 07682f4..c2136f4 100644
      a0_display_park(true);
      if (a0_expander_ok()) {
 diff --git a/components/mao_board/boards/main_a0/mao_board_pins.h b/components/mao_board/boards/main_a0/mao_board_pins.h
-index 860810c..adf8a47 100644
+index 860810c..24cb667 100644
 --- a/components/mao_board/boards/main_a0/mao_board_pins.h
 +++ b/components/mao_board/boards/main_a0/mao_board_pins.h
-@@ -28,12 +28,12 @@
+@@ -13,7 +13,7 @@
+ #define MAO_PIN_TOUCH_TOP           5   /* touch T5, window-border electrode (spring) */
+ #define MAO_PIN_TOUCH_REAR          6   /* touch T6, base electrode (spring at 10 o'clock) */
+ #define MAO_PIN_I2C_SDA             7   /* I2C data (all sensors, expander, gauge, haptic) */
+-#define MAO_PIN_BOARD_ID            8   /* board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.65 V */
++#define MAO_PIN_BOARD_ID            8   /* board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.59 V (3.18 V rail) */
+ #define MAO_PIN_LCD_TE              9   /* display tearing-effect output: frame sync for tear-free animation */
+ #define MAO_PIN_LCD_DC             10   /* display data/command */
+ #define MAO_PIN_LCD_MOSI           11   /* display data (FSPID IO_MUX) */
+@@ -24,16 +24,16 @@
+ #define MAO_PIN_AMP_DIN            16   /* I2S1 data (left column, with BCLK/LRCLK on the next two pins) */
+ #define MAO_PIN_AMP_BCLK           17   /* I2S1 bit clock to the amplifier */
+ #define MAO_PIN_AMP_LRCLK          18   /* I2S1 word select */
+-#define MAO_PIN_EXP_INT_N          21   /* expander interrupt (charger status, gauge/light alerts) */
++#define MAO_PIN_EXP_INT_N          21   /* expander interrupt (gauge/light alerts on P7) */
  #define MAO_PIN_MIC_PWR            35   /* microphone supply (GPIO-powered through 100R/1uF) */
  #define MAO_PIN_MIC_DATA           36   /* I2S0 PDM data from the microphone */
  #define MAO_PIN_MIC_CLK            37   /* I2S0 PDM clock to the microphone */
@@ -767,7 +903,7 @@ index e440086..a67e667 100644
  }
  #endif
 diff --git a/components/mao_power/mao_power.c b/components/mao_power/mao_power.c
-index 7469b1f..93b516b 100644
+index 7469b1f..a96f0d3 100644
 --- a/components/mao_power/mao_power.c
 +++ b/components/mao_power/mao_power.c
 @@ -2,9 +2,18 @@
@@ -800,6 +936,15 @@ index 7469b1f..93b516b 100644
  #define LOG_FLUSH_MS            50         /* let the console drain before sleeping */
  
  #define NOTIFY_USB              (1u << 0)
+@@ -66,7 +76,7 @@ static const char *TAG = "MAO_POWER";
+ #define CRITICAL_NOTE           ", critical-battery shutdown OFF"
+ #endif
+ 
+-typedef enum { REQ_STATE = 0, REQ_DEEP_SLEEP, REQ_DROWSY_FOR } request_kind_t;
++typedef enum { REQ_STATE = 0, REQ_DEEP_SLEEP, REQ_DROWSY_FOR, REQ_CHARGE_HOLD } request_kind_t;
+ 
+ typedef struct {
+     request_kind_t kind;
 @@ -102,6 +112,8 @@ static mao_power_continuity_t s_cont;
  static volatile mao_wake_source_t s_last_wake = MAO_WAKE_NONE;
  static bool s_gauge_ok;
@@ -809,19 +954,20 @@ index 7469b1f..93b516b 100644
  
  static void battery_policy(void);
  
-@@ -112,6 +124,11 @@ static bool s_critical_reported;
+@@ -112,6 +124,12 @@ static bool s_critical_reported;
  static uint32_t s_policy_reading_ms;     /* gauge reading the policy last counted */
  static int64_t s_critical_deadline_us;
  
 +/* Charge limit state (task only). */
 +static bool s_charge_paused;
++static bool s_charge_hold;               /* dev console: charging held off by hand (bring-up check of /CE) */
 +static int64_t s_next_charge_check_us;
 +static bool s_temp_fail_logged;
 +
  /* ------------------------------------------------------------------------ */
  /* Names                                                                    */
  /* ------------------------------------------------------------------------ */
-@@ -216,6 +233,11 @@ const mao_power_continuity_t *mao_power_continuity(void)
+@@ -216,6 +234,11 @@ const mao_power_continuity_t *mao_power_continuity(void)
      return &s_cont;
  }
  
@@ -833,7 +979,7 @@ index 7469b1f..93b516b 100644
  static void update_gauge(void)
  {
      if (!s_gauge_ok) {
-@@ -233,45 +255,129 @@ static void update_gauge(void)
+@@ -233,45 +256,132 @@ static void update_gauge(void)
      xSemaphoreGive(s_lock);
  }
  
@@ -905,12 +1051,15 @@ index 7469b1f..93b516b 100644
 +        s_temp_fail_logged = !valid;
 +    }
 +
-+    const bool pause = mao_policy_charge_pause(usb, s_charge_paused, valid, temp);
++    const bool pause = s_charge_hold || mao_policy_charge_pause(usb, s_charge_paused, valid, temp);
 +    if (pause != s_charge_paused) {
 +        const esp_err_t err = mao_board_charge_enable(!pause);
 +        if (err != ESP_OK) {
 +            ESP_LOGW(TAG, "charge limit: could not %s the charger (%s), retrying", pause ? "pause" : "enable",
 +                     esp_err_to_name(err));
++        } else if (pause && s_charge_hold) {
++            s_charge_paused = true;
++            ESP_LOGW(TAG, "charging held off from the console (/CE high)");
 +        } else if (pause) {
 +            s_charge_paused = true;
 +            ESP_LOGW(TAG, "charging paused: board %.1f C >= %.0f C (cell limit 45 C)", (double)temp,
@@ -982,7 +1131,7 @@ index 7469b1f..93b516b 100644
          return;
      }
      uint16_t flags = 0;
-@@ -400,6 +506,10 @@ static void drowsy_loop(uint32_t duration_s)
+@@ -400,6 +510,10 @@ static void drowsy_loop(uint32_t duration_s)
                  sleep_us = (uint64_t)left_ms * 1000ULL + 1000ULL;
              }
          }
@@ -993,7 +1142,7 @@ index 7469b1f..93b516b 100644
          if (until) {
              const int64_t left = until - esp_timer_get_time();
              if (left <= 0) {
-@@ -426,9 +536,12 @@ static void drowsy_loop(uint32_t duration_s)
+@@ -426,9 +540,12 @@ static void drowsy_loop(uint32_t duration_s)
              break;
          }
          /* Housekeeping on every wake: the battery may have moved (a
@@ -1007,7 +1156,18 @@ index 7469b1f..93b516b 100644
          battery_policy();
          if (source != MAO_WAKE_TIMER) {
              break;
-@@ -529,7 +642,11 @@ static void power_task(void *arg)
+@@ -455,6 +572,10 @@ static void handle_request(const request_t *req)
+     case REQ_DEEP_SLEEP:
+         enter_deep_sleep(req->seconds, req->reason);
+         break;
++    case REQ_CHARGE_HOLD:
++        s_charge_hold = req->seconds != 0;
++        charge_limit(true);
++        break;
+     default:
+         break;
+     }
+@@ -529,7 +650,11 @@ static void power_task(void *arg)
      for (;;) {
          const bool watch = s_low_reported || s_critical_count > 0 || s_critical_reported;
          const uint32_t period_ms = watch ? GAUGE_PERIOD_LOW_MS : GAUGE_PERIOD_MS;
@@ -1020,7 +1180,7 @@ index 7469b1f..93b516b 100644
          wait_us = wait_us < 0 ? 0 : wait_us;
  
          uint32_t bits = 0;
-@@ -545,6 +662,8 @@ static void power_task(void *arg)
+@@ -545,6 +670,8 @@ static void power_task(void *arg)
              update_gauge();
              next_gauge_us = esp_timer_get_time() + (int64_t)period_ms * 1000;
          }
@@ -1029,13 +1189,38 @@ index 7469b1f..93b516b 100644
          battery_policy();
  
          request_t req;
-@@ -627,8 +746,17 @@ static void devcmd_power(const char *args)
+@@ -617,7 +744,22 @@ esp_err_t mao_power_gauge_version(uint16_t *version)
+ 
+ static void devcmd_power(const char *args)
+ {
+-    (void)args;
++    if (strncmp(args, "charge", 6) == 0) {    /* power charge off | on: hold /CE high by hand, or release it */
++        const char *v = args + 6;
++        while (*v == ' ') {
++            v++;
++        }
++        if (!s_caps.charge_control || (strcmp(v, "off") != 0 && strcmp(v, "on") != 0)) {
++            ESP_LOGW(TAG, "power charge off | on%s", s_caps.charge_control ? "" : ": no charge control on this board");
++            return;
++        }
++        const request_t req = { .kind = REQ_CHARGE_HOLD, .seconds = strcmp(v, "off") == 0 };
++        if (send_request(&req) == ESP_OK) {
++            ESP_LOGI(TAG, "charging %s", req.seconds ? "held off (temperature limit still applies when released)"
++                                                     : "released to the temperature limit");
++        }
++        return;
++    }
+     mao_power_status_t st;
+     update_gauge();
+     mao_power_get_status(&st);
+@@ -627,8 +769,18 @@ static void devcmd_power(const char *args)
      } else {
          ESP_LOGI(TAG, "battery: no fuel gauge");
      }
 -    ESP_LOGI(TAG, "charger: usb=%d charging=%d; state %s", st.usb_present, st.charging,
 +    ESP_LOGI(TAG, "charger: usb=%d charging=%d%s%s; state %s", st.usb_present, st.charging,
-+             s_chg_line ? "" : " (estimated from the gauge)", st.charge_paused ? ", PAUSED (temperature)" : "",
++             s_chg_line ? "" : " (estimated from the gauge)",
++             st.charge_paused ? (s_charge_hold ? ", PAUSED (console hold)" : ", PAUSED (temperature)") : "",
               mao_power_state_name(s_state));
 +    if (s_caps.charge_control) {
 +        if (st.temp_valid) {
@@ -1048,7 +1233,17 @@ index 7469b1f..93b516b 100644
      const mao_power_continuity_t *c = &s_cont;
      ESP_LOGI(TAG, "continuity: woke_from_sleep=%d reason=%s source=%s slept=%" PRIu64 " ms sleeps=%" PRIu32,
               c->woke_from_sleep, reason_name(c->reason), mao_wake_source_name(c->source), c->slept_ms,
-@@ -702,8 +830,16 @@ esp_err_t mao_power_init(void)
+@@ -650,7 +802,8 @@ static void devcmd_sleep(const char *args)
+ 
+ static void register_devcmds(void)
+ {
+-    mao_devcmd_register("power", "power  (battery, charger, power state, sleep continuity)", devcmd_power);
++    mao_devcmd_register("power", "power [charge off|on]  (battery, charger, power state, sleep continuity; "
++                        "hold charging off by hand)", devcmd_power);
+     mao_devcmd_register("sleep", "sleep [seconds] | sleep light [seconds]  (deep / light-sleep test)",
+                         devcmd_sleep);
+ }
+@@ -702,8 +855,16 @@ esp_err_t mao_power_init(void)
      s_gauge_ok = mao_system_report("fuel gauge", mao_gauge_init()) == ESP_OK;
      s_status.gauge = s_gauge_ok;
      mao_board_line_get(MAO_LINE_USB_PRESENT, &s_status.usb_present);
@@ -1066,7 +1261,7 @@ index 7469b1f..93b516b 100644
  
      if (xTaskCreate(power_task, "mao_power", TASK_STACK, NULL, TASK_PRIO, &s_task) != pdPASS) {
          return ESP_ERR_NO_MEM;
-@@ -717,8 +853,8 @@ esp_err_t mao_power_init(void)
+@@ -717,8 +878,8 @@ esp_err_t mao_power_init(void)
      }
      register_devcmds();
  
@@ -1108,7 +1303,7 @@ index 0ba479d..1387893 100644
 +    return in->rate_pct_per_h > MAO_CHARGE_RATE_MIN_PCT_H || in->soc_pct < 100.0f;
 +}
 diff --git a/components/mao_selftest/mao_selftest.c b/components/mao_selftest/mao_selftest.c
-index d07502c..53f4f6f 100644
+index d07502c..b4785ef 100644
 --- a/components/mao_selftest/mao_selftest.c
 +++ b/components/mao_selftest/mao_selftest.c
 @@ -54,10 +54,11 @@ static const char *TAG = "MAO_SELFTEST";
@@ -1127,7 +1322,22 @@ index d07502c..53f4f6f 100644
  #define LIM_ACCEL_MIN_G         0.85f
  #define LIM_ACCEL_MAX_G         1.15f
  #define LIM_TOF_RESULTS         3          /* new results within LIM_TOF_WINDOW_MS */
-@@ -320,7 +321,7 @@ static result_t t_expander(char *d)
+@@ -86,9 +87,12 @@ static const char *TAG = "MAO_SELFTEST";
+ #define IR_TEST_ADDRESS         0xA5
+ #define IR_TEST_COMMAND         0x3C
+ /* Switched rails at their probe pads (TP13 3V3_LCD, TP14 MIC_VDD, TP15
+- * IR_RX_VCC), measured to GND by the fixture DMM or the operator. */
++ * IR_RX_VCC), measured to GND by the fixture DMM or the operator. The A0
++ * rail is 3.18 V (3.10-3.28 V); TP14/TP15 sit behind 100 R and their load
++ * (0.6 / 0.7 mA + the 10 k pull-up), so a low rail reads ~2.97 V there
++ * (sim S5/S6). The floor keeps the IR receiver's 2.7 V minimum in sight. */
+ #define LIM_PAD_OFF_MAX_MV      300
+-#define LIM_PAD_ON_MIN_MV       3000
++#define LIM_PAD_ON_MIN_MV       2850
+ #define LIM_PAD_ON_MAX_MV       3400       /* load switch / expander-fed rails */
+ #define LIM_PAD_MIC_ON_MAX_MV   3350       /* GPIO35 through 100 R: always a little below 3V3 */
+ #define MEASURE_AUTO_TIMEOUT_MS 5000       /* automatic mode: a fixture DMM answers at once */
+@@ -320,7 +324,7 @@ static result_t t_expander(char *d)
  
  static result_t t_expander_reset(char *d)
  {
@@ -1136,7 +1346,7 @@ index d07502c..53f4f6f 100644
       * back at 0xFF) and come back with every rail as it was. The panel, the
       * ToF and the haptic driver see their lines drop and are re-initialised
       * by their owners; give them a moment. */
-@@ -427,13 +428,26 @@ static result_t t_gauge_voltage(char *d)
+@@ -427,13 +431,26 @@ static result_t t_gauge_voltage(char *d)
  
  static result_t t_charger(char *d)
  {
@@ -1605,318 +1815,12 @@ index bb285c7..020f888 100644
 +- **IR LEDs dark at boot and reset** (GPIO38: no reset pull; 100 k gate
 +  pull-down), and `expander_reset` still pulses through GPIO39.
 +- Board ID at 3.18 V (≈ 1.59 V).
-diff --git a/tests/host/Makefile b/tests/host/Makefile
-index df0a89c..1953735 100644
---- a/tests/host/Makefile
-+++ b/tests/host/Makefile
-@@ -6,12 +6,13 @@ BUILD   ?= build
- CFLAGS  := -std=c99 -O1 -g -Wall -Wextra -Wshadow -Wpedantic -Werror -Wno-unused-parameter \
-            -fsanitize=address,undefined -fno-omit-frame-pointer \
-            -I. -I$(ROOT)/components/mao_perception/include -I$(ROOT)/components/mao_perception/core \
--           -I$(ROOT)/components/mao_power/include
-+           -I$(ROOT)/components/mao_power/include -I$(ROOT)/components/mao_board/boards/main_a0
- LDFLAGS := -fsanitize=address,undefined -lm
- 
--SRCS := test_main.c test_percept.c test_policy.c \
-+SRCS := test_main.c test_percept.c test_policy.c test_backlight.c \
-         $(ROOT)/components/mao_perception/core/percept_engine.c \
--        $(ROOT)/components/mao_power/mao_power_policy.c
-+        $(ROOT)/components/mao_power/mao_power_policy.c \
-+        $(ROOT)/components/mao_board/boards/main_a0/aw9364_dimming.c
- 
- .PHONY: test clean
- test: $(BUILD)/mao_host_tests
-@@ -19,7 +20,8 @@ test: $(BUILD)/mao_host_tests
- 
- $(BUILD)/mao_host_tests: $(SRCS) mini_test.h $(wildcard $(ROOT)/components/mao_perception/core/*.h) \
-                          $(ROOT)/components/mao_perception/include/mao_percept.h \
--                         $(ROOT)/components/mao_power/include/mao_power_policy.h
-+                         $(ROOT)/components/mao_power/include/mao_power_policy.h \
-+                         $(ROOT)/components/mao_board/boards/main_a0/aw9364_dimming.h
- 	@mkdir -p $(BUILD)
- 	$(CC) $(CFLAGS) $(SRCS) -o $@ $(LDFLAGS)
- 
-diff --git a/tests/host/mini_test.h b/tests/host/mini_test.h
-index 5037a66..cb25592 100644
---- a/tests/host/mini_test.h
-+++ b/tests/host/mini_test.h
-@@ -35,3 +35,4 @@ void run_test(const char *name, test_fn_t fn);
- /* Suites */
- void suite_percept(void);
- void suite_policy(void);
-+void suite_backlight(void);
-diff --git a/tests/host/run.sh b/tests/host/run.sh
-index ace6dff..bf70da1 100755
---- a/tests/host/run.sh
-+++ b/tests/host/run.sh
-@@ -1,5 +1,5 @@
- #!/bin/sh
--# Run MAO's host unit tests (perception engine, power policy).
-+# Run MAO's host unit tests (perception engine, power policy, AW9364 steps).
- #   tests/host/run.sh            local cc/gcc + make if available, else Docker
- #   tests/host/run.sh --docker   always in espressif/idf:v6.0.3 (gcc, Linux)
- set -e
-diff --git a/tests/host/test_main.c b/tests/host/test_main.c
-index 8482377..d145ecc 100644
---- a/tests/host/test_main.c
-+++ b/tests/host/test_main.c
-@@ -1,6 +1,8 @@
- /*
-- * MAO host unit tests: the perception engine and the power policy, which
-- * are plain C with no ESP-IDF dependency. Run with tests/host/run.sh.
-+ * MAO host unit tests: the perception engine, the power policy (states,
-+ * charge temperature limit, charging estimate) and the A0 backlight's
-+ * AW9364 step logic, which are plain C with no ESP-IDF dependency. Run with
-+ * tests/host/run.sh.
-  */
- #include "mini_test.h"
- 
-@@ -22,6 +24,8 @@ int main(void)
-     suite_percept();
-     printf("power policy\n");
-     suite_policy();
-+    printf("backlight (AW9364)\n");
-+    suite_backlight();
-     printf("\n%d checks, %d failure(s)\n", g_checks, g_failures);
-     printf("%s\n", g_failures ? "HOST TESTS FAILED" : "HOST TESTS PASSED");
-     return g_failures ? 1 : 0;
-diff --git a/tests/host/test_policy.c b/tests/host/test_policy.c
-index b020074..65e3df3 100644
---- a/tests/host/test_policy.c
-+++ b/tests/host/test_policy.c
-@@ -1,4 +1,6 @@
--/* Power policy (ACTIVE / IDLE / DROWSY / DEEP SLEEP) decisions. */
-+/* Power policy (ACTIVE / IDLE / DROWSY / DEEP SLEEP) decisions, the charge
-+ * temperature limit and the charging estimate. */
-+#include <math.h>
- #include "mini_test.h"
- #include "mao_power_policy.h"
- 
-@@ -98,6 +100,87 @@ static void test_wraparound(void)
-     CHECK_EQ(mao_policy_decide(&c, &in), MAO_POLICY_IDLE);   /* 60 s idle across the wrap */
- }
- 
-+/* ---- Charging ------------------------------------------------------------ */
-+
-+static void test_charge_pause_hysteresis(void)
-+{
-+    /* Rising: enabled up to 42.9 C, paused from 43.0 C. */
-+    CHECK(!mao_policy_charge_pause(true, false, true, 25.0f));
-+    CHECK(!mao_policy_charge_pause(true, false, true, 42.9f));
-+    CHECK(mao_policy_charge_pause(true, false, true, 43.0f));
-+    CHECK(mao_policy_charge_pause(true, false, true, 60.0f));
-+    /* Falling: stays paused down to 40.1 C, resumes at 40.0 C. */
-+    CHECK(mao_policy_charge_pause(true, true, true, 42.0f));
-+    CHECK(mao_policy_charge_pause(true, true, true, 40.1f));
-+    CHECK(!mao_policy_charge_pause(true, true, true, 40.0f));
-+    CHECK(!mao_policy_charge_pause(true, true, true, 20.0f));
-+    /* Inside the band the decision keeps the current state. */
-+    CHECK(!mao_policy_charge_pause(true, false, true, 41.5f));
-+    CHECK(mao_policy_charge_pause(true, true, true, 41.5f));
-+}
-+
-+static void test_charge_pause_fail_safe(void)
-+{
-+    /* No temperature: never paused, even if it was (the hardware NTC window
-+     * stays the limit). No USB: back to the hardware default. */
-+    CHECK(!mao_policy_charge_pause(true, true, false, 99.0f));
-+    CHECK(!mao_policy_charge_pause(true, false, false, 99.0f));
-+    CHECK(!mao_policy_charge_pause(false, true, true, 60.0f));
-+    CHECK(!mao_policy_charge_pause(false, false, true, 60.0f));
-+    /* A NaN reading from a broken source never pauses. */
-+    CHECK(!mao_policy_charge_pause(true, false, true, NAN));
-+    CHECK(!mao_policy_charge_pause(true, true, true, NAN));
-+}
-+
-+static void test_charge_thermal_sequence(void)
-+{
-+    /* A charger warming the board, then cooling: one pause, one resume. */
-+    static const float kTemps[] = { 30, 38, 41, 42.9f, 43.2f, 44, 42, 40.5f, 40.0f, 39, 42, 42.9f };
-+    static const bool kPaused[] = { 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0 };
-+    bool paused = false;
-+    int transitions = 0;
-+    for (unsigned i = 0; i < sizeof(kTemps) / sizeof(kTemps[0]); i++) {
-+        const bool next = mao_policy_charge_pause(true, paused, true, kTemps[i]);
-+        transitions += next != paused;
-+        paused = next;
-+        CHECK_EQ(paused, kPaused[i]);
-+    }
-+    CHECK_EQ(transitions, 2);
-+}
-+
-+static void test_charging_estimate(void)
-+{
-+    mao_charge_input_t in = {
-+        .usb_present = true, .charge_paused = false, .gauge_valid = true, .soc_pct = 60.0f, .rate_pct_per_h = 35.0f,
-+    };
-+    CHECK(mao_policy_charging(&in));                 /* CC phase */
-+    in.rate_pct_per_h = -4.0f;
-+    CHECK(mao_policy_charging(&in));                 /* just plugged in: CRATE has not turned yet */
-+    in.soc_pct = 100.0f;
-+    in.rate_pct_per_h = 0.0f;
-+    CHECK(!mao_policy_charging(&in));                /* full and idle: done */
-+    in.rate_pct_per_h = 1.0f;
-+    CHECK(!mao_policy_charging(&in));                /* noise at the threshold is not charging */
-+    in.rate_pct_per_h = 1.3f;
-+    CHECK(mao_policy_charging(&in));                 /* a top-up past 100 % */
-+    in.soc_pct = 99.9f;
-+    in.rate_pct_per_h = 0.0f;
-+    CHECK(mao_policy_charging(&in));                 /* not full yet */
-+    in.charge_paused = true;
-+    CHECK(!mao_policy_charging(&in));                /* held off by the temperature limit */
-+    in.charge_paused = false;
-+    in.usb_present = false;
-+    in.rate_pct_per_h = 20.0f;
-+    CHECK(!mao_policy_charging(&in));                /* no USB, a stale positive CRATE */
-+    in.usb_present = true;
-+    in.gauge_valid = false;
-+    in.soc_pct = 100.0f;
-+    in.rate_pct_per_h = -10.0f;
-+    CHECK(mao_policy_charging(&in));                 /* no gauge: USB and enabled */
-+    in.charge_paused = true;
-+    CHECK(!mao_policy_charging(&in));
-+}
-+
- void suite_policy(void)
- {
-     RUN(test_progression);
-@@ -106,4 +189,8 @@ void suite_policy(void)
-     RUN(test_hold_awake_and_disabled);
-     RUN(test_redrowse_after_idle_wake);
-     RUN(test_wraparound);
-+    RUN(test_charge_pause_hysteresis);
-+    RUN(test_charge_pause_fail_safe);
-+    RUN(test_charge_thermal_sequence);
-+    RUN(test_charging_estimate);
- }
-diff --git a/components/mao_board/boards/main_a0/aw9364_dimming.c b/components/mao_board/boards/main_a0/aw9364_dimming.c
-new file mode 100644
-index 0000000..c26a8c3
---- /dev/null
-+++ b/components/mao_board/boards/main_a0/aw9364_dimming.c
-@@ -0,0 +1,51 @@
-+/*
-+ * AW9364 pulse-count dimming (pure logic). See aw9364_dimming.h.
-+ */
-+#include "aw9364_dimming.h"
-+
-+#define FULL_SCALE_UA   20000u      /* 20 mA per channel at step 1 */
-+
-+static uint8_t clamp_step(uint8_t step)
-+{
-+    return step > AW9364_STEPS ? AW9364_STEPS : step;
-+}
-+
-+uint8_t aw9364_step_from_percent(uint8_t percent)
-+{
-+    if (percent == 0) {
-+        return 0;
-+    }
-+    if (percent > 100) {
-+        percent = 100;
-+    }
-+    /* ceil(16 * percent / 100) is 1..16 for percent 1..100 */
-+    const unsigned sixteenths = (AW9364_STEPS * (unsigned)percent + 99u) / 100u;
-+    return (uint8_t)(AW9364_STEPS + 1u - sixteenths);
-+}
-+
-+uint32_t aw9364_step_current_ua(uint8_t step)
-+{
-+    if (step == 0 || step > AW9364_STEPS) {
-+        return 0;
-+    }
-+    return FULL_SCALE_UA * (uint32_t)(AW9364_STEPS + 1u - step) / AW9364_STEPS;
-+}
-+
-+aw9364_plan_t aw9364_plan(uint8_t from_step, uint8_t to_step)
-+{
-+    from_step = clamp_step(from_step);
-+    to_step = clamp_step(to_step);
-+    if (to_step == from_step) {
-+        return (aw9364_plan_t) { .shutdown = false, .edges = 0 };
-+    }
-+    if (to_step == 0) {
-+        return (aw9364_plan_t) { .shutdown = true, .edges = 0 };
-+    }
-+    if (from_step != 0 && to_step > from_step) {
-+        /* Dimmer: count on from where the driver is. */
-+        return (aw9364_plan_t) { .shutdown = false, .edges = (uint8_t)(to_step - from_step) };
-+    }
-+    /* From off, or brighter: start over from edge 1 after a full shutdown
-+     * (never edge 17: the datasheet does not say whether it wraps). */
-+    return (aw9364_plan_t) { .shutdown = true, .edges = to_step };
-+}
-diff --git a/components/mao_board/boards/main_a0/aw9364_dimming.h b/components/mao_board/boards/main_a0/aw9364_dimming.h
-new file mode 100644
-index 0000000..f3a3b17
---- /dev/null
-+++ b/components/mao_board/boards/main_a0/aw9364_dimming.h
-@@ -0,0 +1,59 @@
-+/*
-+ * Awinic AW9364 backlight driver: 1-wire pulse-count dimming, pure logic
-+ * (no ESP-IDF). PRIVATE to mao_board; host-tested in tests/host.
-+ *
-+ * Datasheet V2.3 (Feb 2018), "Enable Input", table 1 and figure 7:
-+ *   - EN has an internal 150 k pull-down: the driver is off from reset.
-+ *   - The rising edge that enables the device is edge 1 = 20 mA per channel.
-+ *     Edge n sets (17 - n) / 16 x 20 mA, so 16 steps from 20 mA down to
-+ *     1.25 mA. The current is held while EN stays high.
-+ *   - Ready time after the enable edge > 20 us (TON); between edges EN low
-+ *     0.5 .. 500 us (TLO), high > 0.5 us (THI).
-+ *   - EN low for longer than TOFF (0.8 .. 2.5 ms) shuts the device down.
-+ *   - The datasheet does not say what edge 17 does. The plan below never
-+ *     relies on it: a brighter step (smaller n) shuts the driver down and
-+ *     counts again from edge 1; a dimmer one adds the missing edges.
-+ *
-+ * "Step" here is the edge number n: 0 = off, 1 = brightest .. 16 = dimmest.
-+ */
-+#pragma once
-+
-+#include <stdbool.h>
-+#include <stdint.h>
-+
-+#ifdef __cplusplus
-+extern "C" {
-+#endif
-+
-+#define AW9364_STEPS            16
-+#define AW9364_T_READY_US       30      /* > 20 us after the enable edge */
-+#define AW9364_T_LOW_US         2       /* 0.5 .. 500 us between edges */
-+#define AW9364_T_HIGH_US        2       /* > 0.5 us */
-+#define AW9364_T_SHUTDOWN_US    3000    /* > TOFF max 2.5 ms: guaranteed off */
-+
-+/* Brightness percent -> step: 0 = off, else n = 17 - ceil(16 * percent / 100)
-+ * clamped to 1..16 (values above 100 count as 100). The step's current is
-+ * never below the requested share: 1 % gives step 16 (1.25 mA), 50 % step 9
-+ * (10 mA), 100 % step 1 (20 mA per channel). */
-+uint8_t aw9364_step_from_percent(uint8_t percent);
-+
-+/* Per-channel current of a step in microamps (0 for step 0 or out of range). */
-+uint32_t aw9364_step_current_ua(uint8_t step);
-+
-+typedef struct {
-+    /* Drive EN low first. If to_step is 0 it stays low (off). Otherwise EN
-+     * must have been low for AW9364_T_SHUTDOWN_US before the first edge,
-+     * which then is the enable edge (step 1). */
-+    bool shutdown;
-+    /* Rising edges to emit after that (or on top of the current step when
-+     * shutdown is false). */
-+    uint8_t edges;
-+} aw9364_plan_t;
-+
-+/* How to get from from_step (what the driver is set to now, 0 = off) to
-+ * to_step. Steps above 16 are treated as 16. */
-+aw9364_plan_t aw9364_plan(uint8_t from_step, uint8_t to_step);
-+
-+#ifdef __cplusplus
-+}
-+#endif
 diff --git a/docs/firmware/mao-a0-rev-merge.md b/docs/firmware/mao-a0-rev-merge.md
 new file mode 100644
-index 0000000..3d90680
+index 0000000..2c2b9a2
 --- /dev/null
 +++ b/docs/firmware/mao-a0-rev-merge.md
-@@ -0,0 +1,220 @@
+@@ -0,0 +1,227 @@
 +# MAO_MAIN A0 board revision: firmware merge guide
 +
 +How to carry the firmware changes for the revised MAO_MAIN A0 board onto a
@@ -1971,7 +1875,7 @@ index 0000000..3d90680
 +|---|---|---|
 +| `include/mao_power_policy.h`, `mao_power_policy.c` | `MAO_CHARGE_PAUSE_C` 43, `MAO_CHARGE_RESUME_C` 40, `MAO_CHARGE_RATE_MIN_PCT_H` 1.0; `mao_policy_charge_pause(usb, paused, temp_valid, temp_c)`; `mao_charge_input_t` + `mao_policy_charging()` | Pure, host-tested decisions (items 3, 4) |
 +| `include/mao_power.h` | `mao_power_temp_source_t`, `mao_power_set_temp_source()`; `mao_power_status_t.charge_paused`, `.temp_valid`, `.temp_c`; header comment | Items 3, 4 |
-+| `mao_power.c` | `charging_now()` / `update_charging()` (board line if the board has one, else the estimate; `CHARGING_DONE` not posted for a temperature pause); `charge_limit()` every 10 s on USB and at once on plug / unplug; USB change re-reads the gauge; `check_alert()` reads the alert line on every expander interrupt (it used to rely on the CHG read to clear the INT); DROWSY light-sleep timer capped at 10 s on USB; first check 10 s after init (the source registers later); `mao power` prints the limit | Items 3, 4 |
++| `mao_power.c` | `charging_now()` / `update_charging()` (board line if the board has one, else the estimate; `CHARGING_DONE` not posted for a temperature pause); `charge_limit()` every 10 s on USB and at once on plug / unplug; USB change re-reads the gauge; `check_alert()` reads the alert line on every expander interrupt (it used to rely on the CHG read to clear the INT); DROWSY light-sleep timer capped at 10 s on USB; first check 10 s after init (the source registers later); `mao power` prints the limit; dev command `mao power charge off \| on` holds charging off by hand (`REQ_CHARGE_HOLD`) for the bring-up check of the /CE path | Items 3, 4 |
 +
 +Sense (`components/mao_sense`):
 +
@@ -1981,7 +1885,8 @@ index 0000000..3d90680
 +| `include/mao_sense.h`, `mao_sense.c` | Public `mao_sense_imu_temperature()` under the sense device lock; registered with `mao_power_set_temp_source()` when the IMU runs | Item 4, without a mao_power → mao_sense dependency (mao_sense already depends on mao_power) |
 +
 +Self-test (`components/mao_selftest/mao_selftest.c`): `board_id` limits 1480–1700 mV
-+(item 6); `charger` step no longer reads `MAO_LINE_CHARGING` (it would fail with
++(item 6); switched-rail pad floor 3000 → 2850 mV (`LIM_PAD_ON_MIN_MV`: on a 3.10 V rail the
++100 R-fed MIC_VDD / IR_RX_VCC pads read ≈ 2.97 V, sim S5/S6); `charger` step no longer reads `MAO_LINE_CHARGING` (it would fail with
 +`ESP_ERR_NOT_SUPPORTED`): passes on PGOOD and, with `caps.charge_control`, a
 +readable board temperature; reports estimated charging, pause and temperature;
 +`expander_reset` comment GPIO39.
@@ -2096,6 +2001,12 @@ index 0000000..3d90680
 +the MOSFET off. `mao selftest` `expander_reset` must still pass (pulse on GPIO39,
 +TP11 XRST).
 +
++**Charge pause by hand.** Dev builds: `mao power charge off` holds /CE high
++(expander P6) through the power task; the charge current falls to ~0 within a
++second and `mao power` shows `PAUSED (console hold)`. `mao power charge on`
++releases it to the temperature limit. (`mao_power.c`: `REQ_CHARGE_HOLD`,
++`s_charge_hold`.)
++
 +**Charge pause by heating.** On USB with a partly discharged cell:
 +1. `mao power` shows `charge limit: board xx.x C` and `charging=1`.
 +2. Compare the IMU temperature with a thermocouple on the board at room
@@ -2137,6 +2048,57 @@ index 0000000..3d90680
 +- [ ] All five configurations build with zero warnings; host tests pass
 +- [ ] Bring-up (§5): 16 steps, ~40 mA at 100 %, wrap result recorded, fade-in gap judged, IR dark at boot, pause at 43 °C / resume at 40 °C seen, IMU temperature offset recorded, IMU survives power cycles
 +- [ ] Follow-ups outside firmware: `docs/hardware/mao-factory-test.md` (`board_id` 1550–1750 mV, `charger` step "CHG (expander P6)", CONFIG 0xC0, GPIO38 for EXP_RST_N/TP11) and `docs/hardware/mao-bringup.md` (R303 backlight measurement and 80 % PWM cap, "CHG reads low while charging", 270–300 mA charge current) describe the old board; `pinmap.py` notes BOARD_ID "1.65 V" and EXP_INT_N "charger status" are stale
+diff --git a/tests/host/Makefile b/tests/host/Makefile
+index df0a89c..1953735 100644
+--- a/tests/host/Makefile
++++ b/tests/host/Makefile
+@@ -6,12 +6,13 @@ BUILD   ?= build
+ CFLAGS  := -std=c99 -O1 -g -Wall -Wextra -Wshadow -Wpedantic -Werror -Wno-unused-parameter \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I. -I$(ROOT)/components/mao_perception/include -I$(ROOT)/components/mao_perception/core \
+-           -I$(ROOT)/components/mao_power/include
++           -I$(ROOT)/components/mao_power/include -I$(ROOT)/components/mao_board/boards/main_a0
+ LDFLAGS := -fsanitize=address,undefined -lm
+ 
+-SRCS := test_main.c test_percept.c test_policy.c \
++SRCS := test_main.c test_percept.c test_policy.c test_backlight.c \
+         $(ROOT)/components/mao_perception/core/percept_engine.c \
+-        $(ROOT)/components/mao_power/mao_power_policy.c
++        $(ROOT)/components/mao_power/mao_power_policy.c \
++        $(ROOT)/components/mao_board/boards/main_a0/aw9364_dimming.c
+ 
+ .PHONY: test clean
+ test: $(BUILD)/mao_host_tests
+@@ -19,7 +20,8 @@ test: $(BUILD)/mao_host_tests
+ 
+ $(BUILD)/mao_host_tests: $(SRCS) mini_test.h $(wildcard $(ROOT)/components/mao_perception/core/*.h) \
+                          $(ROOT)/components/mao_perception/include/mao_percept.h \
+-                         $(ROOT)/components/mao_power/include/mao_power_policy.h
++                         $(ROOT)/components/mao_power/include/mao_power_policy.h \
++                         $(ROOT)/components/mao_board/boards/main_a0/aw9364_dimming.h
+ 	@mkdir -p $(BUILD)
+ 	$(CC) $(CFLAGS) $(SRCS) -o $@ $(LDFLAGS)
+ 
+diff --git a/tests/host/mini_test.h b/tests/host/mini_test.h
+index 5037a66..cb25592 100644
+--- a/tests/host/mini_test.h
++++ b/tests/host/mini_test.h
+@@ -35,3 +35,4 @@ void run_test(const char *name, test_fn_t fn);
+ /* Suites */
+ void suite_percept(void);
+ void suite_policy(void);
++void suite_backlight(void);
+diff --git a/tests/host/run.sh b/tests/host/run.sh
+index ace6dff..bf70da1 100755
+--- a/tests/host/run.sh
++++ b/tests/host/run.sh
+@@ -1,5 +1,5 @@
+ #!/bin/sh
+-# Run MAO's host unit tests (perception engine, power policy).
++# Run MAO's host unit tests (perception engine, power policy, AW9364 steps).
+ #   tests/host/run.sh            local cc/gcc + make if available, else Docker
+ #   tests/host/run.sh --docker   always in espressif/idf:v6.0.3 (gcc, Linux)
+ set -e
 diff --git a/tests/host/test_backlight.c b/tests/host/test_backlight.c
 new file mode 100644
 index 0000000..1700e6c
@@ -2273,3 +2235,136 @@ index 0000000..1700e6c
 +    RUN(test_plan_all_transitions);
 +    RUN(test_plan_cases);
 +}
+diff --git a/tests/host/test_main.c b/tests/host/test_main.c
+index 8482377..d145ecc 100644
+--- a/tests/host/test_main.c
++++ b/tests/host/test_main.c
+@@ -1,6 +1,8 @@
+ /*
+- * MAO host unit tests: the perception engine and the power policy, which
+- * are plain C with no ESP-IDF dependency. Run with tests/host/run.sh.
++ * MAO host unit tests: the perception engine, the power policy (states,
++ * charge temperature limit, charging estimate) and the A0 backlight's
++ * AW9364 step logic, which are plain C with no ESP-IDF dependency. Run with
++ * tests/host/run.sh.
+  */
+ #include "mini_test.h"
+ 
+@@ -22,6 +24,8 @@ int main(void)
+     suite_percept();
+     printf("power policy\n");
+     suite_policy();
++    printf("backlight (AW9364)\n");
++    suite_backlight();
+     printf("\n%d checks, %d failure(s)\n", g_checks, g_failures);
+     printf("%s\n", g_failures ? "HOST TESTS FAILED" : "HOST TESTS PASSED");
+     return g_failures ? 1 : 0;
+diff --git a/tests/host/test_policy.c b/tests/host/test_policy.c
+index b020074..65e3df3 100644
+--- a/tests/host/test_policy.c
++++ b/tests/host/test_policy.c
+@@ -1,4 +1,6 @@
+-/* Power policy (ACTIVE / IDLE / DROWSY / DEEP SLEEP) decisions. */
++/* Power policy (ACTIVE / IDLE / DROWSY / DEEP SLEEP) decisions, the charge
++ * temperature limit and the charging estimate. */
++#include <math.h>
+ #include "mini_test.h"
+ #include "mao_power_policy.h"
+ 
+@@ -98,6 +100,87 @@ static void test_wraparound(void)
+     CHECK_EQ(mao_policy_decide(&c, &in), MAO_POLICY_IDLE);   /* 60 s idle across the wrap */
+ }
+ 
++/* ---- Charging ------------------------------------------------------------ */
++
++static void test_charge_pause_hysteresis(void)
++{
++    /* Rising: enabled up to 42.9 C, paused from 43.0 C. */
++    CHECK(!mao_policy_charge_pause(true, false, true, 25.0f));
++    CHECK(!mao_policy_charge_pause(true, false, true, 42.9f));
++    CHECK(mao_policy_charge_pause(true, false, true, 43.0f));
++    CHECK(mao_policy_charge_pause(true, false, true, 60.0f));
++    /* Falling: stays paused down to 40.1 C, resumes at 40.0 C. */
++    CHECK(mao_policy_charge_pause(true, true, true, 42.0f));
++    CHECK(mao_policy_charge_pause(true, true, true, 40.1f));
++    CHECK(!mao_policy_charge_pause(true, true, true, 40.0f));
++    CHECK(!mao_policy_charge_pause(true, true, true, 20.0f));
++    /* Inside the band the decision keeps the current state. */
++    CHECK(!mao_policy_charge_pause(true, false, true, 41.5f));
++    CHECK(mao_policy_charge_pause(true, true, true, 41.5f));
++}
++
++static void test_charge_pause_fail_safe(void)
++{
++    /* No temperature: never paused, even if it was (the hardware NTC window
++     * stays the limit). No USB: back to the hardware default. */
++    CHECK(!mao_policy_charge_pause(true, true, false, 99.0f));
++    CHECK(!mao_policy_charge_pause(true, false, false, 99.0f));
++    CHECK(!mao_policy_charge_pause(false, true, true, 60.0f));
++    CHECK(!mao_policy_charge_pause(false, false, true, 60.0f));
++    /* A NaN reading from a broken source never pauses. */
++    CHECK(!mao_policy_charge_pause(true, false, true, NAN));
++    CHECK(!mao_policy_charge_pause(true, true, true, NAN));
++}
++
++static void test_charge_thermal_sequence(void)
++{
++    /* A charger warming the board, then cooling: one pause, one resume. */
++    static const float kTemps[] = { 30, 38, 41, 42.9f, 43.2f, 44, 42, 40.5f, 40.0f, 39, 42, 42.9f };
++    static const bool kPaused[] = { 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0 };
++    bool paused = false;
++    int transitions = 0;
++    for (unsigned i = 0; i < sizeof(kTemps) / sizeof(kTemps[0]); i++) {
++        const bool next = mao_policy_charge_pause(true, paused, true, kTemps[i]);
++        transitions += next != paused;
++        paused = next;
++        CHECK_EQ(paused, kPaused[i]);
++    }
++    CHECK_EQ(transitions, 2);
++}
++
++static void test_charging_estimate(void)
++{
++    mao_charge_input_t in = {
++        .usb_present = true, .charge_paused = false, .gauge_valid = true, .soc_pct = 60.0f, .rate_pct_per_h = 35.0f,
++    };
++    CHECK(mao_policy_charging(&in));                 /* CC phase */
++    in.rate_pct_per_h = -4.0f;
++    CHECK(mao_policy_charging(&in));                 /* just plugged in: CRATE has not turned yet */
++    in.soc_pct = 100.0f;
++    in.rate_pct_per_h = 0.0f;
++    CHECK(!mao_policy_charging(&in));                /* full and idle: done */
++    in.rate_pct_per_h = 1.0f;
++    CHECK(!mao_policy_charging(&in));                /* noise at the threshold is not charging */
++    in.rate_pct_per_h = 1.3f;
++    CHECK(mao_policy_charging(&in));                 /* a top-up past 100 % */
++    in.soc_pct = 99.9f;
++    in.rate_pct_per_h = 0.0f;
++    CHECK(mao_policy_charging(&in));                 /* not full yet */
++    in.charge_paused = true;
++    CHECK(!mao_policy_charging(&in));                /* held off by the temperature limit */
++    in.charge_paused = false;
++    in.usb_present = false;
++    in.rate_pct_per_h = 20.0f;
++    CHECK(!mao_policy_charging(&in));                /* no USB, a stale positive CRATE */
++    in.usb_present = true;
++    in.gauge_valid = false;
++    in.soc_pct = 100.0f;
++    in.rate_pct_per_h = -10.0f;
++    CHECK(mao_policy_charging(&in));                 /* no gauge: USB and enabled */
++    in.charge_paused = true;
++    CHECK(!mao_policy_charging(&in));
++}
++
+ void suite_policy(void)
+ {
+     RUN(test_progression);
+@@ -106,4 +189,8 @@ void suite_policy(void)
+     RUN(test_hold_awake_and_disabled);
+     RUN(test_redrowse_after_idle_wake);
+     RUN(test_wraparound);
++    RUN(test_charge_pause_hysteresis);
++    RUN(test_charge_pause_fail_safe);
++    RUN(test_charge_thermal_sequence);
++    RUN(test_charging_estimate);
+ }

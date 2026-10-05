@@ -2,8 +2,8 @@
 """Dump board copper geometry for grid_router.py (run with KiCad 10 python).
 
 Writes .cache/mao-routing/grid-dump.json in carrier mm (board origin offset removed).
-Pads are exported as their axis-aligned bounding box (circles as circles), which is
-conservative for rotated shapes. Zones are not exported: the GND pours refill around new
+Pads are exported as their axis-aligned bounding box (circles as circles); custom-shaped pads (the touch
+arcs) and pads of parts turned off the 90-degree grid also carry their real outline ('polys'). Zones are not exported: the GND pours refill around new
 copper and In1 carries no tracks.
 """
 import json
@@ -35,6 +35,12 @@ for f in b.GetFootprints():
                'x': mm(c.x), 'y': mm(c.y), 'box': [mm(bb.GetLeft()), mm(bb.GetTop()), mm(bb.GetRight()), mm(bb.GetBottom())]}
         if p.GetShape(pcb.F_Cu) == pcb.PAD_SHAPE_CIRCLE:
             rec['r'] = pcb.ToMM(p.GetSize(pcb.F_Cu).x) / 2
+        elif layers and (p.GetShape(pcb.F_Cu) == pcb.PAD_SHAPE_CUSTOM or round(p.GetOrientationDegrees()) % 90):
+            # touch arcs and pads of parts turned off the grid: their real outline, not the bounding box
+            lay = {'F': pcb.F_Cu, 'B': pcb.B_Cu, 'I1': pcb.In1_Cu, 'I2': pcb.In2_Cu}[layers[0]]
+            ps = p.GetEffectivePolygon(lay)
+            rec['polys'] = [[(mm(ps.Outline(k).CPoint(i).x), mm(ps.Outline(k).CPoint(i).y))
+                             for i in range(ps.Outline(k).PointCount())] for k in range(ps.OutlineCount())]
         if kind != 'SMD':
             rec['drill'] = pcb.ToMM(p.GetDrillSize().x)
         if kind == 'NPTH':

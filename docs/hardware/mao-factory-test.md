@@ -43,10 +43,10 @@ prints `SELFTEST STEP <n>/<total> <id> PASS|FAIL|SKIP <detail>`.
 
 | # | id | Checks | Pass limits |
 |---:|---|---|---|
-| 1 | `board_id` | board-ID divider (GPIO8, 1M/1M, ADC1 calibrated, measured at boot) | 1550 … 1750 mV (A0 nominal 1650) |
+| 1 | `board_id` | board-ID divider (GPIO8, 1M/1M, ADC1 calibrated, measured at boot) | 1480 … 1700 mV (A0 nominal 1590 on the 3.18 V rail) |
 | 2 | `i2c_bus` | live scan of the bus (switchable devices powered for it) | 0x20, 0x29, 0x36, 0x44, 0x5A, 0x6A all answer |
-| 3 | `expander` | TCA6408A CONFIG readback (0xC0), POLARITY round trip 0x2A / 0x15 on the output pins, every output pin reads back its commanded level | all match |
-| 4 | `expander_reset` | pulses EXP_RST_N (GPIO38, TP11 XRST): the expander must really reset (CONFIG back at its 0xFF default), then is reprogrammed from the shadow registers: CONFIG re-read, every output pin at its commanded level. The panel, ToF and haptic driver are re-initialised by their owners afterwards | CONFIG 0xFF after the pulse; 0xC0 and all outputs restored after |
+| 3 | `expander` | TCA6408A CONFIG readback (0x80: P0-P6 outputs, P7 the alert input), POLARITY round trip 0x6A / 0x15 on the output pins, every output pin reads back its commanded level | all match |
+| 4 | `expander_reset` | pulses EXP_RST_N (GPIO39, TP11 XRST): the expander must really reset (CONFIG back at its 0xFF default), then is reprogrammed from the shadow registers: CONFIG re-read, every output pin at its commanded level. The panel, ToF and haptic driver are re-initialised by their owners afterwards | CONFIG 0xFF after the pulse; 0x80 and all outputs restored after |
 | 5 | `imu_id` | WHO_AM_I | 0x6C (LSM6DSOX); 0x6A (LSM6DS3TR-C) accepted, noted |
 | 6 | `imu_motion` | latest accelerometer vector | 0.85 g ≤ \|a\| ≤ 1.15 g, data < 1.5 s old |
 | 7 | `tof_id` | VL53L4CD model id | 0xEBAA |
@@ -55,15 +55,15 @@ prints `SELFTEST STEP <n>/<total> <id> PASS|FAIL|SKIP <detail>`.
 | 10 | `als_lux` | latest reading | 0 ≤ lux < 120 000, < 3 s old |
 | 11 | `gauge_id` | MAX17048 VERSION | 0x001x |
 | 12 | `gauge_voltage` | fresh VCELL / SOC read | 3000 … 4400 mV, SOC 0 … 100 % |
-| 13 | `charger` | PGOOD (GPIO3) and CHG (expander P6) | PGOOD asserted (the test runs on USB); CHG reported |
+| 13 | `charger` | PGOOD (GPIO3), the board temperature the charge limit uses (IMU), the charging estimate (gauge) and any pause (/CE, expander P6) | PGOOD asserted (the test runs on USB) and the board temperature readable; charging and pause reported |
 | 14 | `haptic_id` | DRV2605L STATUS[7:5] through the haptics task | 7 (DRV2605L; 3 = DRV2605 accepted) |
 | 15 | `haptic_cal` | auto-calibration (≈1.2 s buzz; keep the board still) | DIAG_RESULT ok, resonance 190 … 285 Hz (LRA nominal 235 Hz). Result stored in NVS |
 | 16 | `rail_lcd` | display load switch off/on through the expander, enable line read back; panel re-initialised and redrawn | enable reads 0 off, 1 on |
 | 17 | `rail_mic` | mic clock + supply (GPIO35) off and on, line read back, audio after power-up | supply 0 then 1; level > -100 dBFS after power-up |
 | 18 | `rail_ir_rx` | receiver supply (expander P5) off/on, read back; receiver output (GPIO40, 10 k pull-up R506 to the switched supply) | supply 0 then 1; output **low while off**, idle high when powered |
-| 19 | `pad_lcd` | **TP13 3V3_LCD** measured with the rail off, then on (§4.1) | off ≤ 0.30 V, on 3.00 … 3.40 V |
-| 20 | `pad_mic` | **TP14 MIC_VDD** (GPIO35 through 100 R), off then on | off ≤ 0.30 V, on 3.00 … 3.35 V |
-| 21 | `pad_irv` | **TP15 IR_RX_VCC** (expander P5 through 100 R), off then on | off ≤ 0.30 V, on 3.00 … 3.40 V |
+| 19 | `pad_lcd` | **TP13 3V3_LCD** measured with the rail off, then on (§4.1) | off ≤ 0.30 V, on 2.85 … 3.40 V |
+| 20 | `pad_mic` | **TP14 MIC_VDD** (GPIO35 through 100 R), off then on | off ≤ 0.30 V, on 2.85 … 3.35 V |
+| 21 | `pad_irv` | **TP15 IR_RX_VCC** (expander P5 through 100 R), off then on | off ≤ 0.30 V, on 2.85 … 3.40 V |
 | 22 | `touch_baseline` | benchmark of the four zones, untouched | each 1 000 … 4 000 000 counts **and** within ×4 of the median of the four; none reads touched |
 | 23 | `mic_level` | 1 s of 32 ms blocks | ≥ 10 blocks, mean > -100 dBFS, max < -15 dBFS, max-min ≥ 0.3 dB (not stuck) |
 | 24 | `speaker` | test chirp (fixed 70 % level) heard by the mic | rise ≥ 12 dB over the quiet level; else the operator confirms |
@@ -71,7 +71,7 @@ prints `SELFTEST STEP <n>/<total> <id> PASS|FAIL|SKIP <detail>`.
 | 26 | `radio` | ESP-NOW transmit counters (discovery broadcast), MAC | ≥ 1 frame sent, 0 rejected, MAC non-zero |
 | 27 | `nvs` | write / read / erase in a test namespace (`mao_st`) | value matches |
 | 28 | `lcd` | red, green, blue, white, black full screen, then "MAO" text | operator: even colours, no dead pixels / tint, text upright (rotation) |
-| 29 | `backlight` | 100 → 0 → 100 % ramp | operator: smooth fade |
+| 29 | `backlight` | 100 → 0 → 100 % ramp through the AW9364's 16 steps (U303) | operator: even steps, no flash; dark at 0 % |
 | 30 | `dial` | turn clockwise ≥ 3 detents, then counter-clockwise ≥ 3 | both directions in the right sense; ≥ 6 edges on each Hall channel |
 | 31 | `press` | press the face once | one debounced press |
 | 32 | `touch_zones` | touch RIGHT, LEFT, TOP, REAR in turn | each zone reports touched |
@@ -147,17 +147,17 @@ At their sources:
 | Pad | Label | Net | Size | Use in the fixture | Expected |
 |---|---|---|---|---|---|
 | TP1, TP2, TP16 | GND | GND | 1.2 mm | pogo ground reference (three pads for low impedance); DMM reference for TP13-TP15 | 0 V |
-| TP3 | 3V3 | +3V3 | 1.2 mm | rail check before firmware; supply current through the USB / VBAT source | 3.30 V ± 3 % |
+| TP3 | 3V3 | +3V3 | 1.2 mm | rail check before firmware; supply current through the USB / VBAT source | 3.10 … 3.28 V (3.18 V nominal) |
 | TP4 | SYS | VSYS | 1.2 mm | charger output | ≈ 4.4 V on USB (BQ24073 DPPM), ≈ VBAT on battery |
 | TP5 | BAT | VBAT | 1.2 mm | cell / simulator voltage after the reverse-polarity FET | the source voltage minus < 50 mV |
 | TP6 | VBUS | VBUS | 1.2 mm | USB input after the protection | 5.0 V ± 5 % |
-| TP7 | RST | MCU_EN | 1.0 mm | reset the module: pull low ≥ 1 ms (open drain) | 3.3 V idle |
-| TP8 | BOOT | PRESS_N (GPIO0) | 1.0 mm | hold low while releasing RST: ROM download mode (USB or UART) | 3.3 V idle (10 k pull-up); 0 V while the face is pressed |
-| TP9, TP10 | SDA, SCL | I2C_SDA / I2C_SCL | 1.0 mm | logic analyser on the shared bus while debugging a failing I2C step; never drive | 3.3 V idle (2.2 k pull-ups) |
-| TP11 | XRST | EXP_RST_N (GPIO38) | 1.0 mm | observe the expander reset: a pulse during `expander_reset`; may be pulled low (open drain) to reset the TCA6408A by hand while debugging. Never hold it low while the firmware runs: every expander rail drops | 3.3 V idle (10 k pull-up R205) |
-| TP13 | LCD | 3V3_LCD | 1.0 mm | `pad_lcd`: the display load switch output (TPS22917) | off ≤ 0.30 V, on 3.00 … 3.40 V |
-| TP14 | MIC | MIC_VDD | 1.0 mm | `pad_mic`: the mic supply from GPIO35 through 100 R / 1 µF | off ≤ 0.30 V, on 3.00 … 3.35 V |
-| TP15 | IRV | IR_RX_VCC | 1.0 mm | `pad_irv`: the IR receiver supply from expander P5 through 100 R / 4.7 µF | off ≤ 0.30 V, on 3.00 … 3.40 V |
+| TP7 | RST | MCU_EN | 1.0 mm | reset the module: pull low ≥ 1 ms (open drain) | 3.2 V idle |
+| TP8 | BOOT | PRESS_N (GPIO0) | 1.0 mm | hold low while releasing RST: ROM download mode (USB or UART) | 3.2 V idle (10 k pull-up); 0 V while the face is pressed |
+| TP9, TP10 | SDA, SCL | I2C_SDA / I2C_SCL | 1.0 mm | logic analyser on the shared bus while debugging a failing I2C step; never drive | 3.2 V idle (2.2 k pull-ups) |
+| TP11 | XRST | EXP_RST_N (GPIO39) | 1.0 mm | observe the expander reset: a pulse during `expander_reset`; may be pulled low (open drain) to reset the TCA6408A by hand while debugging. Never hold it low while the firmware runs: every expander rail drops (and the charger's /CE pull-down R117 re-enables charging) | 3.2 V idle (10 k pull-up R205) |
+| TP13 | LCDV | 3V3_LCD | 1.0 mm | `pad_lcd`: the display load switch output (TPS22919, U105) | off ≤ 0.30 V, on 2.85 … 3.40 V |
+| TP14 | MIC | MIC_VDD | 1.0 mm | `pad_mic`: the mic supply from GPIO35 through 100 R / 1 µF | off ≤ 0.30 V, on 2.85 … 3.35 V |
+| TP15 | IRV | IR_RX_VCC | 1.0 mm | `pad_irv`: the IR receiver supply from expander P5 through 100 R / 4.7 µF | off ≤ 0.30 V, on 2.85 … 3.40 V |
 
 J201 (Tag-Connect TC2030-IDC-NL, no part fitted): 1 GND, 2 EN, 3 UART0 TX
 (GPIO43), 4 +3V3, 5 UART0 RX (GPIO44), 6 GPIO0. TXD0 and RXD0 run straight across
@@ -168,16 +168,16 @@ drives EN and GPIO0 through the cable's DTR/RTS adapter. The USB console is
 the normal path; the UART is silent in MAO's firmware (console on USB only).
 
 Before any firmware: with USB connected and no cell, TP6 5 V, TP4 ≈ 4.4 V,
-TP3 3.3 V, TP7, TP8 and TP11 high, TP13-TP15 low (every switched rail off at
+TP3 3.18 V, TP7, TP8 and TP11 high, TP13-TP15 low (every switched rail off at
 reset: pull-downs on the enables, GPIO35 pulled down). With a 3.8 V source on
-the cell connector and no USB: TP5 ≈ 3.8 V, TP4 ≈ 3.8 V, TP3 3.3 V. A board
+the cell connector and no USB: TP5 ≈ 3.8 V, TP4 ≈ 3.8 V, TP3 3.18 V. A board
 that fails here is not flashed.
 
 ### 4.1 The switched rails and their pads
 
 | Rail | Switch | Enable | Firmware readback | Pad |
 |---|---|---|---|---|
-| 3V3_LCD (panel + backlight) | TPS22917 load switch, QOD discharge 100 R | expander P1 `LCD_PWR_EN` | P1 pin level (expander input register) | TP13 LCD |
+| 3V3_LCD (panel logic; the backlight runs from VSYS through U303) | TPS22919 load switch (U105), QOD discharge 100 R (R115) | expander P1 `LCD_PWR_EN` | P1 pin level (expander input register) | TP13 LCDV |
 | MIC_VDD | GPIO35 through 100 R / 1 µF | GPIO35 `MIC_PWR` | GPIO35 input | TP14 MIC |
 | IR_RX_VCC | expander P5 through 100 R / 4.7 µF | expander P5 `IR_RX_PWR` | P5 pin level; GPIO40 low while off (R506) | TP15 IRV |
 
@@ -192,7 +192,7 @@ back-powered through its output). With the supply off GPIO40 reads a defined
 low; powered and idle it reads high. `rail_ir_rx` checks both.
 
 ### 4.3 Expander reset (XRST)
-GPIO38 drives the TCA6408A RESET (open drain, R205 10 k pull-up). The
+GPIO39 drives the TCA6408A RESET (open drain, R205 10 k pull-up). The
 firmware pulses it (10 µs) in two cases: to recover a wedged expander (an
 I2C write or input read fails: bus reset, pulse, reprogram from the shadow
 registers, one retry) and in the `expander_reset` self-test step. During the
@@ -263,16 +263,16 @@ With a dev build instead of the factory build, step 4 is
 | `board_id` | R (1 M) values / placement on GPIO8, missing 100 nF |
 | `i2c_bus` missing 0x20 | expander U202 (B side, centre), its ADDR strap; then almost everything else fails too |
 | `i2c_bus` missing 0x29 / 0x5A | XSHUT (P4) / HAPTIC_EN (P3) lines; the device itself |
-| `expander` bad output pins | short on a rail enable line (LCD_PWR_EN, AMP_SD_N, HAPTIC_EN, TOF_XSHUT, IR_RX_PWR, LCD_RST_N) |
+| `expander` bad output pins | short on a rail enable line (LCD_PWR_EN, AMP_SD_N, HAPTIC_EN, TOF_XSHUT, IR_RX_PWR, LCD_RST_N, CHG_CE_N) |
 | `imu_motion` | IMU orientation / soldering (LGA-14) |
 | `tof_ranging` | XSHUT, GPIO1 interrupt line (GPIO48, 10 k pull-up), window crosstalk |
 | `gauge_voltage` | VBAT path (Q101, R108 link), cell connector polarity |
-| `charger` | PGOOD pull-up (100 k on GPIO3), USB-C CC resistors |
+| `charger` | PGOOD pull-up (100 k R106 on GPIO3), USB-C CC resistors; no board temperature: the IMU (U401) |
 | `haptic_cal` | LRA leads on J501, LRA not free (glue), DRV2605L supply |
-| `expander_reset` CONFIG not 0xFF | EXP_RST_N open / stuck high (GPIO38, R205, TP11), expander RESET pin solder |
+| `expander_reset` CONFIG not 0xFF | EXP_RST_N open / stuck high (GPIO39, R205, TP11), expander RESET pin solder |
 | `expander_reset` not restored | expander or bus after reset (see `i2c_bus`), a rail enable shorted |
-| `rail_lcd` | TPS22917 (U105), LCD_PWR_EN |
-| `pad_lcd` on low / off high | TPS22917 (U105) or its ON pin; QOD discharge path (R32) |
+| `rail_lcd` | TPS22919 (U105), LCD_PWR_EN, its pull-down R116 |
+| `pad_lcd` on low / off high | TPS22919 (U105) or its ON pin; QOD discharge path (R115) |
 | `pad_mic` | R402 100 R open, C406 / C407 short, GPIO35 drive |
 | `pad_irv` | R505 100 R open, C506 short, expander P5 |
 | `rail_mic`, `mic_level` | GPIO35 supply RC (100 R / 1 µF), mic port hole, PDM CLK/DATA |

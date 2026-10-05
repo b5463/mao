@@ -12,12 +12,18 @@ Filled in from the placement (placement.py); every outline is checked against th
 by review (one L3 island per rail).
 """
 
-# VSYS: one band from the charger output (1-2 o'clock) up the east side of the USB-C input, along the
-# 12 o'clock edge (IR LED anodes) and down the 9 o'clock rim to the amplifier and the haptic driver. The
-# band hugs the rim, so the +3V3 copper inside it stays one piece. Vias: route_power.py.
-VSYS_BAND = [(4.7, -6.7), (12.4, -6.7), (12.4, -26.0), (-25.0, -26.0), (-25.0, 12.6), (-18.0, 12.6),
-             (-18.0, 9.7), (-16.3, 9.7), (-16.3, 8.1), (-18.0, 8.1),     # notch: the haptic driver's via
-             (-18.0, -21.6), (10.6, -21.6), (10.6, -13.8), (4.7, -13.8)]
+# VSYS: from the charger output vias (x 5.7-7.4, under the charger on F; the UVLO divider and the SYS probe take
+# VSYS from those vias on B, so no VSYS copper boxes the +3V3 fill in east of the buck-boost) one strip runs up
+# beside the VBUS strip to the
+# 12 o'clock edge (IR LED anodes, a tab for their reservoir), along the edge and down the 9 o'clock rim (outboard of
+# the tail slot) to the haptic driver. A branch at 10 o'clock carries it under the amplifier (its VDD via), then a
+# 2 mm bar runs down to the backlight driver beside J301: one via feeds its input cap, one VLED+ (J301 pad 12). The band hugs the rim, so the +3V3 copper inside it stays one piece. Vias:
+# route_power.py.
+VSYS_BAND = [(5.7, -11.0), (7.4, -11.0), (7.4, -21.0), (10.4, -21.0), (10.4, -18.8),
+             (12.6, -18.8), (12.6, -26.0), (-25.0, -26.0), (-25.0, 12.6), (-18.0, 12.6),
+             (-18.0, 9.7), (-16.3, 9.7), (-16.3, 8.1), (-18.0, 8.1),       # notch: the haptic driver's via
+             (-18.0, -10.4), (-10.4, -10.4), (-10.4, -1.4), (-8.4, -1.4), (-8.4, -11.6), (-18.0, -11.6),  # 10 o'clock branch
+             (-18.0, -19.6), (-16.0, -21.6), (5.7, -21.6)]       # chamfer: the top band meets the rim 2.6 mm wide
 # VBUS: joins the receptacle's two VBUS contact pairs (A4/B9 over A9/B4) under the USB pair's escape.
 VBUS_STRIP = [(-3.3, -21.0), (5.2, -21.0), (5.2, -16.9), (-3.3, -16.9)]
 
@@ -34,9 +40,9 @@ V33_CORES = [
     [(-2.4, -14.2), (2.2, -14.2), (2.2, -9.0), (-2.4, -9.0)],
     [(-13.0, 17.8), (-7.6, 17.8), (-7.6, 21.6), (-13.0, 21.6)],
     [(-11.4, -0.75), (1.1, -0.75), (1.1, 3.0), (-11.4, 3.0)],                       # display lanes
-    [(-9.1, 8.1), (-9.8, 8.1), (-14.55, 3.35), (-16.0, 3.35), (-16.7, 4.0), (-16.7, 6.6),
-     (-11.55, 11.45), (-9.1, 11.45)],                                               # I2S lanes
-    [(9.4, 6.75), (21.9, 6.75), (21.9, 8.95), (9.4, 8.95)],                         # PDM pair
+    [(-9.1, 8.0), (-9.1, 11.45), (-10.0, 11.45), (-14.1, 7.35), (-16.1, 7.35), (-16.1, -7.6), (-13.9, -7.6),
+     (-13.9, 5.9), (-12.95, 5.9), (-10.85, 8.0)],                                   # I2S lanes (over J301's end, corridor)
+    [(9.4, 6.3), (22.3, 6.3), (22.3, 8.95), (9.4, 8.95)],                           # PDM pair
 ]
 
 

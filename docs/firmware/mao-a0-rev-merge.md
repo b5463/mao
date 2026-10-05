@@ -52,7 +52,7 @@ Power (`components/mao_power`):
 |---|---|---|
 | `include/mao_power_policy.h`, `mao_power_policy.c` | `MAO_CHARGE_PAUSE_C` 43, `MAO_CHARGE_RESUME_C` 40, `MAO_CHARGE_RATE_MIN_PCT_H` 1.0; `mao_policy_charge_pause(usb, paused, temp_valid, temp_c)`; `mao_charge_input_t` + `mao_policy_charging()` | Pure, host-tested decisions (items 3, 4) |
 | `include/mao_power.h` | `mao_power_temp_source_t`, `mao_power_set_temp_source()`; `mao_power_status_t.charge_paused`, `.temp_valid`, `.temp_c`; header comment | Items 3, 4 |
-| `mao_power.c` | `charging_now()` / `update_charging()` (board line if the board has one, else the estimate; `CHARGING_DONE` not posted for a temperature pause); `charge_limit()` every 10 s on USB and at once on plug / unplug; USB change re-reads the gauge; `check_alert()` reads the alert line on every expander interrupt (it used to rely on the CHG read to clear the INT); DROWSY light-sleep timer capped at 10 s on USB; first check 10 s after init (the source registers later); `mao power` prints the limit | Items 3, 4 |
+| `mao_power.c` | `charging_now()` / `update_charging()` (board line if the board has one, else the estimate; `CHARGING_DONE` not posted for a temperature pause); `charge_limit()` every 10 s on USB and at once on plug / unplug; USB change re-reads the gauge; `check_alert()` reads the alert line on every expander interrupt (it used to rely on the CHG read to clear the INT); DROWSY light-sleep timer capped at 10 s on USB; first check 10 s after init (the source registers later); `mao power` prints the limit; dev command `mao power charge off \| on` holds charging off by hand (`REQ_CHARGE_HOLD`) for the bring-up check of the /CE path | Items 3, 4 |
 
 Sense (`components/mao_sense`):
 
@@ -62,7 +62,8 @@ Sense (`components/mao_sense`):
 | `include/mao_sense.h`, `mao_sense.c` | Public `mao_sense_imu_temperature()` under the sense device lock; registered with `mao_power_set_temp_source()` when the IMU runs | Item 4, without a mao_power → mao_sense dependency (mao_sense already depends on mao_power) |
 
 Self-test (`components/mao_selftest/mao_selftest.c`): `board_id` limits 1480–1700 mV
-(item 6); `charger` step no longer reads `MAO_LINE_CHARGING` (it would fail with
+(item 6); switched-rail pad floor 3000 → 2850 mV (`LIM_PAD_ON_MIN_MV`: on a 3.10 V rail the
+100 R-fed MIC_VDD / IR_RX_VCC pads read ≈ 2.97 V, sim S5/S6); `charger` step no longer reads `MAO_LINE_CHARGING` (it would fail with
 `ESP_ERR_NOT_SUPPORTED`): passes on PGOOD and, with `caps.charge_control`, a
 readable board temperature; reports estimated charging, pause and temperature;
 `expander_reset` comment GPIO39.
@@ -176,6 +177,12 @@ reset and a deep-sleep wake: the IR LEDs (camera on the LED window) stay dark
 until `mao ir send`. GPIO38 has no reset pull and the 100 k gate pull-down holds
 the MOSFET off. `mao selftest` `expander_reset` must still pass (pulse on GPIO39,
 TP11 XRST).
+
+**Charge pause by hand.** Dev builds: `mao power charge off` holds /CE high
+(expander P6) through the power task; the charge current falls to ~0 within a
+second and `mao power` shows `PAUSED (console hold)`. `mao power charge on`
+releases it to the temperature limit. (`mao_power.c`: `REQ_CHARGE_HOLD`,
+`s_charge_hold`.)
 
 **Charge pause by heating.** On USB with a partly discharged cell:
 1. `mao power` shows `charge limit: board xx.x C` and `charging=1`.

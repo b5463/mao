@@ -9,6 +9,8 @@ this checks every visible silkscreen text (component references and board labels
           including the text's own part
   graphic the text box overlaps a silkscreen graphic: a part outline or marking (including its own
           part's outline) or a board graphic such as the maker mark
+  via     the text box, or a board graphic (maker mark, easter-egg art), lies on a via: the tented bump
+          breaks the print (ODD JOBS 94)
   small   text under 0.8 mm high or 0.12 mm stroke (board minimum, rule 95)
   crowded two texts on one side closer than 0.5 mm: they read as one word (lines stacked in one
           board text block, at least 0.3 mm apart, are line spacing)
@@ -27,6 +29,8 @@ SILK = {pcb.F_SilkS: 'F', pcb.B_SilkS: 'B'}
 MASK = {'F': pcb.F_Mask, 'B': pcb.B_Mask}
 CRT = {'F': pcb.F_CrtYd, 'B': pcb.B_CrtYd}
 INSIDE_OK = set()                                # no reference inside its own part
+INSIDE_PART = {'SPK': 'LS501', 'meow': 'LS501'}  # board texts printed inside a part fitted later (the speaker
+                                                 # lies over its contact pads LS501; its name marks where it goes)
 
 def box(t):
     r = t.GetEffectiveTextShape().BBox()
@@ -72,7 +76,20 @@ for f in b.GetFootprints():
 for d in b.GetDrawings():
     if d.GetLayer() in SILK and not isinstance(d, pcb.PCB_TEXT):
         r = d.GetBoundingBox(); graphics[SILK[d.GetLayer()]].append(('board graphic', (r.GetLeft(), r.GetTop(), r.GetRight(), r.GetBottom())))
+vias = []                                              # tented vias print through: no silk on them
+for t_ in b.GetTracks():
+    if isinstance(t_, pcb.PCB_VIA):
+        c, r = t_.GetPosition(), t_.GetWidth(pcb.F_Cu) // 2 + pcb.FromMM(0.05)
+        vias.append((f'via ({mm(c.x)}, {mm(c.y)})', (c.x - r, c.y - r, c.x + r, c.y + r)))
 found = []
+for d in b.GetDrawings():
+    if d.GetLayer() in SILK and not isinstance(d, pcb.PCB_TEXT):
+        shp = d.GetEffectiveShape(d.GetLayer())
+        for vn, vq in vias:
+            c = pcb.VECTOR2I((vq[0] + vq[2]) // 2, (vq[1] + vq[3]) // 2)
+            if shp.Collide(c, (vq[2] - vq[0]) // 2):
+                found.append({'kind': 'via', 'side': SILK[d.GetLayer()], 'a': 'board graphic', 'b': vn,
+                              'at_mm': [mm(c.x), mm(c.y)]})
 for i, (name, s, q, t, own) in enumerate(texts):
     for name2, s2, q2, _, _ in texts[i + 1:]:
         if s == s2 and hit(q, q2): found.append({'kind': 'text', 'side': s, 'a': name, 'b': name2})
@@ -86,12 +103,16 @@ for i, (name, s, q, t, own) in enumerate(texts):
         if hit(q, gq): found.append({'kind': 'graphic', 'side': s, 'a': name, 'b': gn})
     for pn, pq in pads[s]:
         if hit(q, pq): found.append({'kind': 'pad', 'side': s, 'a': name, 'b': pn})
+    for vn, vq in vias:
+        if hit(q, vq): found.append({'kind': 'via', 'side': s, 'a': name, 'b': vn})
     for ref, bq in bodies[s]:
         if ref.startswith('TP'): continue        # a probe pad's courtyard is pogo clearance, not a body: its name may sit there (the pad check still applies)
-        if hit(q, bq) and not (own == ref and own in INSIDE_OK): found.append({'kind': 'body', 'side': s, 'a': name, 'b': ref})
+        if hit(q, bq) and not (own == ref and own in INSIDE_OK) and INSIDE_PART.get(name) != ref:
+            found.append({'kind': 'body', 'side': s, 'a': name, 'b': ref})
     if pcb.ToMM(t.GetTextHeight()) < 0.8 - 1e-6 or pcb.ToMM(t.GetTextThickness()) < 0.12 - 1e-6:
         found.append({'kind': 'small', 'side': s, 'a': name, 'b': f'{pcb.ToMM(t.GetTextHeight()):.2f} mm'})
 for f_ in found:
+    if 'at_mm' in f_: continue
     q = next(q for n, s, q, _, _ in texts if n == f_['a'] and s == f_['side'])
     f_['at_mm'] = [mm((q[0] + q[2]) // 2), mm((q[1] + q[3]) // 2)]
 fab = sorted(f.GetReference() for f in b.GetFootprints() if f.Reference().GetLayer() in (pcb.F_Fab, pcb.B_Fab))

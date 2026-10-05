@@ -1,68 +1,82 @@
 """Designed copper of the MAO_MAIN A0 power section (KiCad python): <KiCad python> route_power.py add
 
-Every item is drawn from the pad coordinates of the placement in placement.py (UX, UY = 3.0, -11.0)
-and locked, so the routers work around it. Layer B unless noted. ODD JOBS 7-12, 16, 85-88:
-  VBUS   receptacle (both VBUS pads, the far one through the L3 VBUS strip) -> TVS D101 -> C101 -> U102 IN
-  VBAT   cell -> J102 -> R108 link -> Q101 (reverse-polarity FET) -> C103 -> U102 BAT, gauge U103 tap
-  VSYS   U102 OUT -> CIN C105 -> U104 VIN in one bar; C102 above; vias into the L3 VSYS region, and one
-         via at every load (amplifier, haptic driver, IR LEDs and their reservoir)
+Every item is drawn from the pad coordinates of the placement in placement.py and locked, so the routers
+work around it. ODD JOBS 7-12, 16, 85-88. A0 revision (2026-10-05): the charger sits on F.Cu under the panel,
+turned 180 above its old B spot (its heat stays off the cell); the buck-boost stays on B.
+  VBUS   receptacle (both VBUS pads, the far one through the L3 VBUS strip) -> TVS D101 -> one via (strip + F)
+         -> F round the charger group to C101 and IN
+  VBAT   cell -> J102 -> R108 link -> Q101 (B) -> two vias -> C103 -> charger BAT (F); gauge and probe on B
+  VSYS   charger OUT (F) -> C102 and two vias -> C105 -> buck-boost VIN (B) and the L3 VSYS band; one via at
+         every load (amplifier, haptic driver, IR LEDs and their reservoir, backlight driver and VLED+)
   SW     U104 L1/L2 straight up to the inductor pads (TI SLVSEU9D fig. 12-1)
-  PGND   strip between the U104 pin rows joining PGND, AGND, MODE, CIN and COUT grounds, one 0.5 mm
-         via under the IC plus a via at every power capacitor ground
+  PGND   strip between the U104 pin rows joining PGND, AGND, MODE, CIN and COUT grounds
   +3V3   U104 VOUT -> COUT C106/C107 -> two vias into the L3 +3V3 region
-Charger and converter programming pins (ILIM, ISET, TD, EN, FB) and the NTC line are short designed
-tracks too; the NTC crosses the FET chain on F.Cu. Speaker, LRA and IR LED cathode lines are designed too.
+Charger programming pins (ILIM, ISET, TD), /CE, PGOOD and TS are short designed F tracks; TS crosses to the
+battery connector on F. Speaker, LRA and IR LED cathode lines are designed too.
 """
 from handroute import run
 
 V = 'V'
 ADD = [
-    # ---- VBUS: A9/B4 straight to the TVS; A4/B9 joins through the L3 VBUS strip (power_regions) -------
-    ('VBUS', 'B', 0.5, [(2.45, -21.6), (2.45, -20.4), (3.0, -19.85)]),                # A9/B4 -> D101
+    # ---- VBUS ----------------------------------------------------------------------------------------
+    ('VBUS', 'B', 0.5, [(2.45, -21.6), (2.45, -20.4), (3.2, -19.65)]),                # A9/B4 -> D101
     ('VBUS', 'B', 0.5, [(-2.45, -21.6), (-2.45, -20.55)]),                            # A4/B9 -> L3
     ('VBUS', V, None, [(-2.45, -20.55)]),
-    ('VBUS', 'B', 0.5, [(3.0, -18.9), (3.0, -18.3), (3.8, -17.5), (7.96, -17.5), (8.66, -16.8), (8.66, -14.9)]),
-    ('VBUS', V, None, [(4.5, -17.5)]),                                                # L3 strip end
-    ('VBUS', 'B', 0.3, [(8.66, -14.9), (8.66, -13.5)]),                               # C101 -> IN
-    # ---- VBAT chain --------------------------------------------------------------------------------
+    ('VBUS', 'B', 0.5, [(3.2, -19.5), (3.2, -18.2)]),
+    ('VBUS', V, None, [(3.2, -18.2)]),                                               # strip end, B -> F
+    ('VBUS', 'B', 0.4, [(3.2, -18.2), (4.45, -16.95), (5.5, -16.95)]),               # probe TP6
+    ('VBUS', 'F', 0.5, [(3.2, -18.2), (4.4, -17.0), (4.4, -9.6), (5.0, -9.0), (8.66, -9.0)]),
+    ('VBUS', 'F', 0.4, [(8.66, -9.0), (8.66, -10.312)]),                             # C101 -> IN (pin 13)
+    # ---- VBAT chain ------------------------------------------------------------------------------------
     ('BAT_RAW', 'B', 0.6, [(18.26, -7.903), (18.26, -5.715)]),                        # J102.3 -> R108
     ('BAT_IN', 'B', 0.8, [(16.037, -10.825), (18.26, -10.825)]),                      # R108 -> Q101 drain
-    ('VBAT', 'B', 0.8, [(11.2, -11.775), (14.162, -11.775)]),                         # U102 BAT - C103 - Q101 source
-    ('VBAT', 'B', 0.25, [(14.3, -14.45), (14.3, -13.95), (13.7, -13.95)]),            # gauge VBAT pins
-    ('VBAT', 'B', 0.25, [(13.7, -16.0), (13.7, -12.0)]),                              # C104 - gauge - FET source
     ('BAT_RPP_G', 'B', 0.3, [(14.25, -9.875), (14.25, -8.51)]),                       # gate -> R109
-    # ---- VSYS: power section, then one via per load into the L3 VSYS region (power_regions) ----------
-    ('VSYS', 'B', 0.8, [(7.6, -11.775), (5.57, -11.775)]),                            # U102 OUT -> CIN
+    ('VBAT', 'F', 0.8, [(10.873, -11.775), (12.425, -11.775)]),                        # BAT pins -> C103
+    ('VBAT', 'F', 0.8, [(12.425, -11.775), (12.425, -12.4), (12.875, -12.85), (13.65, -12.85)]),
+    ('VBAT', V, None, [(12.875, -12.85)]),
+    ('VBAT', V, None, [(13.65, -12.85)]),
+    ('VBAT', 'B', 0.8, [(12.875, -12.85), (13.65, -12.85), (14.162, -12.338), (14.162, -11.775)]),  # -> Q101 source
+    ('VBAT', 'B', 0.3, [(12.875, -12.85), (11.95, -12.85), (11.95, -14.55), (12.712, -14.55)]),    # gauge pins 2/3
+    ('VBAT', 'B', 0.3, [(11.95, -14.55), (11.3, -14.55)]),                             # its VDD cap C104
+    ('VBAT', 'B', 0.25, [(13.65, -12.85), (12.95, -12.15), (12.95, -7.17), (14.4, -5.72)]),   # BAT probe TP5
+    # ---- VSYS ---------------------------------------------------------------------------------------
+    ('VSYS', 'F', 0.8, [(7.947, -11.775), (6.1, -11.775)]),                           # OUT pins -> C102
+    ('VSYS', V, 0.5, [(7.05, -11.55)]),
+    ('VSYS', V, 0.5, [(7.05, -12.45)]),
+    ('VSYS', 'F', 0.3, [(7.05, -11.55), (7.05, -12.45)]),
+    ('VSYS', 'B', 0.8, [(7.05, -11.775), (5.57, -11.775)]),                           # vias -> C105 (B)
+    ('VSYS', 'B', 0.3, [(7.05, -11.55), (7.05, -12.45)]),
     ('VSYS', 'B', 0.4, [(5.57, -11.775), (4.1, -11.775)]),                            # CIN -> VIN
-    ('VSYS', 'B', 0.6, [(5.57, -13.285), (5.57, -11.775)]),                           # C102
-    ('VSYS', V, None, [(6.79, -11.775)]),
-    ('VSYS', 'B', 0.4, [(5.57, -13.1), (6.6, -13.1)]),
-    ('VSYS', V, None, [(6.6, -13.1)]),
-    ('VSYS', 'B', 0.2, [(9.66, -10.0), (9.66, -9.8), (9.96, -9.5), (10.25, -9.21)]),   # U102 EN1 (USB500)
-    ('VSYS', V, None, [(10.25, -9.21)]),
-    ('VSYS', 'B', 0.3, [(5.1, -7.99), (5.1, -7.2)]),                                  # R111 UVLO top
-    ('VSYS', V, None, [(5.1, -7.2)]),
-    ('VSYS', 'B', 0.3, [(10.25, -9.21), (10.25, -7.05), (11.6, -5.7)]),               # SYS probe pad
-    ('VBAT', 'B', 0.25, [(13.12, -11.775), (13.12, -7.0), (14.4, -5.72)]),            # BAT probe pad
-    # amplifier: VDD pins 7/8 -> one via in the 0.9 mm gap beside them (into the L3 band) -> C502, C501 on F
-    ('VSYS', 'B', 0.3, [(-18.44, 3.25), (-18.44, 3.75)]),
-    ('VSYS', 'B', 0.3, [(-18.44, 3.5), (-19.3, 3.5)]),
-    ('VSYS', V, 0.5, [(-19.3, 3.5)]),
-    ('VSYS', 'F', 0.3, [(-19.3, 3.5), (-19.3, 2.48), (-19.6, 2.18)]),                   # C502 (100 nF)
-    ('VSYS', 'F', 0.3, [(-19.6, 2.18), (-21.0, 2.18), (-21.0, 1.97)]),                 # C501 (10 uF)
-    ('VSYS', 'B', 0.3, [(-17.48, 11.4), (-17.48, 10.0)]),                              # haptic driver pin 10 -> C503
+    ('VSYS', 'B', 0.3, [(7.05, -11.55), (7.05, -7.99), (5.1, -7.99)]),                 # R111 UVLO top
+    ('VSYS', 'B', 0.3, [(7.05, -8.4), (10.8, -8.4), (11.6, -7.6), (11.6, -5.7)]),       # SYS probe TP4
+    # amplifier: VDD pins 7/8 -> one via below the part into the L3 VSYS branch -> C502, C501 on F
+    ('VSYS', 'B', 0.3, [(-14.15, -10.137), (-14.15, -10.6), (-13.9, -10.85)]),
+    ('VSYS', 'B', 0.3, [(-13.65, -10.137), (-13.65, -10.6), (-13.9, -10.85)]),
+    ('VSYS', V, 0.5, [(-13.9, -10.85)]),
+    ('VSYS', 'F', 0.3, [(-13.9, -10.85), (-14.53, -10.85), (-14.8, -11.12)]),          # C502 (100 nF)
+    ('VSYS', 'F', 0.3, [(-14.8, -11.12), (-15.6, -11.12), (-15.87, -11.39), (-15.87, -13.4)]),    # C501 (10 uF)
+    # haptic driver pin 10 -> C503 -> the band's notch
+    ('VSYS', 'B', 0.3, [(-17.48, 11.4), (-17.48, 10.0)]),
     ('VSYS', 'B', 0.3, [(-17.48, 10.0), (-17.48, 9.38), (-17.0, 8.9)]),
-    ('VSYS', V, None, [(-17.0, 8.9)]),                                                # into the band's notch
-    ('VSYS', V, None, [(-12.45, -22.1)]),                                             # IR LED left (R501)
-    ('VSYS', V, None, [(6.63, -22.3)]),                                               # IR LED right (R502)
-    ('VSYS', V, None, [(12.0, -19.3)]),                                               # IR reservoir C505
-    # ---- speaker and LRA (B): two nested L's from the output pins to the speaker's contact pads (LS501):
-    # SPK+ west then south to the 6 o'clock pad, SPK- west then north to the 12 o'clock pad, under the
-    # speaker body (copper under mask) -------------------------------------------------------------------
-    ('SPK_P', 'B', 0.3, [(-17.75, 2.4), (-17.75, 2.0), (-18.15, 1.6)]),
-    ('SPK_P', 'B', 0.4, [(-18.15, 1.6), (-20.25, 1.6), (-20.65, 2.0), (-20.65, 7.55)]),
-    ('SPK_N', 'B', 0.3, [(-17.25, 2.4), (-17.25, 0.9)]),
-    ('SPK_N', 'B', 0.4, [(-17.25, 0.9), (-20.25, 0.9), (-20.65, 0.5), (-20.65, -6.35)]),
+    ('VSYS', V, None, [(-17.0, 8.9)]),
+    # IR LED anodes and their reservoir
+    ('VSYS', V, None, [(-12.45, -22.1)]),
+    ('VSYS', V, None, [(6.63, -22.3)]),
+    ('VSYS', V, None, [(12.0, -19.3)]),
+    # backlight: from the L3 VSYS bar one via -> C305 -> AW9364 VIN, a second via -> VLED+ (J301.12); no VSYS ring
+    # round the driver, so its EN pin (pad 2) leaves between them
+    ('VSYS', V, 0.5, [(-8.9, -4.762)]),
+    ('VSYS', 'B', 0.3, [(-8.9, -4.762), (-8.05, -4.762)]),
+    ('VSYS', 'B', 0.3, [(-8.05, -4.762), (-8.05, -3.362)]),
+    ('VSYS', V, 0.5, [(-9.9, -1.9)]),
+    ('VSYS', 'B', 0.3, [(-9.9, -1.9), (-9.9, -1.25), (-11.15, -1.25)]),
+    # ---- speaker (B): both outputs leave the amplifier's east pins and loop under it; SPK+ climbs the tail
+    # corridor's west edge to the 6 o'clock pad, SPK- turns up into the 12 o'clock pad ------------------------
+    ('SPK_P', 'B', 0.3, [(-12.963, -9.45), (-12.3, -9.45), (-12.3, -11.15), (-12.7, -11.55)]),
+    ('SPK_P', 'B', 0.4, [(-12.7, -11.55), (-17.3, -11.55), (-17.7, -11.15), (-17.7, 6.2), (-18.1, 6.6), (-19.9, 6.6)]),
+    ('SPK_N', 'B', 0.3, [(-12.963, -8.95), (-11.8, -8.95), (-11.8, -11.75), (-12.2, -12.15)]),
+    ('SPK_N', 'B', 0.4, [(-12.2, -12.15), (-18.45, -12.15), (-18.85, -11.75), (-18.85, -7.25), (-19.9, -6.2)]),
+    # ---- LRA (haptic driver unchanged) -------------------------------------------------------------------
     ('LRA_P', 'B', 0.3, [(-18.2, 12.9), (-18.9, 12.9), (-19.5, 12.3), (-20.0, 12.3)]),          # pin 7 -> J501.1
     ('LRA_N', 'B', 0.3, [(-18.2, 11.9), (-18.6, 11.9), (-19.35, 11.15), (-20.5, 10.0), (-20.8, 10.0)]),
     # ---- IR LED cathodes: the switch drain to D502 on B, to D501 by an F bar between the USB-C shell legs
@@ -85,43 +99,49 @@ ADD = [
     ('GND', 'B', 0.25, [(3.0, -11.0), (3.0, -10.3)]),                                 # PGND 8 - AGND 3
     ('GND', 'B', 0.25, [(3.0, -10.1), (3.5, -10.1)]),                                 # AGND 3 - MODE 2
     ('GND', V, 0.5, [(3.25, -10.65)]),                                                # under U104
-    ('GND', 'B', 0.4, [(5.57, -10.225), (6.4, -10.225)]),
-    ('GND', V, None, [(6.4, -10.225)]),                                               # CIN
+    # CIN (C105) returns through the PGND strip and the via under U104 (the charger's ILIM sits above on F)
     ('GND', V, None, [(-0.34, -9.45)]),                                               # COUT pair
     ('GND', 'B', 0.4, [(-1.11, -9.9), (-1.11, -9.45), (-0.34, -9.45)]),
     ('GND', 'B', 0.4, [(0.43, -9.9), (0.43, -9.45), (-0.34, -9.45)]),
-    ('GND', 'B', 0.4, [(5.9, -15.0), (6.4, -15.5)]),
-    ('GND', V, None, [(6.4, -15.5)]),                                                 # C102 (east of the F VSYS branch)
-    ('GND', 'B', 0.4, [(12.35, -9.9), (12.35, -9.45)]),
-    ('GND', V, None, [(12.35, -9.45)]),                                               # C103
-    ('GND', 'B', 0.4, [(9.62, -15.1), (9.62, -15.75)]),
-    ('GND', V, None, [(9.62, -15.75)]),                                               # C101
-    ('GND', 'B', 0.2, [(10.6, -11.025), (10.1, -11.025)]),                            # U102 pins 4, 5, 8 -> EP
-    ('GND', 'B', 0.2, [(10.16, -10.4), (10.16, -11.0)]),
-    ('GND', 'B', 0.2, [(8.66, -10.4), (8.66, -11.0)]),
+    ('GND', 'F', 0.2, [(10.16, -13.238), (10.16, -12.6)]),                            # charger pin 5 -> EP
+    ('GND', 'F', 0.2, [(8.66, -13.238), (8.66, -12.6)]),                              # charger pin 8 -> EP
+    ('GND', 'F', 0.4, [(8.66, -8.12), (8.66, -7.55)]),
+    ('GND', V, None, [(8.66, -7.55)]),                                                # C101
+    ('GND', 'F', 0.4, [(6.1, -13.375), (5.25, -13.375)]),
+    ('GND', V, None, [(5.25, -13.375)]),                                              # C102
+    ('GND', 'F', 0.3, [(9.95, -7.79), (10.25, -7.49), (10.95, -7.49), (11.25, -7.79)]),
+    ('GND', V, None, [(10.6, -7.49)]),                                                # R105 (TD) and R103 (ISET)
     ('GND', 'B', 0.5, [(20.26, -5.0), (20.26, -4.2)]),
     ('GND', V, None, [(20.26, -4.2)]),                                                # J102 battery minus
     ('GND', 'B', 0.5, [(20.4, -5.715), (21.2, -5.715)]),
     ('GND', V, None, [(21.2, -5.715)]),
-    ('GND', 'B', 0.5, [(6.6, -19.5), (7.1, -19.5)]),
-    ('GND', V, None, [(7.1, -19.5)]),                                                 # TVS
-    ('GND', V, None, [(7.1, -18.75)]),
-    ('GND', 'B', 0.5, [(7.1, -19.5), (7.1, -18.75)]),
+    ('GND', 'B', 0.5, [(6.1, -19.5), (6.1, -18.25)]),
+    ('GND', V, None, [(6.1, -18.25)]),                                                # TVS, both pad ends
+    ('GND', 'B', 0.5, [(6.1, -19.5), (6.1, -20.7)]),
+    ('GND', V, None, [(6.1, -20.7)]),
     ('GND', 'B', 0.4, [(-3.25, -22.2), (-4.32, -22.2)]),                             # J101 A1/B12 -> shell leg
     ('GND', 'B', 0.4, [(3.25, -22.2), (4.32, -22.2)]),                                # J101 A12/B1 -> shell leg
-    # ---- programming pins --------------------------------------------------------------------------
-    ('CHG_ILIM', 'B', 0.2, [(7.6, -12.525), (7.4, -12.725), (7.4, -14.45)]),
-    ('CHG_ISET', 'B', 0.2, [(10.16, -13.5), (10.16, -13.8), (12.04, -13.8)]),
-    ('CHG_TD', 'B', 0.2, [(9.66, -13.5), (9.66, -13.95), (10.21, -14.5), (10.55, -14.84), (12.04, -14.84)]),
+    # ---- charger programming, status and TS (F) ------------------------------------------------------
+    ('CHG_ILIM', 'F', 0.2, [(7.947, -11.025), (7.447, -10.525), (6.81, -10.525), (6.81, -10.05)]),
+    ('CHG_ISET', 'F', 0.2, [(10.16, -10.312), (10.16, -9.9), (10.75, -9.31), (11.25, -9.31), (11.25, -8.81)]),
+    ('CHG_TD', 'F', 0.2, [(9.66, -10.312), (9.66, -9.9), (9.95, -9.61), (9.95, -8.81)]),
+    ('CHG_CE_N', 'F', 0.2, [(10.873, -12.525), (11.3, -12.525), (11.6, -12.825), (11.6, -13.8), (11.9, -14.1)]),
+    ('+3V3', 'F', 0.2, [(9.66, -13.238), (9.66, -13.7), (10.15, -14.19)]),            # EN1 high = USB500
+    ('+3V3', V, 0.5, [(10.15, -14.19)]),
+    ('USB_PRESENT_N', 'F', 0.2, [(9.16, -13.238), (9.16, -14.59)]),                   # PGOOD -> pull-up R106
+    ('USB_PRESENT_N', 'F', 0.2, [(9.16, -14.59), (9.6, -14.59), (9.9, -14.89), (9.9, -15.4)]),
+    ('USB_PRESENT_N', V, 0.5, [(9.9, -15.4)]),                                        # down to its L3 line
+    ('+3V3', 'F', 0.25, [(9.16, -15.61), (8.45, -15.61), (8.4, -15.66)]),
+    ('+3V3', V, 0.5, [(8.4, -15.9)]),
+    ('+3V3', 'F', 0.25, [(8.4, -15.66), (8.4, -15.9)]),
     ('BB_EN', 'B', 0.2, [(4.0, -9.9), (4.0, -9.01), (5.1, -9.01)]),
+    ('BB_EN', 'B', 0.2, [(4.0, -9.01), (3.25, -8.26), (3.25, -7.03), (3.0, -6.78)]),    # UVLO filter C111
     ('BB_FB', 'B', 0.2, [(2.5, -9.9), (2.5, -9.01), (1.4, -9.01)]),
-    # ---- battery NTC: U102 TS -> F.Cu over the FET chain -> J102.2 and R110 ---------------------------
-    ('BAT_NTC', 'B', 0.2, [(11.1, -12.525), (11.5, -12.525), (11.95, -12.975)]),
-    ('BAT_NTC', V, None, [(11.95, -12.975)]),
-    ('BAT_NTC', 'F', 0.2, [(11.95, -12.975), (17.925, -7.0), (19.7, -7.0)]),
-    ('BAT_NTC', V, None, [(19.7, -7.0)]),
-    ('BAT_NTC', 'B', 0.2, [(19.7, -7.0), (19.26, -6.56), (19.26, -6.2)]),
-    ('BAT_NTC', 'B', 0.2, [(19.7, -7.0), (20.24, -7.54), (20.24, -7.75)]),
+    # battery NTC: TS (pin 1) -> F over to J102.2 and the DNP substitute R110
+    ('BAT_NTC', 'F', 0.2, [(10.873, -11.025), (11.5, -11.025), (12.0, -10.525), (16.2, -10.525), (19.7, -7.025)]),
+    ('BAT_NTC', V, None, [(19.7, -7.025)]),
+    ('BAT_NTC', 'B', 0.2, [(19.7, -7.025), (19.26, -6.585), (19.26, -6.2)]),
+    ('BAT_NTC', 'B', 0.2, [(19.7, -7.025), (20.24, -7.565), (20.24, -7.75)]),
 ]
 
 if __name__ == '__main__':

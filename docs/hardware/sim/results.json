@@ -28,7 +28,7 @@
    "3.7V": 49.2,
    "4.2V": 43.4
   },
-  "charge_drop_mV_at_297mA_VBAT3.0": 28.9,
+  "charge_drop_mV_at_227mA_VBAT3.0": 22.2,
   "reversed_battery_only_uA": 0.0,
   "reversed_battery_only_vbat": -0.0,
   "reversed_with_usb": [
@@ -52,201 +52,61 @@
   "note": "VBAT stays below the charger VBAT(SC) 1.6 V min, so the BQ24073 never leaves its 4-11 mA short-circuit probe: a reversed pack sees at most 11 mA, no fast charge"
  },
  "S3_backlight": {
-  "R303_10R": [
-   {
-    "vf_bin": 2.8,
-    "v33": 3.25,
-    "I_mA": 43.0
-   },
-   {
-    "vf_bin": 2.8,
-    "v33": 3.3,
-    "I_mA": 46.4
-   },
-   {
-    "vf_bin": 2.8,
-    "v33": 3.35,
-    "I_mA": 49.9
-   },
-   {
-    "vf_bin": 3.0,
-    "v33": 3.25,
-    "I_mA": 29.6
-   },
-   {
-    "vf_bin": 3.0,
-    "v33": 3.3,
-    "I_mA": 32.9
-   },
-   {
-    "vf_bin": 3.0,
-    "v33": 3.35,
-    "I_mA": 36.2
-   },
-   {
-    "vf_bin": 3.2,
-    "v33": 3.25,
-    "I_mA": 17.4
-   },
-   {
-    "vf_bin": 3.2,
-    "v33": 3.3,
-    "I_mA": 20.3
-   },
-   {
-    "vf_bin": 3.2,
-    "v33": 3.35,
-    "I_mA": 23.3
-   }
-  ],
-  "R303_6.8R": [
-   {
-    "vf_bin": 2.8,
-    "v33": 3.25,
-    "I_mA": 55.3
-   },
-   {
-    "vf_bin": 2.8,
-    "v33": 3.3,
-    "I_mA": 59.9
-   },
-   {
-    "vf_bin": 2.8,
-    "v33": 3.35,
-    "I_mA": 64.5
-   },
-   {
-    "vf_bin": 3.0,
-    "v33": 3.25,
-    "I_mA": 37.6
-   },
-   {
-    "vf_bin": 3.0,
-    "v33": 3.3,
-    "I_mA": 41.9
-   },
-   {
-    "vf_bin": 3.0,
-    "v33": 3.35,
-    "I_mA": 46.3
-   },
-   {
-    "vf_bin": 3.2,
-    "v33": 3.25,
-    "I_mA": 21.4
-   },
-   {
-    "vf_bin": 3.2,
-    "v33": 3.3,
-    "I_mA": 25.2
-   },
-   {
-    "vf_bin": 3.2,
-    "v33": 3.35,
-    "I_mA": 29.2
-   }
-  ],
-  "R303_4.7R": [
-   {
-    "vf_bin": 2.8,
-    "v33": 3.25,
-    "I_mA": 68.6
-   },
-   {
-    "vf_bin": 2.8,
-    "v33": 3.3,
-    "I_mA": 74.5
-   },
-   {
-    "vf_bin": 2.8,
-    "v33": 3.35,
-    "I_mA": 80.4
-   },
-   {
-    "vf_bin": 3.0,
-    "v33": 3.25,
-    "I_mA": 46.0
-   },
-   {
-    "vf_bin": 3.0,
-    "v33": 3.3,
-    "I_mA": 51.5
-   },
-   {
-    "vf_bin": 3.0,
-    "v33": 3.35,
-    "I_mA": 57.1
-   },
-   {
-    "vf_bin": 3.2,
-    "v33": 3.25,
-    "I_mA": 25.5
-   },
-   {
-    "vf_bin": 3.2,
-    "v33": 3.3,
-    "I_mA": 30.3
-   },
-   {
-    "vf_bin": 3.2,
-    "v33": 3.35,
-    "I_mA": 35.4
-   }
-  ],
-  "firmware_ceiling_pct": 80,
-  "worst_average_mA": 39.9,
-  "verdict": "PASS",
-  "R303_10R_summary": {
-   "Vf2.8": [
-    43.0,
-    46.4,
-    49.9
+  "sink": "AW9364 LED1+LED2 tied: 2 x 20 mA at step 1; the panel spec allows 40 mA (3.0/3.2/3.4 V)",
+  "I_mA_by_VSYS": {
+   "VSYS": [
+    3.0,
+    3.2,
+    3.4,
+    3.6,
+    3.8,
+    4.0,
+    4.2,
+    4.4
    ],
    "Vf3.0": [
-    29.6,
-    32.9,
-    36.2
+    31.6,
+    40.0,
+    40.0,
+    40.0,
+    40.0,
+    40.0,
+    40.0,
+    40.0
    ],
    "Vf3.2": [
-    17.4,
-    20.3,
-    23.3
+    8.4,
+    31.6,
+    40.0,
+    40.0,
+    40.0,
+    40.0,
+    40.0,
+    40.0
+   ],
+   "Vf3.4": [
+    1.1,
+    8.4,
+    31.6,
+    40.0,
+    40.0,
+    40.0,
+    40.0,
+    40.0
    ]
   },
-  "R303_6.8R_summary": {
-   "Vf2.8": [
-    55.3,
-    59.9,
-    64.5
-   ],
-   "Vf3.0": [
-    37.6,
-    41.9,
-    46.3
-   ],
-   "Vf3.2": [
-    21.4,
-    25.2,
-    29.2
-   ]
+  "I_max_mA": 40.0,
+  "part_tolerance": "AW9364DNR +-17.5 %: 33-47 mA at step 1, 23.5 mA per LED at worst (panel: 40 mA typ)",
+  "VSYS_for_90pct_on_3V4_bin": 3.6,
+  "driver_dissipation_mW_at_4V4": 56.0,
+  "steps": {
+   "1": 40.0,
+   "4": 32.5,
+   "8": 22.5,
+   "12": 12.5,
+   "16": 2.5
   },
-  "R303_4.7R_summary": {
-   "Vf2.8": [
-    68.6,
-    74.5,
-    80.4
-   ],
-   "Vf3.0": [
-    46.0,
-    51.5,
-    57.1
-   ],
-   "Vf3.2": [
-    25.5,
-    30.3,
-    35.4
-   ]
-  }
+  "verdict": "PASS"
  },
  "S4_ir_led": {
   "R_47R": {
@@ -275,7 +135,7 @@
    "typ": {
     "I_at_3.0V": 31.2,
     "I_at_3.7V": 42.9,
-    "I_at_4.5V": 56.4
+    "I_at_4.5V": 56.3
    },
    "max": {
     "I_at_3.0V": 26.0,
@@ -287,17 +147,17 @@
  },
  "S5_S6_switched_supplies": {
   "mic": {
-   "V_steady": 3.218,
+   "V_steady": 3.098,
    "settle_99pct_us": 663,
-   "peak_mA": 25.9,
+   "peak_mA": 25.0,
    "spec": "SPH0641 VDD 1.62-3.6 V; ESP32-S3 GPIO 40 mA abs max",
    "verdict": "PASS"
   },
   "ir_rx": {
-   "V_steady": 3.168,
-   "to_2V7_us": 1171,
+   "V_steady": 3.049,
+   "to_2V7_us": 1325,
    "settle_99pct_us": 2793,
-   "peak_mA": 26.1,
+   "peak_mA": 25.1,
    "spec": "IRM-H638T Vs 2.7-5.5 V; TCA6408A 50 mA per pin abs max",
    "verdict": "PASS"
   }
@@ -308,29 +168,29 @@
   "tr_typ_ns": 116,
   "tr_max_ns": 186,
   "VOL_V": 0.012,
-  "I_sink_mA": 1.5,
+  "I_sink_mA": 1.45,
   "spec": "Fast-mode tr <= 300 ns (30-70 %), VOL <= 0.4 V at 3 mA",
   "verdict": "PASS"
  },
  "S8_S9_reset_board_id": {
-  "board_id_reaches_1V4_ms": 94.9,
-  "board_id_final_V": 1.646,
+  "board_id_reaches_1V4_ms": 106.7,
+  "board_id_final_V": 1.586,
   "board_id_window_mV": [
    1400,
    1900
   ],
   "en_VIH_ms": 14.37,
-  "rail_3V0_ms": 0.91,
-  "en_after_rail_ms": 13.46,
+  "rail_3V0_ms": 0.95,
+  "en_after_rail_ms": 13.42,
   "spec": "ESP32-S3 tSTBL >= 0.05 ms after VDD stable; firmware samples board ID after 150 ms",
   "verdict": "PASS"
  },
  "S10_display_rail": {
-  "slew_V_per_ms": 1.9,
-  "rise_time_ms": 1.6,
+  "slew_V_per_ms": 2.49,
+  "rise_time_ms": 1.69,
   "C_load_uF": 10.5,
-  "inrush_mA": 20.0,
-  "droop_3V3_mV": 0.66,
+  "inrush_mA": 26.1,
+  "droop_3V3_mV": 0.87,
   "verdict": "PASS"
  },
  "S11_dial": {
@@ -401,55 +261,58 @@
   "verdict": "PASS"
  },
  "S13_charger_thermal": {
-  "worst_P_W": 0.86,
+  "ICHG_typ_mA": 207,
+  "ICHG_max_mA": 227,
+  "cell_0.5C_mA": 250,
+  "worst_P_W": 0.72,
   "theta_JA_used": 60.1,
-  "TJ_worst_C": 97,
+  "TJ_worst_C": 88,
   "TJ_REG_C": 125,
   "rows": [
    {
     "VBUS": 4.75,
     "VBAT": 3.0,
-    "P_W": 0.62
+    "P_W": 0.48
    },
    {
     "VBUS": 4.75,
     "VBAT": 3.7,
-    "P_W": 0.39
+    "P_W": 0.32
    },
    {
     "VBUS": 4.75,
     "VBAT": 4.1,
-    "P_W": 0.26
+    "P_W": 0.23
    },
    {
     "VBUS": 5.0,
     "VBAT": 3.0,
-    "P_W": 0.74
+    "P_W": 0.6
    },
    {
     "VBUS": 5.0,
     "VBAT": 3.7,
-    "P_W": 0.51
+    "P_W": 0.44
    },
    {
     "VBUS": 5.0,
     "VBAT": 4.1,
-    "P_W": 0.38
+    "P_W": 0.35
    },
    {
     "VBUS": 5.25,
     "VBAT": 3.0,
-    "P_W": 0.86
+    "P_W": 0.72
    },
    {
     "VBUS": 5.25,
     "VBAT": 3.7,
-    "P_W": 0.63
+    "P_W": 0.56
    },
    {
     "VBUS": 5.25,
     "VBAT": 4.1,
-    "P_W": 0.5
+    "P_W": 0.47
    }
   ],
   "verdict": "PASS",
@@ -461,23 +324,23 @@
    {
     "mode": "buck",
     "VIN": 4.4,
-    "ripple_App": 1.1,
+    "ripple_App": 1.17,
     "I_L_avg_A": 0.6,
-    "I_peak_A": 1.15
+    "I_peak_A": 1.19
    },
    {
     "mode": "buck-boost",
-    "VIN": 3.3,
-    "ripple_App": 1.25,
+    "VIN": 3.18,
+    "ripple_App": 1.21,
     "I_L_avg_A": 0.67,
-    "I_peak_A": 1.29
+    "I_peak_A": 1.27
    },
    {
     "mode": "boost",
     "VIN": 2.96,
-    "ripple_App": 0.52,
-    "I_L_avg_A": 0.74,
-    "I_peak_A": 1.01
+    "ripple_App": 0.43,
+    "I_L_avg_A": 0.72,
+    "I_peak_A": 0.93
    }
   ],
   "Isat_A": 5.5,
@@ -485,9 +348,9 @@
   "verdict": "PASS"
  },
  "S15_runtime": {
-  "active": "3.2 h",
-  "active_radio_ps": "5.7 h",
-  "idle": "3.7 h",
+  "active": "3.0 h",
+  "active_radio_ps": "5.0 h",
+  "idle": "3.6 h",
   "drowsy": "11 days",
   "deep_sleep": "243 days",
   "note": "500 mAh x 85 % usable above the UVLO; budget rows from mao-power-budget.md"

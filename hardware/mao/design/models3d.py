@@ -46,6 +46,12 @@ BODIES = {
 }
 
 
+# parts whose footprint's library model is a lower sibling of the fitted part: scale the model's height
+HEIGHT_SCALE = {
+    'L101': 1.2,     # Murata DFE201612E (1.2 mm max) on the DFE201610P land; the library model is the 1.0 mm part
+}
+
+
 def missing(fp):
     for m in fp.Models():
         p = m.m_Filename.replace('${KICAD10_3DMODEL_DIR}', K3D)
@@ -70,6 +76,12 @@ def main():
         m.m_Filename = '${KIPRJMOD}/lib/MAO.3dshapes/%s.wrl' % model
         fp.Models().push_back(m)
         set_on.append(fp.GetReference())
+    for fp in b.GetFootprints():
+        k = HEIGHT_SCALE.get(fp.GetReference())
+        if k:
+            for m in fp.Models():
+                m.m_Scale.z = k
+            set_on.append(fp.GetReference() + ' (z x%.1f)' % k)
     if set_on:
         pcb.SaveBoard(str(TARGET), b)
     print('3D bodies: %d footprints -> %s' % (len(set_on), ', '.join(sorted(set_on))), flush=True)

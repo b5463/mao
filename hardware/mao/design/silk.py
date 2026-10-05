@@ -5,9 +5,14 @@ ODD JOBS 41-43, 92-103, 172-177:
   F.SilkS  ODD JOBS maker's mark (approved artwork from brand/odd-jobs-symbol.json, traced from the
            supplied PNG, never redrawn) above MAO / MAIN A0 / date, on the calm lower-left of the face
            side; LCD, TOP and the antenna keep-clear note
-  B.SilkS  maker's mark, product line and S/N box in the corner visible with the cell fitted; connector
-           functions with pin cues (USB, BAT - T +, SPK+/SPK-, LRA, REAR, TAG-CONNECT), test-pad
-           function names (never bare TPn), BAT LINK at the 0R link
+  B.SilkS  maker's mark and product line in the corner visible with the cell fitted; connector
+           functions with pin cues (USB, BAT - T +, SPK, LRA, REAR, LCD, TAG), test-pad function names
+           (never bare TPn), BAT LINK at the 0R link
+Type scale (ODD JOBS 95, 98): identity 1.5 mm > connector names 1.2 > test-pad names 0.9 > references 0.8.
+Easter eggs (MAO is Mandarin for cat): a cat asleep under the face with a paw-print trail, 'boop' at the face
+switch, 'meow' under the speaker, '9 lives' at the reverse-polarity FET, and ODD JOBS' own hidden line 'MADE FOR
+BAD IDEAS' (standard rule 175) under the panel. Each is placed by the same clearance test as every label (off pads, vias, bodies
+and other text) and is skipped, with a note, where nothing clear is found.
 Every item goes into one group per side, removed and rebuilt on each run. Reference designators are
 placed by mao_labels.py afterwards (it treats everything here as fixed). Positions are derived from
 the footprints, so a placement change moves the labels with their parts.
@@ -23,8 +28,10 @@ import mechanical as m
 
 DATE = '2026-10'
 FIELD = {'TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP8', 'TP9', 'TP10', 'TP11', 'TP16'}
-GROUPS = ('MAO silk F', 'MAO silk B', 'ODD JOBS maker mark')
+GROUPS = ('MAO silk F', 'MAO silk B', 'ODD JOBS maker mark', 'MAO easter eggs')
+IDENT, CONN, DEBUG = 1.5, 1.2, 0.85         # type scale (references 0.8, mao_labels.py)
 STROKE = 0.15
+ART_STROKE = 0.16                  # easter-egg line art (JLC silk minimum 0.153 mm)
 
 
 def mm(v):
@@ -85,7 +92,7 @@ def main():
         group(gname or ('MAO silk ' + side)).AddItem(t)
         return t
 
-    def rect(x0, y0, x1, y1, side='B'):
+    def rect(x0, y0, x1, y1, side='B', gname=None):
         s = pcb.PCB_SHAPE(b)
         s.SetShape(pcb.SHAPE_T_RECT)
         s.SetStart(at(x0, y0))
@@ -93,17 +100,28 @@ def main():
         s.SetWidth(pcb.FromMM(STROKE))
         s.SetLayer(pcb.B_SilkS if side == 'B' else pcb.F_SilkS)
         b.Add(s)
-        group('MAO silk ' + side).AddItem(s)
+        group(gname or ('MAO silk ' + side)).AddItem(s)
 
-    def line(x0, y0, x1, y1, side='B'):
+    def line(x0, y0, x1, y1, side='B', width=STROKE, gname=None):
         s = pcb.PCB_SHAPE(b)
         s.SetShape(pcb.SHAPE_T_SEGMENT)
         s.SetStart(at(x0, y0))
         s.SetEnd(at(x1, y1))
-        s.SetWidth(pcb.FromMM(STROKE))
+        s.SetWidth(pcb.FromMM(width))
         s.SetLayer(pcb.B_SilkS if side == 'B' else pcb.F_SilkS)
         b.Add(s)
-        group('MAO silk ' + side).AddItem(s)
+        group(gname or ('MAO silk ' + side)).AddItem(s)
+
+    def dot(x, y, r, side='B', gname=None):
+        s = pcb.PCB_SHAPE(b)
+        s.SetShape(pcb.SHAPE_T_CIRCLE)
+        s.SetCenter(at(x, y))
+        s.SetEnd(at(x + r - 0.05, y))
+        s.SetWidth(pcb.FromMM(0.1))
+        s.SetFilled(True)
+        s.SetLayer(pcb.B_SilkS if side == 'B' else pcb.F_SilkS)
+        b.Add(s)
+        group(gname or ('MAO silk ' + side)).AddItem(s)
 
     def pad(ref, num):
         p = next(p for p in fps[ref].Pads() if p.GetNumber() == num)
@@ -154,15 +172,18 @@ def main():
                 if p.IsOnLayer(lay):
                     pad_boxes[sd].append((mm(r.GetLeft()), mm(r.GetTop()), mm(r.GetRight()), mm(r.GetBottom())))
         if not f.GetReference().startswith('TP'):
-            bodies[side_of(f)] += courtyard_boxes(f)
+            bodies[side_of(f)] += [(q, f.GetReference()) for q in courtyard_boxes(f)]
         if f.GetReference().startswith('FID'):
             x, y = centre(f.GetReference())
-            bodies[side_of(f)].append((x - 2.05, y - 2.05, x + 2.05, y + 2.05))
+            bodies[side_of(f)].append(((x - 2.05, y - 2.05, x + 2.05, y + 2.05), f.GetReference()))
         for g in f.GraphicalItems():
             if g.GetLayer() in (pcb.F_SilkS, pcb.B_SilkS) and not isinstance(g, pcb.PCB_TEXT):
                 r = g.GetBoundingBox()
                 graphics['B' if g.GetLayer() == pcb.B_SilkS else 'F'].append(
                     (mm(r.GetLeft()), mm(r.GetTop()), mm(r.GetRight()), mm(r.GetBottom())))
+    sl = m.TAIL_SLOT                        # the display-tail slot: no silk within 0.5 mm of the cut
+    for sd in ('F', 'B'):
+        bodies[sd].append(((sl[0] - 0.5, sl[1] - 0.5, sl[2] + 0.5, sl[3] + 0.5), 'slot'))
     vias = {'F': [], 'B': []}               # silk never prints over a via (tented bumps read as noise)
     for t in b.GetTracks():
         if isinstance(t, pcb.PCB_VIA):
@@ -171,13 +192,13 @@ def main():
                 vias[sd].append((x - r, y - r, x + r, y + r))
     placed = {'F': [], 'B': []}
 
-    def why(bx, sd, text_gap=0.5):
+    def why(bx, sd, text_gap=0.5, inside=()):
         for q in pad_boxes[sd]:
             if overlap(bx, q, 0.2): return 'pad %s' % (tuple(round(v, 2) for v in q),)
-        for q in bodies[sd]:
-            if overlap(bx, q, 0.0): return 'body %s' % (tuple(round(v, 2) for v in q),)
-        for q in graphics[sd]:
-            if overlap(bx, q, 0.05): return 'silk %s' % (tuple(round(v, 2) for v in q),)
+        for q, owner in bodies[sd]:
+            if owner not in inside and overlap(bx, q, 0.0): return 'body %s %s' % (owner, tuple(round(v, 2) for v in q))
+        for q in graphics[sd]:              # the board rule min_silk_clearance
+            if overlap(bx, q, 0.15): return 'silk %s' % (tuple(round(v, 2) for v in q),)
         for q in vias[sd]:
             if overlap(bx, q, 0.05): return 'via %s' % (tuple(round(v, 2) for v in q),)
         for q in placed[sd]:
@@ -186,8 +207,8 @@ def main():
             return 'edge'
         return None
 
-    def clear(bx, sd):
-        return why(bx, sd) is None
+    def clear(bx, sd, inside=()):
+        return why(bx, sd, inside=inside) is None
 
     def measure(s_, x, y, sd, size=0.8, a_=0):
         """Box a text would take, from a text object that is never added to the board."""
@@ -212,24 +233,32 @@ def main():
                 out.append((d, x + d * math.cos(math.radians(a)), y + d * math.sin(math.radians(a))))
         return [(cx_, cy_, a_) for _, cx_, cy_ in sorted(out) for a_ in (0, 270)]
 
-    def label(s_, cands, sd, size=0.8, bold=False, angle=0, gname=None, anchor=None):
+    def label(s_, cands, sd, size=0.8, bold=False, angle=0, gname=None, anchor=None, inside=(), quiet=False):
         """First clear candidate (centre positions, optionally (x, y, angle)), then the nearest clear spot round
         `anchor` (x, y, r); the first candidate, flagged, if none."""
         cands = [c if len(c) == 3 else (c[0], c[1], angle) for c in cands]
         if anchor:
             cands = cands + ring(*anchor)
+        if quiet:                          # an easter egg: the first clear spot, or no egg at all
+            for x, y, a_ in cands:
+                if clear(measure(s_, x, y, sd, size, a_), sd, inside):
+                    t = text(s_, x, y, sd, size, angle=a_, bold=bold, gname=gname)
+                    placed[sd].append(tbox(t))
+                    return t
+            print('silk: easter egg %r skipped (no clear spot)' % s_)
+            return None
         t = text(s_, cands[0][0], cands[0][1], sd, size, angle=angle, bold=bold, gname=gname)
         for x, y, a_ in cands:
             t.SetPosition(at(x, y))
             t.SetTextAngle(pcb.EDA_ANGLE(a_, pcb.DEGREES_T))
-            if clear(tbox(t), sd):
+            if clear(tbox(t), sd, inside):
                 break
         else:
             reasons = []
             for x, y, a_ in cands:
                 t.SetPosition(at(x, y))
                 t.SetTextAngle(pcb.EDA_ANGLE(a_, pcb.DEGREES_T))
-                reasons.append('(%.1f,%.1f,%d) %s' % (x, y, a_, why(tbox(t), sd)))
+                reasons.append('(%.1f,%.1f,%d) %s' % (x, y, a_, why(tbox(t), sd, inside=inside)))
             t.SetPosition(at(cands[0][0], cands[0][1]))
             t.SetTextAngle(pcb.EDA_ANGLE(cands[0][2], pcb.DEGREES_T))
             print('silk: no clear spot for', repr(s_), '|', '; '.join(reasons))
@@ -241,49 +270,102 @@ def main():
     h = mark(BRAND_CENTRE, w, 'F')
     bx, by = BRAND_CENTRE
     placed['F'].append((bx - w / 2, by - h / 2, bx + w / 2, by + h / 2))
-    for s_, dy, size, bold in (('MAO', 1.3, 1.3, True), ('MAIN A0', 3.0, 0.9, False), (DATE, 4.35, 0.8, False)):
+    for s_, dy, size, bold in (('MAO', 1.45, IDENT, True), ('MAIN A0', 3.4, 1.0, False), (DATE, 4.85, 0.8, False)):
         t = text(s_, bx, by + h / 2 + dy, 'F', size, bold=bold, gname='ODD JOBS maker mark')
         placed['F'].append(tbox(t))
-    sy = by + h / 2 + 6.2                  # S/N field (ODD JOBS 101): the name, then a box for a sticker or laser mark
-    t = text('S/N', bx - 1.85, sy, 'F', 0.8)
-    placed['F'].append(tbox(t))
-    rect(bx - 0.2, sy - 0.8, bx + 3.05, sy + 0.8, 'F')
-    placed['F'].append((bx - 0.2, sy - 0.8, bx + 3.05, sy + 0.8))
+    # S/N field (ODD JOBS 101): a 6 x 6 mm box for a DataMatrix sticker or laser mark, its name above it, and
+    # JLC's order-number placeholder below (the fab prints its number there and nowhere else)
+    def sn_layout(sx_, sy_):
+        """Field, its name above, and the order-number placeholder below it (slid sideways round FID2)."""
+        e_ = STROKE / 2                    # the field's four edges (its inside may lie over tented vias)
+        field_ = [(sx_ - 3.0 - e_, sy_ - 3.0 - e_, sx_ + 3.0 + e_, sy_ - 3.0 + e_),
+                  (sx_ - 3.0 - e_, sy_ + 3.0 - e_, sx_ + 3.0 + e_, sy_ + 3.0 + e_),
+                  (sx_ - 3.0 - e_, sy_ - 3.0 - e_, sx_ - 3.0 + e_, sy_ + 3.0 + e_),
+                  (sx_ + 3.0 - e_, sy_ - 3.0 - e_, sx_ + 3.0 + e_, sy_ + 3.0 + e_),
+                  measure('S/N', sx_ - 2.2, sy_ - 3.95, 'F')]
+        for jx in (0.0, -0.5, -1.0, -1.5, 0.5, 1.0, -2.0, 1.5):
+            for jy in (3.8, 4.2):
+                jq = measure('JLCJLCJLCJLC', sx_ + jx, sy_ + jy, 'F')
+                if clear(jq, 'F'):
+                    return field_ + [jq], (sx_ + jx, sy_ + jy)
+        return field_ + [measure('JLCJLCJLCJLC', sx_, sy_ + 3.8, 'F')], (sx_, sy_ + 3.8)
+    for sx_, sy_ in SN_SPOTS:
+        boxes_, jxy = sn_layout(sx_, sy_)
+        if all(clear(q, 'F') for q in boxes_):
+            break
+    else:
+        sx_, sy_ = SN_SPOTS[0]
+        boxes_, jxy = sn_layout(sx_, sy_)
+        print('silk: S/N field: no clear 6 x 6 spot |', [why(q, 'F') for q in boxes_])
+    rect(sx_ - 3.0, sy_ - 3.0, sx_ + 3.0, sy_ + 3.0, 'F')
+    placed['F'].append((sx_ - 3.0, sy_ - 3.0, sx_ + 3.0, sy_ + 3.0))
+    for s_, x_, y_ in (('S/N', sx_ - 2.2, sy_ - 3.95), ('JLCJLCJLCJLC', jxy[0], jxy[1])):
+        placed['F'].append(tbox(text(s_, x_, y_, 'F', 0.8)))
 
     # ---- face side function labels --------------------------------------------------------------------
-    jx, jy = centre('J301')                # beside the FPC connector, on the side the tail comes from
-    label('LCD', [(jx - 4.0, jy, 90), (jx - 4.4, jy, 90), (jx - 1.6, jy - 7.0, 0), (jx - 1.6, jy + 7.0, 0)], 'F', 1.0)
     tx, ty = centre('J302')
-    label('TOP', [(tx, ty + 2.3), (tx - 0.4, ty - 2.2), (tx + 0.8, ty + 2.6), (tx - 2.6, ty + 1.6)], 'F')
-    label('ANTENNA  KEEP CLEAR', [(ANTENNA_TEXT[0], ANTENNA_TEXT[1])], 'F')
+    label('TOP', [(tx, ty + 2.6), (tx, ty - 2.6), (tx + 2.6, ty, 90), (tx - 2.6, ty, 90)], 'F', CONN,
+          anchor=(tx, ty, 1.6))
+    ny = m.NOTCH_Y
+    label('ANTENNA KEEP CLEAR', [(0.0, ny - 0.9), (0.0, ny - 1.2), (0.0, ny - 1.5)], 'F')
 
     # ---- back: maker's mark and product line beside the module, outside the cell (seen with the base off) --
-    bw = 2.0
-    bh = mark(B_MARK, bw, 'B')
-    placed['B'].append((B_MARK[0] - bw / 2, B_MARK[1] - bh / 2, B_MARK[0] + bw / 2, B_MARK[1] + bh / 2))
-    edge_x = B_MARK[0] - bw / 2 - 0.35     # the text block ends here (it reads from the back: mark first)
-    for s_, y_, size, bold in (('MAO MAIN A0', B_MARK[1] - 0.6, 0.8, True), (DATE, B_MARK[1] + 0.75, 0.8, False)):
-        t = text(s_, edge_x, y_, 'B', size, bold=bold)
-        x0, _, x1, _ = tbox(t)
-        t.SetPosition(at(edge_x - (x1 - x0) / 2, y_))
-        placed['B'].append(tbox(t))
+    bw = B_MARK_W                          # the back mark (4.6 mm: its finest strokes stay >= 0.15 mm), the product
+    bh = bw * (data['pixel_bounds'][3] - 1) / (data['pixel_bounds'][2] - 1)   # line centred under it
+    def block(cx_, cy_):
+        lines_ = [('MAO A0', cy_ + bh / 2 + 0.95, 1.0, True), (DATE, cy_ + bh / 2 + 2.4, 0.8, False)]
+        boxes_ = [(cx_ - bw / 2, cy_ - bh / 2, cx_ + bw / 2, cy_ + bh / 2)]
+        boxes_ += [measure(s_, cx_, y_, 'B', size) for s_, y_, size, _ in lines_]
+        return lines_, boxes_
+    spots = sorted(((x_, y_) for x_ in [B_MARK_AT[0] + 0.2 * k for k in range(-10, 11)]
+                    for y_ in [B_MARK_AT[1] + 0.2 * k for k in range(-10, 11)]),
+                   key=lambda p_: math.hypot(p_[0] - B_MARK_AT[0], p_[1] - B_MARK_AT[1]))
+    for cx_, cy_ in spots:
+        lines_, boxes_ = block(cx_, cy_)
+        if all(clear(q, 'B') for q in boxes_):
+            break
+    else:
+        cx_, cy_ = B_MARK_AT
+        lines_, boxes_ = block(cx_, cy_)
+        print('silk: back mark: no clear spot')
+    b_mark = (cx_, cy_)
+    mark(b_mark, bw, 'B')
+    placed['B'].append(boxes_[0])
+    for s_, y_, size, bold in lines_:
+        placed['B'].append(tbox(text(s_, cx_, y_, 'B', size, bold=bold, gname='ODD JOBS maker mark')))
 
     # ---- back: connectors with their pin cues -----------------------------------------------------------
-    label('USB', [(-4.4, -19.8), (-5.0, -18.2)], 'B', 1.0, bold=True)
+    label('USB', [(-4.4, -19.8), (-5.0, -18.2), (4.6, -19.8)], 'B', CONN, bold=True, anchor=(0.0, -21.0, 4.0))
     # battery plug: pin cues and name on the plug side, one aligned block (R108's link sits on the other)
     x2, _ = pad('J102', '2')
     t = text('- T +\nBAT', x2, 0.0, 'B', 0.8, bold=True)    # J102: 1 BAT- at the larger x, read first from the back
     _, y0_, _, _ = tbox(t)
-    t.SetPosition(at(x2, 0.0 + (-0.39 + 0.25) - y0_))       # top of the block 0.25 mm below the plug's body
+    base_y = 0.0 + (-0.39 + 0.25) - y0_                      # top of the block 0.25 mm below the plug's body
+    for dy_, dx_ in [(dy_ / 20, dx_ / 20) for dx_ in (0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6)   # a little lower
+                     for dy_ in range(0, 21)]:                                    # (or a hair sideways, still under each
+        t.SetPosition(at(x2 + dx_, base_y + dy_))                                 # pin) where a via sits there
+        if clear(tbox(t), 'B'):
+            break
+    else:
+        t.SetPosition(at(x2, base_y))
+        print('silk: battery pin cues: no clear spot |', why(tbox(t), 'B'), tuple(round(v, 2) for v in tbox(t)))
+        if os.environ.get('SILK_DEBUG_BAT'):
+            for dy_, dx_ in [(dy_, dx_) for dx_ in (0.0, 0.3, -0.3) for dy_ in (0.0, 0.45, 1.0)]:
+                t.SetPosition(at(x2 + dx_, base_y + dy_)); print('   ', dx_, dy_, why(tbox(t), 'B'))
+            t.SetPosition(at(x2, base_y))
     placed['B'].append(tbox(t))
-    sx, sy = centre('LS501')                # speaker: its name just past the 6 o'clock end of its outline
-    label('SPK', [(sx - 0.5, sy + 8.9), (sx - 1.0, sy + 8.9), (sx, sy + 9.2)], 'B')
+    sx, sy = centre('LS501')                # speaker: its name inside its outline, read before the part goes in
+    label('SPK', [(sx + dx_, sy + dy_, 270) for dx_ in (2.2, 1.6, 2.8) for dy_ in (-3.0, 3.0, -1.5, 1.5)], 'B', CONN,
+          inside=('LS501',), anchor=(sx, sy, 7.0))
     lx, ly = centre('J501')
-    label('LRA', [(lx - 2.05, ly + 2.3), (lx - 2.5, ly - 2.4), (lx + 1.25, ly + 3.5)], 'B')
+    label('LRA', [(lx - 2.05, ly + 2.3), (lx - 2.5, ly - 2.4), (lx + 1.25, ly + 3.5)], 'B', CONN, anchor=(lx, ly, 1.5))
     rx, ry = centre('J303')
-    label('REAR', [(rx, ry - 3.8), (rx - 0.6, ry - 3.8), (rx, ry - 4.2), (rx + 3.6, ry)], 'B')
+    label('REAR', [(rx, ry - 3.8), (rx - 0.6, ry - 3.8), (rx, ry - 4.2), (rx + 3.6, ry)], 'B', CONN, anchor=(rx, ry, 1.5))
+    jx, jy = centre('J301')                # display FPC on B: the name on the side the tail comes in from
+    label('LCD', [(jx - 2.9, jy, 270), (jx - 3.3, jy, 270), (jx + 2.6, jy, 270), (jx, jy - 6.6), (jx, jy + 6.6)],
+          'B', CONN, anchor=(jx, jy, 3.0))
     gx, gy = centre('J201')                # Tag-Connect: name along its module-side column
-    label('SERVICE', [(gx - 2.6, gy, 270), (gx - 0.3, gy + 3.65, 0), (gx + 2.5, gy, 270)], 'B')
+    label('TAG', [(gx - 2.6, gy, 270), (gx - 0.3, gy + 3.65, 0), (gx + 2.5, gy, 270)], 'B', CONN, anchor=(gx, gy, 2.6))
     kx, ky = centre('R108')
     label('BAT\nLINK', [(kx + 2.65, ky - 0.4), (kx + 2.8, ky - 0.4)], 'B')
 
@@ -293,7 +375,7 @@ def main():
     # a body or a via; the preferred side of each pad (FIELD_SPOT) wins where the field allows it.
     tps = sorted((r for r in fps if r.startswith('TP')), key=lambda r: int(r[2:]))
     def box_of(s_, x, y, a_, sd='B'):
-        return measure(s_, x, y, sd, 0.8, a_)
+        return measure(s_, x, y, sd, DEBUG, a_)
     options = {}
     shared = {r_: pair for pair in FIELD_SHARED for r_ in pair}
     for ref in [r for r in tps if r in FIELD and (r not in shared or r == shared[r][0])]:
@@ -341,7 +423,7 @@ def main():
     if best[1] is None:
         print('silk: service field labels: no complete arrangement')
     for ref, (cand, bx_) in (best[1] or {}).items():
-        t = text(fps[ref].GetValue(), cand[0], cand[1], 'B', 0.8, angle=cand[2])
+        t = text(fps[ref].GetValue(), cand[0], cand[1], 'B', DEBUG, angle=cand[2])
         placed['B'].append(tbox(t))
     for ref in tps:
         if ref in FIELD and best[1] and (ref in best[1] or (ref in shared and shared[ref][0] in best[1])):
@@ -352,7 +434,7 @@ def main():
         wd = 0.6 * len(f.GetValue()) + 0.2
         side_c = [(x + r + 0.68, y), (x - (r + 0.68), y)]          # vertical, beside the pad
         flat_c = [(x, y + r + 0.7), (x, y - (r + 0.7)), (x + r + 0.45 + wd / 2, y), (x - (r + 0.45 + wd / 2), y)]
-        label(f.GetValue(), flat_c + [(cx_, cy_, 270) for cx_, cy_ in side_c], 'B', anchor=(x, y, r))
+        label(f.GetValue(), [(cx_, cy_, 270) for cx_, cy_ in side_c] + flat_c, 'B', DEBUG, anchor=(x, y, r))
 
     # ---- face side: IMU axes (ODD JOBS 156), from ST AN5192 Fig. 1: pin 1 top left, +X towards pins 8-11,
     # +Y towards pins 12-14, +Z out of the top. U401 sits on F at 0 deg: +X = board +x, +Y = towards 12 o'clock.
@@ -374,6 +456,68 @@ def main():
                              (ox, oy - 1.5, ox - 0.3, oy - 1.15), (ox, oy - 1.5, ox + 0.3, oy - 1.15)):
         line(x0, y0, x1, y1, 'F')                                                   # arrow heads
 
+    # ---- easter eggs (module docstring): after every functional label, so they only take space left over -------
+    import eggart
+    EGG = 'MAO easter eggs'
+
+    def art_pts(lines_, dots_, ox, oy, sd):
+        mir = -1 if sd == 'B' else 1       # the back reads mirrored: flip x so the art faces the right way
+        L_ = [[(ox + mir * x_, oy + y_) for x_, y_ in pl] for pl in lines_]
+        D_ = [(ox + mir * x_, oy + y_, r_) for x_, y_, r_ in dots_]
+        return L_, D_
+
+    def art_box(L_, D_):
+        xs = [x_ for pl in L_ for x_, _ in pl] + [x_ + k_ * r_ for x_, _, r_ in D_ for k_ in (-1, 1)]
+        ys = [y_ for pl in L_ for _, y_ in pl] + [y_ + k_ * r_ for _, y_, r_ in D_ for k_ in (-1, 1)]
+        e = ART_STROKE / 2
+        return (min(xs) - e, min(ys) - e, max(xs) + e, max(ys) + e)
+
+    def draw_art(L_, D_, sd):
+        for pl in L_:
+            for (xa, ya), (xb, yb) in zip(pl, pl[1:]):
+                line(xa, ya, xb, yb, sd, ART_STROKE, EGG)
+        for x_, y_, r_ in D_:
+            dot(x_, y_, r_, sd, EGG)
+        placed[sd].append(art_box(L_, D_))
+
+    def grid(cx_, cy_, box_, step=0.4):
+        pts = [(box_[0] + i * step, box_[1] + j * step) for i in range(int((box_[2] - box_[0]) / step) + 1)
+               for j in range(int((box_[3] - box_[1]) / step) + 1)]
+        return sorted(pts, key=lambda p_: math.hypot(p_[0] - cx_, p_[1] - cy_))
+
+    face = (-14.0, -14.0, 14.0, 14.5)      # under the panel (outline r 17.8): seen only with the face lifted
+    cat_l, cat_d = eggart.sleeping_cat()
+    cat_l = cat_l + eggart.zzz()           # with its three z drifting up from the head, as line art
+    body_l = cat_l[:-3]                    # the cat without its z
+    def scaled(lines_, k):
+        return [[(x_ * k, y_ * k) for x_, y_ in pl] for pl in lines_], [(x_ * k, y_ * k, r_ * k) for x_, y_, r_ in cat_d]
+    spots = [(lines_, k, ox, oy) for lines_, k in ((cat_l, 1.0), (cat_l, 0.9), (body_l, 1.0), (body_l, 0.85))
+             for ox, oy in grid(*CAT_AT, face)]
+    for lines_, k, ox, oy in spots:
+        L_, D_ = art_pts(*scaled(lines_, k), ox, oy, 'F')
+        q = art_box(L_, D_)
+        if clear(q, 'F') and math.hypot(max(abs(q[0]), abs(q[2])), max(abs(q[1]), abs(q[3]))) < 17.0:
+            draw_art(L_, D_, 'F')
+            trail = 0                      # paw prints walking away from the tail while there is room
+            for px_, py_ in ((4.7, 1.25), (5.8, 0.25), (6.9, 1.05), (8.0, 0.05), (9.1, 0.85)):
+                pl_, pd_ = eggart.paw(px_ * k, py_ * k)
+                P_ = art_pts(pl_, pd_, ox, oy, 'F')
+                if not clear(art_box(*P_), 'F'):
+                    break
+                draw_art(*P_, 'F'); trail += 1
+            print('silk: easter egg: cat asleep under the face at (%.1f, %.1f), scale %.2f, %d paw prints' % (ox, oy, k, trail))
+            break
+    else:
+        print('silk: easter egg: sleeping cat skipped (no clear spot under the face)')
+    wx, wy = centre('SW301')               # face side, under the panel: the face switch is MAO's nose
+    label('boop', [], 'F', 0.8, gname=EGG, anchor=(wx, wy, 2.2), quiet=True)
+    label('meow', [(sx + dx_, sy + dy_, 270) for dx_ in (2.2, 1.6, 2.8, 0.8) for dy_ in (4.6, -4.6, 3.6, -3.6, 5.4, -5.4)],
+          'B', 0.8, gname=EGG, inside=('LS501',), quiet=True)          # under the speaker
+    qx, qy = centre('Q101')                # the reverse-polarity FET: a cell put in backwards is survived
+    label('9 lives', [], 'B', 0.8, gname=EGG, anchor=(qx, qy, 1.6), quiet=True)
+    label('MADE FOR\nBAD IDEAS', [(x_, y_) for x_, y_ in grid(*BAD_IDEAS_AT, face, 0.4)][:1500], 'F', 0.8, gname=EGG,
+          quiet=True)
+
     tb = b.GetTitleBlock()                 # drawings plotted from the board (assembly PDFs) carry the identity too
     tb.SetTitle('MAO_MAIN A0')
     tb.SetRevision('A0')
@@ -386,7 +530,7 @@ def main():
     project.write()
     rec = {'source': data['source'], 'source_sha256': data['source_sha256'], 'colour': 'white',
            'placements': [{'layer': 'F.SilkS', 'width_mm': w, 'height_mm': round(h, 3), 'centre_mm': list(BRAND_CENTRE)},
-                          {'layer': 'B.SilkS (mirrored to read from the back)', 'width_mm': 3.2, 'centre_mm': list(B_MARK)}],
+                          {'layer': 'B.SilkS (mirrored to read from the back)', 'width_mm': bw, 'centre_mm': list(b_mark)}],
            'artwork_licence': data['license']}
     (ROOT / 'outputs' / 'BRAND-PLACEMENT.json').write_text(json.dumps(rec, indent=2) + '\n')
     print('silk: %d items' % sum(len(list(g.GetItems())) for g in groups.values()))
@@ -397,8 +541,12 @@ FIELD_GAP = 0.5                    # between two service-field names (as everywh
 FIELD_SHARED = [('TP1', 'TP16')]   # the row-2 ground pair: one GND name between them
 FIELD_SPOT = {ref: [('side', 1)] for ref in ('TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP8', 'TP9', 'TP10', 'TP11', 'TP16')}
 BRAND_CENTRE = (-6.6, 8.6)       # F, under the module's left half: the calmest free field on the face side
-ANTENNA_TEXT = (3.4, 21.5)       # F, along the notch, beside the identity column
-B_MARK = (19.4, 12.0)            # B, beside the module's right column, below the cell: seen when the base is off
+SN_SPOTS = [(x_ / 10, y_ / 10) for y_ in (140, 142, 138, 144, 136, 146) for x_ in (0, 2, -2, 4, -4, 6, -6, 8, -8)]
+                                 # F: centre of the 6 x 6 mm S/N field (the back has no clear 6 x 6 field)
+B_MARK_W = 4.6                   # B mark width: the artwork's finest strokes (0.07 mm at 2 mm) reach 0.16 mm
+B_MARK_AT = (15.6, 9.6)          # B, east of the module, outside the cell: the one clear field on the back
+CAT_AT = (-4.3, -7.7)            # F, under the panel: preferred centre of the sleeping cat
+BAD_IDEAS_AT = (6.0, 6.0)        # F, under the panel: preferred spot of the ODD JOBS line (rule 175), two lines
 
 if __name__ == '__main__':
     if '--build' not in sys.argv:

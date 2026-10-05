@@ -18,6 +18,7 @@ Writes hardware/mao/outputs/fab/:
 The board file is read, never saved. Every BOM line must carry an LCSC number (asserted).
 """
 import csv
+import json
 import os
 import shutil
 import subprocess
@@ -51,32 +52,37 @@ BOARD
   Via-in-pad: choose epoxy-filled and capped (POFV) if JLC offers it for this order; otherwise
   tented / unplugged is acceptable for A0. Min track 0.15 mm, min clearance 0.15 mm: JLC standard
   4-layer capability.
-- Milled outline incl. the antenna notch with 1.0 mm inner radii. No V-score. Order single boards. If the
-  assembly needs a panel or rails, put two breakaway tabs at about 2 o'clock (57 deg clockwise from the
-  USB-C) and 8 o'clock (235 deg): the only rim spots with >= 3 mm to every pad, track, part and keep-out.
-  Never at 3 or 9 o'clock (touch electrode arcs at the rim), 12 (USB-C, IR LEDs) or 6 (antenna notch).
-- Remove order number, or place it in the S/N box on the face side (marked "S/N", beside the maker's mark).
+- Milled outline incl. the antenna notch with 1.0 mm inner radii, and one internal slot for the display's FPC
+  tail at 9 o'clock: 1.0 x 11.5 mm with round ends, centred 18.8 mm left of the board centre (Edge.Cuts,
+  non-plated, no copper within 0.25 mm). No V-score. Order single boards. If the assembly needs a panel or
+  rails, put two breakaway tabs at {tabs}: the rim spots with the most room to every pad, track,
+  part and keep-out. Never at 3 or 9 o'clock (touch electrode arcs at the rim, the tail slot), 12 (USB-C,
+  IR LEDs) or 6 (antenna notch).
+- Order number: print it only where the face-side silkscreen reads JLCJLCJLCJLC (under the 6 x 6 mm S/N
+  field). Select "Specify a location" when ordering.
 
 ASSEMBLY (JLC PCBA, both sides)
-- Top (F.Cu) first: display support, IMU, face switch, window sensors, Hall sensors, ESD. Then bottom
-  (B.Cu): module, power, audio, haptics, USB-C, battery connector.
+- Top (F.Cu) first: charger, display rail switch, IMU, face switch, window sensors, Hall sensors, ESD.
+  Then bottom (B.Cu): module, buck-boost, gauge, expander, backlight driver, display connector, audio,
+  haptics, USB-C, battery connector.
 - USB-C J101 has 4 through-hole shell legs: hand-solder or select THT assembly.
 - Footprints without a part: test pads TP1-TP11 and TP13-TP16, Tag-Connect J201 (cable footprint), touch
   electrodes E301/E302 (copper arcs), speaker contact pads LS501 (the Same Sky CMS-150803-088S-X8 speaker is
   bought separately; the enclosure presses its spring contacts on them). Springs J302, J303 (BW0019BG, SMT) ARE
-  fitted. LRA (J501) is wired by hand after assembly. Display connector J301 (HDGC 0.5K-HX-18PWB, 18-pin 0.5 mm back-flip FPC, LCSC
-  C2919497) IS fitted; the panel plugs into it after assembly (no soldering), contacts either way up.
+  fitted. LRA (J501) is wired by hand after assembly. Display connector J301 (HDGC 0.5K-HX-18PWB, 18-pin 0.5 mm
+  back-flip FPC, LCSC C2919497) IS fitted, on the bottom side with its entry facing the tail slot; the panel's
+  tail passes through the slot and plugs in after assembly (no soldering), contacts either way up.
 - DNP: R110 (battery NTC substitute, fit only for a 2-wire cell).
 - Fiducials: FID1-3 front, FID4-6 back (1 mm copper, 2 mm mask opening).
-- Assembly drawing: ASSEMBLY-MAO_MAIN_A0-top.pdf / -bottom.pdf (every reference). Resistors, capacitors and
-  seven parts with no clear silk spot (U102, U103, U104, Q101, Q501, D101, U301) are identified there only;
-  the silkscreen carries the other ICs, connectors, transistors and diodes, and the test-pad names.
+- Assembly drawing: ASSEMBLY-MAO_MAIN_A0-top.pdf / -bottom.pdf (every reference). Resistors and capacitors
+  that no procedure names{unplaced} are identified there only; the silkscreen carries the other ICs,
+  connectors, transistors and diodes, the service resistors and capacitors, and the test-pad names.
 - Placement file: KiCad rotations. Check every polarised part and pin 1 in JLC's preview, bottom side
-  mirrored: SOT-23 (Q101, Q301, Q501), SOT-23-6 (U105), SOT-553 (U101), VQFN/TQFN/TDFN/VSON (U102, U103,
-  U104, U202, U501), LGA (U401), DFN (U403), VL53L4CD (U402), SPH0641 (MK401), DRV5012 (U301, U302),
-  diodes (D101, D301-D304), LEDs (D501, D502), JST SH (J102), USB-C (J101), FPC connector (J301: pin 1
-  towards 12 o'clock, FPC entry towards the rim at 9 o'clock), module (U201).
-- X-ray if offered: U102, U104, U202, U501 (exposed pads), U401 (LGA), U201.
+  mirrored: SOT-23 (Q101, Q501), SC70-6 (U105), SOT-553 (U101), VQFN/TQFN/TDFN/VSON (U102, U103,
+  U104, U202, U501), DFN-8 2 x 2 (U303), LGA (U401), DFN (U403), VL53L4CD (U402), SPH0641 (MK401), DRV5012
+  (U301, U302), diodes (D101, D301-D304), LEDs (D501, D502), JST SH (J102), USB-C (J101), FPC connector (J301,
+  bottom: pad 1 towards 6 o'clock, FPC entry towards the slot at 9 o'clock), module (U201).
+- X-ray if offered: U102, U104, U202, U303, U501 (exposed pads), U401 (LGA), U201.
 """
 
 
@@ -146,9 +152,14 @@ def main():
     vias = [t for t in b.GetTracks() if isinstance(t, pcb.PCB_VIA)]
     n_th = sum(1 for f in fps.values() for p in f.Pads()
                if p.GetAttribute() == pcb.PAD_ATTRIB_PTH and p.GetDrillSize().x < pcb.FromMM(0.25))
+    lab_json = OUTPUTS / 'ASSEMBLY-LABELS.json'
+    unplaced = json.loads(lab_json.read_text()).get('without_silk_spot', []) if lab_json.exists() else []
+    tabs_json = OUTPUTS / 'PANEL-TABS.json'
+    tabs = json.loads(tabs_json.read_text())['text'] if tabs_json.exists() else 'the spots in outputs/PANEL-TABS.json'
     (OUT / 'FAB-NOTES.txt').write_text(NOTES.format(
         n_std=sum(1 for v in vias if v.GetDrillValue() >= pcb.FromMM(0.3)),
-        n_fan=sum(1 for v in vias if v.GetDrillValue() < pcb.FromMM(0.3)), n_th=n_th))
+        n_fan=sum(1 for v in vias if v.GetDrillValue() < pcb.FromMM(0.3)), n_th=n_th,
+        unplaced=(', and %s (no clear silk spot)' % ', '.join(unplaced)) if unplaced else '', tabs=tabs))
     n = sum(len(l['refs']) for l in lines.values())
     print('fab: gerbers %d files, drill %d files, BOM %d lines / %d parts, CPL %d rows' % (
         len(list((OUT / 'gerbers').iterdir())), len(list((OUT / 'drill').iterdir())), len(lines), n, len(rows)), flush=True)

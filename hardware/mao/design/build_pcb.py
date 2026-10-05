@@ -107,6 +107,14 @@ def draw_outline(board):
     c45 = f * (1 - math.sqrt(0.5))
     arc(board, (hw, ny + f), (hw - c45, ny + c45), (hw - f, ny), pcb.Edge_Cuts, 0.05)
     arc(board, (-hw + f, ny), (-hw + c45, ny + c45), (-hw, ny + f), pcb.Edge_Cuts, 0.05)
+    # display tail slot at 9 o'clock: a routed 1.0 mm slot with round ends, just outside the panel edge
+    x0, y0, x1, y1 = m.TAIL_SLOT
+    r = (x1 - x0) / 2
+    xc = (x0 + x1) / 2
+    seg(board, (x0, y0 + r), (x0, y1 - r), pcb.Edge_Cuts, 0.05)
+    seg(board, (x1, y0 + r), (x1, y1 - r), pcb.Edge_Cuts, 0.05)
+    arc(board, (x0, y1 - r), (xc, y1), (x1, y1 - r), pcb.Edge_Cuts, 0.05)
+    arc(board, (x1, y0 + r), (xc, y0), (x0, y0 + r), pcb.Edge_Cuts, 0.05)
 
 
 def zone(board, net, layers, pts, priority=0, clearance=0.2, name='', thermal=True, min_w=0.2):
@@ -154,6 +162,7 @@ def keepout(board, layers, pts, name, tracks=True, vias=True, pads=True, pours=T
     z.SetDoNotAllowFootprints(footprints)
     z.SetZoneName(name)
     board.Add(z)
+    return z
 
 
 def circle_pts(cx, cy, r, n=24):
@@ -175,9 +184,12 @@ def trim_silk(board, margin=0.25):
     """Footprint silk that would cross the board edge (the module's antenna outline over the notch,
     the USB-C body lines at the rim) is cut back to `margin` inside it: the fab would clip it anyway,
     and a clipped line reads as a mistake (ODD JOBS 94). Pieces shorter than 0.3 mm go."""
+    sx0, sy0, sx1, sy1 = m.TAIL_SLOT
+
     def inside(x, y):
         return (math.hypot(x, y) <= m.PCB_R - margin
-                and not (abs(x) < m.NOTCH_W / 2 + margin and y > m.NOTCH_Y - margin))
+                and not (abs(x) < m.NOTCH_W / 2 + margin and y > m.NOTCH_Y - margin)
+                and not (sx0 - margin < x < sx1 + margin and sy0 - margin < y < sy1 + margin))
     n = 0
     for f in board.GetFootprints():
         for g in list(f.GraphicalItems()):
@@ -305,11 +317,32 @@ def build():
     mx0, my0 = m.MODULE_W / 2 - 1.6, m.MODULE_CY - m.MODULE_L / 2 + 2.4
     keepout(board, [pcb.B_Cu], [(-mx0, my0), (mx0, my0), (mx0, m.ANTENNA_EDGE_Y), (-mx0, m.ANTENNA_EDGE_Y)],
             'MODULE UNDERSIDE', tracks=True, vias=False, pads=False, pours=False)
-    # Fasteners: copper-free rings around the screws and the peg, both faces (ODD JOBS 68).
+    # Fasteners: copper-free rings around the screws and the peg, both faces (ODD JOBS 68, 69), and part-free
+    # areas for the chassis boss on F and the screw head on B (ODD JOBS 68, 70; mechanical.py).
     for a in m.SCREW_ANGLES + (m.PEG_ANGLE,):
         cx, cy = m.polar(m.MOUNT_R, a)
         keepout(board, allcu, circle_pts(cx, cy, m.MOUNT_KEEPOUT_D / 2), 'FASTENER %d' % int(a),
                 pads=False, footprints=False)
+        df, db = ((m.PEG_KEEPOUT_D, m.PEG_KEEPOUT_D_B) if a == m.PEG_ANGLE else
+                  (m.BOSS_KEEPOUT_D_F, m.HEAD_KEEPOUT_D_B))
+        for layer, d, name in ((pcb.F_Cu, df, 'BOSS'), (pcb.B_Cu, db, 'SCREW HEAD')):
+            z = keepout(board, [layer], circle_pts(cx, cy, d / 2, 32), '%s %d' % (name, int(a)),
+                        tracks=False, vias=False, pads=False, pours=False, footprints=True)
+            hole = pcb.SHAPE_LINE_CHAIN()
+            for x, y in reversed(circle_pts(cx, cy, 2.55, 32)):     # the hole's own footprint stays out of it
+                hole.Append(MM(x + ORIGIN), MM(y + ORIGIN))
+            hole.SetClosed(True)
+            z.Outline().AddHole(hole)
+    # Display tail: no part between the slot and J301 on B, none on the slot's inboard side on F.
+    for layer, (x0, y0, x1, y1), name in ((pcb.B_Cu, m.TAIL_CORRIDOR, 'TAIL CORRIDOR'),
+                                         (pcb.F_Cu, m.TAIL_F_CLEAR, 'TAIL CLEAR')):
+        keepout(board, [layer], [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], name,
+                tracks=False, vias=False, pads=False, pours=False, footprints=True)
+    # Antenna fringe: no tracks along the notch boundary on the outer layers (ODD JOBS 2, 3, 125); vias for
+    # ground stitching stay allowed.
+    hwf = m.NOTCH_W / 2 + m.ANTENNA_COPPER_SETBACK
+    keepout(board, [pcb.F_Cu, pcb.B_Cu], [(-hwf, ny - 0.6), (hwf, ny - 0.6), (hwf, ny), (-hwf, ny)],
+            'ANTENNA FRINGE', tracks=True, vias=False, pads=False, pours=False)
     # Fiducials need 0.6 mm of bare laminate around the 1 mm dot, and the Tag-Connect and mic-port
     # holes need the 0.25 mm hole clearance; the routers model only the 0.15 mm board rule, so these
     # rules become keep-outs they can see (USB-C pegs and screw holes are already covered).
@@ -340,7 +373,7 @@ def build():
                 (p.SetLocalZoneConnection if hasattr(p, 'SetLocalZoneConnection') else p.SetZoneConnection)(
                     pcb.ZONE_CONNECTION_FULL)
 
-    edge = outline_points(inset=0.3)
+    edge = outline_points(inset=m.POUR_EDGE)
     zone(board, 'GND', [pcb.In1_Cu], edge, priority=0, name='GND PLANE', thermal=False)
     zone(board, 'GND', [pcb.F_Cu, pcb.B_Cu], edge, priority=0, name='GND POUR')
     # L3: +3V3 everywhere by default, the travelling rails in their own regions above it (power_regions.py)

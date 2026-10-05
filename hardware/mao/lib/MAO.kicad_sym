@@ -95,6 +95,147 @@
 		)
 		(embedded_fonts no)
 	)
+	(symbol "AW9364"
+		(pin_names (offset 0.762))
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(property "Reference" "U"
+			(at -10.16 13.97 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Value" "AW9364"
+			(at -10.16 -8.89 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+			)
+		)
+		(property "Footprint" ""
+			(at 0 0 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(property "Description" "AW9364 4-channel low-dropout LED current sink, 20 mA per channel, 1-wire 16-step dimming"
+			(at 0 0 0)
+			(effects
+				(font (size 1.27 1.27))
+				(hide yes)
+			)
+		)
+		(symbol "AW9364_0_1"
+			(rectangle
+				(start -10.16 12.7)
+				(end 10.16 -7.62)
+				(stroke (width 0.254) (type default))
+				(fill (type background))
+			)
+		)
+		(symbol "AW9364_1_1"
+			(pin power_in line
+				(at -12.7 10.16 0)
+				(length 2.54)
+				(name "VIN" (effects
+	(font (size 1.27 1.27))
+))
+				(number "3" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin input line
+				(at -12.7 7.62 0)
+				(length 2.54)
+				(name "EN" (effects
+	(font (size 1.27 1.27))
+))
+				(number "2" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 10.16 180)
+				(length 2.54)
+				(name "LED1" (effects
+	(font (size 1.27 1.27))
+))
+				(number "8" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 7.62 180)
+				(length 2.54)
+				(name "LED2" (effects
+	(font (size 1.27 1.27))
+))
+				(number "7" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 5.08 180)
+				(length 2.54)
+				(name "LED3" (effects
+	(font (size 1.27 1.27))
+))
+				(number "6" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 12.7 2.54 180)
+				(length 2.54)
+				(name "LED4" (effects
+	(font (size 1.27 1.27))
+))
+				(number "5" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin power_in line
+				(at -5.08 -10.16 90)
+				(length 2.54)
+				(name "PGND" (effects
+	(font (size 1.27 1.27))
+))
+				(number "1" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin power_in line
+				(at 0 -10.16 90)
+				(length 2.54)
+				(name "AGND" (effects
+	(font (size 1.27 1.27))
+))
+				(number "4" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 5.08 -10.16 90)
+				(length 2.54)
+				(name "EP" (effects
+	(font (size 1.27 1.27))
+))
+				(number "9" (effects
+	(font (size 1.27 1.27))
+))
+			)
+		)
+	)
 	(symbol "DRV5012"
 		(pin_names (offset 0.762))
 		(exclude_from_sim no)
@@ -1188,14 +1329,14 @@
 		(in_bom yes)
 		(on_board yes)
 		(property "Reference" "J"
-			(at -10.16 21.59 0)
+			(at -12.7 21.59 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left bottom)
 			)
 		)
 		(property "Value" "ROUND_LCD_FPC18"
-			(at -10.16 -19.05 0)
+			(at -12.7 -19.05 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left top)
@@ -1224,177 +1365,27 @@
 		)
 		(symbol "ROUND_LCD_FPC18_0_1"
 			(rectangle
-				(start -10.16 20.32)
-				(end 10.16 -17.78)
+				(start -12.7 20.32)
+				(end 12.7 -17.78)
 				(stroke (width 0.254) (type default))
 				(fill (type background))
 			)
 		)
 		(symbol "ROUND_LCD_FPC18_1_1"
 			(pin passive line
-				(at -12.7 17.78 0)
+				(at -15.24 17.78 0)
 				(length 2.54)
-				(name "TP_INT" (effects
+				(name "TP_INT/P1" (effects
 	(font (size 1.27 1.27))
 ))
-				(number "1" (effects
+				(number "18" (effects
 	(font (size 1.27 1.27))
 ))
 			)
 			(pin passive line
-				(at -12.7 15.24 0)
+				(at -15.24 15.24 0)
 				(length 2.54)
-				(name "TP_SDA" (effects
-	(font (size 1.27 1.27))
-))
-				(number "2" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at -12.7 12.7 0)
-				(length 2.54)
-				(name "TP_SCL" (effects
-	(font (size 1.27 1.27))
-))
-				(number "3" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at -12.7 10.16 0)
-				(length 2.54)
-				(name "TP_RST" (effects
-	(font (size 1.27 1.27))
-))
-				(number "4" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at -12.7 7.62 0)
-				(length 2.54)
-				(name "TP_GND" (effects
-	(font (size 1.27 1.27))
-))
-				(number "5" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at -12.7 5.08 0)
-				(length 2.54)
-				(name "TP_VDD" (effects
-	(font (size 1.27 1.27))
-))
-				(number "6" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 17.78 180)
-				(length 2.54)
-				(name "VLED+" (effects
-	(font (size 1.27 1.27))
-))
-				(number "7" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 15.24 180)
-				(length 2.54)
-				(name "VLED-" (effects
-	(font (size 1.27 1.27))
-))
-				(number "8" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 12.7 180)
-				(length 2.54)
-				(name "GND" (effects
-	(font (size 1.27 1.27))
-))
-				(number "9" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 10.16 180)
-				(length 2.54)
-				(name "CS" (effects
-	(font (size 1.27 1.27))
-))
-				(number "10" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 7.62 180)
-				(length 2.54)
-				(name "SCL" (effects
-	(font (size 1.27 1.27))
-))
-				(number "11" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 5.08 180)
-				(length 2.54)
-				(name "SDA" (effects
-	(font (size 1.27 1.27))
-))
-				(number "12" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 2.54 180)
-				(length 2.54)
-				(name "RS" (effects
-	(font (size 1.27 1.27))
-))
-				(number "13" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 0 180)
-				(length 2.54)
-				(name "TE" (effects
-	(font (size 1.27 1.27))
-))
-				(number "14" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 -2.54 180)
-				(length 2.54)
-				(name "~{RESET}" (effects
-	(font (size 1.27 1.27))
-))
-				(number "15" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 -5.08 180)
-				(length 2.54)
-				(name "VCI" (effects
-	(font (size 1.27 1.27))
-))
-				(number "16" (effects
-	(font (size 1.27 1.27))
-))
-			)
-			(pin passive line
-				(at 12.7 -7.62 180)
-				(length 2.54)
-				(name "NC" (effects
+				(name "TP_SDA/P2" (effects
 	(font (size 1.27 1.27))
 ))
 				(number "17" (effects
@@ -1402,12 +1393,162 @@
 ))
 			)
 			(pin passive line
-				(at 12.7 -10.16 180)
+				(at -15.24 12.7 0)
 				(length 2.54)
-				(name "GND" (effects
+				(name "TP_SCL/P3" (effects
 	(font (size 1.27 1.27))
 ))
-				(number "18" (effects
+				(number "16" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at -15.24 10.16 0)
+				(length 2.54)
+				(name "TP_RST/P4" (effects
+	(font (size 1.27 1.27))
+))
+				(number "15" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at -15.24 7.62 0)
+				(length 2.54)
+				(name "TP_GND/P5" (effects
+	(font (size 1.27 1.27))
+))
+				(number "14" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at -15.24 5.08 0)
+				(length 2.54)
+				(name "TP_VDD/P6" (effects
+	(font (size 1.27 1.27))
+))
+				(number "13" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 17.78 180)
+				(length 2.54)
+				(name "VLED+/P7" (effects
+	(font (size 1.27 1.27))
+))
+				(number "12" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 15.24 180)
+				(length 2.54)
+				(name "VLED-/P8" (effects
+	(font (size 1.27 1.27))
+))
+				(number "11" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 12.7 180)
+				(length 2.54)
+				(name "GND/P9" (effects
+	(font (size 1.27 1.27))
+))
+				(number "10" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 10.16 180)
+				(length 2.54)
+				(name "CS/P10" (effects
+	(font (size 1.27 1.27))
+))
+				(number "9" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 7.62 180)
+				(length 2.54)
+				(name "SCL/P11" (effects
+	(font (size 1.27 1.27))
+))
+				(number "8" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 5.08 180)
+				(length 2.54)
+				(name "SDA/P12" (effects
+	(font (size 1.27 1.27))
+))
+				(number "7" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 2.54 180)
+				(length 2.54)
+				(name "RS/P13" (effects
+	(font (size 1.27 1.27))
+))
+				(number "6" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 0 180)
+				(length 2.54)
+				(name "TE/P14" (effects
+	(font (size 1.27 1.27))
+))
+				(number "5" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 -2.54 180)
+				(length 2.54)
+				(name "~{RESET}/P15" (effects
+	(font (size 1.27 1.27))
+))
+				(number "4" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 -5.08 180)
+				(length 2.54)
+				(name "VCI/P16" (effects
+	(font (size 1.27 1.27))
+))
+				(number "3" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 -7.62 180)
+				(length 2.54)
+				(name "NC/P17" (effects
+	(font (size 1.27 1.27))
+))
+				(number "2" (effects
+	(font (size 1.27 1.27))
+))
+			)
+			(pin passive line
+				(at 15.24 -10.16 180)
+				(length 2.54)
+				(name "GND/P18" (effects
+	(font (size 1.27 1.27))
+))
+				(number "1" (effects
 	(font (size 1.27 1.27))
 ))
 			)

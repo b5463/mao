@@ -14,10 +14,10 @@
     },
     {
       "layer": "B.SilkS (mirrored to read from the back)",
-      "width_mm": 3.2,
+      "width_mm": 4.6,
       "centre_mm": [
-        19.4,
-        12.0
+        15.4,
+        9.2
       ]
     }
   ],

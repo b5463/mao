@@ -43,6 +43,7 @@ def tol(v, pct):
 PMOS_AO3401A = '.model AO3401A PMOS(LEVEL=1 VTO=-0.9 KP=6 RD=0.01 RS=0.01 IS=1e-12 N=1.1)'
 NMOS_AO3400A = '.model AO3400A NMOS(LEVEL=1 VTO=1.05 KP=15 RD=0.005 RS=0.005)'
 NMOS_OD = '.model NOD NMOS(LEVEL=1 VTO=0.8 KP=0.05)'   # I2C open-drain driver, ~20 ohm at 3.3 V
+V33 = 3.18                     # +3V3 rail: TPS63802 FB 536k / 100k -> 0.5 V x 6.36 (Winstar VCI max 3.3 V)
 
 
 def white_led(name, vf20):
@@ -118,10 +119,10 @@ def s2_rpp():
                     '.op', ['v(vbat)', 'v(cell_d)'])
         drops.append((vc, r['v(cell_d)'][0] - r['v(vbat)'][0]))
     res['discharge_drop_mV_at_0.6A'] = {('%.1fV' % a): round(b * 1e3, 1) for a, b in drops}
-    # (b) charge: 297 mA from VBAT into the cell through the channel (reverse conduction)
-    r = ngs.run(base + ['Vcell cell 0 3.0', 'Rint cell cell_d 0.15', 'Ichg 0 vbat 0.297'],
+    # (b) charge: 227 mA (ISET 4.3k, KISET max) from VBAT into the cell through the channel (reverse conduction)
+    r = ngs.run(base + ['Vcell cell 0 3.0', 'Rint cell cell_d 0.15', 'Ichg 0 vbat 0.227'],
                 '.op', ['v(vbat)', 'v(cell_d)'])
-    res['charge_drop_mV_at_297mA_VBAT3.0'] = round((r['v(vbat)'][0] - r['v(cell_d)'][0]) * 1e3, 1)
+    res['charge_drop_mV_at_227mA_VBAT3.0'] = round((r['v(vbat)'][0] - r['v(cell_d)'][0]) * 1e3, 1)
     # (c) reversed cell, battery only: leakage into the system
     r = ngs.run(base + ['Vcell cell 0 -4.2', 'Rint cell cell_d 0.15', 'Rsys vbat 0 1k'],
                 '.op', ['v(vbat)', 'i(vcell)'])
@@ -160,39 +161,43 @@ def s2_rpp():
 
 
 # ------------------------------------------------------------------------------------------------
-# S3  Backlight current by panel Vf bin and 3V3 tolerance (two LEDs in parallel, R303, Q301)
+# S3  Backlight: panel LEDs (two in parallel) from VSYS into the AW9364 sinks LED1+LED2 (2 x 20 mA, step 1)
 # ------------------------------------------------------------------------------------------------
-def s3_backlight(r303=10.0, tag=''):
-    rows = []
-    for vf in (2.8, 3.0, 3.2):
-        for v33 in (3.25, 3.30, 3.35):
-            net = ['* BL', white_led('WL', vf), NMOS_AO3400A,
-                   'V33 v33 0 %g' % v33, 'Rsw v33 vled 0.08',            # TPS22917 80 mohm
-                   'D1 vled k WL', 'D2 vled k WL', 'R303 k d %g' % r303,
-                   'M1 d g 0 0 AO3400A', 'Vg g 0 3.3']
-            r = ngs.run(net, '.op', ['i(v33)'])
-            rows.append({'vf_bin': vf, 'v33': v33, 'I_mA': round(-r['i(v33)'][0] * 1e3, 1)})
-    return rows
+AW_DROPOUT = 0.05 / 0.02       # AW9364 datasheet: 50 mV dropout at 20 mA per sink -> ~2.5 ohm per sink below it
+
+
+def s3_backlight(vf, vsys):
+    """Panel current (mA) at full scale for one LED bin (Vf at 20 mA each) and VSYS."""
+    net = ['* BL', white_led('WL', vf), 'Vs vs 0 %g' % vsys, 'D1 vs k WL', 'D2 vs k WL',
+           # LED1 + LED2 sinks in parallel: 40 mA regulated, resistive (1.25 ohm) below the dropout
+           'B1 k 0 I=min(0.040, max(v(k), 0) / %g)' % (AW_DROPOUT / 2)]
+    r = ngs.run(net, '.op', ['i(vs)'])
+    return round(-r['i(vs)'][0] * 1e3, 1)
 
 
 def s3():
-    res = {'R303_10R': s3_backlight(10.0), 'R303_6.8R': s3_backlight(6.8), 'R303_4.7R': s3_backlight(4.7)}
-    res['firmware_ceiling_pct'] = 80
-    res['worst_average_mA'] = round(max(r['I_mA'] for r in res['R303_10R']) * 0.8, 1)
-    res['verdict'] = verdict(res['worst_average_mA'] <= 40.0)
-    for k, rows in [(k, v) for k, v in res.items() if k.startswith('R303')]:
-        res[k + '_summary'] = {('Vf%.1f' % vf): [r['I_mA'] for r in rows if r['vf_bin'] == vf]
-                               for vf in (2.8, 3.0, 3.2)}
-    fig, ax = plt.subplots(figsize=(6.6, 3.4))
-    xs = [3.25, 3.30, 3.35]
-    for vf, col in ((2.8, '#27ae60'), (3.0, '#2e86c1'), (3.2, '#c0392b')):
-        for key, ls in (('R303_10R', '-'), ('R303_6.8R', '--')):
-            ys = [r['I_mA'] for r in res[key] if r['vf_bin'] == vf]
-            ax.plot(xs, ys, ls, color=col, marker='o', ms=3,
-                    label='Vf %.1f V bin, %s' % (vf, key.split('_')[1]))
-    ax.axhline(40, color='k', lw=.8, ls=':'); ax.text(3.251, 41, 'panel spec 40 mA', fontsize=7)
-    ax.set_xlabel('3V3 rail (V)'); ax.set_ylabel('backlight current at 100 % PWM (mA)')
-    ax.set_title('S3 · backlight at 100 % PWM by panel LED bin (10 Ω fitted; 6.8 Ω dashed)')
+    vsys = [3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4]
+    res = {'sink': 'AW9364 LED1+LED2 tied: 2 x 20 mA at step 1; the panel spec allows 40 mA (3.0/3.2/3.4 V)'}
+    curves = {}
+    for vf in (3.0, 3.2, 3.4):
+        curves['Vf%.1f' % vf] = [s3_backlight(vf, v) for v in vsys]
+    res['I_mA_by_VSYS'] = {'VSYS': vsys, **curves}
+    res['I_max_mA'] = max(max(c) for c in curves.values())
+    res['part_tolerance'] = 'AW9364DNR +-17.5 %: 33-47 mA at step 1, 23.5 mA per LED at worst (panel: 40 mA typ)'
+    # full brightness held down to VSYS: the lowest VSYS still giving >= 36 mA (90 %) on the high-Vf bin
+    hi = curves['Vf3.4']
+    res['VSYS_for_90pct_on_3V4_bin'] = next((v for v, i in zip(vsys, hi) if i >= 36.0), None)
+    res['driver_dissipation_mW_at_4V4'] = round(40 * (4.4 - 3.0), 1)
+    res['steps'] = {str(n): round(40 * (17 - n) / 16, 1) for n in (1, 4, 8, 12, 16)}
+    res['verdict'] = verdict(res['I_max_mA'] <= 40.0 and res['VSYS_for_90pct_on_3V4_bin'] is not None
+                             and res['VSYS_for_90pct_on_3V4_bin'] <= 3.6)
+    fig, ax = plt.subplots(figsize=(6.6, 3.2))
+    for (k, ys), col in zip(curves.items(), ('#27ae60', '#2e86c1', '#c0392b')):
+        ax.plot(vsys, ys, color=col, marker='o', ms=3, label='panel %s V bin' % k[2:])
+    ax.axhline(40, color='k', lw=.8, ls=':'); ax.text(3.01, 41, 'panel spec 40 mA = AW9364 ceiling', fontsize=7)
+    ax.axvspan(3.0, 3.46, color='k', alpha=.06); ax.text(3.02, 5, 'UVLO band', fontsize=7)
+    ax.set_ylim(0, 46); ax.set_xlabel('VSYS (V)'); ax.set_ylabel('backlight current, step 1 (mA)')
+    ax.set_title('S3 · backlight from VSYS through the AW9364 sinks, by panel LED bin')
     ax.legend(fontsize=7, ncol=3, loc='upper center', bbox_to_anchor=(0.5, -0.22), frameon=False)
     save(fig, 's3_backlight.png')
     R['S3_backlight'] = res
@@ -209,7 +214,7 @@ def s4_ir(rled):
             vsys = 3.0 + k * 0.1
             net = ['* IR', ir_led('IRL', vf20), NMOS_AO3400A, 'Vs vs 0 %g' % vsys,
                    'R1 vs a1 %g' % (rled * (1 + rtol / 100)), 'R2 vs a2 %g' % (rled * (1 + rtol / 100)),
-                   'D1 a1 k IRL', 'D2 a2 k IRL', 'M1 k g 0 0 AO3400A', 'Vg g 0 3.3']
+                   'D1 a1 k IRL', 'D2 a2 k IRL', 'M1 k g 0 0 AO3400A', 'Vg g 0 %g' % V33]
             r = ngs.run(net, '.op', ['i(vs)'])
             vs.append(vsys); ii.append(-r['i(vs)'][0] / 2 * 1e3)
         out[name] = (vs, ii)
@@ -240,8 +245,8 @@ def s4():
 # ------------------------------------------------------------------------------------------------
 def s5_s6():
     res = {}
-    # GPIO / expander output modelled as 3.3 V behind 30 ohm (ESP32-S3 drive 3 / TCA6408A VOH spec)
-    mic = ['* mic', 'Vg g 0 PULSE(0 3.3 100u 1u 1u 1 2)', 'Rout g p 30', 'R402 p v 100',
+    # GPIO / expander output modelled as the 3.18 V rail behind 30 ohm (ESP32-S3 drive 3 / TCA6408A VOH spec)
+    mic = ['* mic', 'Vg g 0 PULSE(0 %g 100u 1u 1u 1 2)' % V33, 'Rout g p 30', 'R402 p v 100',
            'C406 v 0 1u', 'C407 v 0 100n', 'R403 p 0 100k', 'Imic v 0 0.62m']
     r = ngs.run(mic, '.tran 1u 2m', ['time', 'v(v)', 'i(vg)'])
     t, v, i = r['time'], r['v(v)'], r['i(vg)']
@@ -251,7 +256,7 @@ def s5_s6():
                   'spec': 'SPH0641 VDD 1.62-3.6 V; ESP32-S3 GPIO 40 mA abs max'}
     res['mic']['verdict'] = verdict(1.62 <= v_end <= 3.6 and res['mic']['peak_mA'] < 40)
     tm, vm = t, v
-    irx = ['* irrx', 'Vg g 0 PULSE(0 3.3 100u 1u 1u 1 2)', 'Rout g p 30', 'R505 p v 100',
+    irx = ['* irrx', 'Vg g 0 PULSE(0 %g 100u 1u 1u 1 2)' % V33, 'Rout g p 30', 'R505 p v 100',
            'C507 v 0 4.7u', 'Iirm v 0 0.7m', 'R506 v o 10k', 'Vo o 0 0']   # worst: output low (pull-up loads)
     r = ngs.run(irx, '.tran 2u 6m', ['time', 'v(v)', 'i(vg)'])
     t, v, i = r['time'], r['v(v)'], r['i(vg)']
@@ -279,14 +284,14 @@ def s5_s6():
 # S7  I2C rise time (2.2k pull-ups, 7 devices + MCU + tracks)
 # ------------------------------------------------------------------------------------------------
 def s7_i2c(c_bus_pf):
-    net = ['* i2c', NMOS_OD, 'Vdd vdd 0 3.3', 'Rp vdd sda 2.2k', 'Cb sda 0 %gp' % c_bus_pf,
-           'Vdrv g 0 PULSE(3.3 0 0.5u 5n 5n 1.25u 2.5u)', 'M1 sda g 0 0 NOD']
+    net = ['* i2c', NMOS_OD, 'Vdd vdd 0 %g' % V33, 'Rp vdd sda 2.2k', 'Cb sda 0 %gp' % c_bus_pf,
+           'Vdrv g 0 PULSE(%g 0 0.5u 5n 5n 1.25u 2.5u)' % V33, 'M1 sda g 0 0 NOD']
     r = ngs.run(net, '.tran 2n 5u', ['time', 'v(sda)'])
     t, v = r['time'], r['v(sda)']
     # rising edge after the driver releases at 0.5 us + 1.25 us
     seg = [(tt, vv) for tt, vv in zip(t, v) if 0.505e-6 <= tt <= 1.75e-6]
-    t30 = next(tt for tt, vv in seg if vv >= 0.3 * 3.3)
-    t70 = next(tt for tt, vv in seg if vv >= 0.7 * 3.3)
+    t30 = next(tt for tt, vv in seg if vv >= 0.3 * V33)
+    t70 = next(tt for tt, vv in seg if vv >= 0.7 * V33)
     vol = min(v)
     return (t70 - t30) * 1e9, vol, t, v
 
@@ -297,13 +302,13 @@ def s7():
     tr_typ, vol, t1, v1 = s7_i2c(c_typ)
     tr_max, _, t2, v2 = s7_i2c(c_max)
     res = {'C_bus_typ_pF': c_typ, 'C_bus_max_pF': c_max, 'tr_typ_ns': round(tr_typ), 'tr_max_ns': round(tr_max),
-           'VOL_V': round(vol, 3), 'I_sink_mA': round(3.3 / 2.2, 2),
+           'VOL_V': round(vol, 3), 'I_sink_mA': round(V33 / 2.2, 2),
            'spec': 'Fast-mode tr <= 300 ns (30-70 %), VOL <= 0.4 V at 3 mA'}
     res['verdict'] = verdict(tr_max < 300 and vol < 0.4)
     fig, ax = plt.subplots(figsize=(6.6, 3.0))
     ax.plot([x * 1e6 for x in t1], v1, color='#2e86c1', label='%d pF (typ)' % c_typ)
     ax.plot([x * 1e6 for x in t2], v2, color='#c0392b', label='%d pF (all pins at max)' % c_max)
-    ax.axhline(0.3 * 3.3, color='k', lw=.6, ls=':'); ax.axhline(0.7 * 3.3, color='k', lw=.6, ls=':')
+    ax.axhline(0.3 * V33, color='k', lw=.6, ls=':'); ax.axhline(0.7 * V33, color='k', lw=.6, ls=':')
     ax.set_xlabel('µs'); ax.set_ylabel('SDA (V)')
     ax.set_title('S7 · I2C at 400 kHz, 2.2 kΩ pull-ups (30 % / 70 % dotted)')
     ax.legend(fontsize=7.5, ncol=2, loc='upper center', bbox_to_anchor=(0.5, -0.28), frameon=False)
@@ -315,13 +320,13 @@ def s7():
 # S8/S9  Board-ID divider settling and ESP32-S3 EN (CHIP_PU) RC against the 3V3 soft start
 # ------------------------------------------------------------------------------------------------
 def s8_s9():
-    net = ['* id+en', 'V33 v33 0 PWL(0 0 1m 3.3 300m 3.3)',          # TPS63802 soft start ~1 ms
+    net = ['* id+en', 'V33 v33 0 PWL(0 0 1m %g 300m %g)' % (V33, V33),   # TPS63802 soft start ~1 ms
            'Rid1 v33 id 1Meg', 'Rid2 id 0 1Meg', 'Cid id 0 100n',
            'Ren v33 en 10k', 'Cen en 0 1u']
     r = ngs.run(net, '.tran 20u 300m', ['time', 'v(id)', 'v(en)', 'v(v33)'])
     t, vid, ven, v33 = r['time'], r['v(id)'], r['v(en)'], r['v(v33)']
     t_id = next(tt for tt, vv in zip(t, vid) if vv >= 1.4)
-    t_en = next(tt for tt, vv in zip(t, ven) if vv >= 0.75 * 3.3)
+    t_en = next(tt for tt, vv in zip(t, ven) if vv >= 0.75 * V33)
     t_rail = next(tt for tt, vv in zip(t, v33) if vv >= 3.0)
     res = {'board_id_reaches_1V4_ms': round(t_id * 1e3, 1), 'board_id_final_V': round(vid[-1], 3),
            'board_id_window_mV': [1400, 1900], 'en_VIH_ms': round(t_en * 1e3, 2),
@@ -342,27 +347,29 @@ def s8_s9():
 
 
 # ------------------------------------------------------------------------------------------------
-# S10  TPS22917 display-rail soft start (CT 1 nF) - datasheet slew, ngspice for the 3V3 droop
+# S10  TPS22919 display-rail soft start (fixed rise time) - datasheet slew, ngspice for the 3V3 droop
 # ------------------------------------------------------------------------------------------------
 def s10():
-    sr = 1900 / 1000 * 1e3           # V/s: SRON 1900 (mV/us)*pF / 1000 pF at VIN 3.6 V
-    tr = 1.6e-6 * 1000               # tR 1.6 us/pF
-    c_load = 1e-6 + 0.1e-6 + 4.7e-6 + 4.7e-6    # C10 + C301 + C302 + panel internal (assumed 4.7 uF)
+    # TPS22919 SLVSEN5B: SRON 1.8 mV/us at VIN 1.8 V, 2.7 mV/us at 3.6 V; tR 1.5 / 1.75 ms. Interpolated to the rail.
+    k = (V33 - 1.8) / (3.6 - 1.8)
+    sr = (1.8 + k * (2.7 - 1.8)) * 1e3                # V/s
+    tr = (1.5 + k * (1.75 - 1.5)) * 1e-3
+    c_load = 1e-6 + 0.1e-6 + 4.7e-6 + 4.7e-6    # C109 + C301 + C302 + panel internal (assumed 4.7 uF)
     i_in = c_load * sr
-    # ngspice: TPS63802 modelled as 3.3 V behind 30 mohm + 44 uF; rail ramps at SR into the caps + 9 mA panel
-    net = ['* lcd', 'V0 src 0 3.3', 'Rout src v33 0.03', 'Cout v33 0 44u',
-           'B1 v33 lcd I=(v(v33)-v(lcd) > 0 ? min(%g*%g, (v(v33)-v(lcd))/0.08) : 0) * (time > 1e-4 ? 1 : 0)'
+    # ngspice: TPS63802 modelled as the rail behind 30 mohm + 44 uF; the switch ramps at SR into the caps + panel
+    net = ['* lcd', 'V0 src 0 %g' % V33, 'Rout src v33 0.03', 'Cout v33 0 44u',
+           'B1 v33 lcd I=(v(v33)-v(lcd) > 0 ? min(%g*%g, (v(v33)-v(lcd))/0.09) : 0) * (time > 1e-4 ? 1 : 0)'
            % (c_load, sr),
            'Cl lcd 0 %g' % c_load, 'Rpanel lcd 0 390']
     r = ngs.run(net, '.tran 5u 4m', ['time', 'v(lcd)', 'v(v33)'])
     t, vl, v33 = r['time'], r['v(lcd)'], r['v(v33)']
     res = {'slew_V_per_ms': round(sr / 1e3, 2), 'rise_time_ms': round(tr * 1e3, 2), 'C_load_uF': round(c_load * 1e6, 1),
-           'inrush_mA': round(i_in * 1e3, 1), 'droop_3V3_mV': round((3.3 - min(v33)) * 1e3, 2)}
-    res['verdict'] = verdict(i_in < 0.1 and 3.3 - min(v33) < 0.033)
+           'inrush_mA': round(i_in * 1e3, 1), 'droop_3V3_mV': round((V33 - min(v33)) * 1e3, 2)}
+    res['verdict'] = verdict(i_in < 0.1 and V33 - min(v33) < 0.033)
     fig, ax = plt.subplots(figsize=(6.2, 2.4))
     ax.plot([x * 1e3 for x in t], vl, color='#2e86c1', label='3V3_LCD')
     ax.plot([x * 1e3 for x in t], v33, color='k', lw=.8, label='+3V3')
-    ax.set_xlabel('ms'); ax.set_ylabel('V'); ax.set_title('S10 · display rail soft start (CT 1 nF)')
+    ax.set_xlabel('ms'); ax.set_ylabel('V'); ax.set_title('S10 · display rail soft start (TPS22919, fixed slew)')
     ax.legend(fontsize=8)
     save(fig, 's10_lcd_rail.png')
     R['S10_display_rail'] = res
@@ -538,8 +545,9 @@ def s12_s15():
                         'speaker_rated_W': 0.8, 'speaker_max_W': 1.2,
                         'unclipped_sine_Vrms_by_VSYS': clip,
                         'verdict': verdict(p8_min_imp <= 0.8)}
-    # S13 charger: USB500 (Iin 475 mA max), 297 mA charge (KISET max 975/3.0k = 325 mA), VO(REG) 4.4 V
-    ich_max = 975 / 3000
+    # S13 charger: USB500 (Iin 475 mA max), 207 mA charge (KISET 890 typ / 975 max over ISET 4.3k = 227 mA max),
+    # VO(REG) 4.4 V; on F.Cu under the panel since the revision
+    ich_max = 975 / 4300
     rows = []
     for vbus in (4.75, 5.0, 5.25):
         for vbat in (3.0, 3.7, 4.1):
@@ -549,28 +557,30 @@ def s12_s15():
     pmax = max(r['P_W'] for r in rows)
     theta_ja = 44.5 * 1.35        # JEDEC 44.5 C/W; small 58 mm board inside a closed puck: +35 %
     tj = 45 + pmax * theta_ja      # 45 C inside the enclosure while charging
-    R['S13_charger_thermal'] = {'worst_P_W': pmax, 'theta_JA_used': round(theta_ja, 1), 'TJ_worst_C': round(tj),
+    R['S13_charger_thermal'] = {'ICHG_typ_mA': round(890 / 4.3), 'ICHG_max_mA': round(ich_max * 1e3),
+                                'cell_0.5C_mA': 250,
+                                'worst_P_W': pmax, 'theta_JA_used': round(theta_ja, 1), 'TJ_worst_C': round(tj),
                                 'TJ_REG_C': 125, 'rows': rows,
-                                'verdict': verdict(tj < 125),
+                                'verdict': verdict(tj < 125 and ich_max * 1e3 <= 250),
                                 'note': 'above 125 C the BQ24073 folds back charge current; it never trips'}
     # S14 buck-boost inductor (0.47 uH, Isat 5.5 A) and switch current
     L, isat = 0.47e-6, 5.5
     cases = []
-    for vin, f, mode in ((4.4, 1.6e6, 'buck'), (3.3, 1.4e6, 'buck-boost'), (2.96, 2.1e6, 'boost')):
+    for vin, f, mode in ((4.4, 1.6e6, 'buck'), (V33, 1.4e6, 'buck-boost'), (2.96, 2.1e6, 'boost')):
         iout = 0.6
         if mode == 'buck':
-            d = 3.3 / vin; dI = 3.3 * (1 - d) / (L * f); il = iout
+            d = V33 / vin; dI = V33 * (1 - d) / (L * f); il = iout
         elif mode == 'boost':
-            d = 1 - vin * 0.92 / 3.3; dI = vin * d / (L * f); il = iout * 3.3 / (vin * 0.9)
+            d = 1 - vin * 0.92 / V33; dI = vin * d / (L * f); il = iout * V33 / (vin * 0.9)
         else:
-            dI = 3.3 * 0.5 / (L * f) * 0.5; il = iout * 3.3 / (vin * 0.9)
+            dI = V33 * 0.5 / (L * f) * 0.5; il = iout * V33 / (vin * 0.9)
         cases.append({'mode': mode, 'VIN': vin, 'ripple_App': round(dI, 2), 'I_L_avg_A': round(il, 2),
                       'I_peak_A': round(il + dI / 2, 2)})
     R['S14_buck_boost'] = {'Iout_A': 0.6, 'cases': cases, 'Isat_A': isat, 'IPK_limit_min_A': 3.8,
                            'verdict': verdict(all(c['I_peak_A'] < 0.5 * min(isat, 3.8) for c in cases))}
     # S15 runtime from the power budget (500 mAh, 85 % usable above the 2.96 V UVLO)
     cap = 500 * 0.85
-    states = {'active': 133, 'active_radio_ps': 75, 'idle': 116, 'drowsy': 1.6, 'deep_sleep': 0.073}
+    states = {'active': 141, 'active_radio_ps': 85, 'idle': 118, 'drowsy': 1.6, 'deep_sleep': 0.073}
     R['S15_runtime'] = {k: ('%.1f h' % (cap / v) if cap / v < 48 else '%.0f days' % (cap / v / 24))
                         for k, v in states.items()}
     R['S15_runtime']['note'] = '500 mAh x 85 % usable above the UVLO; budget rows from mao-power-budget.md'

@@ -44,13 +44,28 @@ HALL_GAP = 1.5              # pole-strip face to sensor top (through the ring's 
 HALL_ANGLES = (120.0, 126.0)    # degrees, clockwise from 12 o'clock: between the right touch arc and the antenna band
 
 # Sensor window: an annulus of the cover window between the panel and the ring.
-DISPLAY_OUTLINE_R = 17.8   # LCM 35.6 mm round outline (the FPC ear adds 2.5 mm at 6 o'clock)
+DISPLAY_OUTLINE_R = 17.8   # LCM 35.6 mm round outline (the glass ledge under the tail adds 2.14 mm at 9 o'clock)
 WINDOW_ANNULUS = (DISPLAY_OUTLINE_R + 0.5, RING_ID / 2 - 0.5)   # radii on F.Cu that see out
 SENSOR_R = 21.2             # centre radius of the window-border sensors
+TOF_R = 20.9                # VL53L4CD: 2.4 mm radial, outer corner r 22.2 (ring lip starts at r 24.0)
+IR_RX_R = 21.0              # IRM-H6xxT turned so its 4.0 mm side is radial: body r 19.0-23.0, corners r 23.1
 TOF_ANGLE = -28.0           # 11 o'clock ("forehead"), clockwise from 12
 ALS_ANGLE = 28.0            # 1 o'clock
 IR_RX_ANGLE = 90.0          # 3 o'clock, top-view receiver under the border (12 o'clock is the USB-C shell)
 MIC_ANGLE = 106.0           # bottom-port mic on B.Cu, port up through the board into the window border, far from speaker and buck-boost
+
+# Display tail. The stock Winstar tail (70.1 mm, spec section 8) leaves the panel at 9 o'clock (image up = 12
+# o'clock: the GC9A01 rotates only in 90 deg steps), folds back under the panel at its bending area, S-folds in
+# a 0.4 mm pocket of the face carrier, leaves the face at r ~19 and drops through a routed slot just outside
+# the panel edge. Under the board it bends inward into J301 on B.Cu, whose entry faces the slot. Lateral order
+# is kept through every fold (all fold axes are tangential): panel pin 1 is at the 12 o'clock end.
+TAIL_ANGLE = 270.0
+TAIL_W = 9.5                # tail end width (9.50 +-0.1); the 13.05 mm section near the panel stays in the face
+TAIL_SLOT = (-19.3, -5.75, -18.3, 5.75)    # routed slot x0, y0, x1, y1: 1.0 mm wide, round ends, NPTH (0.35 mm
+                                           # clear of the speaker's SPK- pad, 0.5 mm outside the panel outline)
+TAIL_ENTRY_X = -14.0        # J301 FPC entry edge on B.Cu: 4.5 mm for the tail's bend from vertical to the entry
+TAIL_CORRIDOR = (-18.3, -5.9, -14.4, 5.9)  # B.Cu between slot and J301's courtyard: tracks allowed, no parts
+TAIL_F_CLEAR = (-19.4, -6.4, -17.7, 6.4)   # F.Cu on the slot's inboard side: no parts (the tail drops there)
 
 # Antenna: WROOM-1 on B.Cu at 6 o'clock, long axis radial, antenna over a notch in the board edge.
 MODULE_ANGLE = 180.0        # 6 o'clock
@@ -102,7 +117,17 @@ SCREW_ANGLES = (-48.0, 48.0)
 PEG_ANGLE = 225.0
 MOUNT_HOLE_D = 2.2           # M2 clearance
 PEG_HOLE_D = 2.0             # NPTH for a 1.9 mm printed peg
-MOUNT_KEEPOUT_D = 4.6        # screw head / insert boss on both faces (ODD JOBS 68)
+MOUNT_KEEPOUT_D = 4.6        # copper-free on every layer: metal screw and brass insert (ODD JOBS 68, 69)
+# Fasteners (ODD JOBS 68, 70): M2 x 5 pan-head screw (ISO 7045, head d 4.0) from below, through the board into
+# an M2 x 3 brass heat-set insert (OD 3.2) in a d 6.0 boss of the top chassis. The insert is set in the printed
+# part before assembly, so no heat reaches the board. Part-free areas: the boss on F, the head on B.
+BOSS_KEEPOUT_D_F = 6.5
+HEAD_KEEPOUT_D_B = 5.5
+PEG_KEEPOUT_D = 4.6          # printed d 1.9 peg with a d 4 shoulder on F
+PEG_KEEPOUT_D_B = 3.0        # only the peg tip (d 1.9) passes below B
+# Edge (ODD JOBS 71, 144, 145): pours and planes stop 0.5 mm from the milled edge; MLCC pads >= 1.5 mm from it.
+POUR_EDGE = 0.5
+MLCC_EDGE = 1.5
 
 
 def polar(r, angle_deg):
