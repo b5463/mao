@@ -19,6 +19,28 @@ index 0015350..29e0f6a 100644
 -                  esp_hal_gpspi freertos mao_system
 +                  esp_hal_gpspi esp_timer freertos mao_system
  )
+diff --git a/components/mao_board/Kconfig b/components/mao_board/Kconfig
+index f798860..5d35d4d 100644
+--- a/components/mao_board/Kconfig
++++ b/components/mao_board/Kconfig
+@@ -50,6 +50,17 @@ menu "MAO board"
+         default 270 if MAO_A0_LCD_ROTATION_270
+         default 0
+ 
++    config MAO_A0_LCD_PCLK_MHZ
++        int "MAO_MAIN A0: display SPI clock (MHz)"
++        depends on MAO_BOARD_MAIN_A0
++        range 10 80
++        default 80
++        help
++            The GC9A01's SPI clock. On the A0 it runs through the panel's stock
++            70 mm FPC tail. VERIFY AT BRING-UP (mao-bringup.md section 3): run the
++            colour test and the animation at 80 MHz; if lines tear or pixels go
++            wrong, set 40 here.
++
+     # Not user-editable: the name always follows the board choice.
+     config MAO_BOARD_NAME
+         string
 diff --git a/components/mao_board/boards/lcdkit/mao_board_lcdkit_ext.c b/components/mao_board/boards/lcdkit/mao_board_lcdkit_ext.c
 index ff72633..6fedd3e 100644
 --- a/components/mao_board/boards/lcdkit/mao_board_lcdkit_ext.c
@@ -582,10 +604,10 @@ index 69ef1b6..6c49466 100644
      uint8_t config = 0;
      esp_err_t err = exp_read(A0_EXP_REG_CONFIG, &config);
 diff --git a/components/mao_board/boards/main_a0/mao_board_a0_priv.h b/components/mao_board/boards/main_a0/mao_board_a0_priv.h
-index 12e20f9..88dc562 100644
+index 12e20f9..bd304d0 100644
 --- a/components/mao_board/boards/main_a0/mao_board_a0_priv.h
 +++ b/components/mao_board/boards/main_a0/mao_board_a0_priv.h
-@@ -25,7 +25,10 @@
+@@ -25,20 +25,21 @@
  #define A0_EXP_REG_OUTPUT           0x01
  #define A0_EXP_REG_POLARITY         0x02
  #define A0_EXP_REG_CONFIG           0x03   /* 1 = input */
@@ -597,7 +619,9 @@ index 12e20f9..88dc562 100644
  
  /* --- Display: 1.28" round GC9A01 panel in the J301 18-pin FPC connector ---- */
  #define A0_LCD_H_RES                240
-@@ -34,11 +37,9 @@
+ #define A0_LCD_V_RES                240
+-#define A0_LCD_PCLK_HZ              (80 * 1000 * 1000)
++#define A0_LCD_PCLK_HZ              (CONFIG_MAO_A0_LCD_PCLK_MHZ * 1000 * 1000)   /* 80 by default; 40 is the tail fallback */
  #define A0_LCD_PWR_SETTLE_MS        10     /* load switch on -> reset sequence */
  #define A0_LCD_RESET_LOW_MS         10
  #define A0_LCD_RESET_WAIT_MS        120    /* reset released -> first command */
@@ -673,7 +697,7 @@ index 07682f4..c2136f4 100644
      a0_display_park(true);
      if (a0_expander_ok()) {
 diff --git a/components/mao_board/boards/main_a0/mao_board_pins.h b/components/mao_board/boards/main_a0/mao_board_pins.h
-index 860810c..24cb667 100644
+index 860810c..67a5f9d 100644
 --- a/components/mao_board/boards/main_a0/mao_board_pins.h
 +++ b/components/mao_board/boards/main_a0/mao_board_pins.h
 @@ -13,7 +13,7 @@
@@ -685,7 +709,7 @@ index 860810c..24cb667 100644
  #define MAO_PIN_LCD_TE              9   /* display tearing-effect output: frame sync for tear-free animation */
  #define MAO_PIN_LCD_DC             10   /* display data/command */
  #define MAO_PIN_LCD_MOSI           11   /* display data (FSPID IO_MUX) */
-@@ -24,16 +24,16 @@
+@@ -24,27 +24,27 @@
  #define MAO_PIN_AMP_DIN            16   /* I2S1 data (left column, with BCLK/LRCLK on the next two pins) */
  #define MAO_PIN_AMP_BCLK           17   /* I2S1 bit clock to the amplifier */
  #define MAO_PIN_AMP_LRCLK          18   /* I2S1 word select */
@@ -706,7 +730,11 @@ index 860810c..24cb667 100644
  #define MAO_PIN_IMU_INT2           47   /* IMU INT2: orientation, free-fall */
  #define MAO_PIN_TOF_INT_N          48   /* proximity GPIO1: threshold interrupt */
  
-@@ -44,7 +44,7 @@
+ /* TCA6408A expander port bits (I2C 0x20) */
+ #define MAO_EXP_LCD_RST_N          0    /* display reset; 100k pull-down: panel held in reset */
+-#define MAO_EXP_LCD_PWR_EN         1    /* display + backlight rail load switch; 100k pull-down: off */
++#define MAO_EXP_LCD_PWR_EN         1    /* display logic rail switch (3V3_LCD; the backlight runs from VSYS); 100k pull-down: off */
+ #define MAO_EXP_AMP_SD_N           2    /* amplifier enable (SD_MODE); 100k pull-down: amplifier shut down */
  #define MAO_EXP_HAPTIC_EN          3    /* haptic driver enable; 100k pull-down: off */
  #define MAO_EXP_TOF_XSHUT          4    /* proximity sensor shutdown (low = off); 100k pull-down: off */
  #define MAO_EXP_IR_RX_PWR          5    /* IR receiver supply (via RC filter); 100k pull-down: off */
@@ -1492,7 +1520,7 @@ index cf47958..9c72857 100644
  /* ToF: VL53L4CD through ST's ULD (mao_sense_tof.c) */
  esp_err_t sense_tof_init(void);
 diff --git a/docs/firmware/mao-a0-firmware.md b/docs/firmware/mao-a0-firmware.md
-index bb285c7..020f888 100644
+index bb285c7..9585054 100644
 --- a/docs/firmware/mao-a0-firmware.md
 +++ b/docs/firmware/mao-a0-firmware.md
 @@ -13,6 +13,10 @@ states (§4.1), the boot experience (§7), the boot check and the factory
@@ -1592,7 +1620,15 @@ index bb285c7..020f888 100644
  
  ## 3. Drivers
  
-@@ -124,9 +146,38 @@ every output pin.
+@@ -120,13 +142,45 @@ every output pin.
+ - The panel plugs in: an 18-pin 0.5 mm tail (Winstar WF0128BTYAA4DNN0 or any
+   panel of that 18-pin standard) in the J301 back-flip connector, so it can be
+   replaced without soldering.
+-- SPI2, 80 MHz, mode 0, write-only: SCLK 12 and MOSI 11 on SPI2's IO_MUX pads,
++- SPI2, 80 MHz by default (`CONFIG_MAO_A0_LCD_PCLK_MHZ`, 10–80, menuconfig "MAO
++  board"; the signals run through the panel's stock 70 mm tail, so bring-up
++  confirms 80 MHz and falls back to 40 if the picture glitches), mode 0,
++  write-only: SCLK 12 and MOSI 11 on SPI2's IO_MUX pads,
    CS 13 through the GPIO matrix, DC 10 a plain GPIO; the module pins follow the
    connector's pin order (no crossing on the board). `unpark()` restores the same
    routing after a rail power cycle. TE (tearing effect) is GPIO9, an input with
@@ -1634,7 +1670,7 @@ index bb285c7..020f888 100644
  - Power-up sequence: RST_N low, PWR_EN high, 10 ms, 10 ms with reset low,
    RST_N high, 120 ms, then `esp_lcd` GC9A01 init with `reset_gpio = -1`. The
    driver's software reset is kept; it is redundant but harmless.
-@@ -156,7 +207,7 @@ every output pin.
+@@ -156,7 +210,7 @@ every output pin.
    redraws and resumes rendering. The UI keeps running meanwhile (the LVGL
    lock is not held).
  - After an expander reset the panel is re-initialised automatically (§2,
@@ -1643,7 +1679,7 @@ index bb285c7..020f888 100644
  - With the rail off (`MAO_RAIL_DISPLAY` off), DC, CS, MOSI and SCLK are
    driven low as GPIOs. For deep sleep they are isolated (high-Z, held). When
    the rail is switched on again, the panel is re-initialised and the pins are
-@@ -226,11 +277,42 @@ every output pin.
+@@ -226,11 +280,42 @@ every output pin.
    (0x001x), HIBRT 0x0A = 0x8030, CONFIG 0x0C (RCOMP kept, ATHD = 27 → empty
    alert at 5 %, ALSC off), VALRT 0x14 = 0xA5FF (3.30 V low), CRATE 0x16
    (0.208 %/h), STATUS 0x1A (flags cleared after reading).
@@ -1690,7 +1726,7 @@ index bb285c7..020f888 100644
    `BATTERY_LOW` (SOC ≤ 15 %, re-armed above 20 %), `BATTERY_CRITICAL`
    (on battery with SOC ≤ 2 % or VCELL < 3.35 V for 3 readings in a row),
    `POWER_STATE`. After a critical alert, a 5 s grace period follows, then
-@@ -243,11 +325,16 @@ every output pin.
+@@ -243,11 +328,16 @@ every output pin.
    `mao_power_gauge_version()`, `mao_power_last_wake()` (what ended the last
    DROWSY), `mao_power_policy_config()` (§4.1), sleep reason
    `MAO_SLEEP_REASON_IDLE`.
@@ -1708,7 +1744,7 @@ index bb285c7..020f888 100644
  | ToF | VL53L4CD 0x29, ST ULD 2.2.2 (vendored, `vl53l4cd/README.md`) | XSHUT = P4; autonomous 20 ms budget every 200 ms (ACTIVE) / 500 ms (IDLE); DROWSY: interrupt only below 150 mm; off in deep sleep | distance, range status, signal, sigma, threshold flag |
  | ALS | OPT3004 0x44 (0x7E = 0x5449, 0x7F = 0x3001) | CONFIG 0xCE11: auto range, 800 ms, continuous, latched window ±25 % (min ±2 lx) re-centred each read; reading CONFIG clears the latch; off when drowsy / asleep | lux |
  | Touch | S3 touch v2, 4 zones | default sample config (500 charges, 0.5–2.2 V), threshold = 2 % of benchmark, hardware filter, active/inactive callbacks; TOP = deep-sleep wake channel. LEFT holds its last reading while the speaker amplifier is on and 150 ms after: the speaker lies partly over that electrode and the class-D outputs switch at ~330 kHz | raw, baseline, delta 0..1 (1 = 2 × threshold), touched, changed mask |
-@@ -295,15 +382,17 @@ Stage 2 extends `mao_input_stats_t` with per-channel edge counters
+@@ -295,15 +385,17 @@ Stage 2 extends `mao_input_stats_t` with per-channel edge counters
  | DROWSY | panel sleep-in, backlight off | IMU wake-on-motion only (12.5 Hz LP), ToF approach threshold, ALS off, mic off | amp, haptics and IR RX off; HALL_FAST low; CPU in light sleep |
  | DEEP_SLEEP | rail off, bus isolated | IMU wake-on-motion (off on a critical battery), ToF / ALS / mic off | every expander rail off, HALL_FAST low and held |
  
@@ -1731,7 +1767,7 @@ index bb285c7..020f888 100644
    rotation alone is not a wake source (GPIO 41/42 are not RTC pads), but
    touching the ring usually trips the IMU or a touch zone. ext1 moves its
    pads to RTC IO, so they are given back to the GPIO matrix after every
-@@ -503,7 +592,7 @@ console (`[OK]` / `[!!]` / `[--]` lines, `mao board`, `mao selftest boot`).
+@@ -503,7 +595,7 @@ console (`[OK]` / `[!!]` / `[--]` lines, `mao board`, `mao selftest boot`).
  - **Factory self-test**: `mao selftest` (interactive), `mao selftest auto`
    (operator steps skipped), or at every boot with `CONFIG_MAO_SELFTEST_AT_BOOT`
    (profile `sdkconfig.factory`). On the A0: 24 automatic steps (including
@@ -1740,7 +1776,7 @@ index bb285c7..020f888 100644
    `pad_mic`, `pad_irv`: each rail off then on, measured at TP13 / TP14 /
    TP15 by the fixture DMM or the operator) and 6 operator steps; 7 steps on
    the LCDkit. Answers: `mao selftest yes|no|skip`, a face press = yes,
-@@ -514,6 +603,12 @@ console (`[OK]` / `[!!]` / `[--]` lines, `mao board`, `mao selftest boot`).
+@@ -514,6 +606,12 @@ console (`[OK]` / `[!!]` / `[--]` lines, `mao board`, `mao selftest boot`).
    `SELFTEST PASS 33/33` / `FAIL …` / `INCOMPLETE …`, `SELFTEST_JSON {…}`.
    Station script: `tools/factory_test.py`. Steps, limits, fixture, test
    pads: `docs/hardware/mao-factory-test.md`.
@@ -1753,7 +1789,7 @@ index bb285c7..020f888 100644
  
  ## 9. Bring-up order (`main/mao_main.c`)
  system → board (chip, pads, board ID, I2C, expander with every rail off) →
-@@ -532,7 +627,8 @@ the UI degrades instead of crashing.
+@@ -532,7 +630,8 @@ the UI degrades instead of crashing.
  | `mao sense` | A0 | latest observation of every sensor |
  | `mao haptic <name>` | A0 | play a touch; also `calibrate`, `on`, `off`, `strength N` |
  | `mao ir send <addr> <cmd>` | A0 | one NEC frame (hex with `0x`); `mao ir rx on\|off` |
@@ -1763,7 +1799,7 @@ index bb285c7..020f888 100644
  | `mao sleep [s]` | A0 | deep sleep, timer wake after s (default 30 min); `mao sleep light [s]` = DROWSY test |
  | `mao percept` | both | senses in use, held / near, room level, absence, fiddling level and score; `log on\|off`; `inject <NAME> [detail] [confidence]` |
  | `mao rotate [deg]` | both | display rotation: show, set live (0/90/180/270), `save` (NVS), `default` |
-@@ -545,7 +641,10 @@ without `CONFIG_MAO_DEV_CONSOLE` (release).
+@@ -545,7 +644,10 @@ without `CONFIG_MAO_DEV_CONSOLE` (release).
  
  ## 11. Host unit tests
  
@@ -1775,7 +1811,7 @@ index bb285c7..020f888 100644
  them with the host compiler (C99, `-Wall -Wextra -Werror`, AddressSanitizer
  and UBSan) together with scenario tests: a small world simulator feeds every
  sense at the A0's rates (IMU 100 ms, ToF 200 ms, light 1 s, touch 100 ms,
-@@ -570,9 +669,18 @@ tests/host/run.sh --docker   # gcc inside espressif/idf:v6.0.3
+@@ -570,9 +672,18 @@ tests/host/run.sh --docker   # gcc inside espressif/idf:v6.0.3
    1 M / 1 M everywhere; the pull-up notes in `pinmap.py` now match
    `circuit.py` (TOF_INT_N 10 k, SENSE_ALRT_N 100 k); the `pinmap.py`
    docstring names `hardware/mao/design/gen_pinmap.py`.
@@ -1797,7 +1833,7 @@ index bb285c7..020f888 100644
  - The brief listed GPIO13 as a spare. The 4-layer pin map uses GPIO13 for LCD_CS and GPIO35
    as `MIC_PWR` (the mic draws 80 µA even with its clock stopped), and the
    firmware follows the header.
-@@ -613,3 +721,17 @@ Stage 2:
+@@ -613,3 +724,17 @@ Stage 2:
  - Expander reset: the 10 µs pulse; that the panel, ToF and haptic driver
    come back cleanly after `expander_reset` (and after a real recovery), and
    how visible the panel re-init is (~0.3 s blank).
@@ -1817,10 +1853,10 @@ index bb285c7..020f888 100644
 +- Board ID at 3.18 V (≈ 1.59 V).
 diff --git a/docs/firmware/mao-a0-rev-merge.md b/docs/firmware/mao-a0-rev-merge.md
 new file mode 100644
-index 0000000..2c2b9a2
+index 0000000..2f210ab
 --- /dev/null
 +++ b/docs/firmware/mao-a0-rev-merge.md
-@@ -0,0 +1,227 @@
+@@ -0,0 +1,241 @@
 +# MAO_MAIN A0 board revision: firmware merge guide
 +
 +How to carry the firmware changes for the revised MAO_MAIN A0 board onto a
@@ -1829,6 +1865,10 @@ index 0000000..2c2b9a2
 +tests and docs/firmware; new files included; `hardware/` and `docs/hardware/`
 +left out). Behaviour is described in `docs/firmware/mao-a0-firmware.md`
 +(§2, §3.1, §3.4, §4, §8, §10, §11, §13).
++
++Checked on 2026-10-05: in a clean worktree of `b17187e`, `git apply docs/firmware/mao-a0-rev.patch` applies
++without conflicts, `tests/host/run.sh` passes 240 checks, and s3-dev and c3-dev build with 0 warnings, with
++binaries the same size as this branch's.
 +
 +Hardware source of truth: `hardware/mao/design/pinmap.py` and `circuit.py`.
 +The pin header is generated from `pinmap.py`; never hand-merge it.
@@ -1845,6 +1885,8 @@ index 0000000..2c2b9a2
 +| 6 | +3V3 = 3.18 V (3.10–3.28 V worst case) | Panel VCI maximum 3.3 V | Board-ID window 1400–1900 mV still holds (1.59 V nominal, ~1.51–1.68 V worst case): unchanged. The self-test's tighter `board_id` limits were re-centred: 1550–1750 → 1480–1700 mV |
 +| 7 | Amplifier SD_MODE through 2.2 k series resistor | MAX98357A datasheet case VDDIO > VDD | None (SD_MODE high still selects the left channel) |
 +| 8 | Display orientation | — | None: the panel tail still leaves at 9 o'clock (`CONFIG_MAO_A0_LCD_ROTATION` default 90) |
++| 9 | Display SPI through the stock 70 mm FPC tail (was a 10–12 mm tail) | 80 MHz over 70 mm of FPC with SCL beside CS/SDA is plausible but unproven (electrical audit 2, N-9) | New Kconfig `CONFIG_MAO_A0_LCD_PCLK_MHZ` (int, 10–80, default 80) sets `A0_LCD_PCLK_HZ`; bring-up §3 sets 40 if the colour test glitches. No code path changes |
++| 10 | Expander P1 text | P1 switches only the panel logic rail now; the backlight runs from VSYS | Regenerated header comment and `mao-pin-map.md` ("display logic rail switch"); FRAM 0x50 line gone (no FRAM on the A0) |
 +
 +## 2. Changed files
 +
@@ -1860,7 +1902,8 @@ index 0000000..2c2b9a2
 +|---|---|---|
 +| `boards/main_a0/aw9364_dimming.h`, `.c` (new) | Pure C, no IDF: `aw9364_step_from_percent()`, `aw9364_step_current_ua()`, `aw9364_plan(from, to)` (shutdown first? how many rising edges?), AW9364 timing constants | Testable on the host; one place for the datasheet facts (§3) |
 +| `boards/main_a0/mao_board_a0_display.c` | LEDC backlight replaced: GPIO45 configured as a plain output, latched low, inside `mao_board_display_init()`; `mao_board_backlight_set()` = mutex + plan + shutdown wait (`esp_timer`, sleeps the bulk) + pulse train in a critical section with `esp_rom_delay_us`; unchanged step = nothing sent. Dev command `mao backlight <0..100> \| step <n> \| edge` (dev builds only) | Item 2 |
-+| `boards/main_a0/mao_board_a0_priv.h` | `A0_EXP_INPUT_MASK` = P7 only (was P6 + P7); `A0_BACKLIGHT_MAX_PCT` removed; board-ID comment for 3.18 V | Items 2, 3, 6 |
++| `boards/main_a0/mao_board_a0_priv.h` | `A0_EXP_INPUT_MASK` = P7 only (was P6 + P7); `A0_BACKLIGHT_MAX_PCT` removed; board-ID comment for 3.18 V; `A0_LCD_PCLK_HZ` from `CONFIG_MAO_A0_LCD_PCLK_MHZ` | Items 2, 3, 6, 9 |
++| `Kconfig` | `MAO_A0_LCD_PCLK_MHZ` (int 10–80, default 80, depends on `MAO_BOARD_MAIN_A0`) | Item 9 |
 +| `boards/main_a0/mao_board_a0.c` | `config_irq_inputs()`: no pulls on IMU INT1/INT2; `caps.charge_control`; `mao_board_line_get(MAO_LINE_CHARGING)` → `ESP_ERR_NOT_SUPPORTED` (no I2C access); new `mao_board_charge_enable()` (P6 = !enable) | Items 3, 4, 5 |
 +| `boards/main_a0/mao_board_a0_i2c.c` | Header comment: GPIO39, R22, P6 output and what a reset does to /CE; reset-test comment (stuck reset now leaves 0x80); expander-test POLARITY patterns 0x2A/0x15 → 0x6A/0x15 so P6 is exercised too. Init order unchanged: OUTPUT (0x00 = charging enabled) before CONFIG | Items 1, 3 |
 +| `boards/main_a0/mao_board_a0_sleep.c` | IMU INT1 armed for ext1 wake only if the IMU answered at boot; comments (P6 low in deep sleep = charging enabled; GPIO21 carries only the gauge / light alert) | Items 3, 5 |
@@ -1971,6 +2014,10 @@ index 0000000..2c2b9a2
 +   c3-release` or `idf.py` per README) with zero warnings, and
 +   `tests/host/run.sh` (240 checks at the time of writing, plus whatever the
 +   newer tree adds).
++   An existing build directory does not pick up the new Kconfig option by itself
++   (CMake does not re-run for a component Kconfig change): run `idf.py reconfigure`
++   once per build directory, or build from a clean one. Without it the build stops
++   at `CONFIG_MAO_A0_LCD_PCLK_MHZ undeclared`.
 +
 +## 5. Bring-up checks on the revised board
 +
@@ -2045,9 +2092,12 @@ index 0000000..2c2b9a2
 +- [ ] `charge_limit()` runs every 10 s on USB (also while DROWSY) and on every USB change; fails safe to enabled
 +- [ ] Every expander interrupt reads `MAO_LINE_SENSE_ALERT`
 +- [ ] Self-test `board_id` limits 1480–1700 mV; `charger` step uses the power status
++- [ ] `CONFIG_MAO_A0_LCD_PCLK_MHZ` present (default 80); `idf.py reconfigure` run in old build directories
 +- [ ] All five configurations build with zero warnings; host tests pass
-+- [ ] Bring-up (§5): 16 steps, ~40 mA at 100 %, wrap result recorded, fade-in gap judged, IR dark at boot, pause at 43 °C / resume at 40 °C seen, IMU temperature offset recorded, IMU survives power cycles
-+- [ ] Follow-ups outside firmware: `docs/hardware/mao-factory-test.md` (`board_id` 1550–1750 mV, `charger` step "CHG (expander P6)", CONFIG 0xC0, GPIO38 for EXP_RST_N/TP11) and `docs/hardware/mao-bringup.md` (R303 backlight measurement and 80 % PWM cap, "CHG reads low while charging", 270–300 mA charge current) describe the old board; `pinmap.py` notes BOARD_ID "1.65 V" and EXP_INT_N "charger status" are stale
++- [ ] Bring-up (§5 and `mao-bringup.md` §3): colour test at 80 MHz passed (or 40 set and recorded), 16 steps, ~40 mA at 100 %, wrap result recorded, fade-in gap judged, IR dark at boot, pause at 43 °C / resume at 40 °C seen, IMU temperature offset recorded, IMU survives power cycles
++- [ ] Hardware docs: `docs/hardware/mao-factory-test.md` and `mao-bringup.md` already describe the revised board
++      (board_id 1480–1700 mV, CONFIG 0x80, GPIO39 = EXP_RST_N / TP11, AW9364 backlight, 207 mA charge,
++      the 80 / 40 MHz panel clock check); carry them over with the hardware, not by hand
 diff --git a/tests/host/Makefile b/tests/host/Makefile
 index df0a89c..1953735 100644
 --- a/tests/host/Makefile

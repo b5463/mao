@@ -82,8 +82,10 @@ strap moved to VSYS (EN1, one resistor) for A1.
 
 1. **Orientation before the first plug-in (electrical audit I-1).** A tail reversed in J301 would put VSYS (up to
    4.5 V) on the panel's SDA pin. Lay the first panel's tail in J301 with the actuator open and check, against the
-   Winstar drawing kept with the design files, that the tail's pin-1 end (contact 1, TP_INT, the end beside VLED+
-   on contact 7) sits at the 12 o'clock end of J301, on pad 18. Board side this is verified: panel pin k lands on pad
+   Winstar WF0128BTYAA4DNN0 specification (pin definition and the tail drawing, spec §8), that the tail's pin-1 end
+   (contact 1, TP_INT, the end beside VLED+ on contact 7) sits at the 12 o'clock end of J301, on pad 18. The
+   specification is not in the repository (Winstar's download sits behind a browser check): get it from the panel's
+   supplier with the order and save it as `hardware/mao/lib/datasheets/WF0128BTYAA4DNN0.pdf`. Board side this is verified: panel pin k lands on pad
    19 − k (`circuit.py`).
 2. Thread the stock Winstar WF0128BTYAA4DNN0's 70 mm tail through the board's slot at 9 o'clock from the face side,
    fold it inward under the board, open J301's back-flip actuator (bottom side, entry facing the slot), insert the tail

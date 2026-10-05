@@ -4,6 +4,7 @@ MAO_MAIN A0, 4-layer release, 2026-10-05.
 
 - Design: `hardware/mao/`, generated from `hardware/mao/design/` by `pipeline.py`.
 - Reviews: [`mao-rev-a0-review.md`](mao-rev-a0-review.md) (schematic, PCB, ODD JOBS, order readiness) and [`mao-odd-jobs-compliance.md`](mao-odd-jobs-compliance.md) (all 200 rules).
+- Verification: [`mao-a0-verification.md`](mao-a0-verification.md) (simulation, three rounds of independent audits and what each changed).
 
 | Face (display side) | Back (service side) |
 |---|---|
@@ -18,14 +19,15 @@ MAO_MAIN A0, 4-layer release, 2026-10-05.
 ### Hardware architecture
 
 - **Form:** a Ø58 mm round board inside a ~Ø64 × 18.3 mm FDM puck.
-  - The face is a plug-in 1.28" round GC9A01 panel behind a clear window.
+  - The face is the stock Winstar WF0128BTYAA4DNN0 1.28" round GC9A01 panel behind a clear window. Its 70 mm tail
+    lies as one loop under the panel, drops through a slot in the board at 9 o'clock and plugs into J301 on the back.
   - A ring dial with a 30-pole ferrite strip is read by two Hall latches; every step is a haptic tick.
   - Pressing the face is the button: it rocks on its lip on three printed flexures onto one switch.
   - Four hidden touch zones.
 - **Processor:** ESP32-S3 module, with an I2C expander for the slow control lines.
 - **Power:** single-cell LiPo.
   - A linear power-path charger (runs while charging) feeds VSYS.
-  - A buck-boost makes 3.3 V, with a hardware UVLO.
+  - A buck-boost makes 3.18 V, with a hardware UVLO.
   - Fuel gauge.
   - Every peripheral rail and enable is off at reset.
 - **Antenna:** at 6 o'clock, over a notch in the board edge. The power section and USB-C are opposite, at 12–2 o'clock.
@@ -36,17 +38,18 @@ MAO_MAIN A0, 4-layer release, 2026-10-05.
   - L4 parts and lines.
 - **Finish:** black mask, ENIG.
 
-Detail: `mao-custom-board-architecture.md`.
+Detail: `mao-custom-board-architecture.md`; mechanics: `mao-mechanical.md`.
 
 ### Existing functionality preserved
 
 - Display: same GC9A01 controller, resolution, colours and timing.
   - New: it plugs into J301, so a panel can be swapped without solder.
-  - Added: a reset line, a TE (tearing-effect) line and a switched, soft-started rail.
+  - Added: a reset line, a TE (tearing-effect) line, a switched rail with a fixed slew, and a constant-current
+    backlight driver (AW9364, 16 steps, 40 mA at the top: no PWM flicker, no way to overdrive the LEDs).
 - Dial: 30 detents per turn and the same quadrature sequence, so `mao_input`'s decoder is unchanged.
 - Press:
   - the face switch on GPIO0;
-  - holding it while plugging in USB still enters the ROM loader.
+  - holding it during a reset still enters the ROM loader.
 - Sound: the synthesised voice plays through an I2S amplifier with shutdown, replacing the always-on NS4150.
 - Wireless: ESP-NOW / ODD BUS on the same channel and protocol as LAMP (C3).
 - Character, app, persistent state (NVS `mao`), USB-Serial/JTAG console and flashing.
@@ -64,7 +67,7 @@ Detail: `mao-custom-board-architecture.md`.
 | Hearing | SPH0641 PDM microphone |
 | Touch: left, right, top, rear | ESP32-S3 native touch (rim arcs + spring electrodes) |
 | Dial | 2 × DRV5012 + 30-pole ring |
-| Battery state | MAX17048 fuel gauge, charger CHG/PGOOD |
+| Battery state | MAX17048 fuel gauge, charger PGOOD; charging paused by firmware through /CE above 43 °C |
 | IR receive / send | IRM-H638T, 2 × IR12-21C |
 
 Physical feedback: a DRV2605L haptic driver with an LRA.
@@ -79,7 +82,7 @@ Physical feedback: a DRV2605L haptic driver with an LRA.
   - two I2S units, so the mic and speaker run at once;
   - PSRAM for animation and audio.
 - Quad PSRAM (not octal) keeps GPIO35–37 usable and keeps the 85 °C rating.
-- Wake and fast lines stay native; the expander carries only rail enables and slow status.
+- Wake and fast lines stay native; the expander carries only rail enables, the charger's /CE and slow status.
 
 ### Major components
 
@@ -90,7 +93,8 @@ Physical feedback: a DRV2605L haptic driver with an LRA.
 | Charger | BQ24073RGTR | C15220 |
 | 3.3 V buck-boost | TPS63802DLAR + DFE201612E-R47M | C2845237, C668312 |
 | Fuel gauge | MAX17048G+T10 | C2682616 |
-| Display rail switch | TPS22917DBVR | C2681320 |
+| Display rail switch | TPS22919DCKR | C2149796 |
+| Backlight driver | AW9364DNR | C401007 |
 | Display connector | HDGC 0.5K-HX-18PWB, 18-pin 0.5 mm back-flip FPC, top + bottom contacts | C2919497 |
 | Reverse-polarity FET | AO3401A | C15127 |
 | USB-C / ESD / TVS | TYPE-C-31-M-12, TPD2E2U06, SMF15A | C165948, C1972959, C123802 |
@@ -107,7 +111,7 @@ Physical feedback: a DRV2605L haptic driver with an LRA.
 | Spring contacts (touch top/rear) | BW0019BG × 2 | C2826516 |
 
 Bought separately (not on the BOM):
-- Winstar WF0128BTYAA4DNN0 panel, or any 1.28" round GC9A01 panel with the 18-pin 0.5 mm tail;
+- Winstar WF0128BTYAA4DNN0 panel (stock, 70.1 mm tail);
 - LP503035 cell with PCM and 10 k NTC;
 - LD0832AA LRA;
 - Same Sky CMS-150803-088S-X8 speaker (15 × 8 × 3 mm, 8 Ω, 0.8 W, own spring contacts);
@@ -117,17 +121,21 @@ Bought separately (not on the BOM):
 ### Power system
 
 **Path:** USB-C sink (5.1 k Rd) → SMF15A TVS → BQ24073.
-- DPPM, USB500.
-- 297 mA charge.
-- NTC 0–50 °C, timers on.
+- DPPM; USB100 until +3V3 is up, then USB500 (EN1 on +3V3).
+- 207 mA charge (185–227 mA; the cell allows 250 mA).
+- NTC 0–50 °C, timers on; firmware pauses charging through /CE at ≥ 43 °C board temperature (the cell allows
+  0–45 °C) and resumes at ≤ 40 °C.
 
 **VSYS** (4.4 V on USB, the cell voltage on battery) feeds:
-- the TPS63802, which makes +3V3 (2 A) and whose EN divider is a hardware UVLO (on 3.25 V, off 2.96 V; 470 k / 240 k);
+- the TPS63802, which makes +3V3 = 3.18 V (2 A) and whose EN divider is a hardware UVLO (on 3.25 V, off 2.96 V;
+  470 k / 240 k, filtered by 100 nF);
 - the amplifier;
 - the haptic driver;
-- the IR LEDs.
+- the IR LEDs;
+- the panel backlight through the AW9364.
 
-On the board, VSYS is an L3 band plus wide B tracks, and +3V3 is the L3 plane.
+On the board, VSYS is an L3 band plus 0.3–0.8 mm B tracks (all of it leaves the charger through two 0.6/0.3 mm
+vias), and +3V3 is the L3 plane.
 
 **Cell side:**
 - The cell needs its own PCM.
@@ -136,43 +144,46 @@ On the board, VSYS is an L3 band plus wide B tracks, and +3V3 is the L3 plane.
 - MAX17048 gauges the cell.
 
 **Switched rails, all off at reset:**
-- display (load switch, soft start, discharge);
+- display logic (TPS22919 load switch, fixed slew, controlled discharge);
 - microphone (GPIO-powered through RC);
 - IR receiver (expander-powered through RC).
 
-**Enables, all off at reset:** amplifier SD, haptic EN, ToF XSHUT, Hall sampling.
+**Enables, all off at reset:** amplifier SD, haptic EN, ToF XSHUT, backlight EN, Hall sampling.
 
 **Budget (`mao-power-budget.md`, 500 mAh):**
 
 | State | Battery current | Runtime |
 |---|---:|---:|
-| Active | ~133 mA | ~3.8 h |
+| Active | ~141 mA | ~3.5 h |
 | Drowsy | ~1.6 mA | ~13 days |
-| Deep sleep | ~73 µA | ~9 months |
+| Deep sleep | ~85 µA | ~8 months |
 
 ### GPIO
 
 Every module GPIO is used natively except **GPIO46**, the download-boot strap, which is NC with its internal pull-down. That count includes USB, UART0 and the display TE line.
 
-- **GPIO45**, the VDD_SPI strap, drives the backlight gate; the gate's 100 k pull-down holds it at 0 during reset.
-- **Expander:** all 8 bits are used.
+- **GPIO45**, the VDD_SPI strap (the module's flash voltage is fixed by eFuse), drives the AW9364's EN. The driver's 150 k EN pull-down and the pin's own pull-down hold it low during reset, so the backlight stays dark.
+- **GPIO38** drives the IR LEDs (no reset pull-up on that pin), **GPIO39** the expander reset (its reset pull-up agrees with the 10 k on that line).
+- **Expander:** all 8 bits are used; P6 is the charger's /CE.
 - **Source:** `mao-pin-map.md`, generated from `pinmap.py`, which also generates the firmware header and the GPIO numbers in the schematic notes.
 
 ### Firmware
 
-Committed as `daf0407`; pins updated with this board.
+A0 support was committed as `faa39f7`; the panel-clock option followed with this board.
 
 - **Board profiles:** `boards/lcdkit` and `boards/main_a0`, chosen by target. The pin header is generated from `pinmap.py`.
 - **A0 HAL:**
   - shared I2C bus;
-  - TCA6408A rails and status, with GPIO38 reset recovery;
-  - display with runtime rotation and reset;
+  - TCA6408A rails and status, with GPIO39 reset recovery;
+  - display with runtime rotation and reset, SPI clock from `CONFIG_MAO_A0_LCD_PCLK_MHZ` (80 by default, 40 the
+    fallback for the 70 mm tail);
+  - AW9364 backlight: a 1-wire pulse-count driver behind `mao_board_backlight_set(percent)`;
   - I2S amplifier;
   - deep-sleep wake sources.
 - **Drivers:**
-  - `mao_power` (MAX17048, charger, power policy);
+  - `mao_power` (MAX17048, charger, the /CE thermal pause, power policy);
   - `mao_haptics` (DRV2605L);
-  - `mao_sense` (LSM6DSOX, VL53L4CD, OPT3004, touch, PDM mic);
+  - `mao_sense` (LSM6DSOX incl. its die temperature, VL53L4CD, OPT3004, touch, PDM mic);
   - IR NEC.
 - **Perception:** `mao_perception`, a platform-independent percept engine:
   - filters, hysteresis, fusion windows and confidence;
@@ -186,7 +197,10 @@ Committed as `daf0407`; pins updated with this board.
   - factory self-test (33 steps on A0) with `tools/factory_test.py`.
 - **Builds (2026-10-05, against this pin map):**
   - all five configurations build with 0 warnings: s3-dev, s3-factory, s3-release, c3-dev, c3-release;
-  - host unit tests: 160 checks, 0 failures.
+  - host unit tests: 240 checks, 0 failures.
+- **Merging onto a newer firmware tree:** `docs/firmware/mao-a0-rev-merge.md` (what changed and why, the API
+  changes, the porting steps, the checklist) with the full diff in `docs/firmware/mao-a0-rev.patch` (against
+  `b17187e`).
 - **Hardware assumptions:** every value only real hardware can confirm is a named constant marked VERIFY AT BRING-UP (`docs/firmware/mao-a0-firmware.md` §13).
 
 ### Board
@@ -194,12 +208,13 @@ Committed as `daf0407`; pins updated with this board.
 | Item | Value |
 |---|---|
 | Stackup | JLC04161H-1080, 1.6 mm. F / 0.0764 prepreg / In1 GND / 1.265 core / In2 power / 0.0764 prepreg / B. 1 oz outer, 0.5 oz inner |
-| Planes | L2 GND one piece, 2098 mm², no tracks. L3: +3V3 1501 mm², VSYS 360 mm², VBUS 33 mm², each one piece |
-| Vias | **194** (137 × 0.3/0.6, 57 × 0.2/0.5), vs 230 on the 6-layer board. 24 × 0.2 mm thermal vias in exposed pads. No via touches an SMD pad |
-| Copper | F 730 mm, B 674 mm, L3 137 mm (slow lines only). All 820 segments at 0/45/90° |
-| USB | D± on F over L2, 29.5 mm, through-paths within about 3 mm; full speed |
-| Fast lanes | Display SPI, I2S and PDM on B over their own uncrossed L3 cores; I2S and PDM have no vias |
-| Silkscreen | 66 texts, checker 0 findings. Mark, MAO / MAIN A0 / 2026-10 and an S/N box on the face; identity on the back; every test pad named |
+| Planes | L2 GND one piece, 2000 mm², no tracks. L3: +3V3 1359 mm², VSYS 324 mm², VBUS 33 mm², each one piece |
+| Vias | **208** (148 × 0.6/0.3, 60 × 0.5/0.2), vs 230 on the 6-layer board; 74 of them GND, 12 at the rim. 24 × 0.2 mm thermal vias in exposed pads. No via touches an SMD pad |
+| Copper | F 686 mm, B 772 mm, L3 231 mm (14 slow nets). All 930 segments at 0/45/90° |
+| USB | D± on F over L2 (28.2 mm each, plus 2.2 / 6.1 mm on B at the ends); full speed |
+| Fast lanes | Display SPI, I2S and PDM on B over their own uncrossed L3 cores, with no vias; no L3 track under any of them. L3/L4 broadside 17.4 mm in all, all of it slow lines |
+| Enclosure fit | Every part bodied; heights, keep-outs, the wall (every body inside r 29.0 except the wall-opening parts), the tail path and the tab spots checked by script |
+| Silkscreen | 84 texts, checker 0 findings. Mark, MAO / MAIN A0 / 2026-10 and an S/N field on the face; mark and identity on the back; every test pad named; references for every IC, connector and semiconductor and every procedure-named R/C, the rest on the assembly drawing. Five small eggs, each hidden once assembled: a sleeping cat with paw prints and "boop" at the face switch and ODD JOBS' "MADE FOR BAD IDEAS" under the panel, "9 lives" under the cell, "meow" under the speaker (MAO is Mandarin for cat) |
 
 ### Manufacturing
 
@@ -210,11 +225,12 @@ Committed as `daf0407`; pins updated with this board.
 - Through vias only: 0.3/0.6 and 0.2/0.5 mm, tented.
 - Epoxy-filled and capped (POFV) for the exposed-pad vias if offered.
 - No impedance control (USB full speed only).
-- Order single boards. Panel tabs, if needed, only at 2 and 8 o'clock (FAB-NOTES).
+- Order single boards. Panel tabs, if needed, only at 130° and 320° (about 4 and 11 o'clock), where copper on
+  every layer is pulled back 1.55 mm from the edge (FAB-NOTES).
 
 **Assembly:**
 - JLC PCBA, both sides: **112 parts, 48 BOM lines**, every line with an LCSC number.
-- J301, the display connector, is fitted by JLC; the panel plugs in after assembly.
+- J301, the display connector, is fitted by JLC on the back; the panel's tail passes through the slot and plugs in after assembly.
 - USB-C shell legs: THT assembly or hand-solder.
 - Fitted by JLC: the springs.
 - Hand-fitted after assembly: the LRA leads.
@@ -223,38 +239,49 @@ Committed as `daf0407`; pins updated with this board.
 - `MAO_MAIN_A0-gerbers.zip`: 4 copper layers, mask, paste, silk, outline, Gerber job, Excellon PTH/NPTH, drill maps;
 - `BOM-MAO_MAIN_A0-JLC.csv`;
 - `CPL-MAO_MAIN_A0-JLC.csv` (+ KiCad CPL);
-- `ASSEMBLY-MAO_MAIN_A0-top.pdf` / `-bottom.pdf` (every reference);
+- `ASSEMBLY-MAO_MAIN_A0-top.pdf` / `-bottom.pdf`: A3 at 4.5:1, every reference legible (previews in `plots/mao-main-a0-assembly-*.png`);
 - `FAB-NOTES.txt` (order options, assembly notes, polarised parts to check, panel tabs).
 
-**Schematic** (`hardware/mao/outputs/`): PDF and SVG, netlist, ERC/DRC reports, plane report.
+**Schematic** (`hardware/mao/outputs/`): PDF and SVG, netlist, ERC/DRC reports, plane report, enclosure check, panel-tab and stack-up reports.
 
 **Checks:**
 - ERC 0, including KiCad's default-off checks run once: only deliberate footprint-filter notes.
 - DRC 0 at all severities, 0 unconnected, 0 parity.
 - Every L2/L3 plane in one piece.
 - Silkscreen checker: 0 findings.
+- Enclosure check (`mech_check.py`): 0 findings.
 - 45°: every segment.
-- Gerbers reviewed outside KiCad (`plots/mao-main-a0-gerbers.png`); the drill file reconciles with the board.
+- Gerbers reviewed outside KiCad (`plots/mao-main-a0-gerbers.png`); the drill file reconciles with the board (0.3 mm × 152 = 148 vias + 4 electrode joins; 0.2 mm × 84 = 60 vias + 24 exposed-pad vias; 4 slots; 9 NPTH).
+- Simulations S1–S14 pass (`mao-a0-verification.md`).
 
 ### Known risks
 
-1. **JLC placement preview.** Package rotation conventions differ between libraries. Check every polarised part and pin 1 in JLC's viewer at order time; FAB-NOTES lists them.
-2. **Panel tail.** J301 takes any 18-pin 0.5 mm round-panel tail, either way up. Check that the bought panel follows the Winstar pin definition and that its tail is 10.5–12.5 mm from the glass edge to the contacts' end.
-3. **Antenna detuning** by the cell, the panel (its edge is 4.9 mm from the antenna boundary in plane) and the enclosure. The module has no matching network; measure RSSI against the LCDkit.
+1. **No enclosure CAD yet.** Every mechanical check is arithmetic against `mechanical.py`: heights, keep-outs, the
+   wall, the tail path. The first printed puck is the real fit check (risk 11).
+2. **Panel tail.** The 70 mm tail must arrive with panel pin 1 at the 12 o'clock end of J301 (pad 18). Bring-up §3
+   checks it with the tail laid in unlatched before the first power, and runs the colour test at 80 MHz (40 MHz
+   fallback in Kconfig). The loop's turn in the carrier well must hold up to a few hundred presses.
+3. **Antenna detuning** by the cell, the panel (its edge is 3.65 mm from the antenna boundary in plane), the LRA's
+   steel can (about 7.4 mm from the antenna's corner) and the enclosure. The module has no matching network;
+   measure RSSI against the LCDkit.
 4. **Touch sensitivity** through the 2 mm wall and the ring. Thresholds are tuned at bring-up; the fallback is conductive filament or copper tape.
 5. **Ring dial.** The ferrite strip must give ≥ 8 mT at the sensors (they switch at ±3.3 mT); with the FDM gap tolerance, check that every one of the 30 steps registers.
 6. **ToF window crosstalk.** It needs the light-blocking gasket specified in `mao-mechanical.md` §5 and factory calibration.
-7. **Buck-boost ripple** with 0603 output capacitors at 3.3 V bias. Measure it; the A1 fallback is 47 µF 0805.
-8. **Charger temperature** at a low cell (0.85 W worst case). The fallback is a resistor swap to 200 mA.
+7. **Buck-boost ripple** with 0603 output capacitors at 3.18 V bias. Measure it; the A1 fallback is 47 µF 0805.
+8. **Charger temperature** at a low cell (0.72 W worst case, under the panel). Bring-up §4 looks at the panel with a
+   thermal camera while charging a 3.0 V cell; the fallback is a resistor swap to 200 mA. The charge pause reads
+   the IMU's die temperature, about 20 mm away: its offset is characterised at bring-up.
 9. **First use of four footprints:** JST SH clone, DFE201612E, the HDGC J301 and the springs. Inspect the first boards under a microscope.
 10. **Exposed-pad thermal vias** are unplugged unless POFV is chosen. Watch for voids under U102, U202 and U501 (X-ray if offered).
 11. **Enclosure first fit.** The puck is printed from the specification. Check on the first print:
     - the IR receiver's 0.35 mm worst-case clearance under the pressed window;
     - the face flexures: preload (about 0.3 N) and an even click across the face;
+    - the tail pocket, well and rim channel;
     - the speaker cradle: contact pressure on LS501 and the front-chamber seal;
     - the TOP spring boss;
     - the ToF and mic gaskets.
 12. **LEFT touch near the speaker.** The speaker lies partly over the LEFT electrode; firmware holds that zone while the amplifier runs. Check LEFT sensitivity with the speaker fitted.
+13. **USB start without a cell.** The charger starts in USB100 until +3V3 is up; bring-up §1 checks a cold start on USB with no cell and with a flat cell.
 
 ### DNP / optional components
 
@@ -267,7 +294,7 @@ Committed as `daf0407`; pins updated with this board.
   - speaker contact pads LS501 (the speaker presses on them);
   - fiducials FID1–FID6;
   - mounting holes H1–H3.
-- **J301 is fitted:** it is a real connector now, not a land.
+- **J301 is fitted:** it is a real connector, on the back, facing the tail slot.
 
 ### Bring-up sequence
 
@@ -275,55 +302,26 @@ Full procedure: `mao-bringup.md`.
 
 1. Inspect the board. Check R108 is fitted and that no rail is shorted to GND at the test pads.
 2. Power VBUS only from a current-limited supply on TP6 (100 mA, no cell, no panel). Check:
-   - TP4 SYS ≈ 4.4 V;
-   - TP3 3V3 = 3.3 V;
-   - TP13–TP15 < 0.3 V.
-3. Connect USB. It enumerates as USB-Serial/JTAG. Flash `s3-dev` (hold the face, or TP8 BOOT, to force the ROM loader; the Tag-Connect UART is the fallback).
+   - TP4 SYS 4.3–4.5 V;
+   - TP3 3V3 3.10–3.32 V (3.18 V nominal);
+   - TP13–TP15 < 0.3 V;
+   - a cold start with no cell (scope VSYS and +3V3).
+3. Connect USB. It enumerates as USB-Serial/JTAG. Flash `s3-dev` (hold the face, or TP8 BOOT, during a reset to force the ROM loader; the Tag-Connect UART is the fallback).
 4. Run `mao selftest auto nopads`; the automatic steps must pass. Then check that TP13 switches when the display rail is enabled.
-5. Plug the panel into J301 and check the boot experience and orientation.
+5. Lay the panel's tail in J301 unlatched and confirm pin 1 at the 12 o'clock end; then plug it in, power with the backlight off, and check the boot experience, orientation and the 80 MHz colour test.
 6. Connect the cell, after checking its pinout on receipt. Then check:
    - charging current through R108's pads;
+   - the charge pause (`mao power charge off`, then by heating);
    - UVLO thresholds;
    - running from the cell.
-7. Bring up each subsystem in order: speaker, haptics, IMU, ToF, light, mic, touch, dial, IR, radio. Then do the enclosure first fit.
+7. Bring up each subsystem in order: backlight steps, speaker, haptics, IMU, ToF, light, mic, touch, dial, IR, radio. Then do the enclosure first fit.
 8. Measure the power states and fill in `mao-power-budget.md`.
 9. Run the full factory self-test with the fixture (`mao-factory-test.md`).
 
 ### ODD JOBS standard
 
-All 200 rules were checked one by one in [`mao-odd-jobs-compliance.md`](mao-odd-jobs-compliance.md); none is open. Rules marked ✓\* carry their reason or a named bring-up check. The release gate is **EVT** (engineering prototype), and the DVT items for antenna, connectors, ESD and power architecture are already met.
-
-The golden rule:
-
-| Question | Answer |
-|---|---|
-| Can it boot? | Yes |
-| Can it be flashed? | Yes: USB, plus the Tag-Connect UART |
-| Can it be recovered? | Yes: ROM loader by face, TP8 or Tag-Connect |
-| Can it be measured? | Yes: 15 named pads and BAT LINK |
-| Can it physically fit? | Yes: every part bodied and checked against the stack |
+<!-- AUDIT3-ODDJOBS -->
 
 ### Final status
 
-**NOT READY TO ORDER — A0 REVISION IN PROGRESS (2026-10-05)**
-
-The verification pass (`mao-a0-verification.md`) found blockers that the earlier review missed. The named display panel's 70 mm FPC tail cannot reach J301, and its 3.0–3.4 V backlight cannot be driven from 3V3. GPIO39's reset pull-up turns the IR LEDs on at every boot. The IR receiver overlaps the ring, and the power cluster sits over the cell. Everything below this line describes the board before that pass.
-
-~~READY FOR 5-UNIT A0 PROTOTYPE ORDER — 4 LAYER~~
-
-Every gate of the 4-layer review passes (`mao-rev-a0-review.md` §2.1):
-- DRC/ERC/parity 0 and nothing unconnected;
-- L2 continuous;
-- power robust;
-- USB and SPI references uninterrupted;
-- I2S/PDM clean;
-- touch and antenna keep-outs correct;
-- no functionality removed;
-- service access;
-- visual standard.
-
-The ODD JOBS review (§3 and the compliance document) also passes.
-
-At order time:
-- choose JLC04161H-1080, black mask and ENIG, as in FAB-NOTES;
-- check JLC's placement preview (risk 1).
+<!-- AUDIT3-STATUS -->

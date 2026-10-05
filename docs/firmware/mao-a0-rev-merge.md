@@ -7,6 +7,10 @@ tests and docs/firmware; new files included; `hardware/` and `docs/hardware/`
 left out). Behaviour is described in `docs/firmware/mao-a0-firmware.md`
 (§2, §3.1, §3.4, §4, §8, §10, §11, §13).
 
+Checked on 2026-10-05: in a clean worktree of `b17187e`, `git apply docs/firmware/mao-a0-rev.patch` applies
+without conflicts, `tests/host/run.sh` passes 240 checks, and s3-dev and c3-dev build with 0 warnings, with
+binaries the same size as this branch's.
+
 Hardware source of truth: `hardware/mao/design/pinmap.py` and `circuit.py`.
 The pin header is generated from `pinmap.py`; never hand-merge it.
 
