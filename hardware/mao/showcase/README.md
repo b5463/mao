@@ -4,6 +4,15 @@ Stills and a 57 s product film of MAO_MAIN A0 in a **concept enclosure** (made u
 enclosure). Everything is rendered locally: KiCad's raytracer for the 3D, numpy/PIL for the compositing, scipy for the
 soundtrack, AVFoundation for the encode. Nothing is downloaded and nothing carries a third-party licence.
 
+## Media
+
+- `media/MAO-showcase.mp4`: the film, 57 s, 1920 x 1080, 30 fps, H.264 10 Mbit/s + AAC. The 24 Mbit/s master
+  (171 MB) is over GitHub's 100 MB file limit; re-encode it from the frames with the Encode step below.
+- `media/stills/`: 20 plates, 3840 x 2160, on the ODD JOBS backdrop, plus `contact-sheet.jpg`.
+- `media/renders/`: the raw renders behind them, 3808 x 2128 PNG with transparent background, for reuse.
+
+## Pipeline
+
 | Step | Command | Output |
 |---|---|---|
 | Enclosure models | `python3 enclosure.py` | `models/*.wrl` (VRML, KiCad units) |
