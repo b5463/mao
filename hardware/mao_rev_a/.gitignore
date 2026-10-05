@@ -1,0 +1,5 @@
+schematic/__pycache__/
+schematic/build.erc
+schematic/build.log
+out/build_sklib.py
+out/skidl.*

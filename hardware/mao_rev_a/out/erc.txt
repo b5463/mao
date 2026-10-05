@@ -1,0 +1,38 @@
+MAO Rev A ERC: 142 parts, 77 nets
+
+SKiDL ERC, open:
+
+SKiDL ERC, waived:
+  ERC WARNING: Pin conflict on net CHG_STAT1, OPEN-COLLECTOR pin 9/STAT1 of BQ25185/U1 <==> BIDIRECTIONAL pin 32/IO36 of ESP32-S3-MINI-1/U4 (OPEN-COLLECTOR connected to BIDIRECTIONAL)  -- OPEN-DRAIN TO MCU INPUT: the S3 pin is configured as an input; pull-up on the net
+  ERC WARNING: Pin conflict on net CHG_STAT2, OPEN-COLLECTOR pin 3/STAT2 of BQ25185/U1 <==> BIDIRECTIONAL pin 20/IO16 of ESP32-S3-MINI-1/U4 (OPEN-COLLECTOR connected to BIDIRECTIONAL)  -- OPEN-DRAIN TO MCU INPUT: the S3 pin is configured as an input; pull-up on the net
+  ERC WARNING: Pin conflict on net IMU_INT1, OPEN-COLLECTOR pin 4/INT1 of ICM-42670-P/U7 <==> BIDIRECTIONAL pin 8/IO4 of ESP32-S3-MINI-1/U4 (OPEN-COLLECTOR connected to BIDIRECTIONAL)  -- OPEN-DRAIN TO MCU INPUT: the S3 pin is configured as an input; pull-up on the net
+  ERC WARNING: Pin conflict on net IMU_INT2, OPEN-COLLECTOR pin 9/INT2 of ICM-42670-P/U7 <==> BIDIRECTIONAL pin 9/IO5 of ESP32-S3-MINI-1/U4 (OPEN-COLLECTOR connected to BIDIRECTIONAL)  -- OPEN-DRAIN TO MCU INPUT: the S3 pin is configured as an input; pull-up on the net
+
+Gate C checks, open:
+
+Gate C checks, waived:
+  [error] domain: LED1.DIN on RGB_DIN (CORE_3V3 up to 3.4 V) exceeds VDD (AUX_SYS down to 0 V) + 0.3 V  -- BACK-POWER, FIRMWARE-SEQUENCED: RGB_DATA (IO33) is driven low before AUX_PWR_EN goes low and until after it goes high; 330 R limits the current to < 8 mA if the rule is ever broken
+
+Fitted capacitance per rail (nominal; DC-bias derating not applied):
+  VBUS         1.00 uF  C2=1uF
+  BATT_P       0.00 uF  
+  VBAT         1.10 uF  C1=1uF C6=0.1uF
+  SYS         31.10 uF  C3=10uF C25=0.1uF C26=10uF C29=1uF C33=10uF
+  VIN_REG      4.70 uF  C4=4.7uF
+  CORE_3V3    37.41 uF  C5=10uF C7=22uF C8=0.1uF C12=1uF C20=0.1uF C21=2.2uF C22=10nF C24=1uF C30=1uF
+  LCD_3V3      1.20 uF  C13=1uF C14=0.1uF C15=0.1uF
+  AUX_SYS      0.10 uF  C31=0.1uF
+  AUX_3V3      0.00 uF  
+  IR_VS        0.10 uF  C32=0.1uF
+
+Back-power exposure (each line is held low / isolated while its rail is off):
+  J3 FPC_18.P10 <- LCD_CS (CORE_3V3) while LCD_3V3 off
+  J3 FPC_18.P11 <- LCD_SCLK_P (CORE_3V3) while LCD_3V3 off
+  J3 FPC_18.P11 <- LCD_SCLK (CORE_3V3) while LCD_3V3 off
+  J3 FPC_18.P12 <- LCD_MOSI_P (CORE_3V3) while LCD_3V3 off
+  J3 FPC_18.P12 <- LCD_MOSI (CORE_3V3) while LCD_3V3 off
+  J3 FPC_18.P13 <- LCD_DC (CORE_3V3) while LCD_3V3 off
+  J3 FPC_18.P15 <- LCD_RST (CORE_3V3) while LCD_3V3 off
+  U6 TLV9061.IN+ <- LCD_BL (CORE_3V3) while LCD_3V3 off
+  LED1 SK6805-EC20.DIN <- RGB_DIN (CORE_3V3) while AUX_SYS off
+  LED1 SK6805-EC20.DIN <- RGB_DATA (CORE_3V3) while AUX_SYS off

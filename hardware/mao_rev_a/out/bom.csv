@@ -1,0 +1,55 @@
+Refs,Qty,Part,Value,Spec / tolerance,MPN,Manufacturer,Footprint,DNP,Sheet,Why / source
+C1 C9 C12 C13 C23 C24 C29 C30,8,C,1uF,10 V X5R 10% 0402,GRM155R61A105KE15D,Murata,Capacitor_SMD:C_0402_1005Metric,,02 Battery and charger; 04 MCU; 05 Display and backlight; 08 Haptics; 10 IR and RGB,BQ25185 CBAT >= 1 uF (7.2.2.3)
+C2,1,C,1uF,25 V X5R 10% 0603,GRM188R61E105KA12D,Murata,Capacitor_SMD:C_0603_1608Metric,,02 Battery and charger,"CIN >= 1 uF, 25 V rated (7.2.2.3)"
+C3,1,C,10uF,25 V X5R 10% 0805,GRM21BR61E106KA73L,Murata,Capacitor_SMD:C_0805_2012Metric,,02 Battery and charger,"CSYS 10 uF nom, 25 V rated (7.2.2.3)"
+C4,1,C,4.7uF,10 V X5R 10% 0402,GRM155R61A475MEAAD,Murata,Capacitor_SMD:C_0402_1005Metric,,03 CORE_3V3 and fuel gauge,CIN 4.7 uF (GRM155R61A475MEAAD)
+C5 C26 C33,3,C,10uF,10 V X5R 10% 0603,GRM188R61A106KE69D,Murata,Capacitor_SMD:C_0603_1608Metric,,03 CORE_3V3 and fuel gauge; 09 Audio; 10 IR and RGB,COUT 10 uF (Table 3); 0603 10 V for DC-bias margin
+C6 C8 C14 C15 C25 C31 C32,7,C,0.1uF,10 V X5R 10% 0402,GRM155R61A104KA01D,Murata,Capacitor_SMD:C_0402_1005Metric,,03 CORE_3V3 and fuel gauge; 04 MCU; 05 Display and backlight; 09 Audio; 10 IR and RGB,MAX17048 VDD bypass (p6)
+C7,1,C,22uF,10 V X5R 10% 0805,GRM21BR61A226ME51L,Murata,Capacitor_SMD:C_0805_2012Metric,,04 MCU,module bulk (Fig 9-1)
+C10 C11,2,C,10pF,50 V C0G 5% 0402,GRM1555C1H100JA01D,Murata,Capacitor_SMD:C_0402_1005Metric,DNP,04 MCU,reserved (HDG 2.13)
+C16,1,C,100pF,50 V C0G 5% 0402,GRM1555C1H101JA01D,Murata,Capacitor_SMD:C_0402_1005Metric,DNP,05 Display and backlight,"loop compensation, fit if the sink rings"
+C17 C18 C19 C27 C28,5,C,1nF,50 V X7R 10% 0402,GRM155R71H102KA01D,Murata,Capacitor_SMD:C_0402_1005Metric,DNP,06 Encoder; 09 Audio,"RC filter option, only if bounce needs it"
+C20,1,C,0.1uF,10 V X7R 10% 0402,GRM155R71A104KA01D,Murata,Capacitor_SMD:C_0402_1005Metric,,07 IMU,IMU VDD (Table 10)
+C21,1,C,2.2uF,10 V X7R 10% 0603,GRM188R71A225KE15D,Murata,Capacitor_SMD:C_0603_1608Metric,,07 IMU,IMU VDD (Table 10)
+C22,1,C,10nF,16 V X7R 10% 0402,GRM155R71C103KA01D,Murata,Capacitor_SMD:C_0402_1005Metric,,07 IMU,IMU VDDIO (Table 10)
+D1,1,TPD2E2U06,TPD2E2U06,,TPD2E2U06DRLR,Texas Instruments,Package_TO_SOT_SMD:SOT-553,,01 USB-C input,"SLLSEG9C DRL pinout: 3 IO1, 5 IO2, 4 GND; 1.5 pF, VRWM 5.5 V (audit)"
+D2 D3 D4 D5,4,TPD1E10B06,TPD1E10B06,,TPD1E10B06DPYR,Texas Instruments,Package_SON:Texas_DPY0002A_0.6x1mm_P0.65mm,,01 USB-C input; 06 Encoder,"SLLSEB1G: bidirectional, VRWM 5.5 V, <= 100 nA at 5 V, 12 pF (audit)"
+D6,1,VSMB2943,VSMB2943,,VSMB2943GX01,Vishay,MAO_RevA:Vishay_VSMB2943_GullWing,,10 IR and RGB,"Vishay 83486 Rev 1.7 p5 pad proposal; no pin numbers in the doc: 1 = K (pin-ID side), 2 = A"
+J1,1,USB_C,USB_C,,USB4105-GF-A,GCT,Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal,,01 USB-C input,"GCT USB4105 drawing; USB 2.0, 16 pos, top mount (audit)"
+J2,1,BATT,BATT,,S3B-PH-SM4-TB(LF)(SN),JST,Connector_JST:JST_PH_S3B-PH-SM4-TB_1x03-1MP_P2.00mm_Horizontal,,02 Battery and charger,"JST PH 2.0 mm, 3 pos, SMD right angle, 2 A/contact (SH/GH are 1 A: below the 1.2 A worst case)"
+J3,1,FPC_18,FPC_18,,FH12-18S-0.5SH(55),Hirose,Connector_FFC-FPC:Hirose_FH12-18S-0.5SH_1x18-1MP_P0.50mm_Horizontal,,05 Display and backlight,Hirose FH12 catalog (audit); pinout = Winstar WF0128BTYAA4DNN0 spec p4
+J4 J5,2,WIRE_2,WIRE_2,,SM02B-SRSS-TB(LF)(SN),JST,Connector_JST:JST_SH_SM02B-SRSS-TB_1x02-1MP_P1.00mm_Horizontal,,08 Haptics; 09 Audio,"JST SH 1.0 mm, 2 pos, SMD right angle"
+L1,1,L,2.2uH,"2.2 uH 20 %, 116 mOhm DCR, 2016 (Table 2) (audit: land)",DFE201612E-2R2M=P2,Murata,Inductor_SMD:L_Murata_DFE201610P,,03 CORE_3V3 and fuel gauge,generic passive
+LED1,1,SK6805-EC20,SK6805-EC20,,SK6805-EC20,OPSCO,MAO_RevA:LED_SK6805-EC20_2.0x2.0mm,,10 IR and RGB,"SK6805-EC20-001 Rev A1: VDD 3.5-5.5 V, VIH 0.6 VDD"
+Q1 Q2,2,DMG2302UK,DMG2302UK,,DMG2302UK-7,Diodes Inc.,Package_TO_SOT_SMD:SOT-23,,05 Display and backlight; 10 IR and RGB,"DS38439 Rev 2-2: Vgs(th) 0.3-1.0 V, 120 mOhm max at 2.5 V, Ciss 130 pF"
+R1 R2,2,R,5.1k,1% 1/16 W thick film 0402,RC0402FR-075K1L,Yageo,Resistor_SMD:R_0402_1005Metric,,01 USB-C input,"Rd, UFP (USB Type-C)"
+R3 R23 R24 R29 R33 R34 R35 R36 R43 R44,10,R,100k,1% 1/16 W thick film 0402,RC0402FR-07100KL,Yageo,Resistor_SMD:R_0402_1005Metric,,01 USB-C input; 05 Display and backlight; 07 IMU; 08 Haptics; 10 IR and RGB,VBUS sense top
+R4,1,R,150k,1% 1/16 W thick film 0402,RC0402FR-07150KL,Yageo,Resistor_SMD:R_0402_1005Metric,,01 USB-C input,VBUS sense bottom: 5.5 V -> 3.30 V
+R5 R11,2,R,0R,0 Ω 1 A 0603 jumper,RC0603JR-070RL,Yageo,Resistor_SMD:R_0603_1608Metric,,02 Battery and charger; 03 CORE_3V3 and fuel gauge,whole-board battery current (cut and fit an ammeter)
+R6 R17 R18,3,R,10k,1% 1/16 W thick film 0402,RC0402FR-0710KL,Yageo,Resistor_SMD:R_0402_1005Metric,DNP,02 Battery and charger; 04 MCU,fit only if the chosen cell has no NTC (6.3.9)
+R7 R26 R27,3,R,1.0k,1% 1/16 W thick film 0402,RC0402FR-071KL,Yageo,Resistor_SMD:R_0402_1005Metric,,02 Battery and charger; 05 Display and backlight,ICHG = 300 AOhm / 1.0 k = 300 mA (PROVISIONAL)
+R8,1,R,18k,1% 1/16 W thick film 0402,RC0402FR-0718KL,Yageo,Resistor_SMD:R_0402_1005Metric,,02 Battery and charger,4.2 V / 500 mA input limit (Table 6-1)
+R9 R10 R13 R14,4,R,10k,1% 1/16 W thick film 0402,RC0402FR-0710KL,Yageo,Resistor_SMD:R_0402_1005Metric,,02 Battery and charger; 04 MCU,"STAT1 open-drain, 1-20 k"
+R12,1,R,267k,1% 1/16 W thick film 0402,RC0402FR-07267KL,Yageo,Resistor_SMD:R_0402_1005Metric,,03 CORE_3V3 and fuel gauge,"VSET: 3.3 V (Table 1), E96, <= 200 ppm/K"
+R15 R16 R21 R22,4,R,22,1% 1/16 W thick film 0402,RC0402FR-0722RL,Yageo,Resistor_SMD:R_0402_1005Metric,,04 MCU; 05 Display and backlight,"USB series, initial value (HDG 2.13)"
+R19 R20,2,R,4.7k,1% 1/16 W thick film 0402,RC0402FR-074K7L,Yageo,Resistor_SMD:R_0402_1005Metric,,04 MCU,"I2C SDA, 400 kHz"
+R25,1,R,32.4k,1% 1/16 W thick film 0402,RC0402FR-0732K4L,Yageo,Resistor_SMD:R_0402_1005Metric,,05 Display and backlight,reference divider top: 3.3 V -> 98.8 mV
+R28 R41 R42,3,R,100,1% 1/16 W thick film 0402,RC0402FR-07100RL,Yageo,Resistor_SMD:R_0402_1005Metric,,05 Display and backlight; 10 IR and RGB,gate isolation from the op-amp output
+R30,1,R,3.3,1% 1/10 W thick film 0603,RC0603FR-073R3L,Yageo,Resistor_SMD:R_0603_1608Metric,,05 Display and backlight,LED current: 98.8 mV / 3.3 ohm = 30 mA
+R31 R32,2,R,470k,1% 1/16 W thick film 0402,RC0402FR-07470KL,Yageo,Resistor_SMD:R_0402_1005Metric,,06 Encoder,"ext0 wake line pull, PROVISIONAL (rig test)"
+R37,1,R,0,jumper 1/16 W thick film 0402,RC0402JR-070RL,Yageo,Resistor_SMD:R_0402_1005Metric,DNP,09 Audio,GAIN_SLOT to GND = 12 dB; open = 9 dB
+R38 R39,2,R,0,jumper 1/16 W thick film 0402,RC0402JR-070RL,Yageo,Resistor_SMD:R_0402_1005Metric,,09 Audio,ferrite-bead option (EMI near the antenna)
+R40,1,R,330,1% 1/16 W thick film 0402,RC0402FR-07330RL,Yageo,Resistor_SMD:R_0402_1005Metric,,10 IR and RGB,data series; limits back-power current
+R45,1,R,33,1% 1/8 W thick film 0805,RC0805FR-0733RL,Yageo,Resistor_SMD:R_0805_2012Metric,,10 IR and RGB,IR LED current from SYS
+SW1,1,EC11E,EC11E,,EC11E1534408,Alps Alpine,Rotary_Encoder:RotaryEncoder_Alps_EC11E-Switch_Vertical_H20mm,,06 Encoder,EC11E 15 pulses / 30 detents with push switch; shaft and height fixed at Gate D
+TP1 TP2 TP3 TP4 TP5 TP6 TP7 TP8 TP9 TP10 TP11 TP12 TP13 TP14 TP15 TP16 TP17 TP18 TP19 TP20 TP21 TP22 TP23 TP24 TP25 TP26 TP27 TP28 TP29 TP30 TP31 TP32 TP33 TP34 TP35 TP36,36,TP,test pad,,,-,TestPoint:TestPoint_Pad_D1.0mm,,01 USB-C input; 02 Battery and charger; 03 CORE_3V3 and fuel gauge; 04 MCU; 05 Display and backlight; 06 Encoder; 07 IMU; 08 Haptics; 09 Audio; 10 IR and RGB; 11 Service,
+U1,1,BQ25185,BQ25185,,BQ25185DLHR,Texas Instruments,Package_DFN_QFN:Texas_DLH0010A_WSON-10-1EP_2.2x2mm_P0.4mm_EP0.9x1.5mm,,02 Battery and charger,SLUSF65B Table 4-1 p4
+U2,1,TPS62840,TPS62840,,TPS62840DLCR,Texas Instruments,MAO_RevA:TI_DLC0008B_VSON-HR-8_1.5x2mm_P0.5mm,,03 CORE_3V3 and fuel gauge,SLVSEC6D p5 (DLC)
+U3,1,MAX17048,MAX17048,,MAX17048G+T10,Analog Devices (Maxim),Package_DFN_QFN:TDFN-8-1EP_2x2mm_P0.5mm_EP0.8x1.2mm,,03 CORE_3V3 and fuel gauge,"MAX17048/9 datasheet p6, address 0x36 p16"
+U4,1,ESP32-S3-MINI-1,ESP32-S3-MINI-1,,ESP32-S3-MINI-1-N8,Espressif,RF_Module:ESP32-S2-MINI-1,,04 MCU,"ESP32-S3-MINI-1/1U datasheet v1.7 Table 3-1, Fig 11-1"
+U5 U10 U11,3,TPS22916C,TPS22916C,,TPS22916CYFPR,Texas Instruments,Package_BGA:Texas_PicoStar_BGA-4_0.758x0.758mm_Layout2x2_P0.4mm,,05 Display and backlight; 10 IR and RGB,"SLVSDO5F p3; C = slow rise, QOD, active high"
+U6,1,TLV9061,TLV9061,,TLV9061IDBVR,Texas Instruments,Package_TO_SOT_SMD:SOT-23-5,,05 Display and backlight,TLV9061 datasheet DBV pinout (KiCad TLV9061xDBV); 10 MHz RRIO 1.8-5.5 V
+U7,1,ICM-42670-P,ICM-42670-P,,ICM-42670-P,TDK InvenSense,Package_LGA:LGA-14_3x2.5mm_P0.5mm_LayoutBorder3x4y,,07 IMU,DS-000451 r1.0 Table 9 p18; INT open-drain via INT_CONFIG
+U8,1,DRV2605L,DRV2605L,,DRV2605LDGSR,Texas Instruments,Package_SO:MSOP-10_3x3mm_P0.5mm,,08 Haptics,SLOS854D p5 (DGS)
+U9,1,MAX98357A,MAX98357A,,MAX98357AETE+T,Analog Devices (Maxim),Package_DFN_QFN:TQFN-16-1EP_3x3mm_P0.5mm_EP1.23x1.23mm,,09 Audio,"MAX98357A/B datasheet p17 (TQFN), Table 8 p30"
+U12,1,TSOP75438,TSOP75438,,TSOP75438TR,Vishay,MAO_RevA:Vishay_TSOP75xxx_Heimdall_SMD,,10 IR and RGB,"Vishay 82494 Rev 2.4: 38 kHz AGC4, VS 2.0-5.5 V, 0.35 mA at 3.3 V"
