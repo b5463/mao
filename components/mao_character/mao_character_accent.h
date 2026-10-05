@@ -1,8 +1,7 @@
 /*
  * MAO's accent (M4.1): one colour for the whole screen - the eyes, the dot
  * UI and the ODD field - that is pink at rest and leans with the mood: red
- * when mad, rose when cross, peach when content, blue
- * when sad, lavender asleep, grey when blank. The event colours (cobalt spin,
+ * when mad, rose when cross, blue when sad, lavender asleep, grey when blank. The event colours (cobalt spin,
  * yellow warmth, red failure) stay events on top of it.
  *
  * Pure: no LVGL, no RTOS - host-testable (tests/accent).

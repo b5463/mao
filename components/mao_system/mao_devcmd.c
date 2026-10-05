@@ -173,7 +173,7 @@ static void run_command(char *line)
     } else if (strcmp(cmd, "anim") == 0 && arg) {
         /* Order matches mao_character_preview_t. */
         static const char *const kAnims[] = {
-            "idle", "blink", "follow", "fast", "vfast", "dizzy", "press", "happy", "sleepy", "leave", "hide",
+            "idle", "blink", "follow", "fast", "vfast", "dizzy", "press", "warm", "sleepy", "leave", "hide",
         };
         int found = -1;
         for (int i = 0; i < (int)(sizeof(kAnims) / sizeof(kAnims[0])); i++) {
@@ -182,7 +182,7 @@ static void run_command(char *line)
             }
         }
         if (found < 0) {
-            ESP_LOGW(TAG, "dev: anim idle|blink|follow|fast|vfast|dizzy|press|happy|sleepy|leave");
+            ESP_LOGW(TAG, "dev: anim idle|blink|follow|fast|vfast|dizzy|press|warm|sleepy|leave");
         } else {
             mao_event_post(MAO_EVENT_DEV_COMMAND, MAO_DEVCMD_ANIM_BASE + found);
         }

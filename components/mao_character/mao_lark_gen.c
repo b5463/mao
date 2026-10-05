@@ -236,38 +236,8 @@ void lark_gen_startle(lark_gen_t *g)
 }
 
 /* ---------------------------------------------------------------------- */
-/* Happy / pleased                                                        */
+/* Pleased                                                                */
 /* ---------------------------------------------------------------------- */
-
-void lark_gen_happy(lark_gen_t *g)
-{
-    lark_gen_begin(g);
-    const int fy = lark_gen_track(g, CH_FACE_Y), sq = lark_gen_track(g, CH_SQUASH);
-    const int hops = (int)u32r(1, 3);
-    float h = lark_rand(12.0f, 20.0f);
-    uint32_t t = u32r(60, 140);
-    lark_gen_key(g, fy, 0, 0.0f, LARK_LINEAR);
-    lark_gen_key(g, sq, 0, 0.0f, LARK_LINEAR);
-    for (int i = 0; i < hops; i++) {
-        const uint32_t up = u32r(140, 200), down = u32r(150, 200);
-        lark_gen_key(g, fy, t, 0.0f, LARK_LINEAR);
-        lark_gen_key(g, fy, t + up, -h, LARK_OUT);
-        lark_gen_key(g, fy, t + up + down, 0.0f, LARK_IN);
-        lark_gen_key(g, sq, t + up + down, 0.0f, LARK_LINEAR);
-        lark_gen_key(g, sq, t + up + down + 60, lark_rand(0.12f, 0.28f), LARK_OUT);
-        lark_gen_key(g, sq, t + up + down + 170, 0.0f, LARK_IN_OUT);
-        t += up + down + u32r(20, 90);
-        h *= lark_rand(0.5f, 0.75f);
-    }
-    const uint32_t len = t + u32r(700, 1300);
-    hold(g, CH_SMILE, 0, len, lark_rand(0.85f, 1.0f), 160, 0);   /* ^ ^, held into purr */
-    hold(g, CH_SHINE, 0, len - 450, lark_rand(0.3f, 0.7f), 160, 450);
-    if (lark_chance(0.6f)) {
-        hold(g, CH_TILT, u32r(100, 300), len - 500, lark_rand(2.0f, 4.5f) * sgn(), 250, 450);
-    }
-
-    lark_gen_end(g, len);
-}
 
 void lark_gen_pleased(lark_gen_t *g)
 {

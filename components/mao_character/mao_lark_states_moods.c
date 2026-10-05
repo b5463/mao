@@ -1,7 +1,7 @@
 /*
  * MAO's Lark-style library, part 2: moods. STARBOY's documented behaviours
  * (anxious in noise, shivering in the cold, dizzy and then mad when shaken,
- * sad when flicked off, happy, purring, excited, startled, asleep - never
+ * sad when flicked off, purring, excited, startled, asleep - never
  * quite still: it stirs, peeks, smiles and twitches in its sleep) plus
  * Maomao's own (tipsy - she loves strong drink; her rare, bright smile),
  * all played through her eyes. Units: see mao_lark_author.h.
@@ -73,7 +73,6 @@ static const lark_track_t sad[] = { TRACK(CH_LID_ANGLE, sad_la), TRACK(CH_NARROW
 
 const lark_state_t kLarkMoods[] = {
     /*     name          length  in   curve   flags         base bored agit aff  next    tracks */
-    GEN("happy", 120, OUT, EVT, 0, 0, 0, 0, "purr", lark_gen_happy),
     GEN("pleased", 200, OUT, ONE, 0, 0, 0, 14, NULL, lark_gen_pleased),
     STATE("purr",         3200, 400,  IN_OUT, 0,             0,   0,  0, 10, NULL,    purr),
     STATE("wink",          620, 100,  OUT,    ONE,           0,   0,  0,  5, NULL,    wink),

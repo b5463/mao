@@ -33,7 +33,6 @@
 /* Generators (mao_lark_gen.c). */
 void lark_gen_dizzy(lark_gen_t *g);
 void lark_gen_startle(lark_gen_t *g);
-void lark_gen_happy(lark_gen_t *g);
 void lark_gen_pleased(lark_gen_t *g);
 void lark_gen_tsk(lark_gen_t *g);
 void lark_gen_mad(lark_gen_t *g);

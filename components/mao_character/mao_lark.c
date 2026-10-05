@@ -236,8 +236,7 @@ void mao_lark_event(mao_lark_t *l, lark_event_t ev, uint32_t now)
         l->affection = clamp01(l->affection + 0.04f);
         break;
     case LARK_EV_WARM:
-        l->affection = clamp01(l->affection + 0.45f);
-        request(l, "happy");
+        l->affection = clamp01(l->affection + 0.45f);   /* no "happy" state: removed on request */
         break;
     case LARK_EV_RETURN:
         /* Coming back is routine. Only occasionally is it worth a look. */

@@ -39,7 +39,10 @@ int main(void)
     CHECK(mao_accent_for_state("dizzy_mad") == mad);
     const uint32_t sad = mao_accent_for_state("sad");
     CHECK(B(sad) > R(sad));                                                  /* blue */
-    CHECK(mao_accent_for_state("hum") != MAO_ACCENT_BASE);
+    /* content moods stay MAO's pink: the warm peach family is gone (it read as yellow) */
+    CHECK(mao_accent_for_state("hum") == MAO_ACCENT_BASE);
+    CHECK(mao_accent_for_state("purr") == MAO_ACCENT_BASE);
+    CHECK(mao_accent_for_state("pleased") == MAO_ACCENT_BASE);
     CHECK(mao_accent_for_state("zoned") == mao_accent_for_state("cat_blank"));
     CHECK(mao_accent_for_state("cat_glare") == mao_accent_for_state("glare"));
 
@@ -97,8 +100,9 @@ int main(void)
      * excited / glint / proud / giggle are MAO's own pink */
     for (int i = 0; mao_accent_mapped_state(i); i++) {
         const uint32_t c = mao_accent_for_state(mao_accent_mapped_state(i));
-        /* yellow / gold: green nearly as strong as red, blue well below both (peach is not) */
-        const int yellowish = (int)G(c) * 100 >= (int)R(c) * 78 && (int)B(c) * 100 <= (int)G(c) * 65;
+        /* yellow / gold / peach: green over 65 % of red, blue below 80 % of green (the panel
+         * shows the old warm peach F7B58C as yellow, so it counts) */
+        const int yellowish = (int)G(c) * 100 >= (int)R(c) * 65 && (int)B(c) * 100 <= (int)G(c) * 80;
         if (yellowish) {
             printf("  %s leans yellow (%06x)\n", mao_accent_mapped_state(i), c);
         }
@@ -106,6 +110,13 @@ int main(void)
     }
     CHECK(mao_accent_for_state("glint") == MAO_ACCENT_BASE);
     CHECK(mao_accent_for_state("excited") == MAO_ACCENT_BASE);
+    /* the guard itself catches the removed colours */
+    CHECK((int)G(0xF7B58Cu) * 100 >= (int)R(0xF7B58Cu) * 65 && (int)B(0xF7B58Cu) * 100 <= (int)G(0xF7B58Cu) * 80);
+
+    /* no "happy" state (the yellow ^ ^ crescents, removed on request) */
+    for (int k = 0; k < mao_lark_state_count(); k++) {
+        CHECK(strcmp(mao_lark_state(k)->name, "happy") != 0);
+    }
 
     /* every state the accent names is one MAO can actually play */
     int named = 0, missing = 0;

@@ -33,7 +33,7 @@ static const mao_look_t kLooks[] = MAO_LOOKS;
 static mao_char_t s_c;
 
 static const char *const kPreviewNames[MAO_CHAR_PREVIEW_COUNT] = {
-    "idle", "blink", "follow", "fast", "vfast", "dizzy", "press", "happy", "sleepy", "leave", "hide",
+    "idle", "blink", "follow", "fast", "vfast", "dizzy", "press", "warm", "sleepy", "leave", "hide",
 };
 
 const char *mao_character_preview_name(mao_character_preview_t p)

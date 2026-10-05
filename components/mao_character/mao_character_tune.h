@@ -74,7 +74,7 @@ typedef struct {
 #define MAO_TINT_PUPIL_MAX   0.90f   /* pupils go cobalt / yellow / red almost fully */
 #define MAO_TINT_RED_COLOR   0xE5484D   /* red: mad / failure, as an event only */
 /* Covers: round background-coloured lids that come down over each eye and
- * leave a thin lower crescent when closed (STARBOY's blink / happy / sleep). */
+ * leave a thin lower crescent when closed (STARBOY's blink / sleep). */
 #define MAO_CRESCENT_PX      5.0f    /* crescent thickness when fully closed */
 #define MAO_SHINE_COLOR      0xF6F3EC
 #define MAO_SHINE2_COLOR     0x7FE6F2   /* the cyan reflection low in her iris */

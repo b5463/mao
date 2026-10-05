@@ -8,7 +8,7 @@
  *
  * Lids and covers are drawn in the background colour on top of the eye:
  * a flat lid gives Maomao's half-lidded look, a round cover comes down over
- * the eye and leaves a lower crescent (blink, happy, asleep).
+ * the eye and leaves a lower crescent (blink, asleep).
  */
 #include <math.h>
 #include <stdlib.h>
