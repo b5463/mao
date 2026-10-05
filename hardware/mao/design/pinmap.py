@@ -1,78 +1,85 @@
-"""MAO_MAIN A0 authoritative pin map (ODD JOBS 199).
+"""MAO_MAIN A1 authoritative pin map (ODD JOBS 199).
 
-One table drives three things: the schematic nets of the module and the expander (circuit.py),
-the firmware board header (hardware/mao/design/gen_pinmap.py writes
-components/mao_board/boards/main_a0/mao_board_pins.h) and docs/hardware/mao-pin-map.md.
+One table drives three things: the schematic nets of the module (circuit.py), the firmware board
+header (hardware/mao/design/gen_pinmap.py writes
+components/mao_board/boards/main_a1/mao_board_pins.h) and docs/hardware/mao-pin-map.md.
 Change a pin here and regenerate; never edit the generated outputs.
 
-Module pin numbers are ESP32-S3-WROOM-1 pads. Module on B.Cu at 6 o'clock, antenna outwards:
-pads 1-14 face 9 o'clock (left), 15-26 face the board centre, 27-40 face 3 o'clock (right).
+A1 = A0 moved to the M5 Gate C locked architecture (docs/hardware/m5_0_gate_c.md):
+ESP32-S3-MINI-1-N8 (no PSRAM; IO22-25 and IO27-32 are not brought out), no I/O expander (its
+lines are native GPIOs now), no touch, no microphone, no ambient-light sensor, no board-ID divider
+(the revision is written to NVS at manufacturing).
+
+Rules this table keeps (Gate A/B.1/C):
+  * the face press and one dial line are RTC wake inputs, and the press is NOT on a strap
+    (GPIO0 is only the BOOT pad now);
+  * every default-off enable sits on GPIO1-21 or 38, which have no pull at reset (S3 datasheet
+    v2.2 Table 2-1); GPIO39-42 (JTAG pads) and GPIO33/34 have reset pull-ups and carry only
+    inputs or I2S lines whose consumer is held off;
+  * nothing may pull GPIO45 high at reset (VDD_SPI = 1.8 V would stop the 3.3 V flash);
+  * >= 4 spare pins: GPIO21, GPIO26, GPIO43/44 (UART0 service pads).
+
+Module pin numbers are ESP32-S3-MINI-1 pads (datasheet v1.7 Table 3-1).
 """
 
 # (gpio, net, direction, function, notes)
 #   direction: in / out / io / od (open-drain input) / analog
-#   flags: R = RTC GPIO (deep-sleep wake/hold), T = touch channel, S = strapping pin
+#   flags in notes: R = RTC GPIO (deep-sleep wake/hold), S = strapping pin
 NATIVE = [
-    (0,  'PRESS_N',     'in',  'face-press switch (to GND), BOOT strap', 'S R; 10k pull-up; hold at reset = download mode, like the LCDkit knob'),
-    (1,  'TOUCH_RIGHT', 'analog', 'touch T1, right rim electrode', 'T R; 510R series at the module'),
-    (2,  'HALL_FAST',   'out', 'Hall sensors: high = fast sampling, low = low-power', 'R (held in deep sleep); 100k pull-down; right column beside the Hall pair'),
-    (3,  'USB_PRESENT_N', 'in', 'charger PGOOD (open-drain), low = USB power valid', 'R; 100k pull-up; deep-sleep wake. S: JTAG-source strap, inert unless EFUSE_STRAP_JTAG_SEL is burnt (never on MAO). Top-row corner pin: drops through a via between the pad rows to L3'),
-    (4,  'TOUCH_LEFT',  'analog', 'touch T4, left rim electrode', 'T R; 510R series; the three touch pins (4-6) leave in the order of their electrodes: left rim (outermost lead), top spring, rear spring'),
-    (5,  'TOUCH_TOP',   'analog', 'touch T5, window-border electrode (spring)', 'T R; 510R series'),
-    (6,  'TOUCH_REAR',  'analog', 'touch T6, base electrode (spring at 10 o\'clock)', 'T R; 510R series'),
-    (7,  'I2C_SDA',     'io',  'I2C data (all sensors, expander, gauge, haptic)', 'R; 2.2k pull-up to +3V3; left-column pin below the I2S group: the bus reaches the haptic driver under the I2S lanes'),
-    (8,  'BOARD_ID',    'analog', 'board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.59 V (3.18 V rail)', 'read once at boot; the divider sits beside the pin (4 mm of track, one via)'),
-    (9,  'LCD_TE',      'in',  'display tearing-effect output: frame sync for tear-free animation', 'R; the display group (pins 17-21: TE, DC, MOSI, SCLK, CS) is in the connector\'s own pin order: no crossing'),
-    (10, 'LCD_DC',      'out', 'display data/command', 'R'),
-    (11, 'LCD_MOSI',    'out', 'display data (FSPID IO_MUX)', 'R; 22R series (ODD JOBS 29)'),
-    (12, 'LCD_SCLK',    'out', 'display clock (FSPICLK IO_MUX)', 'R; 22R series (ODD JOBS 29)'),
-    (13, 'LCD_CS',      'out', 'display chip select (GPIO matrix; SCLK/MOSI stay on IO_MUX)', 'R'),
-    (14, 'IMU_INT1',    'in',  'IMU INT1: wake-on-motion, tap', 'R; deep-sleep wake (ext1, active low); top row beside the IMU'),
-    (15, 'I2C_SCL',     'out', 'I2C clock', 'R; 2.2k pull-up to +3V3'),
-    (16, 'AMP_DIN',     'out', 'I2S1 data (left column, with BCLK/LRCLK on the next two pins)', 'R'),
-    (17, 'AMP_BCLK',    'out', 'I2S1 bit clock to the amplifier', 'R'),
-    (18, 'AMP_LRCLK',   'out', 'I2S1 word select', 'R'),
-    (19, 'USB_DN',      'io',  'USB D-', 'native USB-Serial/JTAG'),
-    (20, 'USB_DP',      'io',  'USB D+', 'native USB-Serial/JTAG'),
-    (21, 'EXP_INT_N',   'in',  'expander interrupt (gauge/light alerts on P7)', 'R; 100k pull-up; deep-sleep wake'),
-    (35, 'MIC_PWR',     'out', 'microphone supply (GPIO-powered through 100R/1uF)', '100k pull-down: mic off at reset and in deep sleep (pad high-Z). SPH0641 draws 80 uA even with the clock stopped, so it is powered only while listening. Right column: the mic group (pins 28-30) leaves together towards MK401'),
-    (36, 'MIC_DATA',    'in',  'I2S0 PDM data from the microphone', 'mic group'),
-    (37, 'MIC_CLK',     'out', 'I2S0 PDM clock to the microphone', 'mic group'),
-    (38, 'IR_TX',       'out', 'IR LED driver gate (RMT carrier)', '100k pull-down: LED off at reset (ODD JOBS 117). GPIO38 has no reset pull (GPIO39 = MTCK has one, which would light the LEDs)'),
-    (39, 'EXP_RST_N',   'out', 'expander RESET: pulse low to recover a wedged TCA6408A without a power cycle', '10k pull-up: released from power-on; drive open-drain. MTCK: its reset pull-up only agrees with the 10k'),
-    (40, 'IR_RX',       'in',  'IR receiver output (RMT)', '10k pull-up R506 to the receiver supply'),
-    (41, 'HALL_A',      'in',  'ring dial channel A', 'push-pull from the Hall latch'),
-    (42, 'HALL_B',      'in',  'ring dial channel B', ''),
-    (43, 'UART_TX',     'out', 'UART0 TX (service)', 'service pad'),
-    (44, 'UART_RX',     'in',  'UART0 RX (service)', 'service pad'),
-    (45, 'LCD_BL_CTRL', 'out', 'backlight driver EN: AW9364 1-wire dimming (16 steps by pulse count)', 'S (VDD_SPI strap; flash voltage fixed by eFuse on this module): the AW9364 150k EN pull-down holds it low, so the backlight is dark from reset'),
-    (46, None,          'nc',  'spare', 'S (must read 0 for download boot): left NC with its internal pull-down; boxed in by the display bus, so not used'),
-    (47, 'IMU_INT2',    'in',  'IMU INT2: orientation, free-fall', ''),
-    (48, 'TOF_INT_N',   'in',  'proximity GPIO1: threshold interrupt', '10k pull-up (ST application circuit)'),
+    (0,  None,          'nc',  'BOOT strap (pad only)', 'S R; 10k pull-up, TP BOOT: the fixture holds it low for download. Nothing else on it'),
+    (1,  'PRESS_N',     'in',  'face-press switch (to GND)', 'R; 100k pull-up (draws only while pressed); deep-sleep wake (ext1, any-low)'),
+    (2,  'HALL_A',      'in',  'ring dial channel A', 'R; push-pull from the Hall latch; deep-sleep wake (ext0, armed at the opposite level)'),
+    (3,  None,          'nc',  'JTAG-source strap', 'S; NC (inert unless EFUSE_STRAP_JTAG_SEL is burnt, never on MAO)'),
+    (4,  'IMU_INT1',    'od',  'IMU INT1: wake-on-motion (ICM-42670-P, open-drain, active low, latched)', 'R; 100k pull-up; deep-sleep wake (ext1, any-low)'),
+    (5,  'HALL_FAST',   'out', 'Hall sensors: high = fast sampling, low = low-power', 'R; 100k pull-down: low-power from reset and in deep sleep'),
+    (6,  'LCD_PWR_EN',  'out', 'display logic rail switch (TPS22916C)', 'R; switch\'s smart pull-down + 100k: panel unpowered from reset'),
+    (7,  'LCD_RST_N',   'out', 'display reset', 'R; 100k pull-down: panel held in reset'),
+    (8,  'LCD_BL',      'out', 'backlight current-sink reference (LEDC ~30 kHz)', 'R; 100k pull-down + divider: dark from reset'),
+    (9,  'AMP_SD',      'out', 'amplifier SD_MODE (high = on, left channel)', 'R; 100k pull-down + the MAX98357A\'s internal 100k: silent from reset'),
+    (10, 'LCD_CS',      'out', 'display chip select (FSPICS0 IO_MUX)', 'R'),
+    (11, 'LCD_MOSI',    'out', 'display data (FSPID IO_MUX)', 'R; 22R series'),
+    (12, 'LCD_SCLK',    'out', 'display clock (FSPICLK IO_MUX)', 'R; 22R series'),
+    (13, 'LCD_DC',      'out', 'display data/command', 'R'),
+    (14, 'HAPTIC_EN',   'out', 'haptic driver enable', 'R; 100k pull-down (+ the DRV2605L\'s internal 2M): off'),
+    (15, 'TOF_XSHUT',   'out', 'proximity sensor shutdown (low = off)', 'R; 100k pull-down: off'),
+    (16, 'AUX_PWR_EN',  'out', 'IR receiver supply switch (TPS22916C on +3V3)', 'R; switch\'s smart pull-down + 100k: off'),
+    (17, 'IR_TX',       'out', 'IR LED driver gate (RMT carrier)', 'R; 100k pull-down: LEDs off at reset'),
+    (18, 'CHG_CE_N',    'out', 'charger /CE: high pauses charging (firmware thermal limit, cell 0-45 C)', 'R; 100k pull-down: charging enabled from reset'),
+    (19, 'USB_DN',      'io',  'USB D-', 'native USB-Serial/JTAG; 22R series + DNP 10 pF'),
+    (20, 'USB_DP',      'io',  'USB D+', 'native USB-Serial/JTAG; 22R series + DNP 10 pF'),
+    (21, None,          'nc',  'spare', 'R; test pad'),
+    (26, None,          'nc',  'spare', 'free on the -N8 (SPICS1 only on -N4R2); test pad'),
+    (33, 'CHG_STAT1',   'od',  'charger STAT1 (open-drain)', '10k pull-up; both STAT pins high-Z on battery: 0 uA'),
+    (34, 'CHG_STAT2',   'od',  'charger STAT2 (open-drain)', '10k pull-up'),
+    (35, 'LCD_TE',      'in',  'display tearing-effect output: frame sync', 'driven by the panel; isolated while the panel is off'),
+    (36, 'IMU_INT2',    'od',  'IMU INT2: orientation, tap', '100k pull-up'),
+    (37, 'HALL_B',      'in',  'ring dial channel B', 'push-pull from the Hall latch'),
+    (38, 'TOF_INT_N',   'od',  'proximity GPIO1: threshold interrupt', '10k pull-up (ST application circuit)'),
+    (39, 'VBUS_SENSE',  'in',  'USB VBUS present (100k/150k divider)', '0 uA on battery; the stay-awake rule uses USB-Serial-JTAG SOF, this tells charge-only power'),
+    (40, 'AMP_BCLK',    'out', 'I2S bit clock to the amplifier', ''),
+    (41, 'AMP_LRCLK',   'out', 'I2S word select', ''),
+    (42, 'AMP_DIN',     'out', 'I2S data', ''),
+    (43, 'UART_TX',     'out', 'UART0 TX (service / spare)', 'service pad; the ROM prints here at reset'),
+    (44, 'UART_RX',     'in',  'UART0 RX (service / spare)', 'service pad'),
+    (45, None,          'nc',  'VDD_SPI strap', 'S; NC with its internal pull-down: 3.3 V flash. Nothing may pull it high'),
+    (46, None,          'nc',  'boot-mode strap', 'S; NC with its internal pull-down'),
+    (47, 'I2C_SDA',     'io',  'I2C data (IMU, ToF, gauge, haptic)', '4.7k pull-up to +3V3; VDD_SPI/VDD3P3_CPU domain = 3.3 V on the N8'),
+    (48, 'I2C_SCL',     'out', 'I2C clock', '4.7k pull-up to +3V3'),
 ]
 
-# TCA6408A-class 8-bit expander, I2C 0x20. All pins are inputs (high-Z, no internal pulls) from
-# power-on until firmware configures them: external resistors define every default.
-EXPANDER = [
-    # (port bit, net, direction, function, default/pull)
-    (0, 'LCD_RST_N',    'out', 'display reset', '100k pull-down: panel held in reset'),
-    (1, 'LCD_PWR_EN',   'out', 'display logic rail switch (3V3_LCD; the backlight runs from VSYS)', '100k pull-down: off'),
-    (2, 'AMP_SD_N',     'out', 'amplifier enable (SD_MODE)', '100k pull-down: amplifier shut down'),
-    (3, 'HAPTIC_EN',    'out', 'haptic driver enable', '100k pull-down: off'),
-    (4, 'TOF_XSHUT',    'out', 'proximity sensor shutdown (low = off)', '100k pull-down: off'),
-    (5, 'IR_RX_PWR',    'out', 'IR receiver supply (via RC filter)', '100k pull-down: off'),
-    (6, 'CHG_CE_N',     'out', 'charger /CE: high pauses charging (firmware thermal limit: the cell allows 0-45 C)', '100k pull-down at the charger: charging on from reset'),
-    (7, 'SENSE_ALRT_N', 'in',  'fuel-gauge ALRT + light-sensor INT (wired-OR, open-drain)', '100k pull-up'),
-]
+# A1 has no I/O expander (its lines are native above).
+EXPANDER = []
 
 I2C_ADDRESSES = {
-    0x20: 'TCA6408A expander (ADDR low)',
     0x29: 'VL53L4CD proximity (default)',
     0x36: 'MAX17048 fuel gauge',
-    0x44: 'OPT3004 ambient light (ADDR to GND)',
     0x5A: 'DRV2605L haptic driver',
-    0x6A: 'IMU (SA0 low)',
+    0x68: 'ICM-42670-P IMU (AP_AD0 low)',
 }
+
+# MINI-1 pads that are GPIOs (Table 3-1): the checks below make sure every one is accounted for.
+MODULE_GPIOS = list(range(0, 22)) + [26] + list(range(33, 49))
+SPARES_MIN = 4
 
 
 def native_by_net():
@@ -80,4 +87,25 @@ def native_by_net():
 
 
 def expander_by_net():
-    return {net: bit for bit, net, *_ in EXPANDER}
+    return {}
+
+
+def _self_check():
+    gpios = [g for g, *_ in NATIVE]
+    assert sorted(gpios) == MODULE_GPIOS, 'every MINI-1 GPIO exactly once'
+    nets = [n for _, n, *_ in NATIVE if n]
+    assert len(nets) == len(set(nets)), 'a net on two pins'
+    assert native_by_net().get('PRESS_N') not in (0, 3, 45, 46), 'press on a strap'
+    for net in ('PRESS_N', 'HALL_A', 'IMU_INT1'):
+        assert native_by_net()[net] <= 21, net + ' must be an RTC GPIO (wake)'
+    enables = ('HALL_FAST', 'LCD_PWR_EN', 'LCD_RST_N', 'LCD_BL', 'AMP_SD', 'HAPTIC_EN', 'TOF_XSHUT',
+               'AUX_PWR_EN', 'IR_TX', 'CHG_CE_N')
+    for net in enables:
+        g = native_by_net()[net]
+        assert 1 <= g <= 21 or g == 38, net + ' needs a pin without a reset pull'
+    spare = [g for g, n, *_ in NATIVE if n is None and g not in (0, 3, 45, 46)]
+    spare += [native_by_net()[n] for n in ('UART_TX', 'UART_RX')]
+    assert len(spare) >= SPARES_MIN, 'fewer than %d spares' % SPARES_MIN
+
+
+_self_check()
