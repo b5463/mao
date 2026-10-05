@@ -30,6 +30,7 @@ from pathlib import Path
 import pcbnew as pcb
 from board import TARGET
 from netrules import OUTPUTS, NAME
+import mechanical as m
 
 CLI = Path(os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli'))
 OUT = OUTPUTS / 'fab'
@@ -40,8 +41,8 @@ Review: docs/hardware/mao-rev-a0-review.md     Bring-up: docs/hardware/mao-bring
 
 BOARD
 - 4 layers, FR-4 TG155, 1.6 mm, JLCPCB standard 4-layer stackup JLC04161H-1080 (select it: 1080
-  prepreg 0.0764 mm outer, 1.265 mm core). Round, 58.0 mm diameter, with a 24 x 6.3 mm notch at
-  6 o'clock (antenna). Layer order: L1 F.Cu (parts, signals), L2 In1.Cu (solid GND, no tracks),
+  prepreg 0.0764 mm outer, 1.265 mm core). Round, 58.0 mm diameter, with a {notch_w:.1f} mm wide notch at
+  6 o'clock (antenna), {notch_d:.2f} mm deep on the axis. Layer order: L1 F.Cu (parts, signals), L2 In1.Cu (solid GND, no tracks),
   L3 In2.Cu (power regions + slow signals), L4 B.Cu (parts, signals).
 - Copper 1 oz outer, 0.5 oz inner (default). No impedance control ordered: USB 2.0 full speed only.
 - ENIG. Black solder mask, white silkscreen (visible product board, ODD JOBS 172). Green is acceptable
@@ -161,7 +162,8 @@ def main():
     (OUT / 'FAB-NOTES.txt').write_text(NOTES.format(
         n_std=sum(1 for v in vias if v.GetDrillValue() >= pcb.FromMM(0.3)),
         n_fan=sum(1 for v in vias if v.GetDrillValue() < pcb.FromMM(0.3)), n_th=n_th,
-        unplaced=(', and %s (no clear silk spot)' % ', '.join(unplaced)) if unplaced else '', tabs=tabs))
+        unplaced=(', and %s (no clear silk spot)' % ', '.join(unplaced)) if unplaced else '', tabs=tabs,
+        notch_w=m.NOTCH_W, notch_d=m.PCB_R - m.NOTCH_Y))
     n = sum(len(l['refs']) for l in lines.values())
     print('fab: gerbers %d files, drill %d files, BOM %d lines / %d parts, CPL %d rows' % (
         len(list((OUT / 'gerbers').iterdir())), len(list((OUT / 'drill').iterdir())), len(lines), n, len(rows)), flush=True)

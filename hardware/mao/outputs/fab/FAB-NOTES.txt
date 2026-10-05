@@ -3,8 +3,8 @@ Review: docs/hardware/mao-rev-a0-review.md     Bring-up: docs/hardware/mao-bring
 
 BOARD
 - 4 layers, FR-4 TG155, 1.6 mm, JLCPCB standard 4-layer stackup JLC04161H-1080 (select it: 1080
-  prepreg 0.0764 mm outer, 1.265 mm core). Round, 58.0 mm diameter, with a 24 x 6.3 mm notch at
-  6 o'clock (antenna). Layer order: L1 F.Cu (parts, signals), L2 In1.Cu (solid GND, no tracks),
+  prepreg 0.0764 mm outer, 1.265 mm core). Round, 58.0 mm diameter, with a 24.0 mm wide notch at
+  6 o'clock (antenna), 7.55 mm deep on the axis. Layer order: L1 F.Cu (parts, signals), L2 In1.Cu (solid GND, no tracks),
   L3 In2.Cu (power regions + slow signals), L4 B.Cu (parts, signals).
 - Copper 1 oz outer, 0.5 oz inner (default). No impedance control ordered: USB 2.0 full speed only.
 - ENIG. Black solder mask, white silkscreen (visible product board, ODD JOBS 172). Green is acceptable
@@ -39,7 +39,7 @@ ASSEMBLY (JLC PCBA, both sides)
 - Fiducials: FID1-3 front, FID4-6 back (1 mm copper, 2 mm mask opening).
 - Assembly drawing: ASSEMBLY-MAO_MAIN_A0-top.pdf / -bottom.pdf, one A3 sheet per side at 4.5:1 (the back seen
   from the back), every reference legible: in its part or beside it with a leader, pads drawn without
-  numbers. Resistors and capacitors that no procedure names, and C407, J303, R108, R205, R213, R214, U104, U303 (no clear silk spot) are identified there only; the
+  numbers. Resistors and capacitors that no procedure names, and C111, C407, J303, R108, R205, R213, R214, U104, U303 (no clear silk spot) are identified there only; the
   silkscreen carries the other ICs, connectors, transistors and diodes (some with a short leader), the
   service resistors and capacitors, and the test-pad names.
 - Placement file: KiCad rotations. Check every polarised part and pin 1 in JLC's preview, bottom side

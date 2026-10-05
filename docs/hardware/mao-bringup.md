@@ -38,7 +38,7 @@ Tag-Connect J201 (TC2030-NL, marked TAG): 1 GND, 2 EN, 3 TXD0, 4 3V3, 5 RXD0, 6 
    | Node | Pad | Expect |
    |---|---|---|
    | VBUS | TP6 | > 100 kΩ (charger input) |
-   | VSYS | TP4 | > 10 kΩ (UVLO divider 1.51 MΩ, loads off) |
+   | VSYS | TP4 | > 10 kΩ (UVLO divider 710 kΩ, loads off) |
    | VBAT | TP5 | > 100 kΩ |
    | +3V3 | TP3 | > 1 kΩ (I2C pull-ups 2.2 k in parallel with ICs) |
    | 3V3_LCD | TP13 | > 10 kΩ |
@@ -51,18 +51,24 @@ Supply on TP6 (+) and D101 pad 2 or TP1 (−): 5.00 V, **current limit 100 mA**.
 | Check | Where | Expect | If not |
 |---|---|---|---|
 | Supply current, ESP32 in ROM boot loop or app | supply | 20–80 mA | > 150 mA: short; stop |
-| VSYS | TP4 | 4.35–4.45 V (BQ24073 OUT regulation, no cell) | 0 V: U102 not powered or ILIM/ISET open; check R103/R104/R105 (beside the charger; in the dense power section the passives are identified on `outputs/fab/ASSEMBLY-MAO_MAIN_A0-bottom.pdf`) |
-| +3V3 | TP3 | 3.10–3.28 V (3.18 V nominal: FB 536 k / 100 k) | 0 V: check U104 EN (BB_EN must be > 1.1 V when VSYS is 4.4 V); oscillation: scope SW nodes BB_L1/L2 |
+| VSYS | TP4 | 4.3–4.5 V (BQ24073 V_O(REG), no cell) | 0 V: U102 not powered or ILIM/ISET open; check R103/R104/R105 (beside the charger; in the dense power section the passives are identified on `outputs/fab/ASSEMBLY-MAO_MAIN_A0-bottom.pdf`) |
+| +3V3 | TP3 | 3.10–3.32 V (3.18 V nominal: FB 536 k / 100 k; the top includes the FB pin's 100 nA bias in 536 k) | 0 V: check U104 EN (BB_EN must be > 1.1 V when VSYS is 4.4 V); oscillation: scope SW nodes BB_L1/L2 |
 | Charger status | GPIO3 (USB_PRESENT_N) | low | |
 | Switched rails | TP13 / TP14 / TP15 | < 0.3 V (all off at reset) | a rail on at reset = default resistor missing |
 | Temperature | U102, U104 | < 10 °C rise | |
 
 Then raise the limit to 500 mA.
 
+**Cold start (electrical audit N-2):** the charger's EN1 sits on +3V3, so it starts in USB100 (90–100 mA) until
+the rail is up. Unplug and replug VBUS five times with no cell, then five times with a flat cell (≈ 3.0 V) on J102,
+scoping VSYS and +3V3: +3V3 must come up every time without a restart (VSYS may sag for about 0.2 ms while the
+buck-boost ramps; C111's 16 ms filter keeps the UVLO out of it). A board that does not start here needs the USB500
+strap moved to VSYS (EN1, one resistor) for A1.
+
 ## 2. USB console and first firmware
 
 1. Connect USB-C to the PC with the panel still not fitted. The S3's native USB-Serial/JTAG enumerates without any boot mode.
-2. If it does not enumerate, hold the face switch (GPIO0, TP8 BOOT to GND) while plugging in to force the ROM loader. Recovery without USB goes through the Tag-Connect UART. Use a 3.3 V adapter and plug it in only after the board is powered: an adapter's TX idles high and would feed RXD0 of an unpowered module.
+2. If it does not enumerate, hold the face switch (GPIO0, TP8 BOOT to GND) and reset the chip: plugging USB resets it only when no cell is fitted; with a cell, pulse EN (TP7 RST to GND, or Tag-Connect pin 2) while holding the face. Recovery without USB goes through the Tag-Connect UART. Use a 3.3 V adapter and plug it in only after the board is powered: an adapter's TX idles high and would feed RXD0 of an unpowered module.
 3. Flash the dev build: `tools/idf.ps1 s3 dev flash monitor`, or `idf.py -B build-s3-dev flash monitor`.
 4. Expected boot log:
    - board ID 1.48–1.70 V (A0: 1.59 V on the 3.18 V rail)
@@ -74,20 +80,39 @@ Then raise the limit to 500 mA.
 
 ## 3. Display
 
-1. Thread the stock Winstar WF0128BTYAA4DNN0's 70 mm tail through the board's slot at 9 o'clock from the face side, fold it inward under the board, open J301's back-flip actuator (bottom side, entry facing the slot), insert the tail and close the actuator (contacts on both faces, so either way up). On the bench, let the excess hang in a loose loop; in the enclosure it S-folds in the face carrier's pocket (`mao-mechanical.md` §4). No soldering: a panel can be swapped the same way.
-2. Check TP13 (LCDV) switches 0 → 3.18 V when the firmware enables the rail, with a soft start of about 1.7 ms (U105 TPS22919, fixed slew; scope it: no dip on +3V3 > 100 mV).
-3. **Orientation:** the default rotation is 90°, set from the 9 o'clock FPC exit. If the face is rotated, run `mao rotate 270` (or 0 / 180), then `mao rotate save`. Record the value and make it the Kconfig default.
-4. Check colour order and inversion against the LCDkit (same GC9A01 controller; confirm `A0_LCD_PANEL_MIRROR_X` and the colour order on the fitted panel and record them).
+1. **Orientation before the first plug-in (electrical audit I-1).** A tail reversed in J301 would put VSYS (up to
+   4.5 V) on the panel's SDA pin. Lay the first panel's tail in J301 with the actuator open and check, against the
+   Winstar drawing kept with the design files, that the tail's pin-1 end (contact 1, TP_INT, the end beside VLED+
+   on contact 7) sits at the 12 o'clock end of J301, on pad 18. Board side this is verified: panel pin k lands on pad
+   19 − k (`circuit.py`).
+2. Thread the stock Winstar WF0128BTYAA4DNN0's 70 mm tail through the board's slot at 9 o'clock from the face side,
+   fold it inward under the board, open J301's back-flip actuator (bottom side, entry facing the slot), insert the tail
+   and close the actuator (contacts on both faces, so either way up). On the bench, let the excess hang in a loose
+   loop; in the enclosure it lies as one long loop under the panel and turns in the carrier's well (`mao-mechanical.md`
+   §4a). No soldering: a panel can be swapped the same way.
+3. **First power with the backlight off:** `mao backlight off`, then enable the logic rail. Check TP13 (LCDV) switches
+   0 → 3.18 V with the TPS22919's fixed slew: turn-on (t_ON) about 1.7 ms, rise about 1.0 ms at 3.18 V (scope it:
+   no dip on +3V3 > 100 mV), and the +3V3 current rises by the panel's logic current only (≈ 8 mA). Only then
+   enable the backlight (U303).
+4. **Rotation:** the default rotation is 90°, set from the 9 o'clock FPC exit. If the face is rotated, run `mao rotate 270` (or 0 / 180), then `mao rotate save`. Record the value and make it the Kconfig default.
+5. **SPI at 80 MHz** (electrical audit N-9): the clock now runs through the 70 mm tail. Run the colour test and the
+   animation at 80 MHz for 10 minutes with the face pressed now and then: no torn lines or wrong pixels. If any show,
+   set the panel clock to 40 MHz (`CONFIG_MAO_A0_LCD_PCLK_MHZ`, menuconfig: MAO board) and record it.
+6. Check colour order and inversion against the LCDkit (same GC9A01 controller; confirm `A0_LCD_PANEL_MIRROR_X` and the colour order on the fitted panel and record them).
 
 ## 4. Battery and charger
 
 1. Connect the protected cell to J102. Check polarity before plugging: the plug's red lead must go to the pin marked + on the silkscreen (pin 3).
 2. **Without USB:** VBAT at TP5 = cell voltage − Q101 drop (< 20 mV at light load). The board runs from the cell, and the current drawn should match `mao-power-budget.md` per state.
 3. **With USB:** charge current through R108's pads (link lifted, ammeter inserted) is 185–227 mA (207 mA typical, ISET R103 4.3 kΩ; the LP503035 cell allows 250 mA), falling in the constant-voltage phase. `mao power` reports `charging` (from PGOOD and the gauge's charge rate).
-4. **Charge pause (/CE):** with charging running, `mao power charge off` (dev build; drives expander P6 high): the current must fall to 0 within a second, and come back after `mao power charge on`. R117 (100 kΩ) holds /CE low, so charging is enabled whenever the expander is in reset. Then warm the board (hot air on the IMU side, carefully) past 43 °C board temperature: firmware pauses charging and logs it; below 40 °C it resumes.
-5. **NTC:** warm the cell's NTC to above 50 °C (hot air, carefully) or swap in a 3.3 k resistor: charging must stop. Cooling (or 27 k) must also stop it below 0 °C.
-6. **UVLO:** feed VSYS from a supply through TP4 with USB removed and the cell disconnected. Ramp down: +3V3 must drop at 2.96 V ± 4 % and restart at 3.25 V ± 4 % (room temperature; the worst case over temperature is in simulation S1).
-7. **Gauge:** `mao power` shows VCELL within 20 mV of the DMM. SOC converges within one charge cycle.
+4. **Charger heat** (electrical audit N-10): charge a cell at about 3.0 V with the board in its printed face, panel
+   on, and look at the panel with a thermal camera after 20 minutes: the charger sits on F under it. The hottest spot
+   on the glass must stay below the panel's operating maximum (Winstar: 70 °C) with 20 °C margin; note the IMU's
+   reading at the same time (the firmware's 43 °C pause uses it as a proxy).
+5. **Charge pause (/CE):** with charging running, `mao power charge off` (dev build; drives expander P6 high): the current must fall to 0 within a second, and come back after `mao power charge on`. R117 (100 kΩ) holds /CE low, so charging is enabled whenever the expander is in reset. Then warm the board (hot air on the IMU side, carefully) past 43 °C board temperature: firmware pauses charging and logs it; below 40 °C it resumes.
+6. **NTC:** warm the cell's NTC to above 50 °C (hot air, carefully) or swap in a 3.3 k resistor: charging must stop. Cooling (or 27 k) must also stop it below 0 °C.
+7. **UVLO:** feed VSYS from a supply through TP4 with USB removed and the cell disconnected. Ramp down: +3V3 must drop at 2.96 V ± 4 % and restart at 3.25 V ± 4 % (room temperature; the worst case over temperature is in simulation S1).
+8. **Gauge:** `mao power` shows VCELL within 20 mV of the DMM. SOC converges within one charge cycle.
 
 ## 5. Each subsystem
 
@@ -130,5 +155,5 @@ A deep-sleep figure above 150 µA means a rail or pull-up is leaking. Find it by
 | Ring | ferrite pole strip field at the sensors (≥ 8 mT specified; they switch at ±3.3 mT) and FDM gap tolerance | missed steps | reduce the gap, or a thicker / stronger strip |
 | ToF | window crosstalk | false "near" | thinner window, black mask gap around the aperture, crosstalk calibration |
 | Footprints not yet proven on a board | JST SH clone (J102), DFE201612E land (L101), HDGC 0.5K-HX-18PWB FPC connector (J301), BW0019BG springs, AW9364 DFN (U303) | poor solder joints | check the first boards under the microscope; footprints come from the datasheets in `hardware/mao/lib` |
-| Display tail | the 70 mm tail through the slot and the S-fold in the carrier pocket | panel blank or flickers when the face is pressed | re-seat the tail; check the fold radius at the slot (≥ 1 mm) and that the S-fold does not load the connector |
+| Display tail | the 70 mm tail through the slot, its long loop under the panel and the turn in the carrier's well | panel blank or flickers when the face is pressed | re-seat the tail; check the fold radii at the slot and in the well (≥ 1 mm) and that the loop does not load the connector |
 | Backlight current | AW9364DNR ±17.5 %: up to 47 mA on a high unit (panel 40 mA typical) | panel hotter than the LCDkit's at full brightness | firmware maps 100 % to step 2 (37.5 mA nominal) if the panel supplier rates the LEDs below 47 mA |

@@ -298,8 +298,9 @@ while moved:
 # with a straight 0.15 mm silk leader from just off the text to 0.25 mm short of its own outline. The leader keeps
 # 0.125 mm from every other part's outline, hole, via, fastener and silkscreen text and from other leaders, and
 # the silk clearance from every footprint's silk graphics; the
-# reference box keeps the usual clearances. Shortest leader wins; vertical text costs a little.
-LEADER_W, LEADER_CLR = .15, .05
+# reference box keeps the usual clearances. Shortest leader wins; vertical text costs a little. A leader is at least
+# one text height long: a shorter one reads as a dash beside the reference ("-U102"), not as a pointer.
+LEADER_W, LEADER_CLR, LEADER_MIN = .15, .05, .8
 SILK_CLR = .15 + .03                     # the board's min_silk_clearance, edge to edge, plus margin
 leader_grp = None
 vias_c = [(pos(t_), pcb.ToMM(t_.GetWidth(pcb.F_Cu)) / 2) for t_ in b.GetTracks() if isinstance(t_, pcb.PCB_VIA)]
@@ -343,7 +344,7 @@ for r in [r for r in list(unplaced) if r not in fab_only]:
                 L = math.hypot(end[0] - st[0], end[1] - st[1])
                 if L > 9.0 or (best and L + (.3 if vertical else 0) >= best[0]):
                     continue
-                if L < .05 or not leader_ok(s, r, st, end):
+                if L < LEADER_MIN or not leader_ok(s, r, st, end):
                     continue
                 best = (L + (.3 if vertical else 0), vertical, c, (ox, oy), st, end)
             if best and g > best[0] + 1: break

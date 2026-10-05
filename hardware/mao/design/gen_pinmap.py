@@ -69,7 +69,7 @@ def doc():
     out += ['', '## I2C address map (one bus, 2.2 kΩ pull-ups, 400 kHz)', '', '| Address | Device |', '|---|---|']
     for addr, what in sorted(pinmap.I2C_ADDRESSES.items()):
         out.append('| 0x%02X | %s |' % (addr, what))
-    out += ['', 'No collisions. Reserved for the DNP FRAM footprint: 0x50.', '']
+    out += ['', 'No collisions.', '']
     return '\n'.join(out)
 
 

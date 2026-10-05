@@ -41,7 +41,8 @@ replaces these numbers.
 | 3V3 regulator | TPS63802 Iq | 11 µA | 11 µA | 11 µA | 11 µA |
 | UVLO divider | 470 k / 240 k on VSYS | 5.9 µA | 5.9 µA | 5.9 µA | 5.9 µA |
 | GPIO expander | TCA6408A | 1 µA | 1 µA | 1 µA | 1 µA |
-| Board-ID divider | 1 M / 1 M on 3V3 | 1.7 µA | 1.7 µA | 1.7 µA | 1.7 µA |
+| Board-ID divider | 1 M / 1 M on 3V3 | 1.6 µA | 1.6 µA | 1.6 µA | 1.6 µA |
+| Charger EN1 strap | BQ24073 EN1 on +3V3, internal ≈ 285 kΩ pull-down | 11 µA | 11 µA | 11 µA | 11 µA |
 | Default pull-downs | 100 k on enabled lines | ~0.2 mA (6 lines high) | ~0.1 mA | 0 | 0 |
 
 ## Totals and runtime (500 mAh)
@@ -52,11 +53,11 @@ replaces these numbers.
 | Active, radio PS | as above with an ESP-NOW wake window | ~57 mA | ~85 mA | ~5.9 h |
 | **Idle** | face dimmed 35 % (15 mA backlight), low frame rate, proximity 1 Hz, mic off | ~107 mA | **~118 mA** | **~4.2 h** (radio PS: ~8.3 h) |
 | **Drowsy** | panel sleep-in, light sleep, motion/touch/press/USB wake, radio windowed | ~1.5 mA | **~1.6 mA** | **~13 days** |
-| **Deep sleep** | everything off except wake sources (press, IMU motion, USB plug, expander INT, TOP touch, RTC timer) | ~55 µA | **~73 µA** (incl. PCM) | **~9 months** |
+| **Deep sleep** | everything off except wake sources (press, IMU motion, USB plug, expander INT, TOP touch, RTC timer) | ~66 µA | **~85 µA** (incl. PCM) | **~8 months** |
 | Peak | TX burst + backlight + amp + haptic + IR together | — | ~0.9 A for < 10 ms | — |
 
 Runtimes use the 500 mAh nameplate. An aged or cold cell gives about 15 % less (simulation S15 in
-`mao-a0-verification.md` uses 85 %: active ~3.0 h, drowsy ~11 days, deep sleep ~8 months).
+`mao-a0-verification.md` uses 85 %: active ~3.0 h, drowsy ~11 days, deep sleep ~7 months).
 
 The A0 revision moved the backlight from the switched 3V3_LCD rail (10 Ω, AO3400A PWM, 18 mA at 70 % with the
 old 80 % cap) to VSYS through the AW9364: full brightness is now the panel's specified 40 mA, so the same 70 %
@@ -65,7 +66,8 @@ setting draws more (30 mA) and looks brighter. For the old brightness, firmware 
 **Conclusions**
 - The radio dominates. On battery, firmware should use an ESP-NOW wake window and drop to Drowsy quickly:
   MAO is mostly a desk object and most of its life is on or near USB.
-- Deep sleep at ~73 µA lets MAO sit on a shelf for months and still wake by motion, touch or a press.
+- Deep sleep at ~85 µA lets MAO sit on a shelf for months and still wake by motion, touch or a press. The
+  charger's EN1 strap (11 µA, the price of starting in USB100 until +3V3 is up) is the largest single item.
   The PCM is the floor; the UVLO (2.96 V) stops the 3V3 rail before the PCM has to act.
 - Peaks (~0.9 A) are within the JST SH contact rating (1 A), the AO3401A reverse-polarity FET (4 A),
   the 1206 0 Ω link (2 A class) and the TPS63802 (2 A). The firmware should not start a haptic effect

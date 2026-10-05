@@ -117,16 +117,24 @@ The character never reads hardware; a sensor never maps straight to an animation
 - Ø58 mm disc, 1.6 mm, **4 layers** (JLCPCB standard JLC04161H-1080: 1080 prepreg, so L1 sits 0.076 mm over L2): **L1 (F)** parts and the critical lines (USB pair, IMU, touch leads, PRESS) / **L2 (In1) solid GND**: no tracks, no splits; only the touch-arc cuts and the antenna keep-out shape it / **L3 (In2) power**: a +3V3 plane over most of the board, a VSYS band from the power section along the 12 o'clock edge and down the 9 o'clock rim, a VBUS strip under the receptacle, a 10 o'clock VSYS branch to the amplifier and backlight driver, plus the slow lines (enables, interrupts, resets, the I2C trunk), placed so that every plane stays one piece (the router undoes any L3 route that would cut one off) / **L4 (B)** parts and short fan-outs over the L3 planes. USB, the display SPI, I2S and the PDM clock never touch L3. The first A0 was routed on 6 layers; this board was re-placed from scratch for 4 layers with designed escapes (`design/route_local.py`), so every fast line keeps one outer layer over an unbroken reference and the board needs fewer vias than the 6-layer one.
 - Power section at 1–2 o'clock, laid out by hand (`design/route_power.py`): one straight chain from the cell
   (J102 on B) through the 0 Ω link R108 and reverse-polarity FET Q101 to the charger (on F, under the panel), then
-  VSYS straight down two vias into the buck-boost on B. The buck-boost follows TI's reference layout: inductor over the power pins, CIN at VIN,
-  COUT at VOUT, a PGND strip between the pin rows with a via under the IC. VSYS reaches the amplifier,
-  haptics and IR on F.Cu over the In1 ground plane.
+  VSYS straight down two 0.6/0.3 mm vias into the buck-boost on B. The buck-boost follows TI's reference layout: inductor over the power pins, CIN at VIN,
+  COUT at VOUT, a PGND strip between the pin rows with a via under the IC. VSYS reaches the amplifier, haptics,
+  IR LEDs and the backlight through the L3 VSYS band (12 o'clock edge, 9 o'clock rim, a 10 o'clock branch to the
+  amplifier and a bar to the backlight driver), each load by its own 0.5–0.6 mm via.
 - Probe pads on B where their signals are: a service field between the charger and the module (GND, 3V3, SYS, BAT,
-  SDA, SCL, XRST, BOOT, RST on a 3.0 × 3.2 mm grid, a ground beside every rail), VBUS at the USB TVS,
-  LCDV/MIC/IRV at their switches. Tag-Connect TC2030-NL at the UART pins. Supplies and grounds on 1.2 mm pads, signals on 1.0 mm.
-  Every IC, capacitor and connector GND / +3V3 pad reaches its plane through a via of its own or one shared with a
-  neighbouring pin of the same net within 1.6 mm; pull-down resistors join GND through the outer pour, and every pour
-  fragment is stitched to L2 (ODD JOBS 14/16/17).
-- Antenna notch 24 × 6.3 mm; no copper, track, via or pour within 3 mm of it on any layer (rule area + the module's own keep-out).
+  SDA, SCL, XRST, BOOT, RST and three GNDs on a 2.8 mm grid of three rows, a ground beside every rail, each name
+  upright to the right of its pad), VBUS at the USB TVS, LCDV/MIC/IRV at their switches. Tag-Connect TC2030-NL at
+  the UART pins. Supplies and grounds on 1.2 mm pads, signals on 1.0 mm.
+  IC ground and supply pins reach their plane through a via of their own or one shared with a neighbouring pin of
+  the same net within 1.6 mm (`gnd_pad_vias.py`). Decoupling capacitors get a GND via within 1.2 mm of their pad
+  where the board has room; four do not (`STACKUP-CHECK.json`: C202 4.3 mm, C105 2.4, C302 2.3, C502 2.1) and return
+  through the outer pour. Pull-down resistors, test pads and the switch join GND through the outer pour; every pour
+  fragment is stitched to L2. Twelve GND vias stand near the rim (r > 26, `gnd_fence.py`); the only gaps wider than
+  26° are where the rim carries a touch arc or the antenna notch (ODD JOBS 5, 14, 16, 17).
+- Antenna notch 24.0 mm wide, inner edge at y 21.45. The "ANTENNA KEEP-OUT" rule area takes every layer from 3 mm past
+  each side of the notch and from 0.6 mm inside the antenna boundary outwards: no track, via or pour (the module's own
+  end pads are the only copper there, 1.0 mm from the notch). The module's position is set by its antenna-end corners
+  (r 28.89), which stay inside the board circle.
 - Two M2 screws (heat-set inserts in the chassis) on the back half, one plastic locating peg on the antenna half (ODD JOBS 69).
 - Matte black solder mask, white silk, ENIG (visible product board; rule 173 caveat noted for inspection).
 - Design rules inside JLCPCB standard capability with margin: 0.15 mm track/space minimum (0.2 default), through vias only: 0.6/0.3 mm for planes and power, 0.5/0.2 mm for the designed fan-out at fine-pitch parts and the module pin rows, 0.2 mm thermal vias in the exposed pads.

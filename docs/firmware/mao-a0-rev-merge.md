@@ -22,6 +22,8 @@ The pin header is generated from `pinmap.py`; never hand-merge it.
 | 6 | +3V3 = 3.18 V (3.10–3.28 V worst case) | Panel VCI maximum 3.3 V | Board-ID window 1400–1900 mV still holds (1.59 V nominal, ~1.51–1.68 V worst case): unchanged. The self-test's tighter `board_id` limits were re-centred: 1550–1750 → 1480–1700 mV |
 | 7 | Amplifier SD_MODE through 2.2 k series resistor | MAX98357A datasheet case VDDIO > VDD | None (SD_MODE high still selects the left channel) |
 | 8 | Display orientation | — | None: the panel tail still leaves at 9 o'clock (`CONFIG_MAO_A0_LCD_ROTATION` default 90) |
+| 9 | Display SPI through the stock 70 mm FPC tail (was a 10–12 mm tail) | 80 MHz over 70 mm of FPC with SCL beside CS/SDA is plausible but unproven (electrical audit 2, N-9) | New Kconfig `CONFIG_MAO_A0_LCD_PCLK_MHZ` (int, 10–80, default 80) sets `A0_LCD_PCLK_HZ`; bring-up §3 sets 40 if the colour test glitches. No code path changes |
+| 10 | Expander P1 text | P1 switches only the panel logic rail now; the backlight runs from VSYS | Regenerated header comment and `mao-pin-map.md` ("display logic rail switch"); FRAM 0x50 line gone (no FRAM on the A0) |
 
 ## 2. Changed files
 
@@ -37,7 +39,8 @@ Board support (`components/mao_board`):
 |---|---|---|
 | `boards/main_a0/aw9364_dimming.h`, `.c` (new) | Pure C, no IDF: `aw9364_step_from_percent()`, `aw9364_step_current_ua()`, `aw9364_plan(from, to)` (shutdown first? how many rising edges?), AW9364 timing constants | Testable on the host; one place for the datasheet facts (§3) |
 | `boards/main_a0/mao_board_a0_display.c` | LEDC backlight replaced: GPIO45 configured as a plain output, latched low, inside `mao_board_display_init()`; `mao_board_backlight_set()` = mutex + plan + shutdown wait (`esp_timer`, sleeps the bulk) + pulse train in a critical section with `esp_rom_delay_us`; unchanged step = nothing sent. Dev command `mao backlight <0..100> \| step <n> \| edge` (dev builds only) | Item 2 |
-| `boards/main_a0/mao_board_a0_priv.h` | `A0_EXP_INPUT_MASK` = P7 only (was P6 + P7); `A0_BACKLIGHT_MAX_PCT` removed; board-ID comment for 3.18 V | Items 2, 3, 6 |
+| `boards/main_a0/mao_board_a0_priv.h` | `A0_EXP_INPUT_MASK` = P7 only (was P6 + P7); `A0_BACKLIGHT_MAX_PCT` removed; board-ID comment for 3.18 V; `A0_LCD_PCLK_HZ` from `CONFIG_MAO_A0_LCD_PCLK_MHZ` | Items 2, 3, 6, 9 |
+| `Kconfig` | `MAO_A0_LCD_PCLK_MHZ` (int 10–80, default 80, depends on `MAO_BOARD_MAIN_A0`) | Item 9 |
 | `boards/main_a0/mao_board_a0.c` | `config_irq_inputs()`: no pulls on IMU INT1/INT2; `caps.charge_control`; `mao_board_line_get(MAO_LINE_CHARGING)` → `ESP_ERR_NOT_SUPPORTED` (no I2C access); new `mao_board_charge_enable()` (P6 = !enable) | Items 3, 4, 5 |
 | `boards/main_a0/mao_board_a0_i2c.c` | Header comment: GPIO39, R22, P6 output and what a reset does to /CE; reset-test comment (stuck reset now leaves 0x80); expander-test POLARITY patterns 0x2A/0x15 → 0x6A/0x15 so P6 is exercised too. Init order unchanged: OUTPUT (0x00 = charging enabled) before CONFIG | Items 1, 3 |
 | `boards/main_a0/mao_board_a0_sleep.c` | IMU INT1 armed for ext1 wake only if the IMU answered at boot; comments (P6 low in deep sleep = charging enabled; GPIO21 carries only the gauge / light alert) | Items 3, 5 |
@@ -148,6 +151,10 @@ Removed: `MAO_PIN_LCD_BL_PWM`, `MAO_EXP_CHG_N`, `A0_BACKLIGHT_MAX_PCT`.
    c3-release` or `idf.py` per README) with zero warnings, and
    `tests/host/run.sh` (240 checks at the time of writing, plus whatever the
    newer tree adds).
+   An existing build directory does not pick up the new Kconfig option by itself
+   (CMake does not re-run for a component Kconfig change): run `idf.py reconfigure`
+   once per build directory, or build from a clean one. Without it the build stops
+   at `CONFIG_MAO_A0_LCD_PCLK_MHZ undeclared`.
 
 ## 5. Bring-up checks on the revised board
 
@@ -222,6 +229,9 @@ power)`; the expander test and reset test pass with CONFIG 0x80.
 - [ ] `charge_limit()` runs every 10 s on USB (also while DROWSY) and on every USB change; fails safe to enabled
 - [ ] Every expander interrupt reads `MAO_LINE_SENSE_ALERT`
 - [ ] Self-test `board_id` limits 1480–1700 mV; `charger` step uses the power status
+- [ ] `CONFIG_MAO_A0_LCD_PCLK_MHZ` present (default 80); `idf.py reconfigure` run in old build directories
 - [ ] All five configurations build with zero warnings; host tests pass
-- [ ] Bring-up (§5): 16 steps, ~40 mA at 100 %, wrap result recorded, fade-in gap judged, IR dark at boot, pause at 43 °C / resume at 40 °C seen, IMU temperature offset recorded, IMU survives power cycles
-- [ ] Follow-ups outside firmware: `docs/hardware/mao-factory-test.md` (`board_id` 1550–1750 mV, `charger` step "CHG (expander P6)", CONFIG 0xC0, GPIO38 for EXP_RST_N/TP11) and `docs/hardware/mao-bringup.md` (R303 backlight measurement and 80 % PWM cap, "CHG reads low while charging", 270–300 mA charge current) describe the old board; `pinmap.py` notes BOARD_ID "1.65 V" and EXP_INT_N "charger status" are stale
+- [ ] Bring-up (§5 and `mao-bringup.md` §3): colour test at 80 MHz passed (or 40 set and recorded), 16 steps, ~40 mA at 100 %, wrap result recorded, fade-in gap judged, IR dark at boot, pause at 43 °C / resume at 40 °C seen, IMU temperature offset recorded, IMU survives power cycles
+- [ ] Hardware docs: `docs/hardware/mao-factory-test.md` and `mao-bringup.md` already describe the revised board
+      (board_id 1480–1700 mV, CONFIG 0x80, GPIO39 = EXP_RST_N / TP11, AW9364 backlight, 207 mA charge,
+      the 80 / 40 MHz panel clock check); carry them over with the hardware, not by hand

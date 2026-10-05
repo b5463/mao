@@ -237,7 +237,7 @@
 		)
 		(uuid "58b860e0-ff2b-59b4-8b9f-adb975edf8ba")
 	)
-	(text "GPIO0 = face-press switch = BOOT strap: holding the face while plugging USB enters download mode."
+	(text "GPIO0 = face-press switch = BOOT strap: hold the face during a reset (pulse EN: TP7 RST or Tag-Connect pin 2) to enter download mode; plugging USB resets the chip only when no cell is fitted."
 		(exclude_from_sim no)
 		(at 25.4 219.71 0)
 		(effects

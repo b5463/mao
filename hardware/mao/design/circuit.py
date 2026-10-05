@@ -30,7 +30,7 @@ c.sheets = [
 ]
 c.root_notes = [
     'MAO_MAIN A0 - ODD JOBS / MAO round puck main board',
-    'GPIO0 = face-press switch = BOOT strap: holding the face while plugging USB enters download mode.',
+    'GPIO0 = face-press switch = BOOT strap: hold the face during a reset (pulse EN: TP7 RST or Tag-Connect pin 2) to enter download mode; plugging USB resets the chip only when no cell is fitted.',
     'GPIO45 (VDD_SPI strap) reads 0 at reset through the backlight driver EN pull-down; on this PSRAM module the '
     'flash voltage is fixed by eFuse (WROOM-1 datasheet section 8), so the strap only has to be defined. '
     'GPIO46 (download-boot strap) is NC with its internal pull-down.',

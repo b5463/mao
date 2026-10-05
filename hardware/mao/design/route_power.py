@@ -68,7 +68,7 @@ ADD = [
     ('VSYS', V, None, M((-17.0, 8.9))),
     # IR LED anodes and their reservoir
     ('VSYS', V, None, [(-12.45, -22.1)]),
-    ('VSYS', V, None, [(6.63, -22.3)]),
+    ('VSYS', V, None, [(6.627, -22.3)]),                                             # on R502 pad 1's axis (pin()-placed)
     ('VSYS', V, None, [(12.0, -19.3)]),
     # backlight: from the L3 VSYS bar one via -> C305 -> AW9364 VIN, a second via -> VLED+ (J301.12); no VSYS ring
     # round the driver, so its EN pin (pad 2) leaves between them

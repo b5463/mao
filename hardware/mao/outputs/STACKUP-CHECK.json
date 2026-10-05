@@ -1,5 +1,5 @@
 {
- "broadside_total_mm": 18.8,
+ "broadside_total_mm": 19.4,
  "broadside_pairs": [
   [
    3.0,
@@ -62,12 +62,17 @@
    "GND"
   ],
   [
+   0.64,
+   "PRESS_N",
+   "UART_RX"
+  ],
+  [
    0.55,
    "TOF_INT_N",
    "BB_L1"
   ]
  ],
- "perimeter_gnd_vias": 13,
+ "perimeter_gnd_vias": 12,
  "largest_perimeter_gaps_deg": [
   [
    82.50000136402463,
@@ -121,12 +126,6 @@
    13.32
   ],
   [
-   0.97,
-   "+3V3",
-   22.85,
-   15.71
-  ],
-  [
    1.1,
    "GND",
    -22.75,
@@ -147,20 +146,26 @@
   [
    1.1,
    "GND",
-   -20.02,
-   -19.0
-  ],
-  [
-   1.1,
-   "GND",
    -17.92,
    20.99
   ],
   [
    1.1,
    "GND",
-   -15.03,
-   -23.15
+   -14.42,
+   -23.53
+  ],
+  [
+   1.1,
+   "GND",
+   0.0,
+   -27.6
+  ],
+  [
+   1.1,
+   "GND",
+   13.8,
+   -23.9
   ]
  ],
  "closest_smd_pads_to_edge_mm": [

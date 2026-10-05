@@ -187,7 +187,8 @@ def s3():
     # full brightness held down to VSYS: the lowest VSYS still giving >= 36 mA (90 %) on the high-Vf bin
     hi = curves['Vf3.4']
     res['VSYS_for_90pct_on_3V4_bin'] = next((v for v, i in zip(vsys, hi) if i >= 36.0), None)
-    res['driver_dissipation_mW_at_4V4'] = round(40 * (4.4 - 3.0), 1)
+    res['driver_dissipation_mW_at_4V4'] = round(40 * (4.4 - 3.0), 1)          # nominal 40 mA, Vf 3.0 V
+    res['driver_dissipation_mW_at_4V4_47mA'] = round(47 * (4.4 - 3.0), 1)     # the part's +17.5 % corner
     res['steps'] = {str(n): round(40 * (17 - n) / 16, 1) for n in (1, 4, 8, 12, 16)}
     res['verdict'] = verdict(res['I_max_mA'] <= 40.0 and res['VSYS_for_90pct_on_3V4_bin'] is not None
                              and res['VSYS_for_90pct_on_3V4_bin'] <= 3.6)
@@ -350,7 +351,8 @@ def s8_s9():
 # S10  TPS22919 display-rail soft start (fixed rise time) - datasheet slew, ngspice for the 3V3 droop
 # ------------------------------------------------------------------------------------------------
 def s10():
-    # TPS22919 SLVSEN5B: SRON 1.8 mV/us at VIN 1.8 V, 2.7 mV/us at 3.6 V; tR 1.5 / 1.75 ms. Interpolated to the rail.
+    # TPS22919 SLVSEN5B: SRON 1.8 mV/us at VIN 1.8 V, 2.7 mV/us at 3.6 V; tON 1.5 / 1.75 ms (ON high to VOUT at 90 %).
+    # Interpolated to the rail. The 10-90 % rise follows from the slew: 0.8 x VIN / SRON.
     k = (V33 - 1.8) / (3.6 - 1.8)
     sr = (1.8 + k * (2.7 - 1.8)) * 1e3                # V/s
     tr = (1.5 + k * (1.75 - 1.5)) * 1e-3
@@ -363,7 +365,8 @@ def s10():
            'Cl lcd 0 %g' % c_load, 'Rpanel lcd 0 390']
     r = ngs.run(net, '.tran 5u 4m', ['time', 'v(lcd)', 'v(v33)'])
     t, vl, v33 = r['time'], r['v(lcd)'], r['v(v33)']
-    res = {'slew_V_per_ms': round(sr / 1e3, 2), 'rise_time_ms': round(tr * 1e3, 2), 'C_load_uF': round(c_load * 1e6, 1),
+    res = {'slew_V_per_ms': round(sr / 1e3, 2), 'turn_on_time_ms': round(tr * 1e3, 2),
+           'rise_time_10_90_ms': round(0.8 * V33 / sr * 1e3, 2), 'C_load_uF': round(c_load * 1e6, 1),
            'inrush_mA': round(i_in * 1e3, 1), 'droop_3V3_mV': round((V33 - min(v33)) * 1e3, 2)}
     res['verdict'] = verdict(i_in < 0.1 and V33 - min(v33) < 0.033)
     fig, ax = plt.subplots(figsize=(6.2, 2.4))
@@ -580,7 +583,7 @@ def s12_s15():
                            'verdict': verdict(all(c['I_peak_A'] < 0.5 * min(isat, 3.8) for c in cases))}
     # S15 runtime from the power budget (500 mAh, 85 % usable above the 2.96 V UVLO)
     cap = 500 * 0.85
-    states = {'active': 141, 'active_radio_ps': 85, 'idle': 118, 'drowsy': 1.6, 'deep_sleep': 0.073}
+    states = {'active': 141, 'active_radio_ps': 85, 'idle': 118, 'drowsy': 1.6, 'deep_sleep': 0.085}
     R['S15_runtime'] = {k: ('%.1f h' % (cap / v) if cap / v < 48 else '%.0f days' % (cap / v / 24))
                         for k, v in states.items()}
     R['S15_runtime']['note'] = '500 mAh x 85 % usable above the UVLO; budget rows from mao-power-budget.md'

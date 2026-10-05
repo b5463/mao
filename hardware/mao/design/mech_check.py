@@ -11,6 +11,7 @@ highest vertex or box, 0.1 inch units), with the footprint's model scale, offset
   B, everywhere             height <= ZONE_B_MAX_H (the cell's insulator sits on the tallest part)
   B, under the speaker      no part but its contact pads LS501
   B, the tail corridor      no part between the slot and J301 (the folded FPC lies there)
+  F, under the tail         no part beside the slot (TAIL_F_CLEAR) nor under the carrier well where the loop turns
   fasteners                 no part in the insert boss (F) or screw head (B) keep-outs, nor at the peg
   wall                      every body inside the board circle (r <= PCB_R: 1 mm to the wall at r 30), except the
                             parts that reach into a wall opening by design (USB-C, the IR LEDs); the speaker's
@@ -168,6 +169,8 @@ def main():
                 found.append({'ref': ref, 'rule': 'under the speaker', 'side': side})
             if any(in_box(q, m.TAIL_CORRIDOR) for q in boxes) and ref != 'J301':
                 found.append({'ref': ref, 'rule': 'in the tail corridor', 'side': side})
+        elif any(in_box(q, m.TAIL_WELL) or in_box(q, m.TAIL_F_CLEAR) for q in boxes):
+            found.append({'ref': ref, 'rule': 'under the tail (slot side or the loop\'s well)', 'side': side})
         if ref.startswith(NO_BODY) and ref not in DESIGNED_CONTACT:
             continue
         if ref in DESIGNED_CONTACT:

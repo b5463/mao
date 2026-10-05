@@ -312,8 +312,9 @@ def build():
     print('silk trimmed at the edge: %d items' % trim_silk(board))
 
     allcu = [pcb.F_Cu, pcb.In1_Cu, pcb.In2_Cu, pcb.B_Cu]
-    # Antenna: no copper, track, via, pad or pour on any layer within 3 mm of the notch and in the
-    # part of the board the module's own keep-out covers (ODD JOBS 2/3).
+    # Antenna: no track, via or pour on any layer beside the notch (3 mm past each side) and from 0.6 mm
+    # inside the antenna boundary outwards: the part of the board the module's own keep-out covers (ODD JOBS 2/3).
+    # The module's own pads are allowed.
     hw, ny = m.NOTCH_W / 2 + m.ANTENNA_COPPER_SETBACK, m.NOTCH_Y - 0.6
     keepout(board, allcu, [(-hw, ny), (hw, ny), (hw, m.PCB_R + 1), (-hw, m.PCB_R + 1)], 'ANTENNA KEEP-OUT',
             pads=False)
@@ -350,7 +351,8 @@ def build():
                 tracks=False, vias=True, pads=False, pours=False)
     # Display tail: no part between the slot and J301 on B, none on the slot's inboard side on F.
     for layer, (x0, y0, x1, y1), name in ((pcb.B_Cu, m.TAIL_CORRIDOR, 'TAIL CORRIDOR'),
-                                         (pcb.F_Cu, m.TAIL_F_CLEAR, 'TAIL CLEAR')):
+                                         (pcb.F_Cu, m.TAIL_F_CLEAR, 'TAIL CLEAR'),
+                                         (pcb.F_Cu, m.TAIL_WELL, 'TAIL WELL')):
         keepout(board, [layer], [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], name,
                 tracks=False, vias=False, pads=False, pours=False, footprints=True)
     # Antenna fringe: no tracks along the notch boundary on the outer layers (ODD JOBS 2, 3, 125); vias for

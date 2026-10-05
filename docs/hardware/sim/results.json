@@ -99,6 +99,7 @@
   "part_tolerance": "AW9364DNR +-17.5 %: 33-47 mA at step 1, 23.5 mA per LED at worst (panel: 40 mA typ)",
   "VSYS_for_90pct_on_3V4_bin": 3.6,
   "driver_dissipation_mW_at_4V4": 56.0,
+  "driver_dissipation_mW_at_4V4_47mA": 65.8,
   "steps": {
    "1": 40.0,
    "4": 32.5,
@@ -187,7 +188,8 @@
  },
  "S10_display_rail": {
   "slew_V_per_ms": 2.49,
-  "rise_time_ms": 1.69,
+  "turn_on_time_ms": 1.69,
+  "rise_time_10_90_ms": 1.02,
   "C_load_uF": 10.5,
   "inrush_mA": 26.1,
   "droop_3V3_mV": 0.87,
@@ -352,7 +354,7 @@
   "active_radio_ps": "5.0 h",
   "idle": "3.6 h",
   "drowsy": "11 days",
-  "deep_sleep": "243 days",
+  "deep_sleep": "208 days",
   "note": "500 mAh x 85 % usable above the UVLO; budget rows from mao-power-budget.md"
  }
 }

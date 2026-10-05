@@ -55,10 +55,13 @@ IR_RX_ANGLE = 90.0          # 3 o'clock, top-view receiver under the border (12 
 MIC_ANGLE = 106.0           # bottom-port mic on B.Cu, port up through the board into the window border, far from speaker and buck-boost
 
 # Display tail. The stock Winstar tail (70.1 mm, spec section 8) leaves the panel at 9 o'clock (image up = 12
-# o'clock: the GC9A01 rotates only in 90 deg steps), folds back under the panel at its bending area, S-folds in
-# a 0.4 mm pocket of the face carrier, leaves the face at r ~19 and drops through a routed slot just outside
-# the panel edge. Under the board it bends inward into J301 on B.Cu, whose entry faces the slot. Lateral order
-# is kept through every fold (all fold axes are tangential): panel pin 1 is at the 12 o'clock end.
+# o'clock: the GC9A01 rotates only in 90 deg steps) and folds back under the panel at its bending area. Its ~45 mm
+# of slack is one long loop under the panel: two flat layers (2 x 0.11 mm) in a 0.4 mm pocket of the face carrier,
+# inward to about x +8, where the loop turns in a 2.4 mm deep well of the carrier (TAIL_WELL: fold radius >= 1 mm,
+# room for the +-0.5 mm tail tolerance), and back out. It leaves the face at r ~19 and drops through a routed slot
+# just outside the panel edge; under the board it bends inward into J301 on B.Cu, whose entry faces the slot. Each
+# press flexes the long loop, not a fold. Lateral order is kept through every fold (all fold axes are tangential):
+# panel pin 1 is at the 12 o'clock end.
 TAIL_ANGLE = 270.0
 TAIL_W = 9.5                # tail end width (9.50 +-0.1); the 13.05 mm section near the panel stays in the face
 TAIL_SLOT = (-19.3, -5.75, -18.3, 5.75)    # routed slot x0, y0, x1, y1: 1.0 mm wide, round ends, NPTH (0.35 mm
@@ -66,6 +69,7 @@ TAIL_SLOT = (-19.3, -5.75, -18.3, 5.75)    # routed slot x0, y0, x1, y1: 1.0 mm 
 TAIL_ENTRY_X = -14.0        # J301 FPC entry edge on B.Cu: 4.5 mm for the tail's bend from vertical to the entry
 TAIL_CORRIDOR = (-18.3, -5.9, -14.4, 5.9)  # B.Cu between slot and J301's courtyard: tracks allowed, no parts
 TAIL_F_CLEAR = (-19.4, -6.4, -17.7, 6.4)   # F.Cu on the slot's inboard side: no parts (the tail drops there)
+TAIL_WELL = (6.0, -5.75, 12.0, 5.75)       # F.Cu under the carrier's well where the tail loop turns: no parts
 
 # Antenna: WROOM-1 on B.Cu at 6 o'clock, long axis radial, antenna over a notch in the board edge.
 MODULE_ANGLE = 180.0        # 6 o'clock
@@ -81,7 +85,9 @@ ANTENNA_EDGE_Y = MODULE_CY + 6.75                  # antenna section starts here
 NOTCH_W = MODULE_W + 6.0              # board cut-out under the antenna: 3 mm each side
 NOTCH_Y = ANTENNA_EDGE_Y              # notch inner edge = antenna boundary (no copper beneath)
 NOTCH_FILLET = 1.0                    # milled inner corners, drawn deliberately
-ANTENNA_COPPER_SETBACK = 3.0          # pours stop this far from the notch on every layer
+ANTENNA_COPPER_SETBACK = 3.0          # the all-layer keep-out reaches this far beyond the notch's sides; towards the
+                                      # board it starts 0.6 mm inside the antenna boundary (the module's own pads
+                                      # 1/40 and its GND pins are the only copper there)
 
 # Back edge (12 o'clock): USB-C on B.Cu; the two IR LEDs flank it on B.Cu, firing out of the base wall.
 USB_ANGLE = 0.0
@@ -112,7 +118,10 @@ ZONE_B_MAX_H = 3.2
 # fit: the crescent beside the 35.5 mm cell is 12.2 mm wide. Its contacts land on pads LS501 (B.Cu).
 SPEAKER_SIZE = (8.0, 15.0, 3.0)          # x (radial), y (along the rim), height
 SPEAKER_CENTRE = (-23.74, 0.6)
-LRA_ANGLE = 232.0            # on the PCB underside, 7-8 o'clock: far from IMU, Hall sensors and mic
+LRA_ANGLE = 232.0            # in the base under the board, 7-8 o'clock: far from IMU, Hall sensors and mic
+LRA_R = 21.0                 # centre radius of the 8 mm coin: its steel can is ~7.4 mm from the antenna's corner,
+                             # inside the 15 mm metal guideline (the only free spot in the base; RSSI checked at
+                             # bring-up)
 
 # Mounting to the top-unit chassis: two M2 screws on the back half (no metal near the antenna,
 # ODD JOBS 69) and one plastic locating peg (NPTH, no screw) on the antenna half.

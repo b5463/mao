@@ -33,7 +33,7 @@
 /* --- Display: 1.28" round GC9A01 panel in the J301 18-pin FPC connector ---- */
 #define A0_LCD_H_RES                240
 #define A0_LCD_V_RES                240
-#define A0_LCD_PCLK_HZ              (80 * 1000 * 1000)
+#define A0_LCD_PCLK_HZ              (CONFIG_MAO_A0_LCD_PCLK_MHZ * 1000 * 1000)   /* 80 by default; 40 is the tail fallback */
 #define A0_LCD_PWR_SETTLE_MS        10     /* load switch on -> reset sequence */
 #define A0_LCD_RESET_LOW_MS         10
 #define A0_LCD_RESET_WAIT_MS        120    /* reset released -> first command */

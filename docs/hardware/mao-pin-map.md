@@ -17,7 +17,7 @@ channel, ADC1 = ADC usable with Wi-Fi on.
 | 5 | `TOUCH_TOP` | analog | touch T5, window-border electrode (spring) | RTC, touch, ADC1 | T R; 510R series |
 | 6 | `TOUCH_REAR` | analog | touch T6, base electrode (spring at 10 o'clock) | RTC, touch, ADC1 | T R; 510R series |
 | 7 | `I2C_SDA` | io | I2C data (all sensors, expander, gauge, haptic) | RTC, touch, ADC1 | R; 2.2k pull-up to +3V3; left-column pin below the I2S group: the bus reaches the haptic driver under the I2S lanes |
-| 8 | `BOARD_ID` | analog | board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.59 V (3.18 V rail) | RTC, touch, ADC1 | read once at boot; the static line runs on L3 to its divider |
+| 8 | `BOARD_ID` | analog | board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.59 V (3.18 V rail) | RTC, touch, ADC1 | read once at boot; the divider sits beside the pin (4 mm of track, one via) |
 | 9 | `LCD_TE` | in | display tearing-effect output: frame sync for tear-free animation | RTC, touch, ADC1 | R; the display group (pins 17-21: TE, DC, MOSI, SCLK, CS) is in the connector's own pin order: no crossing |
 | 10 | `LCD_DC` | out | display data/command | RTC, touch, ADC1 | R |
 | 11 | `LCD_MOSI` | out | display data (FSPID IO_MUX) | RTC, touch | R; 22R series (ODD JOBS 29) |
@@ -56,7 +56,7 @@ so the external resistors below are the hardware defaults (ODD JOBS 116/117).
 | Port | Net | Dir | Function | Power-on default |
 |---:|---|---|---|---|
 | P0 | `LCD_RST_N` | out | display reset | 100k pull-down: panel held in reset |
-| P1 | `LCD_PWR_EN` | out | display + backlight rail load switch | 100k pull-down: off |
+| P1 | `LCD_PWR_EN` | out | display logic rail switch (3V3_LCD; the backlight runs from VSYS) | 100k pull-down: off |
 | P2 | `AMP_SD_N` | out | amplifier enable (SD_MODE) | 100k pull-down: amplifier shut down |
 | P3 | `HAPTIC_EN` | out | haptic driver enable | 100k pull-down: off |
 | P4 | `TOF_XSHUT` | out | proximity sensor shutdown (low = off) | 100k pull-down: off |
@@ -75,4 +75,4 @@ so the external resistors below are the hardware defaults (ODD JOBS 116/117).
 | 0x5A | DRV2605L haptic driver |
 | 0x6A | IMU (SA0 low) |
 
-No collisions. Reserved for the DNP FRAM footprint: 0x50.
+No collisions.

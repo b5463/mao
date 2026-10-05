@@ -142,7 +142,10 @@ every output bit P0-P6 is set and cleared once.
 - The panel plugs in: an 18-pin 0.5 mm tail (Winstar WF0128BTYAA4DNN0 or any
   panel of that 18-pin standard) in the J301 back-flip connector, so it can be
   replaced without soldering.
-- SPI2, 80 MHz, mode 0, write-only: SCLK 12 and MOSI 11 on SPI2's IO_MUX pads,
+- SPI2, 80 MHz by default (`CONFIG_MAO_A0_LCD_PCLK_MHZ`, 10–80, menuconfig "MAO
+  board"; the signals run through the panel's stock 70 mm tail, so bring-up
+  confirms 80 MHz and falls back to 40 if the picture glitches), mode 0,
+  write-only: SCLK 12 and MOSI 11 on SPI2's IO_MUX pads,
   CS 13 through the GPIO matrix, DC 10 a plain GPIO; the module pins follow the
   connector's pin order (no crossing on the board). `unpark()` restores the same
   routing after a rail power cycle. TE (tearing effect) is GPIO9, an input with

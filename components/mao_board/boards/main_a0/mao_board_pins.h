@@ -39,7 +39,7 @@
 
 /* TCA6408A expander port bits (I2C 0x20) */
 #define MAO_EXP_LCD_RST_N          0    /* display reset; 100k pull-down: panel held in reset */
-#define MAO_EXP_LCD_PWR_EN         1    /* display + backlight rail load switch; 100k pull-down: off */
+#define MAO_EXP_LCD_PWR_EN         1    /* display logic rail switch (3V3_LCD; the backlight runs from VSYS); 100k pull-down: off */
 #define MAO_EXP_AMP_SD_N           2    /* amplifier enable (SD_MODE); 100k pull-down: amplifier shut down */
 #define MAO_EXP_HAPTIC_EN          3    /* haptic driver enable; 100k pull-down: off */
 #define MAO_EXP_TOF_XSHUT          4    /* proximity sensor shutdown (low = off); 100k pull-down: off */

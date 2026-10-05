@@ -50,6 +50,17 @@ menu "MAO board"
         default 270 if MAO_A0_LCD_ROTATION_270
         default 0
 
+    config MAO_A0_LCD_PCLK_MHZ
+        int "MAO_MAIN A0: display SPI clock (MHz)"
+        depends on MAO_BOARD_MAIN_A0
+        range 10 80
+        default 80
+        help
+            The GC9A01's SPI clock. On the A0 it runs through the panel's stock
+            70 mm FPC tail. VERIFY AT BRING-UP (mao-bringup.md section 3): run the
+            colour test and the animation at 80 MHz; if lines tear or pixels go
+            wrong, set 40 here.
+
     # Not user-editable: the name always follows the board choice.
     config MAO_BOARD_NAME
         string

@@ -117,21 +117,21 @@ Every probe pad is on the B side, placed where its signal already is
 Positions in board mm from the puck axis, y towards 6 o'clock, viewed from the
 face (the pads are on B: mirror x when looking at the back). Supplies and
 grounds use 1.2 mm pads, signals and the switched rails 1.0 mm. The fixture's
-pogo plate carries one pin per pad; the layout is asymmetric (a free grid
-position, pads outside the field), so the board cannot sit in it rotated
-(ODD JOBS 158).
+pogo plate carries one pin per pad; the layout is asymmetric (one grid
+position holds the I2C pull-ups instead of a pad, and pads sit outside the
+field), so the board cannot sit in it rotated (ODD JOBS 158).
 
-Service field, between the charger and the module (2.8 mm x 3.0 mm grid; each
-name stands vertically beside its pad, rows 1 and 3 on one side and row 2 on
-the other, so no two names touch). The rails come straight down from the power
+Service field, between the charger and the module (2.8 mm grid, three rows;
+each name stands upright to the right of its pad, on a via-free spot of its
+own, so no name touches another pad or name). The rails come straight down from the power
 section; every rail has a ground pad beside it for a spring-tip probe
 (ODD JOBS 39):
 
 ```
-   x:        6.0        8.8        11.6       14.4
-   y -5.7:  TP2 GND    TP3 3V3    TP4 SYS    TP5 BAT
-   y -2.7:  TP10 SCL   (R214/R213 I2C pull-ups)  TP1 GND    TP16 GND
-   y  0.3:  TP9 SDA    TP11 XRST  TP8 BOOT   TP7 RST
+   x:        6.0        8.8        11.6       14.3
+   y -6.1:  TP2 GND    TP3 3V3    TP4 SYS    TP5 BAT
+   y -3.3:  TP10 SCL   (R214/R213 I2C pull-ups)  TP1 GND    TP16 GND
+   y -0.5:  TP9 SDA    TP11 XRST  TP8 BOOT   TP7 RST
 ```
 
 At their sources:
@@ -139,15 +139,15 @@ At their sources:
 | Pad | Where | Position |
 |---|---|---|
 | TP6 VBUS | on the VBUS bus between the TVS D101 and the charger; D101's ground pad beside it | (5.5, −16.95) |
-| TP13 LCD | beside the display load switch U105's output cap | (−7.5, −8.7) |
-| TP14 MIC | at the end of the microphone supply (C407 / C406) | (22.1, 11.7) |
-| TP15 IRV | under the IR receiver's supply pin | (22.1, 2.5) |
-| J201 Tag-Connect | at the module's UART pins (RXD0/TXD0 straight across from pins 36/37) | (15.2, 17.6) |
+| TP13 LCDV | on the 3V3_LCD rail, beside the backlight driver U303 | (−6.4, −7.2) |
+| TP14 MIC | at the end of the microphone supply (C407 / C406) | (22.3, 12.1) |
+| TP15 IRV | under the IR receiver's supply pin | (22.35, 0.9) |
+| J201 Tag-Connect | at the module's UART pins (RXD0/TXD0 straight across from pins 36/37) | (15.2, 16.35) |
 
 | Pad | Label | Net | Size | Use in the fixture | Expected |
 |---|---|---|---|---|---|
 | TP1, TP2, TP16 | GND | GND | 1.2 mm | pogo ground reference (three pads for low impedance); DMM reference for TP13-TP15 | 0 V |
-| TP3 | 3V3 | +3V3 | 1.2 mm | rail check before firmware; supply current through the USB / VBAT source | 3.10 … 3.28 V (3.18 V nominal) |
+| TP3 | 3V3 | +3V3 | 1.2 mm | rail check before firmware; supply current through the USB / VBAT source | 3.10 … 3.32 V (3.18 V nominal; the top includes the TPS63802 FB bias current) |
 | TP4 | SYS | VSYS | 1.2 mm | charger output | ≈ 4.4 V on USB (BQ24073 DPPM), ≈ VBAT on battery |
 | TP5 | BAT | VBAT | 1.2 mm | cell / simulator voltage after the reverse-polarity FET | the source voltage minus < 50 mV |
 | TP6 | VBUS | VBUS | 1.2 mm | USB input after the protection | 5.0 V ± 5 % |

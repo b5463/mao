@@ -80,6 +80,9 @@ def main():
     sl = m.TAIL_SLOT
     e.append(rect(sl[0], sl[1], sl[2], sl[3], '#36c', '#36c', 1.0))
     e.append(rect(m.TAIL_CORRIDOR[0], -m.TAIL_W / 2, PLACE['J301'][0] - 0.8, m.TAIL_W / 2, '#36c', '#eef3ff', 0.8, '3,2'))
+    w_ = m.TAIL_WELL                       # where the tail's loop turns, in the carrier's 2.4 mm well
+    e.append(rect(w_[0], w_[1], w_[2], w_[3], '#36c', '#eef3ff', 0.8, '3,2'))
+    e.append(text((w_[0] + w_[2]) / 2, w_[3] + 2.2, 'tail loop well', 9, 'middle', '#36c'))
     e.append(text(sl[2] + 3.6, sl[1] - 1.0, 'tail slot 1.0 x 11.5', 10, 'middle', '#36c'))
     # fasteners
     for a in m.SCREW_ANGLES:
@@ -128,7 +131,7 @@ def main():
             ('Springs', 'BW0019BG: working height 3.0 mm (2.5-3.8)'),
             ('Window', 'sensor band r %.1f-%.1f mm: IR-clear at 11, 1, 3 o\'clock' % m.WINDOW_ANNULUS),
             ('Fixing', '2 x M2 into heat-set inserts, 1 plastic peg'),
-            ('Tail', 'stock 70.1 mm FPC: S-fold in the carrier, slot x %.1f..%.1f, to J301 on B' % (m.TAIL_SLOT[0], m.TAIL_SLOT[2])),
+            ('Tail', 'stock 70.1 mm FPC: one loop under the panel (turns in a 2.4 mm carrier well at x %.0f..%.0f), slot x %.1f..%.1f, to J301 on B' % (m.TAIL_WELL[0], m.TAIL_WELL[2], m.TAIL_SLOT[0], m.TAIL_SLOT[2])),
             ]
     y = -28.0
     for k, v in rows:
