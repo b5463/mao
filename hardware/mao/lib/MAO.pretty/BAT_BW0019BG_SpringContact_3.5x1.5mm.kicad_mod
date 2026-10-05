@@ -1,0 +1,154 @@
+(footprint "BAT_BW0019BG_SpringContact_3.5x1.5mm"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "SMD gold spring contact, working height 3.0 mm")
+	(tags "spring contact finger")
+	(property "Reference" "REF**"
+		(at 0 -2 0)
+		(layer "F.SilkS")
+		(uuid "747be6be-6b37-4218-b553-076a7ee76426")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Value" "BAT_BW0019BG_SpringContact_3.5x1.5mm"
+		(at 0 3.4 0)
+		(layer "F.Fab")
+		(uuid "76b1683d-f52f-45c0-99e5-01ba36470cce")
+		(effects
+			(font
+				(size 0.5 0.5)
+				(thickness 0.075)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "66fe0550-df8e-4439-9a56-ec6094beace9")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "242bef9d-2578-487f-aa49-595f865c698d")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(attr smd)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start -1.05 -1.35)
+		(end 1.05 -1.35)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "67050644-932f-49ee-9830-ee562899e282")
+	)
+	(fp_line
+		(start -1.05 2.75)
+		(end -1.05 -1.35)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "5eaada2a-4caf-45b5-80f3-d1ccbf590d3d")
+	)
+	(fp_line
+		(start 1.05 -1.35)
+		(end 1.05 2.75)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "21205e1b-04a3-4fda-9a39-59373d00370c")
+	)
+	(fp_line
+		(start 1.05 2.75)
+		(end -1.05 2.75)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(layer "F.CrtYd")
+		(uuid "ad19731e-7cd1-4120-b858-05a177d36916")
+	)
+	(fp_line
+		(start -0.75 -1.05)
+		(end 0.75 -1.05)
+		(stroke
+			(width 0.08)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "b93651a1-f297-4f96-a13a-758d9ebf4171")
+	)
+	(fp_line
+		(start -0.75 2.45)
+		(end -0.75 -1.05)
+		(stroke
+			(width 0.08)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "a2675f60-08bf-4a26-8c25-30a6f055bd99")
+	)
+	(fp_line
+		(start 0.75 -1.05)
+		(end 0.75 2.45)
+		(stroke
+			(width 0.08)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "a447552c-81c8-4600-8f64-6152eaabfbd1")
+	)
+	(fp_line
+		(start 0.75 2.45)
+		(end -0.75 2.45)
+		(stroke
+			(width 0.08)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "21431ad3-43e4-419b-ab99-8d1b55b35293")
+	)
+	(pad "1" smd roundrect
+		(at 0 0)
+		(size 1.6 2.2)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.0625)
+		(thermal_bridge_angle 45)
+		(uuid "9266a9c5-ac5d-4c15-a9b8-3ad81630dac9")
+	)
+	(embedded_fonts no)
+	(model "${KIPRJMOD}/lib/MAO.3dshapes/BAT_BW0019BG.wrl"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)

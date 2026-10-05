@@ -1,0 +1,2426 @@
+diff --git a/components/mao_board/CMakeLists.txt b/components/mao_board/CMakeLists.txt
+index 0015350..29e0f6a 100644
+--- a/components/mao_board/CMakeLists.txt
++++ b/components/mao_board/CMakeLists.txt
+@@ -13,7 +13,8 @@ elseif(CONFIG_MAO_BOARD_MAIN_A0)
+                      "boards/main_a0/mao_board_a0_i2c.c"
+                      "boards/main_a0/mao_board_a0_display.c"
+                      "boards/main_a0/mao_board_a0_audio.c"
+-                     "boards/main_a0/mao_board_a0_sleep.c")
++                     "boards/main_a0/mao_board_a0_sleep.c"
++                     "boards/main_a0/aw9364_dimming.c")
+ elseif(NOT CMAKE_BUILD_EARLY_EXPANSION)
+     message(FATAL_ERROR "MAO: no board profile for target ${IDF_TARGET}")
+ endif()
+@@ -24,5 +25,5 @@ idf_component_register(
+     PRIV_INCLUDE_DIRS "." ${board_dir}
+     REQUIRES esp_lcd esp_driver_i2s esp_driver_i2c led_strip
+     PRIV_REQUIRES esp_driver_gpio esp_driver_ledc esp_driver_spi esp_hw_support esp_adc
+-                  esp_hal_gpspi freertos mao_system
++                  esp_hal_gpspi esp_timer freertos mao_system
+ )
+diff --git a/components/mao_board/Kconfig b/components/mao_board/Kconfig
+index f798860..f6de5f9 100644
+--- a/components/mao_board/Kconfig
++++ b/components/mao_board/Kconfig
+@@ -50,6 +50,18 @@ menu "MAO board"
+         default 270 if MAO_A0_LCD_ROTATION_270
+         default 0
+ 
++    config MAO_A0_LCD_PCLK_MHZ
++        int "MAO_MAIN A0: display SPI clock (MHz)"
++        depends on MAO_BOARD_MAIN_A0
++        range 10 80
++        default 80
++        help
++            The GC9A01's SPI clock. On the A0 it runs through the panel's stock
++            70 mm FPC tail. VERIFY AT BRING-UP (mao-bringup.md section 3): run the
++            colour test and the animation at 80 MHz; if lines tear or pixels go
++            wrong, set 40 here. Use 80 or 40: the SPI clock divides 80 MHz, so other
++            values round to a neighbouring 80/n (the log prints the requested value).
++
+     # Not user-editable: the name always follows the board choice.
+     config MAO_BOARD_NAME
+         string
+diff --git a/components/mao_board/boards/lcdkit/mao_board_lcdkit_ext.c b/components/mao_board/boards/lcdkit/mao_board_lcdkit_ext.c
+index ff72633..6fedd3e 100644
+--- a/components/mao_board/boards/lcdkit/mao_board_lcdkit_ext.c
++++ b/components/mao_board/boards/lcdkit/mao_board_lcdkit_ext.c
+@@ -146,6 +146,12 @@ esp_err_t mao_board_line_get(mao_board_line_t line, bool *active)
+     return ESP_ERR_NOT_SUPPORTED;
+ }
+ 
++esp_err_t mao_board_charge_enable(bool enable)
++{
++    (void)enable;
++    return ESP_ERR_NOT_SUPPORTED;
++}
++
+ esp_err_t mao_board_irq_get(mao_board_irq_t irq, mao_board_irq_desc_t *out)
+ {
+     (void)irq;
+diff --git a/components/mao_board/boards/main_a0/aw9364_dimming.c b/components/mao_board/boards/main_a0/aw9364_dimming.c
+new file mode 100644
+index 0000000..c26a8c3
+--- /dev/null
++++ b/components/mao_board/boards/main_a0/aw9364_dimming.c
+@@ -0,0 +1,51 @@
++/*
++ * AW9364 pulse-count dimming (pure logic). See aw9364_dimming.h.
++ */
++#include "aw9364_dimming.h"
++
++#define FULL_SCALE_UA   20000u      /* 20 mA per channel at step 1 */
++
++static uint8_t clamp_step(uint8_t step)
++{
++    return step > AW9364_STEPS ? AW9364_STEPS : step;
++}
++
++uint8_t aw9364_step_from_percent(uint8_t percent)
++{
++    if (percent == 0) {
++        return 0;
++    }
++    if (percent > 100) {
++        percent = 100;
++    }
++    /* ceil(16 * percent / 100) is 1..16 for percent 1..100 */
++    const unsigned sixteenths = (AW9364_STEPS * (unsigned)percent + 99u) / 100u;
++    return (uint8_t)(AW9364_STEPS + 1u - sixteenths);
++}
++
++uint32_t aw9364_step_current_ua(uint8_t step)
++{
++    if (step == 0 || step > AW9364_STEPS) {
++        return 0;
++    }
++    return FULL_SCALE_UA * (uint32_t)(AW9364_STEPS + 1u - step) / AW9364_STEPS;
++}
++
++aw9364_plan_t aw9364_plan(uint8_t from_step, uint8_t to_step)
++{
++    from_step = clamp_step(from_step);
++    to_step = clamp_step(to_step);
++    if (to_step == from_step) {
++        return (aw9364_plan_t) { .shutdown = false, .edges = 0 };
++    }
++    if (to_step == 0) {
++        return (aw9364_plan_t) { .shutdown = true, .edges = 0 };
++    }
++    if (from_step != 0 && to_step > from_step) {
++        /* Dimmer: count on from where the driver is. */
++        return (aw9364_plan_t) { .shutdown = false, .edges = (uint8_t)(to_step - from_step) };
++    }
++    /* From off, or brighter: start over from edge 1 after a full shutdown
++     * (never edge 17: the datasheet does not say whether it wraps). */
++    return (aw9364_plan_t) { .shutdown = true, .edges = to_step };
++}
+diff --git a/components/mao_board/boards/main_a0/aw9364_dimming.h b/components/mao_board/boards/main_a0/aw9364_dimming.h
+new file mode 100644
+index 0000000..f3a3b17
+--- /dev/null
++++ b/components/mao_board/boards/main_a0/aw9364_dimming.h
+@@ -0,0 +1,59 @@
++/*
++ * Awinic AW9364 backlight driver: 1-wire pulse-count dimming, pure logic
++ * (no ESP-IDF). PRIVATE to mao_board; host-tested in tests/host.
++ *
++ * Datasheet V2.3 (Feb 2018), "Enable Input", table 1 and figure 7:
++ *   - EN has an internal 150 k pull-down: the driver is off from reset.
++ *   - The rising edge that enables the device is edge 1 = 20 mA per channel.
++ *     Edge n sets (17 - n) / 16 x 20 mA, so 16 steps from 20 mA down to
++ *     1.25 mA. The current is held while EN stays high.
++ *   - Ready time after the enable edge > 20 us (TON); between edges EN low
++ *     0.5 .. 500 us (TLO), high > 0.5 us (THI).
++ *   - EN low for longer than TOFF (0.8 .. 2.5 ms) shuts the device down.
++ *   - The datasheet does not say what edge 17 does. The plan below never
++ *     relies on it: a brighter step (smaller n) shuts the driver down and
++ *     counts again from edge 1; a dimmer one adds the missing edges.
++ *
++ * "Step" here is the edge number n: 0 = off, 1 = brightest .. 16 = dimmest.
++ */
++#pragma once
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#define AW9364_STEPS            16
++#define AW9364_T_READY_US       30      /* > 20 us after the enable edge */
++#define AW9364_T_LOW_US         2       /* 0.5 .. 500 us between edges */
++#define AW9364_T_HIGH_US        2       /* > 0.5 us */
++#define AW9364_T_SHUTDOWN_US    3000    /* > TOFF max 2.5 ms: guaranteed off */
++
++/* Brightness percent -> step: 0 = off, else n = 17 - ceil(16 * percent / 100)
++ * clamped to 1..16 (values above 100 count as 100). The step's current is
++ * never below the requested share: 1 % gives step 16 (1.25 mA), 50 % step 9
++ * (10 mA), 100 % step 1 (20 mA per channel). */
++uint8_t aw9364_step_from_percent(uint8_t percent);
++
++/* Per-channel current of a step in microamps (0 for step 0 or out of range). */
++uint32_t aw9364_step_current_ua(uint8_t step);
++
++typedef struct {
++    /* Drive EN low first. If to_step is 0 it stays low (off). Otherwise EN
++     * must have been low for AW9364_T_SHUTDOWN_US before the first edge,
++     * which then is the enable edge (step 1). */
++    bool shutdown;
++    /* Rising edges to emit after that (or on top of the current step when
++     * shutdown is false). */
++    uint8_t edges;
++} aw9364_plan_t;
++
++/* How to get from from_step (what the driver is set to now, 0 = off) to
++ * to_step. Steps above 16 are treated as 16. */
++aw9364_plan_t aw9364_plan(uint8_t from_step, uint8_t to_step);
++
++#ifdef __cplusplus
++}
++#endif
+diff --git a/components/mao_board/boards/main_a0/mao_board_a0.c b/components/mao_board/boards/main_a0/mao_board_a0.c
+index a894978..cca9475 100644
+--- a/components/mao_board/boards/main_a0/mao_board_a0.c
++++ b/components/mao_board/boards/main_a0/mao_board_a0.c
+@@ -107,25 +107,21 @@ int mao_board_revision_mv(void)
+ static esp_err_t config_irq_inputs(void)
+ {
+     /* Expander INT, ToF GPIO1 and charger PGOOD are open-drain with external
+-     * pull-ups. The IMU drives its INTs push-pull, but gets a weak internal
+-     * pull-up so the lines stay defined (inactive) if the IMU is missing. */
+-    const gpio_config_t od = {
++     * pull-ups. The IMU drives INT1/INT2 push-pull and gets NO pull: an
++     * LSM6DSOX that sees INT1 high while it powers up (a brown-out, a 3V3
++     * glitch) switches to I3C-only and never answers I2C again. Without the
++     * IMU the lines float; the IMU's ISRs and its deep-sleep wake are only
++     * armed when it answered at boot. */
++    const gpio_config_t cfg = {
+         .pin_bit_mask = (1ULL << MAO_PIN_EXP_INT_N) | (1ULL << MAO_PIN_TOF_INT_N) |
+-                        (1ULL << MAO_PIN_USB_PRESENT_N),
++                        (1ULL << MAO_PIN_USB_PRESENT_N) | (1ULL << MAO_PIN_IMU_INT1) |
++                        (1ULL << MAO_PIN_IMU_INT2),
+         .mode = GPIO_MODE_INPUT,
+         .pull_up_en = GPIO_PULLUP_DISABLE,
+         .pull_down_en = GPIO_PULLDOWN_DISABLE,
+         .intr_type = GPIO_INTR_DISABLE,
+     };
+-    ESP_RETURN_ON_ERROR(gpio_config(&od), TAG, "irq inputs");
+-    const gpio_config_t imu = {
+-        .pin_bit_mask = (1ULL << MAO_PIN_IMU_INT1) | (1ULL << MAO_PIN_IMU_INT2),
+-        .mode = GPIO_MODE_INPUT,
+-        .pull_up_en = GPIO_PULLUP_ENABLE,
+-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+-        .intr_type = GPIO_INTR_DISABLE,
+-    };
+-    return gpio_config(&imu);
++    return gpio_config(&cfg);
+ }
+ 
+ esp_err_t mao_board_init(void)
+@@ -201,6 +197,7 @@ void mao_board_get_caps(mao_board_caps_t *out)
+         .touch = true,
+         .ir = true,
+         .power_status = true,
++        .charge_control = exp,
+         .hall_fast = true,
+         .sleep = true,
+         .imu = true,
+@@ -366,20 +363,28 @@ esp_err_t mao_board_rail_readback(mao_board_rail_t rail, bool *on)
+ esp_err_t mao_board_line_get(mao_board_line_t line, bool *active)
+ {
+     ESP_RETURN_ON_FALSE(active, ESP_ERR_INVALID_ARG, TAG, "bad args");
+-    if (line == MAO_LINE_USB_PRESENT) {
++    switch (line) {
++    case MAO_LINE_USB_PRESENT:
+         *active = gpio_get_level(MAO_PIN_USB_PRESENT_N) == 0;   /* PGOOD, active low */
+         return ESP_OK;
+-    }
+-    uint8_t in = 0;
+-    ESP_RETURN_ON_ERROR(a0_expander_read_inputs(&in), TAG, "expander inputs");
+-    switch (line) {
+     case MAO_LINE_CHARGING:
+-        *active = (in & (1u << MAO_EXP_CHG_N)) == 0;
+-        return ESP_OK;
+-    case MAO_LINE_SENSE_ALERT:
++        /* The BQ24073 /CHG output is not connected on this board (P6 is
++         * its /CE now): mao_power derives charging from PGOOD and the gauge. */
++        return ESP_ERR_NOT_SUPPORTED;
++    case MAO_LINE_SENSE_ALERT: {
++        uint8_t in = 0;
++        ESP_RETURN_ON_ERROR(a0_expander_read_inputs(&in), TAG, "expander inputs");
+         *active = (in & (1u << MAO_EXP_SENSE_ALRT_N)) == 0;
+         return ESP_OK;
++    }
+     default:
+         return ESP_ERR_INVALID_ARG;
+     }
+ }
++
++esp_err_t mao_board_charge_enable(bool enable)
++{
++    ESP_RETURN_ON_FALSE(a0_expander_ok(), ESP_ERR_INVALID_STATE, TAG, "expander missing");
++    /* P6 = BQ24073 /CE: low enables charging, high pauses it. */
++    return a0_expander_write_bit(MAO_EXP_CHG_CE_N, !enable);
++}
+diff --git a/components/mao_board/boards/main_a0/mao_board_a0_display.c b/components/mao_board/boards/main_a0/mao_board_a0_display.c
+index ded756f..4d94eb8 100644
+--- a/components/mao_board/boards/main_a0/mao_board_a0_display.c
++++ b/components/mao_board/boards/main_a0/mao_board_a0_display.c
+@@ -1,11 +1,18 @@
+ /*
+  * MAO_MAIN A0 display: a 1.28" round GC9A01 panel (240x240) with the 18-pin
+  * plug-in tail (Winstar WF0128BTYAA4DNN0) in the J301 FPC connector, on SPI2,
+- * 80 MHz, write-only: SCLK and MOSI on SPI2's IO_MUX pads, CS through the GPIO
++ * CONFIG_MAO_A0_LCD_PCLK_MHZ (80 MHz; 40 if the 70 mm tail needs it), write-only: SCLK and MOSI on SPI2's IO_MUX pads, CS through the GPIO
+  * matrix (the module pins follow the connector's pin order), DC a plain GPIO.
+  * TE (tearing effect) is wired to MAO_PIN_LCD_TE as an input; the flush does
+- * not wait for it yet (VERIFY AT BRING-UP). The panel and backlight sit behind
+- * a load switch (expander LCD_PWR_EN) and the panel reset is expander LCD_RST_N.
++ * not wait for it yet (VERIFY AT BRING-UP). The panel logic sits behind a load
++ * switch (expander LCD_PWR_EN) and the panel reset is expander LCD_RST_N.
++ *
++ * Backlight: the panel LEDs hang from VSYS into an Awinic AW9364 constant-
++ * current sink (two 20 mA channels on the cathode: 40 mA is the hardware
++ * maximum, so no firmware value can overdrive the panel). Its EN pin is
++ * MAO_PIN_LCD_BL_CTRL and takes 1-wire pulse-count dimming, 16 steps
++ * (aw9364_dimming.h). The LEDs are NOT on the switched panel rail: EN low is
++ * the only thing that darkens them, so every rail-off path drops EN first.
+  *
+  * Power-up: rail on, 10 ms, reset low 10 ms, reset high, 120 ms, then the
+  * GC9A01 init. With the rail off, the bus is driven low (or isolated for
+@@ -15,10 +22,13 @@
+ #include "mao_board.h"
+ #include "mao_board_a0_priv.h"
+ 
++#include <inttypes.h>
++#include <stdlib.h>
++#include <string.h>
+ #include "freertos/FreeRTOS.h"
++#include "freertos/semphr.h"
+ #include "freertos/task.h"
+ #include "driver/gpio.h"
+-#include "driver/ledc.h"
+ #include "driver/rtc_io.h"
+ #include "driver/spi_master.h"
+ #include "esp_private/gpio.h"     /* gpio_iomux_output(), gpio_func_sel(): give parked pins back to SPI2 */
+@@ -30,14 +40,16 @@
+ #include "esp_lcd_panel_io.h"
+ #include "esp_lcd_panel_ops.h"
+ #include "esp_log.h"
++#include "esp_rom_sys.h"
++#include "esp_timer.h"
++#include "sdkconfig.h"
++#include "mao_system.h"
++#include "aw9364_dimming.h"
+ 
+ static const char *TAG = "MAO_BOARD";
+ 
+ #define LCD_SPI_HOST             SPI2_HOST
+-#define BACKLIGHT_LEDC_TIMER     LEDC_TIMER_0
+-#define BACKLIGHT_LEDC_CHANNEL   LEDC_CHANNEL_0
+-#define BACKLIGHT_LEDC_RES       LEDC_TIMER_10_BIT
+-#define BACKLIGHT_LEDC_FREQ_HZ   5000
++#define BL_STEP_UNKNOWN          0xFF    /* after a raw bring-up edge: restart on the next set */
+ #define SLEEP_OUT_WAIT_MS        120     /* GC9A01: sleep-out to next sleep-in / full operation */
+ 
+ static const int kBusPins[] = { MAO_PIN_LCD_SCLK, MAO_PIN_LCD_MOSI, MAO_PIN_LCD_CS, MAO_PIN_LCD_DC };
+@@ -45,6 +57,10 @@ static const int kBusPins[] = { MAO_PIN_LCD_SCLK, MAO_PIN_LCD_MOSI, MAO_PIN_LCD_
+ static esp_lcd_panel_io_handle_t s_io;
+ static esp_lcd_panel_handle_t s_panel;
+ static bool s_backlight_ready;
++static SemaphoreHandle_t s_bl_lock;     /* one pulse train at a time, from any task */
++static portMUX_TYPE s_bl_mux = portMUX_INITIALIZER_UNLOCKED;
++static uint8_t s_bl_step;               /* AW9364 step now set: 0 = off, 1 = brightest .. 16, or unknown */
++static int64_t s_bl_low_since_us;       /* when EN last went low (0: low since reset) */
+ static bool s_parked;
+ static bool s_oriented;      /* panel orientation set once; the driver keeps it since */
+ 
+@@ -52,44 +68,179 @@ static bool s_oriented;      /* panel orientation set once; the driver keeps it
+ /* Backlight                                                                */
+ /* ------------------------------------------------------------------------ */
+ 
++static void register_devcmd(void);
++
+ static esp_err_t backlight_init(void)
+ {
+-    /* GPIO45 is a strap (VDD_SPI: must read 0 at reset); the 100 k gate
+-     * pull-down holds it low and keeps the backlight off until
+-     * LEDC takes the pin here, long after boot, at 0 % duty. */
+-    const ledc_timer_config_t timer = {
+-        .speed_mode = LEDC_LOW_SPEED_MODE,
+-        .duty_resolution = BACKLIGHT_LEDC_RES,
+-        .timer_num = BACKLIGHT_LEDC_TIMER,
+-        .freq_hz = BACKLIGHT_LEDC_FREQ_HZ,
+-        .clk_cfg = LEDC_AUTO_CLK,
+-    };
+-    ESP_RETURN_ON_ERROR(ledc_timer_config(&timer), TAG, "backlight timer");
+-    const ledc_channel_config_t channel = {
+-        .gpio_num = MAO_PIN_LCD_BL_PWM,
+-        .speed_mode = LEDC_LOW_SPEED_MODE,
+-        .channel = BACKLIGHT_LEDC_CHANNEL,
+-        .timer_sel = BACKLIGHT_LEDC_TIMER,
+-        .duty = 0,
+-        .hpoint = 0,
++    /* GPIO45 is a strap (VDD_SPI). On this module the flash voltage comes
++     * from eFuse, and the AW9364's 150 k EN pull-down holds the pin low
++     * through reset anyway, so the backlight is dark from power-on. The pin
++     * becomes a plain output only now, long after boot, latched low first. */
++    if (!s_bl_lock) {
++        s_bl_lock = xSemaphoreCreateMutex();
++        ESP_RETURN_ON_FALSE(s_bl_lock, ESP_ERR_NO_MEM, TAG, "backlight mutex");
++        register_devcmd();
++    }
++    gpio_set_level(MAO_PIN_LCD_BL_CTRL, 0);
++    const gpio_config_t cfg = {
++        .pin_bit_mask = 1ULL << MAO_PIN_LCD_BL_CTRL,
++        .mode = GPIO_MODE_OUTPUT,
++        .pull_up_en = GPIO_PULLUP_DISABLE,
++        .pull_down_en = GPIO_PULLDOWN_DISABLE,
++        .intr_type = GPIO_INTR_DISABLE,
+     };
+-    ESP_RETURN_ON_ERROR(ledc_channel_config(&channel), TAG, "backlight channel");
++    ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "backlight pin");
++    gpio_set_level(MAO_PIN_LCD_BL_CTRL, 0);
++    if (s_bl_step != 0) {
++        s_bl_low_since_us = esp_timer_get_time();
++    }
++    s_bl_step = 0;
+     s_backlight_ready = true;
+     return ESP_OK;
+ }
+ 
++/* EN low: the driver shuts down after TOFF (0.8 .. 2.5 ms). */
++static void bl_en_low(void)
++{
++    gpio_set_level(MAO_PIN_LCD_BL_CTRL, 0);
++    s_bl_low_since_us = esp_timer_get_time();
++}
++
++/* Before an enable edge: EN must have been low for AW9364_T_SHUTDOWN_US,
++ * or the edge would count as a dimming step of a driver still on. Waiting
++ * longer is harmless, so the bulk sleeps and only the tail spins. */
++static void bl_wait_shutdown(void)
++{
++    if (s_bl_low_since_us == 0) {
++        return;                       /* low since reset */
++    }
++    for (;;) {
++        const int64_t left_us = s_bl_low_since_us + AW9364_T_SHUTDOWN_US - esp_timer_get_time();
++        if (left_us <= 0) {
++            return;
++        }
++        if (left_us > 1000) {
++            vTaskDelay(1);
++        } else {
++            esp_rom_delay_us((uint32_t)left_us);
++        }
++    }
++}
++
++/* Emit rising edges on EN. from_off: EN is low and the driver shut down,
++ * so the first edge enables it (step 1) and is followed by the ready time.
++ * Every low phase must stay under 500 us: the whole train runs in a
++ * critical section (16 edges x 4 us + 30 us at most), so neither an
++ * interrupt nor the other task on this core can stretch one. */
++static void bl_edges(uint8_t edges, bool from_off)
++{
++    portENTER_CRITICAL(&s_bl_mux);
++    for (uint8_t i = 0; i < edges; i++) {
++        const bool enable_edge = from_off && i == 0;
++        if (!enable_edge) {
++            gpio_set_level(MAO_PIN_LCD_BL_CTRL, 0);
++            esp_rom_delay_us(AW9364_T_LOW_US);
++        }
++        gpio_set_level(MAO_PIN_LCD_BL_CTRL, 1);
++        esp_rom_delay_us(enable_edge ? AW9364_T_READY_US : AW9364_T_HIGH_US);
++    }
++    portEXIT_CRITICAL(&s_bl_mux);
++}
++
+ esp_err_t mao_board_backlight_set(uint8_t percent)
+ {
+     ESP_RETURN_ON_FALSE(s_backlight_ready, ESP_ERR_INVALID_STATE, TAG, "backlight not initialised");
+-    if (percent > 100) {
+-        percent = 100;
++    const uint8_t step = aw9364_step_from_percent(percent);
++    xSemaphoreTake(s_bl_lock, portMAX_DELAY);
++    if (s_bl_step == BL_STEP_UNKNOWN) {
++        bl_en_low();                  /* count from a known state again */
++        s_bl_step = 0;
++    }
++    const aw9364_plan_t plan = aw9364_plan(s_bl_step, step);
++    if (plan.shutdown) {
++        if (s_bl_step != 0) {
++            bl_en_low();
++        }
++        if (plan.edges) {
++            bl_wait_shutdown();
++        }
++    }
++    if (plan.edges) {
++        bl_edges(plan.edges, plan.shutdown);
++    }
++    if (plan.shutdown || plan.edges) {
++        ESP_LOGD(TAG, "backlight %u %% -> AW9364 step %u (%" PRIu32 " uA per channel)%s", percent, step,
++                 aw9364_step_current_ua(step), plan.shutdown && plan.edges ? ", restarted" : "");
+     }
+-    const uint32_t max_duty = (1u << BACKLIGHT_LEDC_RES) - 1;
+-    const uint32_t duty = (max_duty * percent * A0_BACKLIGHT_MAX_PCT) / (100u * 100u);
+-    ESP_RETURN_ON_ERROR(ledc_set_duty(LEDC_LOW_SPEED_MODE, BACKLIGHT_LEDC_CHANNEL, duty), TAG, "duty");
+-    return ledc_update_duty(LEDC_LOW_SPEED_MODE, BACKLIGHT_LEDC_CHANNEL);
++    s_bl_step = step;
++    xSemaphoreGive(s_bl_lock);
++    return ESP_OK;
+ }
+ 
++#if CONFIG_MAO_DEV_CONSOLE
++
++/* Bring-up of the AW9364 (A0 only), bypassing mao_display: its own
++ * brightness comes back with the next mao_display_set_brightness().
++ *   backlight <0..100>     level through mao_board_backlight_set()
++ *   backlight step <1..16> one AW9364 step (16 = dimmest)
++ *   backlight edge         one more raw rising edge from the current state:
++ *                          at step 16 this shows whether edge 17 wraps to
++ *                          step 1 (full) or does nothing */
++static void devcmd_backlight(const char *args)
++{
++    if (!s_backlight_ready) {
++        ESP_LOGW(TAG, "backlight: display not initialised");
++        return;
++    }
++    if (strncmp(args, "edge", 4) == 0) {
++        xSemaphoreTake(s_bl_lock, portMAX_DELAY);
++        const uint8_t was = s_bl_step;
++        if (was != 0 && was != BL_STEP_UNKNOWN) {
++            bl_edges(1, false);
++            s_bl_step = BL_STEP_UNKNOWN;
++        }
++        xSemaphoreGive(s_bl_lock);
++        if (was == 0 || was == BL_STEP_UNKNOWN) {
++            ESP_LOGW(TAG, "backlight edge: set a step first");
++        } else {
++            ESP_LOGI(TAG, "backlight: one edge after step %u (expected step %u%s); next set restarts the driver",
++                     was, was + 1u, was == AW9364_STEPS ? ": edge 17, wrap to full or no change?" : "");
++        }
++        return;
++    }
++    uint8_t percent;
++    if (strncmp(args, "step", 4) == 0) {
++        const int step = atoi(args + 4);
++        if (step < 1 || step > AW9364_STEPS) {
++            ESP_LOGW(TAG, "backlight step: 1..%d", AW9364_STEPS);
++            return;
++        }
++        /* The smallest percent that maps to this step. */
++        percent = (uint8_t)((100 * (AW9364_STEPS - step) + AW9364_STEPS) / AW9364_STEPS);
++    } else {
++        const int pct = atoi(args);
++        percent = (uint8_t)(pct < 0 ? 0 : (pct > 100 ? 100 : pct));
++    }
++    const esp_err_t err = mao_board_backlight_set(percent);
++    const uint8_t step = aw9364_step_from_percent(percent);
++    ESP_LOGI(TAG, "backlight %u %%: AW9364 step %u, %" PRIu32 " uA per channel x 2 (%s)", percent, step,
++             aw9364_step_current_ua(step), esp_err_to_name(err));
++}
++
++static void register_devcmd(void)
++{
++    mao_devcmd_register("backlight", "backlight <0..100> | step <1..16> | edge  (A0 AW9364 bring-up)",
++                        devcmd_backlight);
++}
++
++#else
++
++static void register_devcmd(void)
++{
++}
++
++#endif
++
+ /* ------------------------------------------------------------------------ */
+ /* Rail sequencing                                                          */
+ /* ------------------------------------------------------------------------ */
+@@ -207,7 +358,8 @@ esp_err_t mao_board_display_init(size_t max_transfer_bytes, mao_board_display_t
+ {
+     ESP_RETURN_ON_FALSE(out && max_transfer_bytes > 0, ESP_ERR_INVALID_ARG, TAG, "bad args");
+ 
+-    /* Backlight first, at 0 %, so the panel's power-on garbage is never visible. */
++    /* Backlight first, EN held low (AW9364 off), so the panel's power-on
++     * garbage is never visible. */
+     ESP_RETURN_ON_ERROR(backlight_init(), TAG, "backlight");
+     ESP_RETURN_ON_ERROR(rail_up(), TAG, "display rail");
+ 
+diff --git a/components/mao_board/boards/main_a0/mao_board_a0_i2c.c b/components/mao_board/boards/main_a0/mao_board_a0_i2c.c
+index 69ef1b6..6c49466 100644
+--- a/components/mao_board/boards/main_a0/mao_board_a0_i2c.c
++++ b/components/mao_board/boards/main_a0/mao_board_a0_i2c.c
+@@ -5,12 +5,13 @@
+  * as rails and lines (mao_board_rail_set / mao_board_line_get).
+  *
+  * TCA6408A power-up state: every pin an input, output register 0xFF. If the
+- * config register were cleared first, every rail would glitch on. So the
+- * output register is ALWAYS written first (0x00: every rail off, panel held
+- * in reset), and only then are the output pins enabled.
++ * config register were cleared first, every rail would glitch on (and
++ * charging would pause). So the output register is ALWAYS written first
++ * (0x00: every rail off, panel held in reset, charger enabled), and only
++ * then are the output pins P0-P6 enabled; P7 (alert) stays an input.
+  *
+- * Recovery: MAO_PIN_EXP_RST_N (GPIO38) drives the expander's RESET (open-drain, 10 k pull-up
+- * R205 on the board). If a write or an input read fails, the bus is reset,
++ * Recovery: MAO_PIN_EXP_RST_N (GPIO39) drives the expander's RESET (open-drain, 10 k pull-up
++ * R22, test pad TP11 XRST). If a write or an input read fails, the bus is reset,
+  * the expander is pulsed into reset and reprogrammed from the shadow
+  * registers, and the access is retried once. A wedged expander no longer
+  * needs a power cycle.
+@@ -19,7 +20,8 @@
+  * rewritten (~0.2 ms) every expander pin is an input, so the rails fall to
+  * their pull-down defaults: the panel sees LCD_RST_N low and its supply
+  * dip, the ToF its XSHUT, the haptic driver its EN. Those devices lose their
+- * configuration. Every reset therefore bumps a counter
++ * configuration (a paused charger may also run for that moment: /CE has a
++ * pull-down; the shadow restores the pause). Every reset therefore bumps a counter
+  * (mao_board_expander_resets()); the display, sense and haptics owners
+  * notice the change and re-initialise their device.
+  *
+@@ -202,8 +204,9 @@ esp_err_t mao_board_expander_test(uint8_t *failed_bits)
+         err = ESP_ERR_INVALID_RESPONSE;
+     }
+     /* Polarity inversion acts on inputs only: patterns on the output pins
+-     * round-trip through the register without touching any rail. */
+-    static const uint8_t kPatterns[] = { 0x2A, 0x15 };
++     * round-trip through the register without touching any rail. Together
++     * the two patterns set and clear every output bit P0-P6. */
++    static const uint8_t kPatterns[] = { 0x6A, 0x15 };
+     for (size_t i = 0; err == ESP_OK && i < sizeof(kPatterns); i++) {
+         const uint8_t pattern = kPatterns[i] & A0_EXP_OUTPUT_MASK;
+         uint8_t back = 0;
+@@ -246,7 +249,8 @@ esp_err_t mao_board_expander_reset_test(uint8_t *config_after_pulse, uint8_t *fa
+     ESP_RETURN_ON_FALSE(s_exp_ok, ESP_ERR_INVALID_STATE, TAG, "expander not configured");
+     xSemaphoreTake(s_exp_lock, portMAX_DELAY);
+     /* 1. The pulse must really reset it: CONFIG reads its default, all
+-     *    inputs (0xFF). A stuck-high EXP_RST_N would leave 0xC0. */
++     *    inputs (0xFF). A stuck-high EXP_RST_N would leave A0_EXP_INPUT_MASK
++     *    (0x80). */
+     exp_pulse_reset();
+     uint8_t config = 0;
+     esp_err_t err = exp_read(A0_EXP_REG_CONFIG, &config);
+diff --git a/components/mao_board/boards/main_a0/mao_board_a0_priv.h b/components/mao_board/boards/main_a0/mao_board_a0_priv.h
+index 12e20f9..2415590 100644
+--- a/components/mao_board/boards/main_a0/mao_board_a0_priv.h
++++ b/components/mao_board/boards/main_a0/mao_board_a0_priv.h
+@@ -25,20 +25,21 @@
+ #define A0_EXP_REG_OUTPUT           0x01
+ #define A0_EXP_REG_POLARITY         0x02
+ #define A0_EXP_REG_CONFIG           0x03   /* 1 = input */
+-#define A0_EXP_INPUT_MASK           ((1u << MAO_EXP_CHG_N) | (1u << MAO_EXP_SENSE_ALRT_N))
++/* P7 (gauge / light alert) is the only input. P6 is the charger's /CE, an
++ * output like the rails: 0 = charging enabled (also its 100 k pull-down
++ * default, so a reset or deep sleep never blocks charging), 1 = paused. */
++#define A0_EXP_INPUT_MASK           (1u << MAO_EXP_SENSE_ALRT_N)
+ 
+ /* --- Display: 1.28" round GC9A01 panel in the J301 18-pin FPC connector ---- */
+ #define A0_LCD_H_RES                240
+ #define A0_LCD_V_RES                240
+-#define A0_LCD_PCLK_HZ              (80 * 1000 * 1000)
++#define A0_LCD_PCLK_HZ              (CONFIG_MAO_A0_LCD_PCLK_MHZ * 1000 * 1000)   /* 80 by default; 40 is the tail fallback */
+ #define A0_LCD_PWR_SETTLE_MS        10     /* load switch on -> reset sequence */
+ #define A0_LCD_RESET_LOW_MS         10
+ #define A0_LCD_RESET_WAIT_MS        120    /* reset released -> first command */
+-/* Backlight ceiling: 100 % brightness = 80 % PWM. Two LEDs from 3V3_LCD through
+- * 10R draw 17-50 mA by panel Vf bin (2.8-3.2 V, simulation S3 in
+- * docs/hardware/mao-a0-verification.md); 80 % keeps the average at or under the
+- * panel's 40 mA on every bin. */
+-#define A0_BACKLIGHT_MAX_PCT        80
++/* Backlight: AW9364 on MAO_PIN_LCD_BL_CTRL, 2 x 20 mA = 40 mA (the panel's
++ * rating) at step 1, so 100 % needs no cap. Timing in aw9364_dimming.h.
++ * VERIFY AT BRING-UP: 16 distinct steps, ~40 mA at 100 %. */
+ /* Colour handling and the panel-native orientation are properties of the
+  * glass + GC9A01; these are the LCDkit's values for the same 1.28" IPS round
+  * glass. The plug-in panel's tail leaves at 9 o'clock (as the LCDkit's did at
+@@ -82,6 +83,8 @@
+ #define A0_IR_RX_SETTLE_MS          1
+ 
+ /* --- Board ID divider (ADC1 on GPIO8) ------------------------------------- */
++/* 1M/1M from +3V3 = 3.18 V (3.10-3.32 V worst case) -> 1.59 V (1.55-1.66 V,
++ * ~1.51-1.70 V with 1 % resistors and the calibrated ADC): well inside. */
+ #define A0_ID_A0_MIN_MV             1400
+ #define A0_ID_A0_MAX_MV             1900
+ #define A0_ID_SAMPLES               8
+diff --git a/components/mao_board/boards/main_a0/mao_board_a0_sleep.c b/components/mao_board/boards/main_a0/mao_board_a0_sleep.c
+index 07682f4..c2136f4 100644
+--- a/components/mao_board/boards/main_a0/mao_board_a0_sleep.c
++++ b/components/mao_board/boards/main_a0/mao_board_a0_sleep.c
+@@ -3,8 +3,10 @@
+  * and pad does while it sleeps.
+  *
+  * Wake lines (all active low): face press GPIO0, IMU INT1 GPIO14, charger
+- * PGOOD GPIO3 and expander INT GPIO21 are RTC pads, combined in one ext1
+- * ANY_LOW group. The proximity interrupt (GPIO48, light sleep only: the ToF is
++ * PGOOD GPIO3 and expander INT GPIO21 (gauge / light alert) are RTC pads,
++ * combined in one ext1 ANY_LOW group. IMU INT1 has no pull (an LSM6DSOX
++ * powering up with INT1 high locks itself into I3C), so it is armed only
++ * when the IMU answered at boot: a missing IMU leaves the pad floating. The proximity interrupt (GPIO48, light sleep only: the ToF is
+  * off in deep sleep) is not an RTC pad and wakes through the GPIO wake source
+  * instead. Two consequences of the ext1 group:
+  *   - a line that is already low would wake the chip at once, so it is left
+@@ -56,6 +58,12 @@ static bool line_idle(int gpio)
+     return gpio_get_level((gpio_num_t)gpio) == 1;
+ }
+ 
++static bool imu_present(void)
++{
++    mao_board_i2c_info_t info;
++    return mao_board_i2c_device(MAO_I2C_IMU, &info) == ESP_OK && info.present;
++}
++
+ /* Build the ANY_LOW mask from the requested lines that are idle now. */
+ static uint64_t wake_mask(const mao_board_wake_t *want, bool light, mao_board_wake_t *armed, bool *usb_ext0,
+                           bool *prox_gpio)
+@@ -68,7 +76,7 @@ static uint64_t wake_mask(const mao_board_wake_t *want, bool light, mao_board_wa
+         mask |= 1ULL << MAO_PIN_PRESS_N;
+         a.press = true;
+     }
+-    if (want->motion && line_idle(MAO_PIN_IMU_INT1)) {
++    if (want->motion && imu_present() && line_idle(MAO_PIN_IMU_INT1)) {
+         mask |= 1ULL << MAO_PIN_IMU_INT1;
+         a.motion = true;
+     }
+@@ -118,7 +126,10 @@ esp_err_t mao_board_deep_sleep_prepare(const mao_board_wake_t *want, mao_board_w
+ 
+     /* Every rail off: panel held in reset, amplifier, haptic driver, ToF and
+      * IR receiver unpowered. The display bus is isolated first so the panel
+-     * is never back-powered while its rail collapses. */
++     * is never back-powered while its rail collapses. P6 (charger /CE) goes
++     * low with them: charging enabled, the hardware default, since nothing
++     * watches the temperature while the chip sleeps (the pack NTC still
++     * stops the charger outside 0-50 C). */
+     mao_board_backlight_set(0);
+     a0_display_park(true);
+     if (a0_expander_ok()) {
+diff --git a/components/mao_board/boards/main_a0/mao_board_pins.h b/components/mao_board/boards/main_a0/mao_board_pins.h
+index 860810c..67a5f9d 100644
+--- a/components/mao_board/boards/main_a0/mao_board_pins.h
++++ b/components/mao_board/boards/main_a0/mao_board_pins.h
+@@ -13,7 +13,7 @@
+ #define MAO_PIN_TOUCH_TOP           5   /* touch T5, window-border electrode (spring) */
+ #define MAO_PIN_TOUCH_REAR          6   /* touch T6, base electrode (spring at 10 o'clock) */
+ #define MAO_PIN_I2C_SDA             7   /* I2C data (all sensors, expander, gauge, haptic) */
+-#define MAO_PIN_BOARD_ID            8   /* board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.65 V */
++#define MAO_PIN_BOARD_ID            8   /* board revision divider (ADC1_CH7): A0 = 1M/1M + 100 nF = 1.59 V (3.18 V rail) */
+ #define MAO_PIN_LCD_TE              9   /* display tearing-effect output: frame sync for tear-free animation */
+ #define MAO_PIN_LCD_DC             10   /* display data/command */
+ #define MAO_PIN_LCD_MOSI           11   /* display data (FSPID IO_MUX) */
+@@ -24,27 +24,27 @@
+ #define MAO_PIN_AMP_DIN            16   /* I2S1 data (left column, with BCLK/LRCLK on the next two pins) */
+ #define MAO_PIN_AMP_BCLK           17   /* I2S1 bit clock to the amplifier */
+ #define MAO_PIN_AMP_LRCLK          18   /* I2S1 word select */
+-#define MAO_PIN_EXP_INT_N          21   /* expander interrupt (charger status, gauge/light alerts) */
++#define MAO_PIN_EXP_INT_N          21   /* expander interrupt (gauge/light alerts on P7) */
+ #define MAO_PIN_MIC_PWR            35   /* microphone supply (GPIO-powered through 100R/1uF) */
+ #define MAO_PIN_MIC_DATA           36   /* I2S0 PDM data from the microphone */
+ #define MAO_PIN_MIC_CLK            37   /* I2S0 PDM clock to the microphone */
+-#define MAO_PIN_EXP_RST_N          38   /* expander RESET: pulse low to recover a wedged TCA6408A without a power cycle */
+-#define MAO_PIN_IR_TX              39   /* IR LED driver gate (RMT carrier) */
++#define MAO_PIN_IR_TX              38   /* IR LED driver gate (RMT carrier) */
++#define MAO_PIN_EXP_RST_N          39   /* expander RESET: pulse low to recover a wedged TCA6408A without a power cycle */
+ #define MAO_PIN_IR_RX              40   /* IR receiver output (RMT) */
+ #define MAO_PIN_HALL_A             41   /* ring dial channel A */
+ #define MAO_PIN_HALL_B             42   /* ring dial channel B */
+-#define MAO_PIN_LCD_BL_PWM         45   /* backlight PWM (LEDC) */
++#define MAO_PIN_LCD_BL_CTRL        45   /* backlight driver EN: AW9364 1-wire dimming (16 steps by pulse count) */
+ #define MAO_PIN_IMU_INT2           47   /* IMU INT2: orientation, free-fall */
+ #define MAO_PIN_TOF_INT_N          48   /* proximity GPIO1: threshold interrupt */
+ 
+ /* TCA6408A expander port bits (I2C 0x20) */
+ #define MAO_EXP_LCD_RST_N          0    /* display reset; 100k pull-down: panel held in reset */
+-#define MAO_EXP_LCD_PWR_EN         1    /* display + backlight rail load switch; 100k pull-down: off */
++#define MAO_EXP_LCD_PWR_EN         1    /* display logic rail switch (3V3_LCD; the backlight runs from VSYS); 100k pull-down: off */
+ #define MAO_EXP_AMP_SD_N           2    /* amplifier enable (SD_MODE); 100k pull-down: amplifier shut down */
+ #define MAO_EXP_HAPTIC_EN          3    /* haptic driver enable; 100k pull-down: off */
+ #define MAO_EXP_TOF_XSHUT          4    /* proximity sensor shutdown (low = off); 100k pull-down: off */
+ #define MAO_EXP_IR_RX_PWR          5    /* IR receiver supply (via RC filter); 100k pull-down: off */
+-#define MAO_EXP_CHG_N              6    /* charger CHG (open-drain): low = charging; 100k pull-up */
++#define MAO_EXP_CHG_CE_N           6    /* charger /CE: high pauses charging (firmware thermal limit: the cell allows 0-45 C); 100k pull-down at the charger: charging on from reset */
+ #define MAO_EXP_SENSE_ALRT_N       7    /* fuel-gauge ALRT + light-sensor INT (wired-OR, open-drain); 100k pull-up */
+ 
+ /* I2C 7-bit addresses */
+diff --git a/components/mao_board/include/mao_board.h b/components/mao_board/include/mao_board.h
+index bd3b93a..8818e88 100644
+--- a/components/mao_board/include/mao_board.h
++++ b/components/mao_board/include/mao_board.h
+@@ -44,7 +44,8 @@ typedef struct {
+     bool mic;              /* PDM microphone */
+     bool touch;            /* capacitive touch electrodes */
+     bool ir;               /* separate IR transmitter and receiver */
+-    bool power_status;     /* USB-present and charging lines */
++    bool power_status;     /* USB-present line (and a charging line where wired) */
++    bool charge_control;   /* firmware can pause the charger (mao_board_charge_enable) */
+     bool hall_fast;        /* dial sensors have a fast / low-power sampling control */
+     bool sleep;            /* board defines light / deep sleep wake lines */
+     /* Fitted by design; whether each one answered is in mao_board_i2c_device(). */
+@@ -98,7 +99,11 @@ void mao_board_display_get_resolution(uint16_t *h_res, uint16_t *v_res);
+  * max_transfer_bytes: largest single SPI transfer (the LVGL draw buffer). */
+ esp_err_t mao_board_display_init(size_t max_transfer_bytes, mao_board_display_t *out);
+ 
+-/* Backlight 0..100 %. Valid after mao_board_display_init(). */
++/* Backlight 0..100 % (0 = off). Valid after mao_board_display_init().
++ * Safe to call from any task. A0: AW9364 constant-current driver with 16
++ * steps of 1/16 of 40 mA; a non-zero value is rounded up to the next step,
++ * and a brighter step goes dark for ~3 ms (the driver is restarted and its
++ * steps counted again). LCDkit: PWM. */
+ esp_err_t mao_board_backlight_set(uint8_t percent);
+ 
+ /* Panel sleep-in / sleep-out (controller keeps its RAM, draws microamps). */
+@@ -263,7 +268,9 @@ esp_err_t mao_board_display_reinit(void);
+ 
+ typedef enum {
+     MAO_LINE_USB_PRESENT = 0, /* USB power valid */
+-    MAO_LINE_CHARGING,        /* charger is charging */
++    MAO_LINE_CHARGING,        /* charger status output says charging. ESP_ERR_NOT_SUPPORTED where
++                               * it is not wired (A0: mao_power derives charging from USB present
++                               * and the fuel gauge instead) */
+     MAO_LINE_SENSE_ALERT,     /* fuel-gauge or light-sensor alert asserted */
+     MAO_LINE_COUNT,
+ } mao_board_line_t;
+@@ -272,6 +279,14 @@ typedef enum {
+  * expander line also clears the expander interrupt. */
+ esp_err_t mao_board_line_get(mao_board_line_t line, bool *active);
+ 
++/* Charger enable (caps.charge_control): false pauses charging while USB is
++ * present (the system keeps running from USB through the charger's power
++ * path), true lets the charger charge. The charging policy (mao_power: the
++ * cell's temperature window) owns it; a reset, an expander reset and deep
++ * sleep fall back to enabled, the hardware default. A0: expander P6 = the
++ * BQ24073's /CE. ESP_ERR_NOT_SUPPORTED on boards without the line. */
++esp_err_t mao_board_charge_enable(bool enable);
++
+ typedef enum {
+     MAO_IRQ_IMU_INT1 = 0,     /* wake-up / activity, tap */
+     MAO_IRQ_IMU_INT2,         /* orientation, free-fall */
+diff --git a/components/mao_board/mao_board_common.c b/components/mao_board/mao_board_common.c
+index 16d97f1..c5a27d3 100644
+--- a/components/mao_board/mao_board_common.c
++++ b/components/mao_board/mao_board_common.c
+@@ -59,9 +59,9 @@ static void devcmd_board(const char *args)
+     ESP_LOGI(TAG, "board: %s, revision %s (%d mV)", MAO_BOARD_NAME,
+              mao_board_revision(), mao_board_revision_mv());
+     ESP_LOGI(TAG, "caps: led=%d display_power=%d i2c=%d expander=%d amp_switch=%d mic=%d touch=%d "
+-             "ir=%d power_status=%d hall_fast=%d sleep=%d",
++             "ir=%d power_status=%d charge_control=%d hall_fast=%d sleep=%d",
+              c.rgb_led, c.display_power, c.i2c, c.expander, c.amp_switch, c.mic, c.touch,
+-             c.ir, c.power_status, c.hall_fast, c.sleep);
++             c.ir, c.power_status, c.charge_control, c.hall_fast, c.sleep);
+     if (!c.i2c) {
+         return;
+     }
+@@ -93,9 +93,10 @@ static void devcmd_board(const char *args)
+     }
+     bool usb = false, chg = false, alert = false;
+     mao_board_line_get(MAO_LINE_USB_PRESENT, &usb);
+-    mao_board_line_get(MAO_LINE_CHARGING, &chg);
++    const bool chg_wired = mao_board_line_get(MAO_LINE_CHARGING, &chg) == ESP_OK;
+     mao_board_line_get(MAO_LINE_SENSE_ALERT, &alert);
+-    ESP_LOGI(TAG, "rails:%s; lines: usb=%d charging=%d sense_alert=%d", rails, usb, chg, alert);
++    ESP_LOGI(TAG, "rails:%s; lines: usb=%d charging=%s sense_alert=%d", rails, usb,
++             chg_wired ? (chg ? "1" : "0") : "- (see mao power)", alert);
+ }
+ 
+ void mao_board_common_init(void)
+diff --git a/components/mao_power/include/mao_power.h b/components/mao_power/include/mao_power.h
+index 382108f..e975e3e 100644
+--- a/components/mao_power/include/mao_power.h
++++ b/components/mao_power/include/mao_power.h
+@@ -2,10 +2,18 @@
+  * MAO power: battery, charger and USB status, power events, and the power
+  * state manager.
+  *
+- *   MAX17048 fuel gauge + BQ24073 charger lines -> mao_power task
++ *   MAX17048 fuel gauge + BQ24073 charger (USB PGOOD, /CE) -> mao_power task
+  *       -> MAO events: USB_CONNECTED / USB_DISCONNECTED, CHARGING_STARTED /
+  *          CHARGING_DONE, BATTERY_LOW, BATTERY_CRITICAL, POWER_STATE
+  *
++ * Charging: on the A0 the charger's /CHG output is not wired; "charging" is
++ * derived from USB present and the gauge (mao_power_policy.h,
++ * mao_policy_charging). Charge temperature limit: while USB is present the
++ * board temperature (a source registered with mao_power_set_temp_source(),
++ * the IMU die) is read every ~10 s; charging pauses at >= 43 C and resumes
++ * at <= 40 C (cell window 0-45 C; the charger's pack NTC stops it outside
++ * 0-50 C regardless). No temperature = charging left enabled.
++ *
+  * Power states, from most to least awake:
+  *   ACTIVE      everything running.
+  *   IDLE        awake; subsystems lower their rates.
+@@ -70,7 +78,10 @@ typedef struct {
+     float soc_pct;                /* state of charge */
+     float rate_pct_per_h;         /* + charging, - discharging */
+     bool usb_present;
+-    bool charging;
++    bool charging;                /* derived where the board has no charger status line */
++    bool charge_paused;           /* charge temperature limit holds the charger off */
++    bool temp_valid;              /* temp_c is a fresh reading (USB present, source answered) */
++    float temp_c;                 /* board temperature used by the charge limit */
+     bool low;
+     bool critical;
+     uint32_t updated_ms;          /* ms since boot of the last gauge reading */
+@@ -127,6 +138,14 @@ mao_wake_source_t mao_power_last_wake(void);
+ struct mao_policy_config;
+ void mao_power_policy_config(struct mao_policy_config *out);
+ 
++/* Board temperature for the charge limit, degrees C. Called in the
++ * mao_power task; must not block for long. */
++typedef esp_err_t (*mao_power_temp_source_t)(float *celsius);
++
++/* Register the board-temperature source (mao_sense: the IMU die). May be
++ * called before or after mao_power_init(); NULL removes it. */
++void mao_power_set_temp_source(mao_power_temp_source_t source);
++
+ /* Read the fuel gauge now (normally every 30 s). */
+ esp_err_t mao_power_refresh(void);
+ 
+diff --git a/components/mao_power/include/mao_power_policy.h b/components/mao_power/include/mao_power_policy.h
+index e440086..a67e667 100644
+--- a/components/mao_power/include/mao_power_policy.h
++++ b/components/mao_power/include/mao_power_policy.h
+@@ -19,6 +19,14 @@
+  * (woke_idle), MAO stays ACTIVE for redrowse_ms (so it can notice who or
+  * what woke it) and then dozes off again, instead of waiting the full
+  * drowsy_after.
++ *
++ * Charging (mao_power, boards with caps.charge_control): the LiPo cell may
++ * be charged at 0-45 C, the charger's pack-NTC window ends at 50 C. While
++ * USB is present mao_power reads the board temperature (IMU die) every
++ * ~10 s and mao_policy_charge_pause() decides, with hysteresis, whether the
++ * charger is paused. Without a temperature it never pauses: the hardware
++ * window stays the limit. mao_policy_charging() says whether the cell is
++ * charging when the board has no charger status line.
+  */
+ #pragma once
+ 
+@@ -67,6 +75,34 @@ bool mao_policy_drowsy_to_deep(const mao_policy_config_t *cfg, uint32_t drowsy_m
+ 
+ const char *mao_policy_state_name(mao_policy_state_t state);
+ 
++/* ---- Charging ------------------------------------------------------------ */
++
++#define MAO_CHARGE_PAUSE_C          43.0f   /* pause at or above (cell limit 45 C) */
++#define MAO_CHARGE_RESUME_C         40.0f   /* resume at or below */
++#define MAO_CHARGE_RATE_MIN_PCT_H   1.0f    /* gauge CRATE above this = the cell gains charge */
++
++/* Should the charger be paused now? paused: what it is now. No USB: no
++ * (the next plug-in starts from the hardware default). temp_valid false (no
++ * sensor, a failed read): no, fail-safe to the hardware limit. */
++bool mao_policy_charge_pause(bool usb_present, bool paused, bool temp_valid, float temp_c);
++
++typedef struct {
++    bool usb_present;
++    bool charge_paused;            /* by mao_policy_charge_pause() */
++    bool gauge_valid;              /* a fuel-gauge reading exists */
++    float soc_pct;
++    float rate_pct_per_h;          /* gauge CRATE, + = charging */
++} mao_charge_input_t;
++
++/* Charging, for a board without a charger status line: USB present, not
++ * paused, and the gauge either sees the cell gain charge (CRATE above
++ * MAO_CHARGE_RATE_MIN_PCT_H) or the cell is not full (SOC < 100 %). An
++ * estimate: right after plug-in it says yes before CRATE has turned; a cell
++ * the charger terminates below 100 % SOC, or a load above the USB input
++ * limit, still reads as charging while SOC < 100 %. Without a gauge it is
++ * USB present and not paused. */
++bool mao_policy_charging(const mao_charge_input_t *in);
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/components/mao_power/mao_power.c b/components/mao_power/mao_power.c
+index 7469b1f..a96f0d3 100644
+--- a/components/mao_power/mao_power.c
++++ b/components/mao_power/mao_power.c
+@@ -2,9 +2,18 @@
+  * MAO power manager: one task ("mao_power") owns the gauge, the charger and
+  * USB lines, the battery policy and every power-state transition.
+  *
+- * Lines: USB PGOOD (GPIO, both edges) and the expander INT (charger CHG and
+- * the gauge/light alert, falling edge) only notify the task; all I2C work
+- * happens in task context. The gauge is also polled (it changes slowly).
++ * Lines: USB PGOOD (GPIO, both edges) and the expander INT (the gauge/light
++ * alert, falling edge) only notify the task; all I2C work happens in task
++ * context. The gauge is also polled (it changes slowly).
++ *
++ * Charging: from the board's charger status line where it has one; on the
++ * A0 (no /CHG line) estimated from USB present and the gauge
++ * (mao_policy_charging). Charge temperature limit (boards with
++ * caps.charge_control): while USB is present the registered board
++ * temperature is read every CHARGE_LIMIT_PERIOD_MS and the charger paused /
++ * resumed through mao_board_charge_enable() (mao_policy_charge_pause:
++ * >= 43 C pause, <= 40 C resume). A missing or failing temperature leaves
++ * charging enabled; the charger's pack NTC still stops it outside 0-50 C.
+  *
+  * Transitions run the registered hooks in this task, so a hook never races
+  * another transition. DROWSY is a light-sleep loop inside this task: wake
+@@ -52,6 +61,7 @@ static const char *TAG = "MAO_POWER";
+ #define CRITICAL_READINGS       3          /* consecutive readings before acting */
+ #define CRITICAL_GRACE_MS       5000       /* time for the app to save state */
+ #define DROWSY_HOUSEKEEPING_S   60
++#define CHARGE_LIMIT_PERIOD_MS  10000      /* board temperature check while on USB */
+ #define LOG_FLUSH_MS            50         /* let the console drain before sleeping */
+ 
+ #define NOTIFY_USB              (1u << 0)
+@@ -66,7 +76,7 @@ static const char *TAG = "MAO_POWER";
+ #define CRITICAL_NOTE           ", critical-battery shutdown OFF"
+ #endif
+ 
+-typedef enum { REQ_STATE = 0, REQ_DEEP_SLEEP, REQ_DROWSY_FOR } request_kind_t;
++typedef enum { REQ_STATE = 0, REQ_DEEP_SLEEP, REQ_DROWSY_FOR, REQ_CHARGE_HOLD } request_kind_t;
+ 
+ typedef struct {
+     request_kind_t kind;
+@@ -102,6 +112,8 @@ static mao_power_continuity_t s_cont;
+ static volatile mao_wake_source_t s_last_wake = MAO_WAKE_NONE;
+ static bool s_gauge_ok;
+ static mao_board_caps_t s_caps;
++static bool s_chg_line;                  /* the board has a charger status line */
++static volatile mao_power_temp_source_t s_temp_source;
+ 
+ static void battery_policy(void);
+ 
+@@ -112,6 +124,12 @@ static bool s_critical_reported;
+ static uint32_t s_policy_reading_ms;     /* gauge reading the policy last counted */
+ static int64_t s_critical_deadline_us;
+ 
++/* Charge limit state (task only). */
++static bool s_charge_paused;
++static bool s_charge_hold;               /* dev console: charging held off by hand (bring-up check of /CE) */
++static int64_t s_next_charge_check_us;
++static bool s_temp_fail_logged;
++
+ /* ------------------------------------------------------------------------ */
+ /* Names                                                                    */
+ /* ------------------------------------------------------------------------ */
+@@ -216,6 +234,11 @@ const mao_power_continuity_t *mao_power_continuity(void)
+     return &s_cont;
+ }
+ 
++void mao_power_set_temp_source(mao_power_temp_source_t source)
++{
++    s_temp_source = source;
++}
++
+ static void update_gauge(void)
+ {
+     if (!s_gauge_ok) {
+@@ -233,45 +256,132 @@ static void update_gauge(void)
+     xSemaphoreGive(s_lock);
+ }
+ 
+-/* USB and charger lines: post an event for every change. */
++/* The charging state from the board line or the estimate; false when a
++ * board line could not be read (keep the previous state). */
++static bool charging_now(bool *out)
++{
++    if (s_chg_line) {
++        return mao_board_line_get(MAO_LINE_CHARGING, out) == ESP_OK;
++    }
++    const mao_charge_input_t in = {
++        .usb_present = s_status.usb_present,
++        .charge_paused = s_charge_paused,
++        .gauge_valid = s_gauge_ok && s_status.updated_ms != 0,
++        .soc_pct = s_status.soc_pct,
++        .rate_pct_per_h = s_status.rate_pct_per_h,
++    };
++    *out = mao_policy_charging(&in);
++    return true;
++}
++
++/* Charging state: post an event for every change. */
++static void update_charging(void)
++{
++    bool chg = false;
++    if (!charging_now(&chg) || chg == s_status.charging) {
++        return;
++    }
++    xSemaphoreTake(s_lock, portMAX_DELAY);
++    s_status.charging = chg;
++    xSemaphoreGive(s_lock);
++    const int32_t soc = (int32_t)s_status.soc_pct;
++    if (chg) {
++        ESP_LOGI(TAG, "charging started");
++        mao_event_post(MAO_EVENT_CHARGING_STARTED, soc);
++    } else if (s_status.usb_present && !s_charge_paused) {
++        /* Stopped with USB still present and nothing holding it off:
++         * charge complete. */
++        ESP_LOGI(TAG, "charging done");
++        mao_event_post(MAO_EVENT_CHARGING_DONE, soc);
++    }
++}
++
++/* Charge temperature limit. Runs every CHARGE_LIMIT_PERIOD_MS while USB is
++ * present, and at once (force) when USB comes or goes. */
++static void charge_limit(bool force)
++{
++    if (!s_caps.charge_control) {
++        return;
++    }
++    const int64_t now = esp_timer_get_time();
++    if (!force && now < s_next_charge_check_us) {
++        return;
++    }
++    s_next_charge_check_us = now + (int64_t)CHARGE_LIMIT_PERIOD_MS * 1000;
++
++    const bool usb = s_status.usb_present;
++    float temp = 0.0f;
++    bool valid = false;
++    if (usb) {
++        const mao_power_temp_source_t source = s_temp_source;
++        const esp_err_t err = source ? source(&temp) : ESP_ERR_NOT_SUPPORTED;
++        valid = err == ESP_OK;
++        if (!valid && !s_temp_fail_logged) {
++            ESP_LOGW(TAG, "charge limit: no board temperature (%s); charging stays enabled "
++                     "(the pack NTC still stops it at 50 C)", esp_err_to_name(err));
++        }
++        s_temp_fail_logged = !valid;
++    }
++
++    const bool pause = s_charge_hold || mao_policy_charge_pause(usb, s_charge_paused, valid, temp);
++    if (pause != s_charge_paused) {
++        const esp_err_t err = mao_board_charge_enable(!pause);
++        if (err != ESP_OK) {
++            ESP_LOGW(TAG, "charge limit: could not %s the charger (%s), retrying", pause ? "pause" : "enable",
++                     esp_err_to_name(err));
++        } else if (pause && s_charge_hold) {
++            s_charge_paused = true;
++            ESP_LOGW(TAG, "charging held off from the console (/CE high)");
++        } else if (pause) {
++            s_charge_paused = true;
++            ESP_LOGW(TAG, "charging paused: board %.1f C >= %.0f C (cell limit 45 C)", (double)temp,
++                     (double)MAO_CHARGE_PAUSE_C);
++        } else {
++            s_charge_paused = false;
++            if (valid) {
++                ESP_LOGI(TAG, "charging resumed: board %.1f C <= %.0f C", (double)temp, (double)MAO_CHARGE_RESUME_C);
++            } else {
++                ESP_LOGI(TAG, "charging enabled again (%s)", usb ? "no board temperature" : "USB removed");
++            }
++        }
++    }
++    xSemaphoreTake(s_lock, portMAX_DELAY);
++    s_status.charge_paused = s_charge_paused;
++    s_status.temp_valid = valid;
++    if (valid) {
++        s_status.temp_c = temp;
++    }
++    xSemaphoreGive(s_lock);
++}
++
++/* USB line: post an event for every change; then the charging state. */
+ static void check_lines(void)
+ {
+     bool usb = s_status.usb_present;
+-    bool chg = s_status.charging;
+     mao_board_line_get(MAO_LINE_USB_PRESENT, &usb);
+-    mao_board_line_get(MAO_LINE_CHARGING, &chg);   /* also clears the expander INT */
+ 
+     const bool usb_was = s_status.usb_present;
+-    const bool chg_was = s_status.charging;
+     xSemaphoreTake(s_lock, portMAX_DELAY);
+     s_status.usb_present = usb;
+-    s_status.charging = chg;
+     xSemaphoreGive(s_lock);
+ 
+     if (usb != usb_was) {
+         ESP_LOGI(TAG, "USB %s", usb ? "connected" : "disconnected");
+         mao_event_post(usb ? MAO_EVENT_USB_CONNECTED : MAO_EVENT_USB_DISCONNECTED, 0);
++        update_gauge();          /* fresh SOC / rate for the charging estimate */
++        charge_limit(true);      /* starts (or stops) watching the temperature now */
+     }
+-    if (chg != chg_was) {
+-        const int32_t soc = (int32_t)s_status.soc_pct;
+-        if (chg) {
+-            ESP_LOGI(TAG, "charging started");
+-            mao_event_post(MAO_EVENT_CHARGING_STARTED, soc);
+-        } else if (usb) {
+-            /* CHG released with USB still present: charge complete. */
+-            ESP_LOGI(TAG, "charging done");
+-            mao_event_post(MAO_EVENT_CHARGING_DONE, soc);
+-        }
+-    }
++    update_charging();
+ }
+ 
+ /* The alert line is a wired-OR of the gauge ALRT and the light sensor INT.
+- * Only the gauge's part is handled here; the light sensor clears its own
+- * latch when mao_sense reads it. */
++ * Reading it also clears the expander INT, so it is read on every expander
++ * interrupt, gauge or not. Only the gauge's part is handled here; the light
++ * sensor clears its own latch when mao_sense reads it. */
+ static void check_alert(void)
+ {
+     bool alert = false;
+-    if (!s_gauge_ok || mao_board_line_get(MAO_LINE_SENSE_ALERT, &alert) != ESP_OK || !alert) {
++    if (mao_board_line_get(MAO_LINE_SENSE_ALERT, &alert) != ESP_OK || !alert || !s_gauge_ok) {
+         return;
+     }
+     uint16_t flags = 0;
+@@ -400,6 +510,10 @@ static void drowsy_loop(uint32_t duration_s)
+                 sleep_us = (uint64_t)left_ms * 1000ULL + 1000ULL;
+             }
+         }
++        if (s_status.usb_present && s_caps.charge_control &&
++            sleep_us > (uint64_t)CHARGE_LIMIT_PERIOD_MS * 1000ULL) {
++            sleep_us = (uint64_t)CHARGE_LIMIT_PERIOD_MS * 1000ULL;   /* the charge limit keeps watching */
++        }
+         if (until) {
+             const int64_t left = until - esp_timer_get_time();
+             if (left <= 0) {
+@@ -426,9 +540,12 @@ static void drowsy_loop(uint32_t duration_s)
+             break;
+         }
+         /* Housekeeping on every wake: the battery may have moved (a
+-         * critical battery deep-sleeps from here). */
++         * critical battery deep-sleeps from here), and on a charger the
++         * temperature is checked. */
+         check_lines();
+         update_gauge();
++        charge_limit(false);
++        update_charging();
+         battery_policy();
+         if (source != MAO_WAKE_TIMER) {
+             break;
+@@ -455,6 +572,10 @@ static void handle_request(const request_t *req)
+     case REQ_DEEP_SLEEP:
+         enter_deep_sleep(req->seconds, req->reason);
+         break;
++    case REQ_CHARGE_HOLD:
++        s_charge_hold = req->seconds != 0;
++        charge_limit(true);
++        break;
+     default:
+         break;
+     }
+@@ -529,7 +650,11 @@ static void power_task(void *arg)
+     for (;;) {
+         const bool watch = s_low_reported || s_critical_count > 0 || s_critical_reported;
+         const uint32_t period_ms = watch ? GAUGE_PERIOD_LOW_MS : GAUGE_PERIOD_MS;
+-        int64_t wait_us = next_gauge_us - esp_timer_get_time();
++        int64_t next_us = next_gauge_us;
++        if (s_status.usb_present && s_caps.charge_control && s_next_charge_check_us < next_us) {
++            next_us = s_next_charge_check_us;
++        }
++        int64_t wait_us = next_us - esp_timer_get_time();
+         wait_us = wait_us < 0 ? 0 : wait_us;
+ 
+         uint32_t bits = 0;
+@@ -545,6 +670,8 @@ static void power_task(void *arg)
+             update_gauge();
+             next_gauge_us = esp_timer_get_time() + (int64_t)period_ms * 1000;
+         }
++        charge_limit(false);
++        update_charging();
+         battery_policy();
+ 
+         request_t req;
+@@ -617,7 +744,22 @@ esp_err_t mao_power_gauge_version(uint16_t *version)
+ 
+ static void devcmd_power(const char *args)
+ {
+-    (void)args;
++    if (strncmp(args, "charge", 6) == 0) {    /* power charge off | on: hold /CE high by hand, or release it */
++        const char *v = args + 6;
++        while (*v == ' ') {
++            v++;
++        }
++        if (!s_caps.charge_control || (strcmp(v, "off") != 0 && strcmp(v, "on") != 0)) {
++            ESP_LOGW(TAG, "power charge off | on%s", s_caps.charge_control ? "" : ": no charge control on this board");
++            return;
++        }
++        const request_t req = { .kind = REQ_CHARGE_HOLD, .seconds = strcmp(v, "off") == 0 };
++        if (send_request(&req) == ESP_OK) {
++            ESP_LOGI(TAG, "charging %s", req.seconds ? "held off (temperature limit still applies when released)"
++                                                     : "released to the temperature limit");
++        }
++        return;
++    }
+     mao_power_status_t st;
+     update_gauge();
+     mao_power_get_status(&st);
+@@ -627,8 +769,18 @@ static void devcmd_power(const char *args)
+     } else {
+         ESP_LOGI(TAG, "battery: no fuel gauge");
+     }
+-    ESP_LOGI(TAG, "charger: usb=%d charging=%d; state %s", st.usb_present, st.charging,
++    ESP_LOGI(TAG, "charger: usb=%d charging=%d%s%s; state %s", st.usb_present, st.charging,
++             s_chg_line ? "" : " (estimated from the gauge)",
++             st.charge_paused ? (s_charge_hold ? ", PAUSED (console hold)" : ", PAUSED (temperature)") : "",
+              mao_power_state_name(s_state));
++    if (s_caps.charge_control) {
++        if (st.temp_valid) {
++            ESP_LOGI(TAG, "charge limit: board %.1f C (pause >= %.0f C, resume <= %.0f C)", (double)st.temp_c,
++                     (double)MAO_CHARGE_PAUSE_C, (double)MAO_CHARGE_RESUME_C);
++        } else {
++            ESP_LOGI(TAG, "charge limit: %s", st.usb_present ? "no board temperature" : "idle (no USB)");
++        }
++    }
+     const mao_power_continuity_t *c = &s_cont;
+     ESP_LOGI(TAG, "continuity: woke_from_sleep=%d reason=%s source=%s slept=%" PRIu64 " ms sleeps=%" PRIu32,
+              c->woke_from_sleep, reason_name(c->reason), mao_wake_source_name(c->source), c->slept_ms,
+@@ -650,7 +802,8 @@ static void devcmd_sleep(const char *args)
+ 
+ static void register_devcmds(void)
+ {
+-    mao_devcmd_register("power", "power  (battery, charger, power state, sleep continuity)", devcmd_power);
++    mao_devcmd_register("power", "power [charge off|on]  (battery, charger, power state, sleep continuity; "
++                        "hold charging off by hand)", devcmd_power);
+     mao_devcmd_register("sleep", "sleep [seconds] | sleep light [seconds]  (deep / light-sleep test)",
+                         devcmd_sleep);
+ }
+@@ -702,8 +855,16 @@ esp_err_t mao_power_init(void)
+     s_gauge_ok = mao_system_report("fuel gauge", mao_gauge_init()) == ESP_OK;
+     s_status.gauge = s_gauge_ok;
+     mao_board_line_get(MAO_LINE_USB_PRESENT, &s_status.usb_present);
+-    mao_board_line_get(MAO_LINE_CHARGING, &s_status.charging);
++    bool chg = false;
++    s_chg_line = mao_board_line_get(MAO_LINE_CHARGING, &chg) == ESP_OK;
+     update_gauge();
++    if (charging_now(&chg)) {
++        s_status.charging = chg;
++    }
++    /* The expander came up with the charger enabled. The first temperature
++     * check waits one period, so the source (mao_sense, started after this)
++     * is registered by then. */
++    s_next_charge_check_us = esp_timer_get_time() + (int64_t)CHARGE_LIMIT_PERIOD_MS * 1000;
+ 
+     if (xTaskCreate(power_task, "mao_power", TASK_STACK, NULL, TASK_PRIO, &s_task) != pdPASS) {
+         return ESP_ERR_NO_MEM;
+@@ -717,8 +878,8 @@ esp_err_t mao_power_init(void)
+     }
+     register_devcmds();
+ 
+-    ESP_LOGI(TAG, "power: battery %u mV %.1f %%, usb=%d charging=%d; sleep timer %d min" CRITICAL_NOTE,
++    ESP_LOGI(TAG, "power: battery %u mV %.1f %%, usb=%d charging=%d%s; sleep timer %d min" CRITICAL_NOTE,
+              s_status.voltage_mv, (double)s_status.soc_pct, s_status.usb_present, s_status.charging,
+-             CONFIG_MAO_POWER_WAKE_INTERVAL_MIN);
++             s_chg_line ? "" : " (estimated)", CONFIG_MAO_POWER_WAKE_INTERVAL_MIN);
+     return ESP_OK;
+ }
+diff --git a/components/mao_power/mao_power_policy.c b/components/mao_power/mao_power_policy.c
+index 0ba479d..1387893 100644
+--- a/components/mao_power/mao_power_policy.c
++++ b/components/mao_power/mao_power_policy.c
+@@ -55,3 +55,25 @@ const char *mao_policy_state_name(mao_policy_state_t state)
+     default:                    return "?";
+     }
+ }
++
++bool mao_policy_charge_pause(bool usb_present, bool paused, bool temp_valid, float temp_c)
++{
++    if (!usb_present || !temp_valid) {
++        return false;
++    }
++    if (paused) {
++        return temp_c > MAO_CHARGE_RESUME_C;
++    }
++    return temp_c >= MAO_CHARGE_PAUSE_C;
++}
++
++bool mao_policy_charging(const mao_charge_input_t *in)
++{
++    if (!in->usb_present || in->charge_paused) {
++        return false;
++    }
++    if (!in->gauge_valid) {
++        return true;
++    }
++    return in->rate_pct_per_h > MAO_CHARGE_RATE_MIN_PCT_H || in->soc_pct < 100.0f;
++}
+diff --git a/components/mao_selftest/mao_selftest.c b/components/mao_selftest/mao_selftest.c
+index d07502c..1574f1c 100644
+--- a/components/mao_selftest/mao_selftest.c
++++ b/components/mao_selftest/mao_selftest.c
+@@ -54,10 +54,12 @@ static const char *TAG = "MAO_SELFTEST";
+ #define RESULT_HOLD_MS          15000
+ 
+ /* ---- Pass / fail limits (docs/hardware/mao-factory-test.md) -------------- */
+-/* Board ID: A0 = 1M/1M divider of 3.3 V = 1.65 V nominal. 1 % resistors and
+- * the calibrated ADC (+-~20 mV) stay well inside +-100 mV. */
+-#define LIM_ID_MIN_MV           1550
+-#define LIM_ID_MAX_MV           1750
++/* Board ID: A0 = 1M/1M divider of +3V3 = 3.18 V (3.10-3.32 V worst case, the
++ * top with the TPS63802 FB bias current) = 1.59 V nominal, 1.55-1.66 V. 1 %
++ * resistors (+-16 mV) and the calibrated ADC (+-~20 mV) widen that to
++ * ~1.51-1.70 V; the limits keep 20-30 mV beyond. */
++#define LIM_ID_MIN_MV           1480
++#define LIM_ID_MAX_MV           1720
+ #define LIM_ACCEL_MIN_G         0.85f
+ #define LIM_ACCEL_MAX_G         1.15f
+ #define LIM_TOF_RESULTS         3          /* new results within LIM_TOF_WINDOW_MS */
+@@ -86,9 +88,12 @@ static const char *TAG = "MAO_SELFTEST";
+ #define IR_TEST_ADDRESS         0xA5
+ #define IR_TEST_COMMAND         0x3C
+ /* Switched rails at their probe pads (TP13 3V3_LCD, TP14 MIC_VDD, TP15
+- * IR_RX_VCC), measured to GND by the fixture DMM or the operator. */
++ * IR_RX_VCC), measured to GND by the fixture DMM or the operator. The A0
++ * rail is 3.18 V (3.10-3.32 V); TP14/TP15 sit behind 100 R and their load
++ * (0.6 / 0.7 mA + the 10 k pull-up), so a low rail reads ~2.97 V there
++ * (sim S5/S6). The floor keeps the IR receiver's 2.7 V minimum in sight. */
+ #define LIM_PAD_OFF_MAX_MV      300
+-#define LIM_PAD_ON_MIN_MV       3000
++#define LIM_PAD_ON_MIN_MV       2850
+ #define LIM_PAD_ON_MAX_MV       3400       /* load switch / expander-fed rails */
+ #define LIM_PAD_MIC_ON_MAX_MV   3350       /* GPIO35 through 100 R: always a little below 3V3 */
+ #define MEASURE_AUTO_TIMEOUT_MS 5000       /* automatic mode: a fixture DMM answers at once */
+@@ -320,7 +325,7 @@ static result_t t_expander(char *d)
+ 
+ static result_t t_expander_reset(char *d)
+ {
+-    /* Pulses EXP_RST_N (GPIO38): the expander must really reset (CONFIG
++    /* Pulses EXP_RST_N (GPIO39): the expander must really reset (CONFIG
+      * back at 0xFF) and come back with every rail as it was. The panel, the
+      * ToF and the haptic driver see their lines drop and are re-initialised
+      * by their owners; give them a moment. */
+@@ -427,13 +432,26 @@ static result_t t_gauge_voltage(char *d)
+ 
+ static result_t t_charger(char *d)
+ {
+-    bool usb = false, chg = false;
++    bool usb = false;
+     const esp_err_t e1 = mao_board_line_get(MAO_LINE_USB_PRESENT, &usb);
+-    const esp_err_t e2 = mao_board_line_get(MAO_LINE_CHARGING, &chg);
+-    /* The test runs over USB, so PGOOD must be asserted. CHG depends on the
+-     * cell (charging or full); both are reported for the record. */
+-    snprintf(d, DETAIL_LEN, "PGOOD(usb)=%d CHG=%d%s", usb, chg, (e1 || e2) ? " (line read error)" : "");
+-    return e1 == ESP_OK && e2 == ESP_OK && usb ? R_PASS : R_FAIL;
++    mao_power_status_t st;
++    mao_power_get_status(&st);
++    /* The test runs over USB, so PGOOD must be asserted. Charging (estimated
++     * from the gauge on the A0: /CHG is not wired) depends on the cell and is
++     * reported for the record. Where firmware limits the charge temperature
++     * (/CE), the board temperature it relies on must be readable. */
++    float temp = 0.0f;
++    const esp_err_t et = s_caps.charge_control ? mao_sense_imu_temperature(&temp) : ESP_ERR_NOT_SUPPORTED;
++    const int n = snprintf(d, DETAIL_LEN, "PGOOD(usb)=%d%s chg=%d%s", usb, e1 ? " (read error)" : "", st.charging,
++                           st.charge_paused ? " PAUSED" : "");
++    if (s_caps.charge_control) {
++        if (et == ESP_OK) {
++            snprintf(d + n, DETAIL_LEN - n, ", board %.1f C", (double)temp);
++        } else {
++            snprintf(d + n, DETAIL_LEN - n, ", no board temp (%s)", esp_err_to_name(et));
++        }
++    }
++    return e1 == ESP_OK && usb && (!s_caps.charge_control || et == ESP_OK) ? R_PASS : R_FAIL;
+ }
+ 
+ static result_t t_haptic_id(char *d)
+diff --git a/components/mao_sense/include/mao_sense.h b/components/mao_sense/include/mao_sense.h
+index 7560566..2732a0a 100644
+--- a/components/mao_sense/include/mao_sense.h
++++ b/components/mao_sense/include/mao_sense.h
+@@ -157,6 +157,13 @@ esp_err_t mao_sense_mic_enable(bool on);
+  * ESP_ERR_NOT_SUPPORTED for kinds without an id or sensors not running. */
+ esp_err_t mao_sense_identify(mao_obs_kind_t kind, uint32_t *id);
+ 
++/* IMU die temperature in C, read now under the sense device lock (any task).
++ * A board-temperature estimate: typical 256 LSB / C, offset +-15 C per the
++ * LSM6DSOX datasheet. mao_power uses it for the charge temperature limit.
++ * ESP_ERR_NOT_SUPPORTED without a running IMU, ESP_ERR_INVALID_STATE while
++ * it is powered down (critical battery). */
++esp_err_t mao_sense_imu_temperature(float *celsius);
++
+ const char *mao_obs_kind_name(mao_obs_kind_t kind);
+ 
+ #ifdef __cplusplus
+diff --git a/components/mao_sense/mao_sense.c b/components/mao_sense/mao_sense.c
+index 396f3dd..43234bd 100644
+--- a/components/mao_sense/mao_sense.c
++++ b/components/mao_sense/mao_sense.c
+@@ -181,6 +181,18 @@ esp_err_t mao_sense_imu_gyro(bool on)
+     return err;
+ }
+ 
++esp_err_t mao_sense_imu_temperature(float *celsius)
++{
++    ESP_RETURN_ON_FALSE(celsius, ESP_ERR_INVALID_ARG, TAG, "bad args");
++    if (!available(MAO_OBS_IMU) || !s_dev_lock) {
++        return ESP_ERR_NOT_SUPPORTED;
++    }
++    xSemaphoreTake(s_dev_lock, portMAX_DELAY);
++    const esp_err_t err = sense_imu_temperature(celsius);
++    xSemaphoreGive(s_dev_lock);
++    return err;
++}
++
+ esp_err_t mao_sense_mic_enable(bool on)
+ {
+     if (!available(MAO_OBS_MIC)) {
+@@ -525,6 +537,10 @@ esp_err_t mao_sense_init(void)
+         ESP_RETURN_ON_ERROR(install_isr(MAO_IRQ_TOF, SENSE_BIT_TOF), TAG, "tof int");
+     }
+     mao_power_register_hook("sense", power_hook, NULL);
++    if (available(MAO_OBS_IMU)) {
++        /* The IMU die is the board thermometer for the charge limit. */
++        mao_power_set_temp_source(mao_sense_imu_temperature);
++    }
+     register_devcmds();
+     ESP_LOGI(TAG, "sense: %s%s%s%s%s", available(MAO_OBS_IMU) ? "imu " : "", available(MAO_OBS_TOF) ? "tof " : "",
+              available(MAO_OBS_ALS) ? "als " : "", available(MAO_OBS_TOUCH) ? "touch " : "",
+diff --git a/components/mao_sense/mao_sense_imu.c b/components/mao_sense/mao_sense_imu.c
+index 111192e..e8a4ed5 100644
+--- a/components/mao_sense/mao_sense_imu.c
++++ b/components/mao_sense/mao_sense_imu.c
+@@ -37,6 +37,7 @@ static const char *TAG = "MAO_SENSE";
+ #define REG_CTRL7_G         0x16
+ #define REG_CTRL9_XL        0x18
+ #define REG_WAKE_UP_SRC     0x1B     /* then TAP_SRC 0x1C, D6D_SRC 0x1D */
++#define REG_OUT_TEMP_L      0x20     /* then OUT_TEMP_H 0x21 */
+ #define REG_OUTX_L_G        0x22
+ #define REG_OUTX_L_A        0x28
+ #define REG_DSOX_TAP_CFG0   0x56
+@@ -68,6 +69,10 @@ static const char *TAG = "MAO_SENSE";
+ 
+ #define ACC_G_PER_LSB       0.000122f    /* +-4 g */
+ #define GYRO_DPS_PER_LSB    0.00875f     /* 250 dps */
++/* Both parts: 256 LSB / C, 0 = 25 C (typical; the LSM6DSOX offset is
++ * specified only as +-15 C, so this is a board-temperature estimate). */
++#define TEMP_LSB_PER_C      256.0f
++#define TEMP_ZERO_C         25.0f
+ 
+ /* Thresholds at +-4 g (VERIFY AT BRING-UP). */
+ #define TAP_THS             6            /* 6 x FS/32 = 750 mg */
+@@ -256,6 +261,23 @@ esp_err_t sense_imu_sample(mao_obs_imu_t *out)
+     return ESP_OK;
+ }
+ 
++/* Quiet on failure: the caller (the charge limit, every 10 s on USB) reports
++ * it once. Powered down, the sensor stops converting and the register would
++ * be stale; in the low-power modes it converts at the accelerometer ODR. */
++esp_err_t sense_imu_temperature(float *celsius)
++{
++    if (!s_dev || !celsius || s_powered_down) {
++        return ESP_ERR_INVALID_STATE;
++    }
++    uint8_t raw[2];
++    const esp_err_t err = rd(REG_OUT_TEMP_L, raw, sizeof(raw));
++    if (err != ESP_OK) {
++        return err;
++    }
++    *celsius = TEMP_ZERO_C + (float)(int16_t)(raw[0] | (raw[1] << 8)) / TEMP_LSB_PER_C;
++    return ESP_OK;
++}
++
+ esp_err_t sense_imu_id(uint32_t *id)
+ {
+     ESP_RETURN_ON_FALSE(s_dev && id, ESP_ERR_INVALID_STATE, TAG, "imu not ready");
+diff --git a/components/mao_sense/mao_sense_priv.h b/components/mao_sense/mao_sense_priv.h
+index cf47958..9c72857 100644
+--- a/components/mao_sense/mao_sense_priv.h
++++ b/components/mao_sense/mao_sense_priv.h
+@@ -37,6 +37,8 @@ esp_err_t sense_imu_gyro(bool on);
+ esp_err_t sense_imu_sample(mao_obs_imu_t *out);
+ const char *sense_imu_part(void);
+ esp_err_t sense_imu_id(uint32_t *id);
++/* Die temperature (OUT_TEMP); ESP_ERR_INVALID_STATE while powered down. */
++esp_err_t sense_imu_temperature(float *celsius);
+ 
+ /* ToF: VL53L4CD through ST's ULD (mao_sense_tof.c) */
+ esp_err_t sense_tof_init(void);
+diff --git a/docs/firmware/mao-a0-firmware.md b/docs/firmware/mao-a0-firmware.md
+index bb285c7..8641f4a 100644
+--- a/docs/firmware/mao-a0-firmware.md
++++ b/docs/firmware/mao-a0-firmware.md
+@@ -13,6 +13,10 @@ states (§4.1), the boot experience (§7), the boot check and the factory
+ self-test (§8, with `docs/hardware/mao-factory-test.md`), and the display
+ rotation setting (§3.1).
+ 
++The A0 board revision (AW9364 backlight, charger /CE, GPIO38/39 swap, IMU
++INT pulls) is followed as described below; what changed and how to port it
++onto another tree is in `docs/firmware/mao-a0-rev-merge.md`.
++
+ ## 1. Board profiles
+ 
+ | | ESP32-C3-LCDkit | MAO_MAIN A0 |
+@@ -60,33 +64,48 @@ Host unit tests (no IDF): `tests/host/run.sh` (§11).
+ 
+ | Area | API | A0 implementation |
+ |---|---|---|
+-| Identity | `mao_board_init`, `_get_caps`, `_revision`, `_revision_mv` | chip check, release sleep holds, HALL_FAST high, mic off, IRQ inputs, board ID (ADC1_CH7 on GPIO8, one-shot, curve-fitting cal, 8 samples, 1.40–1.90 V = "A0"), I2C + expander |
++| Identity | `mao_board_init`, `_get_caps`, `_revision`, `_revision_mv` | chip check, release sleep holds, HALL_FAST high, mic off, IRQ inputs, board ID (ADC1_CH7 on GPIO8, one-shot, curve-fitting cal, 8 samples, 1.40–1.90 V = "A0"; 1M/1M of the 3.18 V rail = 1.59 V nominal), I2C + expander |
+ | I2C | `_i2c_bus`, `_i2c_device`, `_i2c_add`, `_i2c_scan`, `_i2c_name` | I2C0, SDA 7 / SCL 15, 400 kHz, internal pull-ups off. Every device is probed at boot; ToF and haptic rails are powered for the probe or scan only |
+ | Rails | `_rail_set`, `_rail_is_on`, `_rail_readback` (`DISPLAY`, `AMP`, `HAPTIC`, `TOF`, `IR_RX`, `MIC`) | expander P1/P2/P3/P4/P5; MIC = GPIO35 (input+output, so it can be read back). Readback = the pin level (expander input register / GPIO), not the commanded one |
+ | Diagnostics | `_expander_test` | CONFIG readback, POLARITY round trip 0x2A / 0x15 on the output pins (polarity only acts on inputs: no rail moves), output pins read back their commanded level |
+-| Expander reset | `_expander_resets`, `_expander_reset_test`, `_display_reinit` | GPIO38 = EXP_RST_N (open drain, R205 10 k pull-up): automatic recovery of a wedged expander and the self-test pulse; a reset counter tells the rail owners to re-initialise (below) |
+-| Lines | `_line_get` (`USB_PRESENT`, `CHARGING`, `SENSE_ALERT`) | GPIO3 low; expander P6 low; P7 low (reading the input register clears the expander INT) |
+-| IRQs | `_irq_get` (`IMU_INT1/2`, `TOF`, `EXPANDER`, `USB_PRESENT`) | GPIO 14 / 47 / 48 / 21 / 3, all active low, already inputs |
++| Expander reset | `_expander_resets`, `_expander_reset_test`, `_display_reinit` | GPIO39 = EXP_RST_N (open drain, R22 10 k pull-up, TP11): automatic recovery of a wedged expander and the self-test pulse; a reset counter tells the rail owners to re-initialise (below) |
++| Lines | `_line_get` (`USB_PRESENT`, `CHARGING`, `SENSE_ALERT`) | GPIO3 low; `CHARGING` = `ESP_ERR_NOT_SUPPORTED` (the BQ24073 /CHG is not wired; `mao_power` estimates charging, §3.4); P7 low (reading the input register clears the expander INT) |
++| Charger | `_charge_enable` (caps `charge_control`) | expander P6 = BQ24073 /CE: 0 = charging enabled (also the 100 k pull-down default), 1 = paused. Owned by the charge temperature limit (§3.4) |
++| IRQs | `_irq_get` (`IMU_INT1/2`, `TOF`, `EXPANDER`, `USB_PRESENT`) | GPIO 14 / 47 / 48 / 21 / 3, all active low, already inputs. No internal pulls: the IMU drives push-pull, and an LSM6DSOX that sees INT1 high at its power-up locks itself into I3C-only mode |
+ | Display | `_display_init`, `_backlight_set`, `_display_sleep`, `_display_get_resolution` | §3.1; the descriptor carries the panel-native orientation and the mounting `rotation` |
+ | Input | `_input_init`, `_hall_fast_set` | Hall A 41 / B 42, press GPIO0 (input only), same decoder parameters as the EC11 |
+ | Touch | `_touch_get`, `_touch_zone_name` | RIGHT T1, LEFT T4, TOP T5, REAR T6; wake zone TOP |
+ | Audio | `_audio_init`, `_audio_gain`, `_mic_init` | §3.2 |
+-| IR | `_ir_get` | TX 35, RX 36 (active low), 38 kHz / 33 %, RX settle 1 ms |
++| IR | `_ir_get` | TX GPIO38 (no reset pull on that pad; 100 k gate pull-down: LEDs dark from reset), RX GPIO40 (active low), 38 kHz / 33 %, RX settle 1 ms |
+ | LED | `_led_init` | `ESP_ERR_NOT_SUPPORTED` (no LED on the A0) |
+ | Sleep | `_deep_sleep_prepare`, `_light_sleep_prepare`, `_light_sleep_done`, `_wake_decode` | §4 |
+ 
+ ### TCA6408A expander (0x20)
+ The power-up state is all inputs with the output register at 0xFF. The
+-driver writes OUTPUT = 0x00 first, then POLARITY = 0x00, then CONFIG = 0xC0
+-(P6/P7 inputs), and reads CONFIG back. If CONFIG were written first, every
+-rail would glitch on. Writes are read-modify-write on a shadow register
+-under a mutex. A missing expander is reported `[!!] I2C expander` and boot
+-continues, but rails, display power and the charger line are then unavailable.
+-
+-**Recovery through GPIO38 (EXP_RST_N).** GPIO38 drives the expander's RESET
++driver writes OUTPUT = 0x00 first, then POLARITY = 0x00, then CONFIG = 0x80
++(P7 the only input; P0-P5 rails and resets, P6 the charger /CE driven 0 =
++charging enabled), and reads CONFIG back. If CONFIG were written first, every
++rail would glitch on and charging would pause. Writes are read-modify-write
++on a shadow register under a mutex. A missing expander is reported
++`[!!] I2C expander` and boot continues, but rails, display power and the
++charge temperature limit are then unavailable (charging stays enabled by the
++/CE pull-down).
++
++| Bit | Net | Dir | Default (pull) |
++|---|---|---|---|
++| P0 | LCD_RST_N | out | 100 k down: panel in reset |
++| P1 | LCD_PWR_EN | out | 100 k down: panel logic rail off |
++| P2 | AMP_SD_N | out | 100 k down: amplifier shut down (2.2 k series into SD_MODE) |
++| P3 | HAPTIC_EN | out | 100 k down |
++| P4 | TOF_XSHUT | out | 100 k down |
++| P5 | IR_RX_PWR | out | 100 k down |
++| P6 | CHG_CE_N | out | 100 k down: charging enabled |
++| P7 | SENSE_ALRT_N | in | 100 k up (gauge ALRT + light INT, wired-OR) |
++
++**Recovery through GPIO39 (EXP_RST_N).** GPIO39 drives the expander's RESET
+ pin (open drain, released high from the first instruction of
+-`a0_i2c_init()`; R205 10 k pull-up holds it high through boot and deep
+-sleep). The 4-layer board uses every module pin except the strap GPIO46
++`a0_i2c_init()`; R22 10 k pull-up holds it high through boot and deep
++sleep; GPIO39 = MTCK has a reset pull-up, which agrees with it). The 4-layer board uses every module pin except the strap GPIO46
+ (see `mao-pin-map.md`). When an expander write or input read fails, the driver resets the I2C
+ bus (`i2c_master_bus_reset()`), pulses RESET low for 10 µs, reprograms the
+ expander from the shadow registers (output before direction, as at power-up)
+@@ -96,7 +115,9 @@ cycle.
+ A reset is not free: from the pulse until the output register is rewritten
+ (~0.2 ms) every expander pin is an input, so the rails fall to their
+ pull-down defaults. The panel sees LCD_RST_N low and a supply dip, the ToF
+-its XSHUT, the haptic driver its EN; each loses its configuration. Every
++its XSHUT, the haptic driver its EN; each loses its configuration. A paused
++charger may run for that moment (/CE pull-down); the shadow restores the
++pause. Every
+ pulse increments `mao_board_expander_resets()`, and the owners re-initialise:
+ 
+ | Owner | Notices | Re-initialises |
+@@ -111,8 +132,9 @@ the IMU, light sensor, gauge and mic are not on the expander.
+ another task has in flight at that moment fails once and is retried by its
+ owner. The self-test's `expander_reset` step uses
+ `mao_board_expander_reset_test()`: pulse, check CONFIG is back at its 0xFF
+-default (the line really reset the chip), reprogram, check CONFIG 0xC0 and
+-every output pin.
++default (the line really reset the chip), reprogram, check CONFIG 0x80 and
++every output pin. The expander test's POLARITY patterns are 0x6A / 0x15, so
++every output bit P0-P6 is set and cleared once.
+ 
+ ## 3. Drivers
+ 
+@@ -120,13 +142,45 @@ every output pin.
+ - The panel plugs in: an 18-pin 0.5 mm tail (Winstar WF0128BTYAA4DNN0 or any
+   panel of that 18-pin standard) in the J301 back-flip connector, so it can be
+   replaced without soldering.
+-- SPI2, 80 MHz, mode 0, write-only: SCLK 12 and MOSI 11 on SPI2's IO_MUX pads,
++- SPI2, 80 MHz by default (`CONFIG_MAO_A0_LCD_PCLK_MHZ`, 10–80, menuconfig "MAO
++  board"; the signals run through the panel's stock 70 mm tail, so bring-up
++  confirms 80 MHz and falls back to 40 if the picture glitches), mode 0,
++  write-only: SCLK 12 and MOSI 11 on SPI2's IO_MUX pads,
+   CS 13 through the GPIO matrix, DC 10 a plain GPIO; the module pins follow the
+   connector's pin order (no crossing on the board). `unpark()` restores the same
+   routing after a rail power cycle. TE (tearing effect) is GPIO9, an input with
+-  the internal pull-down; the flush does not use it yet. Backlight: LEDC ch0,
+-  5 kHz, 10 bit on GPIO45 (a strap, held low by the 100 k gate pull-down). It is
+-  set to 0 % before the rail comes up.
++  the internal pull-down; the flush does not use it yet.
++- **Backlight: Awinic AW9364** constant-current sink, EN = `MAO_PIN_LCD_BL_CTRL`
++  (GPIO45). The panel LEDs hang from VSYS (not from the switched 3V3_LCD rail)
++  into two 20 mA channels: 40 mA, the panel's rating, is the hardware maximum,
++  so there is no firmware cap any more (the old `A0_BACKLIGHT_MAX_PCT` 80 %
++  PWM ceiling is gone). EN low is the only thing that darkens the LEDs, so
++  every rail-off and sleep path sets 0 % first.
++  - 1-wire pulse-count dimming (datasheet V2.3): the enable edge is edge 1 =
++    20 mA per channel; edge n = (17 − n)/16 × 20 mA, 16 steps down to
++    1.25 mA; ready time > 20 µs after the enable edge, then TLO 0.5–500 µs and
++    THI > 0.5 µs per edge; the current holds while EN stays high; EN low longer
++    than TOFF (0.8–2.5 ms) shuts it down.
++  - `mao_board_backlight_set(percent)`: 0 = EN low; otherwise step
++    n = 17 − ceil(16 × percent / 100), clamped 1..16 (per channel: 1 % →
++    1.25 mA, 50 % → 10 mA, 94–100 % → 20 mA). The current is never below the
++    request and less than one step above it.
++  - Dimmer: (n_new − n_cur) more edges. Brighter: EN low ≥ 3 ms (shutdown,
++    measured with `esp_timer`, sleeping for the bulk), then the enable edge
++    and n − 1 edges. The datasheet does not say whether edge 17 wraps, so the
++    driver never counts past 16; the price is a ~3 ms dark gap on every
++    brighter step (VERIFY AT BRING-UP whether it is visible in a fade-in).
++    Each pulse train (≤ 16 edges, 2 µs low / 2 µs high, 30 µs ready: under
++    100 µs) runs in a critical section with `esp_rom_delay_us`, so no
++    interrupt can stretch a low phase towards TOFF. A mutex serialises callers
++    (LVGL task, power hook, app, self-test); an unchanged step sends nothing.
++  - The percent → step math and the edge plan are pure C
++    (`boards/main_a0/aw9364_dimming.c`), host-tested (§11). `mao backlight`
++    (§10) drives the steps directly for bring-up.
++  - GPIO45 is the VDD_SPI strap. On this module the flash voltage comes from
++    eFuse, and the AW9364's 150 k EN pull-down holds the pin low through reset
++    anyway (dark from power-on). The pin becomes a plain GPIO output, latched
++    low first, only in `mao_board_display_init()`.
+ - Power-up sequence: RST_N low, PWR_EN high, 10 ms, 10 ms with reset low,
+   RST_N high, 120 ms, then `esp_lcd` GC9A01 init with `reset_gpio = -1`. The
+   driver's software reset is kept; it is redundant but harmless.
+@@ -156,7 +210,7 @@ every output pin.
+   redraws and resumes rendering. The UI keeps running meanwhile (the LVGL
+   lock is not held).
+ - After an expander reset the panel is re-initialised automatically (§2,
+-  "Recovery through GPIO38").
++  "Recovery through GPIO39").
+ - With the rail off (`MAO_RAIL_DISPLAY` off), DC, CS, MOSI and SCLK are
+   driven low as GPIOs. For deep sleep they are isolated (high-Z, held). When
+   the rail is switched on again, the panel is re-initialised and the pins are
+@@ -226,11 +280,42 @@ every output pin.
+   (0x001x), HIBRT 0x0A = 0x8030, CONFIG 0x0C (RCOMP kept, ATHD = 27 → empty
+   alert at 5 %, ALSC off), VALRT 0x14 = 0xA5FF (3.30 V low), CRATE 0x16
+   (0.208 %/h), STATUS 0x1A (flags cleared after reading).
+-- Charger: USB present = GPIO3 low (both edges), charging = P6 low (via the
+-  expander INT on GPIO21). Fast charge is 297 mA with a USB500 input limit,
+-  set in hardware.
++- Charger: BQ24073, USB present = PGOOD on GPIO3 low (both edges). Charge
++  current 207 mA (ISET 4.3 k; the cell allows 250 mA) with a USB500 input
++  limit, set in hardware; the pack NTC on TS stops charging outside 0–50 °C.
++  /CHG is **not wired** on this revision; expander P6 is the charger's /CE.
++- **Charging (estimated).** `mao_board_line_get(MAO_LINE_CHARGING)` returns
++  `ESP_ERR_NOT_SUPPORTED` on the A0, so `mao_power` derives it
++  (`mao_policy_charging()`, host-tested): USB present AND not paused by the
++  temperature limit AND (gauge CRATE > +1 %/h OR SOC < 100 %). Without a
++  gauge: USB present and not paused. Honest limits: right after plug-in it
++  says "charging" before CRATE has turned positive; a charger that terminates
++  while the gauge reads below 100 % (or a load above the USB500 limit that
++  draws on the cell) still reads as charging until SOC reaches 100 %. CRATE
++  is the gauge's approximate SOC rate (0.208 %/h per LSB, "not for conversion
++  to ampere"). The estimate is refreshed with every gauge reading (30 s) and
++  at once when USB comes or goes (the gauge is re-read then).
++- **Charge temperature limit.** The LiPo cell may be charged at 0–45 °C, but
++  the charger's NTC window ends at 50 °C. While USB is present, `mao_power`
++  reads the board temperature every 10 s (and at once on plug-in) and
++  pauses charging (`mao_board_charge_enable(false)`, /CE = 1) at ≥ 43 °C,
++  resumes at ≤ 40 °C (`mao_policy_charge_pause()`, host-tested); transitions
++  are logged (`charging paused: board 43.4 C >= 43 C` / `charging resumed`).
++  The source is the IMU die temperature (`mao_sense_imu_temperature()`,
++  LSM6DSOX OUT_TEMP 0x20/0x21, 256 LSB/°C, 0 = 25 °C), registered by
++  `mao_sense` with `mao_power_set_temp_source()`. Fail-safe: no source, a
++  failed read or a NaN leaves charging **enabled** (logged once); the pack NTC
++  still stops the charger at 50 °C. The IMU die is a board-temperature proxy,
++  not the cell, and its offset is only specified as ±15 °C (VERIFY AT
++  BRING-UP against a thermocouple). Unplugging USB returns /CE to 0. In
++  DROWSY on a charger the light-sleep timer is shortened to 10 s so the check
++  keeps running (the IMU converts at its 12.5 Hz low-power ODR). Deep sleep
++  writes every expander output 0, so charging is enabled while the chip
++  sleeps (nothing watches the temperature then; deep sleep on USB is off by
++  default, `MAO_POWER_DEEP_ON_USB`). Cold is left to the NTC (0 °C).
+ - Events: `USB_CONNECTED` / `USB_DISCONNECTED`, `CHARGING_STARTED`,
+-  `CHARGING_DONE` (CHG released while USB is still present),
++  `CHARGING_DONE` (charging estimate went false while USB is still present
++  and nothing holds the charger off; a temperature pause posts no event),
+   `BATTERY_LOW` (SOC ≤ 15 %, re-armed above 20 %), `BATTERY_CRITICAL`
+   (on battery with SOC ≤ 2 % or VCELL < 3.35 V for 3 readings in a row),
+   `POWER_STATE`. After a critical alert, a 5 s grace period follows, then
+@@ -243,11 +328,16 @@ every output pin.
+   `mao_power_gauge_version()`, `mao_power_last_wake()` (what ended the last
+   DROWSY), `mao_power_policy_config()` (§4.1), sleep reason
+   `MAO_SLEEP_REASON_IDLE`.
++- Added with the board revision: `mao_power_set_temp_source()`, and
++  `mao_power_status_t` fields `charge_paused`, `temp_valid`, `temp_c`.
++- The expander INT (GPIO21) now carries only the gauge / light alert: every
++  expander interrupt reads `MAO_LINE_SENSE_ALERT`, which clears the INT even
++  without a gauge.
+ 
+ ### 3.5 Sense (`mao_sense`): observations only
+ | Sensor | Part / addr | Configuration | Observation |
+ |---|---|---|---|
+-| IMU | LSM6DSOX 0x6A (WHO_AM_I 0x6C; LSM6DS3TR-C 0x6A accepted) | CTRL3_C 0x64 (BDU, H_LACTIVE, IF_INC, push-pull), XL 104 Hz normal mode ±4 g, gyro off (`mao_sense_imu_gyro`). INT1 = wake-up (125 mg) + tap + double tap; INT2 = 6D (60°) + free-fall (312 mg, 58 ms). LIR latched. DSOX: TAP_CFG0/1/2 0x56–0x58, I3C off; DS3TR-C: TAP_CFG 0x58 | accel g, gyro dps, event flags, 6D orientation |
++| IMU | LSM6DSOX 0x6A (WHO_AM_I 0x6C; LSM6DS3TR-C 0x6A accepted) | CTRL3_C 0x64 (BDU, H_LACTIVE, IF_INC, push-pull), XL 104 Hz normal mode ±4 g, gyro off (`mao_sense_imu_gyro`). INT1 = wake-up (125 mg) + tap + double tap; INT2 = 6D (60°) + free-fall (312 mg, 58 ms). LIR latched. DSOX: TAP_CFG0/1/2 0x56–0x58, I3C off; DS3TR-C: TAP_CFG 0x58. INT lines without MCU pulls (INT1 high at IMU power-up = I3C-only). Die temperature OUT_TEMP 0x20/0x21 on request (`mao_sense_imu_temperature`, for the charge limit) | accel g, gyro dps, event flags, 6D orientation |
+ | ToF | VL53L4CD 0x29, ST ULD 2.2.2 (vendored, `vl53l4cd/README.md`) | XSHUT = P4; autonomous 20 ms budget every 200 ms (ACTIVE) / 500 ms (IDLE); DROWSY: interrupt only below 150 mm; off in deep sleep | distance, range status, signal, sigma, threshold flag |
+ | ALS | OPT3004 0x44 (0x7E = 0x5449, 0x7F = 0x3001) | CONFIG 0xCE11: auto range, 800 ms, continuous, latched window ±25 % (min ±2 lx) re-centred each read; reading CONFIG clears the latch; off when drowsy / asleep | lux |
+ | Touch | S3 touch v2, 4 zones | default sample config (500 charges, 0.5–2.2 V), threshold = 2 % of benchmark, hardware filter, active/inactive callbacks; TOP = deep-sleep wake channel. LEFT holds its last reading while the speaker amplifier is on and 150 ms after: the speaker lies partly over that electrode and the class-D outputs switch at ~330 kHz | raw, baseline, delta 0..1 (1 = 2 × threshold), touched, changed mask |
+@@ -295,15 +385,17 @@ Stage 2 extends `mao_input_stats_t` with per-channel edge counters
+ | DROWSY | panel sleep-in, backlight off | IMU wake-on-motion only (12.5 Hz LP), ToF approach threshold, ALS off, mic off | amp, haptics and IR RX off; HALL_FAST low; CPU in light sleep |
+ | DEEP_SLEEP | rail off, bus isolated | IMU wake-on-motion (off on a critical battery), ToF / ALS / mic off | every expander rail off, HALL_FAST low and held |
+ 
+-- Deep-sleep wake: ext1 ANY_LOW on GPIO0 (press), GPIO14 (IMU INT1), GPIO3
+-  (USB plugged) and GPIO21 (expander: charger / alerts). A line that is
+-  already low is not armed. With USB present, ext0 waits on GPIO3 going high
++- Deep-sleep wake: ext1 ANY_LOW on GPIO0 (press), GPIO14 (IMU INT1, only if
++  the IMU answered at boot: the pad has no pull), GPIO3 (USB plugged) and
++  GPIO21 (expander: gauge / light alert). A line that is already low is not
++  armed. With USB present, ext0 waits on GPIO3 going high
+   (unplug) instead. Touch wakes on the TOP zone, and a timer wakes every
+   `CONFIG_MAO_POWER_WAKE_INTERVAL_MIN` (30 min). On a critical battery only
+   USB can wake MAO.
+ - Light-sleep (DROWSY) wake: the same lines plus GPIO48 (ToF threshold, through the GPIO wake source: GPIO48 is not an RTC pad), any
+-  touch zone, and a 60 s housekeeping timer. The timer only refreshes the
+-  battery state and sleeps again; any other source returns to ACTIVE. Ring
++  touch zone, and a 60 s housekeeping timer (10 s on USB power, for the charge
++  temperature limit, §3.4). The timer only refreshes the battery state (and
++  on USB checks the temperature) and sleeps again; any other source returns to ACTIVE. Ring
+   rotation alone is not a wake source (GPIO 41/42 are not RTC pads), but
+   touching the ring usually trips the IMU or a touch zone. ext1 moves its
+   pads to RTC IO, so they are given back to the GPIO matrix after every
+@@ -503,7 +595,7 @@ console (`[OK]` / `[!!]` / `[--]` lines, `mao board`, `mao selftest boot`).
+ - **Factory self-test**: `mao selftest` (interactive), `mao selftest auto`
+   (operator steps skipped), or at every boot with `CONFIG_MAO_SELFTEST_AT_BOOT`
+   (profile `sdkconfig.factory`). On the A0: 24 automatic steps (including
+-  `expander_reset`, which pulses GPIO38), 3 probe-pad steps (`pad_lcd`,
++  `expander_reset`, which pulses GPIO39), 3 probe-pad steps (`pad_lcd`,
+   `pad_mic`, `pad_irv`: each rail off then on, measured at TP13 / TP14 /
+   TP15 by the fixture DMM or the operator) and 6 operator steps; 7 steps on
+   the LCDkit. Answers: `mao selftest yes|no|skip`, a face press = yes,
+@@ -514,6 +606,12 @@ console (`[OK]` / `[!!]` / `[--]` lines, `mao board`, `mao selftest boot`).
+   `SELFTEST PASS 33/33` / `FAIL …` / `INCOMPLETE …`, `SELFTEST_JSON {…}`.
+   Station script: `tools/factory_test.py`. Steps, limits, fixture, test
+   pads: `docs/hardware/mao-factory-test.md`.
++- Board revision changes: `board_id` limits 1480 … 1720 mV (3.18 V rail:
++  1.59 V nominal, 1.51–1.70 V over every tolerance; was 1550 … 1750 for 3.3 V); `charger` passes on PGOOD and,
++  where the board limits the charge temperature, a readable board temperature;
++  it reports the estimated charging state, a pause and the temperature
++  (`PGOOD(usb)=1 chg=1, board 29.4 C`). `docs/hardware/mao-factory-test.md`
++  still lists the old values (owned by the hardware docs).
+ 
+ ## 9. Bring-up order (`main/mao_main.c`)
+ system → board (chip, pads, board ID, I2C, expander with every rail off) →
+@@ -532,7 +630,8 @@ the UI degrades instead of crashing.
+ | `mao sense` | A0 | latest observation of every sensor |
+ | `mao haptic <name>` | A0 | play a touch; also `calibrate`, `on`, `off`, `strength N` |
+ | `mao ir send <addr> <cmd>` | A0 | one NEC frame (hex with `0x`); `mao ir rx on\|off` |
+-| `mao power` | A0 | battery V / % / rate, USB, charging, state, continuity |
++| `mao power` | A0 | battery V / % / rate, USB, charging (estimated), temperature pause, charge-limit board temperature, state, continuity |
++| `mao backlight <0..100>` | A0 | AW9364 bring-up, bypassing `mao_display`: set a level; `step <1..16>` one driver step; `edge` one raw extra edge (at step 16: does edge 17 wrap to full?); the next set restarts the driver |
+ | `mao sleep [s]` | A0 | deep sleep, timer wake after s (default 30 min); `mao sleep light [s]` = DROWSY test |
+ | `mao percept` | both | senses in use, held / near, room level, absence, fiddling level and score; `log on\|off`; `inject <NAME> [detail] [confidence]` |
+ | `mao rotate [deg]` | both | display rotation: show, set live (0/90/180/270), `save` (NVS), `default` |
+@@ -545,7 +644,10 @@ without `CONFIG_MAO_DEV_CONSOLE` (release).
+ 
+ ## 11. Host unit tests
+ 
+-The perception engine and the power policy are plain C. `tests/host/` builds
++The perception engine, the power policy (states, the charge temperature
++limit and the charging estimate) and the A0 backlight's AW9364 step logic
++(percent → step, the edge plan between any two steps against a driver model
++that never counts past edge 16) are plain C. `tests/host/` builds
+ them with the host compiler (C99, `-Wall -Wextra -Werror`, AddressSanitizer
+ and UBSan) together with scenario tests: a small world simulator feeds every
+ sense at the A0's rates (IMU 100 ms, ToF 200 ms, light 1 s, touch 100 ms,
+@@ -570,9 +672,18 @@ tests/host/run.sh --docker   # gcc inside espressif/idf:v6.0.3
+   1 M / 1 M everywhere; the pull-up notes in `pinmap.py` now match
+   `circuit.py` (TOF_INT_N 10 k, SENSE_ALRT_N 100 k); the `pinmap.py`
+   docstring names `hardware/mao/design/gen_pinmap.py`.
+-- Hardware changes after stage 2 that the firmware follows: GPIO38 is
+-  EXP_RST_N (expander reset, TP11 XRST); TP13-TP15 expose the switched rails;
+-  the IR receiver output has a 10 k pull-up (R506) to its switched supply.
++- Hardware changes after stage 2 that the firmware follows: TP13-TP15 expose
++  the switched rails; the IR receiver output has a 10 k pull-up (R506) to its
++  switched supply.
++- Board revision (`docs/firmware/mao-a0-rev-merge.md`): GPIO38 = IR_TX and
++  GPIO39 = EXP_RST_N (swapped: GPIO39 = MTCK has a reset pull-up that would
++  have lit the IR LEDs); GPIO45 = LCD_BL_CTRL (AW9364 EN) instead of the LEDC
++  backlight PWM; expander P6 = CHG_CE_N output instead of the CHG_N input;
++  +3V3 = 3.18 V; the amplifier's SD_MODE has a 2.2 k series resistor (no
++  firmware change); the panel tail still leaves at 9 o'clock.
++- `pinmap.py` text the firmware does not use but that is now stale: the
++  BOARD_ID note says 1.65 V (1.59 V with the 3.18 V rail), and the EXP_INT_N
++  note still mentions charger status (only the gauge / light alert is left).
+ - The brief listed GPIO13 as a spare. The 4-layer pin map uses GPIO13 for LCD_CS and GPIO35
+   as `MIC_PWR` (the mic draws 80 µA even with its clock stopped), and the
+   firmware follows the header.
+@@ -613,3 +724,17 @@ Stage 2:
+ - Expander reset: the 10 µs pulse; that the panel, ToF and haptic driver
+   come back cleanly after `expander_reset` (and after a real recovery), and
+   how visible the panel re-init is (~0.3 s blank).
++
++Board revision (details in `docs/firmware/mao-a0-rev-merge.md` §5):
++- **AW9364 steps**: 16 distinct levels from `mao_board_backlight_set()`;
++  LED current at 100 % (≈ 40 mA, 33–47 mA by the datasheet spread) and at 1 %
++  (≈ 2.5 mA); whether edge 17 wraps to step 1 (if it does, a brighter step
++  could skip the 3 ms shutdown); whether that dark gap shows during the
++  self-test's fade-in.
++- **Charge pause**: warm the board past 43 °C on USB and watch
++  `charging paused` (and the charge current fall), cool below 40 °C for
++  `charging resumed`; IMU temperature offset against a thermocouple at room
++  temperature (datasheet ±15 °C).
++- **IR LEDs dark at boot and reset** (GPIO38: no reset pull; 100 k gate
++  pull-down), and `expander_reset` still pulses through GPIO39.
++- Board ID at 3.18 V (≈ 1.59 V).
+diff --git a/docs/firmware/mao-a0-rev-merge.md b/docs/firmware/mao-a0-rev-merge.md
+new file mode 100644
+index 0000000..2547be7
+--- /dev/null
++++ b/docs/firmware/mao-a0-rev-merge.md
+@@ -0,0 +1,241 @@
++# MAO_MAIN A0 board revision: firmware merge guide
++
++How to carry the firmware changes for the revised MAO_MAIN A0 board onto a
++newer MAO firmware tree. The changes were made on top of commit `b17187e`
++(2026-10-05). The full diff is in `docs/firmware/mao-a0-rev.patch` (components,
++tests and docs/firmware; new files included; `hardware/` and `docs/hardware/`
++left out). Behaviour is described in `docs/firmware/mao-a0-firmware.md`
++(§2, §3.1, §3.4, §4, §8, §10, §11, §13).
++
++Checked on 2026-10-05: in a clean worktree of `b17187e`, `git apply docs/firmware/mao-a0-rev.patch` applies
++without conflicts, `tests/host/run.sh` passes 240 checks, and s3-dev and c3-dev build with 0 warnings, with
++binaries the same size as this branch's.
++
++Hardware source of truth: `hardware/mao/design/pinmap.py` and `circuit.py`.
++The pin header is generated from `pinmap.py`; never hand-merge it.
++
++## 1. Hardware changes and what the firmware does about them
++
++| # | Hardware change | Why (hardware reason) | Firmware response |
++|---|---|---|---|
++| 1 | GPIO38 = IR_TX (IR LED gate, RMT carrier), GPIO39 = EXP_RST_N (expander reset, open drain, 10 k pull-up R22) — swapped | GPIO39 is MTCK and has a weak pull-up at reset, which would have switched the IR LEDs on; on EXP_RST_N it agrees with the 10 k pull-up. GPIO38 has no reset pull | Regenerated pin header; code uses `MAO_PIN_*` only. Comments, log text and docs that named GPIO38 for EXP_RST_N / GPIO39 for IR_TX fixed |
++| 2 | Backlight: LEDC PWM into a low-side MOSFET (GPIO45 `LCD_BL_PWM`, 80 % cap) replaced by an Awinic AW9364 constant-current sink; GPIO45 = `LCD_BL_CTRL` = its EN | Constant current, no PWM flicker, and 2 × 20 mA = 40 mA (the panel rating) is the hardware maximum, so no firmware cap is needed. The panel LEDs now hang from VSYS, not from the switched 3V3_LCD rail | New AW9364 1-wire pulse-count driver behind the unchanged `mao_board_backlight_set(percent)`; `A0_BACKLIGHT_MAX_PCT` removed; LEDC no longer used on the A0 |
++| 3 | Expander P6: input `CHG_N` (charger /CHG) became output `CHG_CE_N` (charger /CE), 100 k pull-down at the charger | Firmware must be able to pause charging (item 4); /CHG is no longer connected | P6 is an output driven 0 (charging enabled) from expander init on; `MAO_LINE_CHARGING` is `ESP_ERR_NOT_SUPPORTED` on the A0 and `mao_power` estimates charging from PGOOD + the fuel gauge |
++| 4 | Charge thermal limit (new) | The LiPo cell may be charged only at 0–45 °C, but the BQ24073's pack-NTC window ends at 50 °C | `mao_power` reads the IMU die temperature every 10 s while USB is present; /CE = 1 (pause) at ≥ 43 °C, back to 0 at ≤ 40 °C; transitions logged; fail-safe = charging enabled |
++| 5 | IMU INT1/INT2 (GPIO14/47) without MCU pull-ups | An LSM6DSOX that sees INT1 high at its power-up selects I3C-only mode (datasheet §5.3, "INT1 must be set to '0' or left unconnected during power-on") | Internal pull-ups removed in `config_irq_inputs()`; the IMU's deep-sleep wake is armed only if the IMU answered at boot (a missing IMU leaves the pad floating) |
++| 6 | +3V3 = 3.18 V (3.10–3.32 V worst case, the top with the TPS63802 FB bias current) | Panel VCI maximum 3.3 V | Board-ID window 1400–1900 mV still holds (1.59 V nominal, ~1.51–1.70 V worst case): unchanged. The self-test's tighter `board_id` limits were re-centred: 1550–1750 → 1480–1720 mV (electrical audit 3: 1700 left 3 mV at the top corner) |
++| 7 | Amplifier SD_MODE through 2.2 k series resistor | MAX98357A datasheet case VDDIO > VDD | None (SD_MODE high still selects the left channel) |
++| 8 | Display orientation | — | None: the panel tail still leaves at 9 o'clock (`CONFIG_MAO_A0_LCD_ROTATION` default 90) |
++| 9 | Display SPI through the stock 70 mm FPC tail (was a 10–12 mm tail) | 80 MHz over 70 mm of FPC with SCL beside CS/SDA is plausible but unproven (electrical audit 2, N-9) | New Kconfig `CONFIG_MAO_A0_LCD_PCLK_MHZ` (int, 10–80, default 80) sets `A0_LCD_PCLK_HZ`; bring-up §3 sets 40 if the colour test glitches. No code path changes |
++| 10 | Expander P1 text | P1 switches only the panel logic rail now; the backlight runs from VSYS | Regenerated header comment and `mao-pin-map.md` ("display logic rail switch"); FRAM 0x50 line gone (no FRAM on the A0) |
++
++## 2. Changed files
++
++Generated (re-run the generator, do not merge by hand):
++
++| File | Change |
++|---|---|
++| `components/mao_board/boards/main_a0/mao_board_pins.h` | `python3 hardware/mao/design/gen_pinmap.py` from the repo root (also rewrites `docs/hardware/mao-pin-map.md`). New/renamed symbols: `MAO_PIN_IR_TX` 39 → 38, `MAO_PIN_EXP_RST_N` 38 → 39, `MAO_PIN_LCD_BL_PWM` → `MAO_PIN_LCD_BL_CTRL` (45), `MAO_EXP_CHG_N` → `MAO_EXP_CHG_CE_N` (6) |
++
++Board support (`components/mao_board`):
++
++| File | What changed | Why |
++|---|---|---|
++| `boards/main_a0/aw9364_dimming.h`, `.c` (new) | Pure C, no IDF: `aw9364_step_from_percent()`, `aw9364_step_current_ua()`, `aw9364_plan(from, to)` (shutdown first? how many rising edges?), AW9364 timing constants | Testable on the host; one place for the datasheet facts (§3) |
++| `boards/main_a0/mao_board_a0_display.c` | LEDC backlight replaced: GPIO45 configured as a plain output, latched low, inside `mao_board_display_init()`; `mao_board_backlight_set()` = mutex + plan + shutdown wait (`esp_timer`, sleeps the bulk) + pulse train in a critical section with `esp_rom_delay_us`; unchanged step = nothing sent. Dev command `mao backlight <0..100> \| step <n> \| edge` (dev builds only) | Item 2 |
++| `boards/main_a0/mao_board_a0_priv.h` | `A0_EXP_INPUT_MASK` = P7 only (was P6 + P7); `A0_BACKLIGHT_MAX_PCT` removed; board-ID comment for 3.18 V; `A0_LCD_PCLK_HZ` from `CONFIG_MAO_A0_LCD_PCLK_MHZ` | Items 2, 3, 6, 9 |
++| `Kconfig` | `MAO_A0_LCD_PCLK_MHZ` (int 10–80, default 80, depends on `MAO_BOARD_MAIN_A0`) | Item 9 |
++| `boards/main_a0/mao_board_a0.c` | `config_irq_inputs()`: no pulls on IMU INT1/INT2; `caps.charge_control`; `mao_board_line_get(MAO_LINE_CHARGING)` → `ESP_ERR_NOT_SUPPORTED` (no I2C access); new `mao_board_charge_enable()` (P6 = !enable) | Items 3, 4, 5 |
++| `boards/main_a0/mao_board_a0_i2c.c` | Header comment: GPIO39, R22, P6 output and what a reset does to /CE; reset-test comment (stuck reset now leaves 0x80); expander-test POLARITY patterns 0x2A/0x15 → 0x6A/0x15 so P6 is exercised too. Init order unchanged: OUTPUT (0x00 = charging enabled) before CONFIG | Items 1, 3 |
++| `boards/main_a0/mao_board_a0_sleep.c` | IMU INT1 armed for ext1 wake only if the IMU answered at boot; comments (P6 low in deep sleep = charging enabled; GPIO21 carries only the gauge / light alert) | Items 3, 5 |
++| `boards/lcdkit/mao_board_lcdkit_ext.c` | `mao_board_charge_enable()` stub → `ESP_ERR_NOT_SUPPORTED` | API completeness |
++| `include/mao_board.h` | `caps.charge_control`; `mao_board_charge_enable()`; `MAO_LINE_CHARGING` and `mao_board_backlight_set()` documentation | New API |
++| `mao_board_common.c` | `mao board` prints `charge_control`, and `charging=-` where the line is not wired | Item 3 |
++| `CMakeLists.txt` | `aw9364_dimming.c` in the A0 sources; `esp_timer` in PRIV_REQUIRES | Item 2 |
++
++Power (`components/mao_power`):
++
++| File | What changed | Why |
++|---|---|---|
++| `include/mao_power_policy.h`, `mao_power_policy.c` | `MAO_CHARGE_PAUSE_C` 43, `MAO_CHARGE_RESUME_C` 40, `MAO_CHARGE_RATE_MIN_PCT_H` 1.0; `mao_policy_charge_pause(usb, paused, temp_valid, temp_c)`; `mao_charge_input_t` + `mao_policy_charging()` | Pure, host-tested decisions (items 3, 4) |
++| `include/mao_power.h` | `mao_power_temp_source_t`, `mao_power_set_temp_source()`; `mao_power_status_t.charge_paused`, `.temp_valid`, `.temp_c`; header comment | Items 3, 4 |
++| `mao_power.c` | `charging_now()` / `update_charging()` (board line if the board has one, else the estimate; `CHARGING_DONE` not posted for a temperature pause); `charge_limit()` every 10 s on USB and at once on plug / unplug; USB change re-reads the gauge; `check_alert()` reads the alert line on every expander interrupt (it used to rely on the CHG read to clear the INT); DROWSY light-sleep timer capped at 10 s on USB; first check 10 s after init (the source registers later); `mao power` prints the limit; dev command `mao power charge off \| on` holds charging off by hand (`REQ_CHARGE_HOLD`) for the bring-up check of the /CE path | Items 3, 4 |
++
++Sense (`components/mao_sense`):
++
++| File | What changed | Why |
++|---|---|---|
++| `mao_sense_imu.c`, `mao_sense_priv.h` | `sense_imu_temperature()`: OUT_TEMP_L/H 0x20/0x21, 25 °C + raw / 256; `ESP_ERR_INVALID_STATE` while powered down (stale register); quiet on failure | Item 4 (LSM6DS3TR-C fallback has the same registers and scale) |
++| `include/mao_sense.h`, `mao_sense.c` | Public `mao_sense_imu_temperature()` under the sense device lock; registered with `mao_power_set_temp_source()` when the IMU runs | Item 4, without a mao_power → mao_sense dependency (mao_sense already depends on mao_power) |
++
++Self-test (`components/mao_selftest/mao_selftest.c`): `board_id` limits 1480–1720 mV
++(item 6); switched-rail pad floor 3000 → 2850 mV (`LIM_PAD_ON_MIN_MV`: on a 3.10 V rail the
++100 R-fed MIC_VDD / IR_RX_VCC pads read ≈ 2.97 V, sim S5/S6); `charger` step no longer reads `MAO_LINE_CHARGING` (it would fail with
++`ESP_ERR_NOT_SUPPORTED`): passes on PGOOD and, with `caps.charge_control`, a
++readable board temperature; reports estimated charging, pause and temperature;
++`expander_reset` comment GPIO39.
++
++Host tests (`tests/host`): `test_backlight.c` (new: percent → step table, every
++percent 1–100 never below the request and < 1 step above it, step currents vs
++datasheet table 1, all 17 × 17 step transitions through a driver model that
++refuses edge 17, plan cases); `test_policy.c` (charge pause hysteresis,
++fail-safe incl. NaN, a heat/cool sequence with exactly two transitions, the
++charging estimate); `Makefile` (sources + include path), `mini_test.h`,
++`test_main.c`, `run.sh`. 160 → 240 checks.
++
++Docs: `docs/firmware/mao-a0-firmware.md`, this file.
++
++## 3. API changes
++
++New:
++
++```c
++/* mao_board.h */
++bool charge_control;                                  /* in mao_board_caps_t */
++esp_err_t mao_board_charge_enable(bool enable);       /* A0: expander P6 = !enable; others: ESP_ERR_NOT_SUPPORTED */
++
++/* mao_power.h */
++typedef esp_err_t (*mao_power_temp_source_t)(float *celsius);
++void mao_power_set_temp_source(mao_power_temp_source_t source);
++/* mao_power_status_t: bool charge_paused; bool temp_valid; float temp_c; */
++
++/* mao_power_policy.h (pure) */
++bool mao_policy_charge_pause(bool usb_present, bool paused, bool temp_valid, float temp_c);
++bool mao_policy_charging(const mao_charge_input_t *in);
++
++/* mao_sense.h */
++esp_err_t mao_sense_imu_temperature(float *celsius);
++```
++
++Changed behaviour, same signature:
++- `mao_board_backlight_set(percent)`: A0 now 16 current steps (rounded up), no
++  80 % cap; a brighter step goes dark for ~3 ms; safe from any task.
++- `mao_board_line_get(MAO_LINE_CHARGING)`: `ESP_ERR_NOT_SUPPORTED` on the A0.
++  Anything outside `mao_power` that read it must use
++  `mao_power_get_status()->charging` instead (in this tree: the self-test and
++  `mao board`).
++- `mao_power_status_t.charging` on the A0 is an estimate (see
++  `mao_policy_charging()` for its limits); `MAO_EVENT_CHARGING_DONE` means the
++  estimate went false with USB present and no temperature pause.
++- Expander CONFIG readback is 0x80 (was 0xC0).
++
++Removed: `MAO_PIN_LCD_BL_PWM`, `MAO_EXP_CHG_N`, `A0_BACKLIGHT_MAX_PCT`.
++
++## 4. Porting onto a newer tree
++
++1. Bring `hardware/mao/design/pinmap.py` (and `circuit.py`) of the revised
++   board into the tree, then run `python3 hardware/mao/design/gen_pinmap.py`
++   from the repo root. Do not apply the patch's `mao_board_pins.h` hunk by hand.
++2. Apply the rest: `git apply --3way --exclude='*mao_board_pins.h' docs/firmware/mao-a0-rev.patch`
++   (or `patch -p1`). Resolve conflicts with the tables in §2 as the intent.
++3. If the newer tree moved things, check by symbol rather than by line:
++   - `grep -rn "MAO_PIN_LCD_BL_PWM\|MAO_EXP_CHG_N\|A0_BACKLIGHT_MAX_PCT\|ledc" components/mao_board/boards/main_a0` → nothing left.
++   - `grep -rn "MAO_LINE_CHARGING" components` → only `mao_board.h`, the board
++     implementations, `mao_board_common.c` (tolerates "not supported") and
++     `mao_power.c` (`s_chg_line`). Any new reader must handle
++     `ESP_ERR_NOT_SUPPORTED` or use `mao_power_get_status()`.
++   - `grep -rn "GPIO ?38\|GPIO ?39" components docs/firmware` → GPIO38 only for
++     IR_TX, GPIO39 only for EXP_RST_N.
++   - Every path that turns the panel rail off or sleeps must call
++     `mao_board_backlight_set(0)` first: the LEDs are on VSYS now, so the rail
++     no longer darkens them.
++   - Every expander bulk write (`a0_expander_write_all`) must keep P6 at 0 unless
++     the charge limit wants it high; deep sleep writes 0x00 on purpose.
++   - New calls of `mao_board_backlight_set()` from an ISR are not allowed
++     (mutex, possible 3 ms wait).
++4. If the newer `mao_power` restructured its task: keep (a) a 10 s
++   `charge_limit()` while USB is present, also inside the DROWSY light-sleep
++   loop, (b) `charge_limit(true)` on every USB change, (c) reading
++   `MAO_LINE_SENSE_ALERT` on every expander interrupt (it clears the
++   TCA6408A INT; nothing else does now), (d) charging re-evaluated after every
++   gauge reading.
++5. If the newer `mao_sense` starts before `mao_power`: fine,
++   `mao_power_set_temp_source()` may be called before `mao_power_init()`.
++6. Build all profiles (`build_all.sh s3-dev s3-factory s3-release c3-dev
++   c3-release` or `idf.py` per README) with zero warnings, and
++   `tests/host/run.sh` (240 checks at the time of writing, plus whatever the
++   newer tree adds).
++   An existing build directory does not pick up the new Kconfig option by itself
++   (CMake does not re-run for a component Kconfig change): run `idf.py reconfigure`
++   once per build directory, or build from a clean one. Without it the build stops
++   at `CONFIG_MAO_A0_LCD_PCLK_MHZ undeclared`.
++
++## 5. Bring-up checks on the revised board
++
++**AW9364 steps and wrap.** With a dev build on the console:
++1. `mao backlight step 1` … `mao backlight step 16`: 16 visibly distinct,
++   monotonic levels; `mao backlight 0` dark.
++2. Measure the LED current (ammeter in series with the panel's VLED+, panel
++   pin 7 = J301 pad 12, e.g. through an FPC breakout; or the drop across a
++   temporary shunt in that feed): `mao backlight 100` ≈ 40 mA (datasheet
++   2 × 20 mA, 33–47 mA spread), `mao backlight 50` ≈ 20 mA, `step 16`
++   ≈ 2.5 mA. Record the values. Check down to the lowest VSYS of interest
++   (full current is specified to VSYS ≈ 3.25 V).
++3. Wrap test: `mao backlight step 16` (dimmest), then `mao backlight edge`
++   (edge 17). If the panel jumps to full brightness, edge 17 wraps to step 1;
++   if nothing changes, it saturates. The firmware never relies on either, but
++   if it wraps, `aw9364_plan()` could reach a brighter step by
++   (16 − n_cur + n_new) more edges instead of the 3 ms shutdown. The next
++   `mao backlight` set restarts the driver from a known state.
++4. Run the self-test's `backlight` step (fade 100 → 0 → 100 in 10 % steps):
++   look for the 3 ms dark gap on each brighter step during the fade-in. If it
++   is visible and the part wraps, use the wrap path (step 3).
++5. Scope EN (GPIO45) once: enable edge, ≥ 20 µs high, then ~2 µs low / ~2 µs
++   high per edge; shutdown gaps ≥ 3 ms; nothing on EN between changes.
++
++**IR LEDs dark at boot.** Power-on, reset button, `mao reboot`, a panic
++reset and a deep-sleep wake: the IR LEDs (camera on the LED window) stay dark
++until `mao ir send`. GPIO38 has no reset pull and the 100 k gate pull-down holds
++the MOSFET off. `mao selftest` `expander_reset` must still pass (pulse on GPIO39,
++TP11 XRST).
++
++**Charge pause by hand.** Dev builds: `mao power charge off` holds /CE high
++(expander P6) through the power task; the charge current falls to ~0 within a
++second and `mao power` shows `PAUSED (console hold)`. `mao power charge on`
++releases it to the temperature limit. (`mao_power.c`: `REQ_CHARGE_HOLD`,
++`s_charge_hold`.)
++
++**Charge pause by heating.** On USB with a partly discharged cell:
++1. `mao power` shows `charge limit: board xx.x C` and `charging=1`.
++2. Compare the IMU temperature with a thermocouple on the board at room
++   temperature after 10 min idle: the LSM6DSOX offset is only specified as
++   ±15 °C. If the offset is systematic, correct it in
++   `sense_imu_temperature()` (or move the 43 / 40 °C thresholds) and record why.
++3. Warm the board (hot air from a distance, or a warm plate) past 43 °C: the log
++   shows `charging paused: board 43.x C >= 43 C`, `mao power` shows `PAUSED`,
++   and the charge current (ammeter in the cell lead) falls to ~0 while MAO keeps
++   running from USB. TP-level check: BQ24073 /CE (expander P6) high.
++4. Let it cool below 40 °C: `charging resumed`, current back.
++5. Unplug USB while paused: /CE returns low (`charging enabled again (USB
++   removed)`). Plug in hot: the pause comes back at once (check on plug-in).
++6. Fail-safe: with the IMU missing or its read failing, the log shows once
++   `charge limit: no board temperature ... charging stays enabled`.
++
++**IMU stays on I2C.** Power-cycle the board ten times (including fast
++off/on and a brown-out from a bench supply) and check `mao sense` reports the
++IMU every time (I3C-only lock-out would make it vanish until a full power
++cycle). Also check the IMU wake from deep sleep still works (no pull on INT1:
++the IMU drives it push-pull, active low).
++
++**Other.** Board ID reads ≈ 1590 mV (`mao board`), inside the self-test's
++1480–1720 mV; `mao board` shows `charge_control=1` and `charging=- (see mao
++power)`; the expander test and reset test pass with CONFIG 0x80.
++
++## 6. Checklist
++
++- [ ] `pinmap.py` of the revised board in the tree; `gen_pinmap.py` run; header not hand-edited
++- [ ] Patch applied except the generated header; conflicts resolved per §2
++- [ ] No `MAO_PIN_LCD_BL_PWM`, `MAO_EXP_CHG_N`, `A0_BACKLIGHT_MAX_PCT`, A0 LEDC code left
++- [ ] `A0_EXP_INPUT_MASK` = P7 only; expander init writes OUTPUT (P6 = 0) before CONFIG
++- [ ] No pull-ups on IMU INT1/INT2; IMU wake armed only with the IMU present
++- [ ] Every rail-off / sleep path sets the backlight to 0 first
++- [ ] Nobody outside `mao_power` relies on `MAO_LINE_CHARGING` succeeding on the A0
++- [ ] `charge_limit()` runs every 10 s on USB (also while DROWSY) and on every USB change; fails safe to enabled
++- [ ] Every expander interrupt reads `MAO_LINE_SENSE_ALERT`
++- [ ] Self-test `board_id` limits 1480–1720 mV; `charger` step uses the power status
++- [ ] `CONFIG_MAO_A0_LCD_PCLK_MHZ` present (default 80); `idf.py reconfigure` run in old build directories
++- [ ] All five configurations build with zero warnings; host tests pass
++- [ ] Bring-up (§5 and `mao-bringup.md` §3): colour test at 80 MHz passed (or 40 set and recorded), 16 steps, ~40 mA at 100 %, wrap result recorded, fade-in gap judged, IR dark at boot, pause at 43 °C / resume at 40 °C seen, IMU temperature offset recorded, IMU survives power cycles
++- [ ] Hardware docs: `docs/hardware/mao-factory-test.md` and `mao-bringup.md` already describe the revised board
++      (board_id 1480–1720 mV, CONFIG 0x80, GPIO39 = EXP_RST_N / TP11, AW9364 backlight, 207 mA charge,
++      the 80 / 40 MHz panel clock check); carry them over with the hardware, not by hand
+diff --git a/tests/host/Makefile b/tests/host/Makefile
+index df0a89c..1953735 100644
+--- a/tests/host/Makefile
++++ b/tests/host/Makefile
+@@ -6,12 +6,13 @@ BUILD   ?= build
+ CFLAGS  := -std=c99 -O1 -g -Wall -Wextra -Wshadow -Wpedantic -Werror -Wno-unused-parameter \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I. -I$(ROOT)/components/mao_perception/include -I$(ROOT)/components/mao_perception/core \
+-           -I$(ROOT)/components/mao_power/include
++           -I$(ROOT)/components/mao_power/include -I$(ROOT)/components/mao_board/boards/main_a0
+ LDFLAGS := -fsanitize=address,undefined -lm
+ 
+-SRCS := test_main.c test_percept.c test_policy.c \
++SRCS := test_main.c test_percept.c test_policy.c test_backlight.c \
+         $(ROOT)/components/mao_perception/core/percept_engine.c \
+-        $(ROOT)/components/mao_power/mao_power_policy.c
++        $(ROOT)/components/mao_power/mao_power_policy.c \
++        $(ROOT)/components/mao_board/boards/main_a0/aw9364_dimming.c
+ 
+ .PHONY: test clean
+ test: $(BUILD)/mao_host_tests
+@@ -19,7 +20,8 @@ test: $(BUILD)/mao_host_tests
+ 
+ $(BUILD)/mao_host_tests: $(SRCS) mini_test.h $(wildcard $(ROOT)/components/mao_perception/core/*.h) \
+                          $(ROOT)/components/mao_perception/include/mao_percept.h \
+-                         $(ROOT)/components/mao_power/include/mao_power_policy.h
++                         $(ROOT)/components/mao_power/include/mao_power_policy.h \
++                         $(ROOT)/components/mao_board/boards/main_a0/aw9364_dimming.h
+ 	@mkdir -p $(BUILD)
+ 	$(CC) $(CFLAGS) $(SRCS) -o $@ $(LDFLAGS)
+ 
+diff --git a/tests/host/mini_test.h b/tests/host/mini_test.h
+index 5037a66..cb25592 100644
+--- a/tests/host/mini_test.h
++++ b/tests/host/mini_test.h
+@@ -35,3 +35,4 @@ void run_test(const char *name, test_fn_t fn);
+ /* Suites */
+ void suite_percept(void);
+ void suite_policy(void);
++void suite_backlight(void);
+diff --git a/tests/host/run.sh b/tests/host/run.sh
+index ace6dff..bf70da1 100755
+--- a/tests/host/run.sh
++++ b/tests/host/run.sh
+@@ -1,5 +1,5 @@
+ #!/bin/sh
+-# Run MAO's host unit tests (perception engine, power policy).
++# Run MAO's host unit tests (perception engine, power policy, AW9364 steps).
+ #   tests/host/run.sh            local cc/gcc + make if available, else Docker
+ #   tests/host/run.sh --docker   always in espressif/idf:v6.0.3 (gcc, Linux)
+ set -e
+diff --git a/tests/host/test_backlight.c b/tests/host/test_backlight.c
+new file mode 100644
+index 0000000..1700e6c
+--- /dev/null
++++ b/tests/host/test_backlight.c
+@@ -0,0 +1,130 @@
++/* AW9364 backlight: percent -> step, and the edge plan between any two
++ * steps, checked against a model of the driver that refuses to count past
++ * edge 16 (the datasheet does not say whether edge 17 wraps). */
++#include "mini_test.h"
++#include "aw9364_dimming.h"
++
++static void test_percent_to_step(void)
++{
++    CHECK_EQ(aw9364_step_from_percent(0), 0);
++    CHECK_EQ(aw9364_step_from_percent(1), 16);      /* dimmest step, never off */
++    CHECK_EQ(aw9364_step_from_percent(6), 16);      /* 6 % <= 1/16 */
++    CHECK_EQ(aw9364_step_from_percent(7), 15);
++    CHECK_EQ(aw9364_step_from_percent(12), 15);     /* 12 % <= 2/16 (12.5 %) */
++    CHECK_EQ(aw9364_step_from_percent(13), 14);
++    CHECK_EQ(aw9364_step_from_percent(25), 13);     /* 4/16 */
++    CHECK_EQ(aw9364_step_from_percent(50), 9);      /* 8/16 = 10 mA */
++    CHECK_EQ(aw9364_step_from_percent(51), 8);
++    CHECK_EQ(aw9364_step_from_percent(75), 5);      /* 12/16 */
++    CHECK_EQ(aw9364_step_from_percent(93), 2);      /* 93 % <= 15/16 (93.75 %) */
++    CHECK_EQ(aw9364_step_from_percent(94), 1);      /* above 15/16: full current */
++    CHECK_EQ(aw9364_step_from_percent(100), 1);     /* 20 mA per channel, 40 mA total */
++    CHECK_EQ(aw9364_step_from_percent(101), 1);
++    CHECK_EQ(aw9364_step_from_percent(255), 1);
++}
++
++static void test_step_never_below_request(void)
++{
++    /* Every percent maps to a step in range whose current is at least the
++     * requested share of 20 mA and less than one step (1.25 mA) above it;
++     * brighter requests never give a dimmer step. */
++    int bad = 0;
++    uint8_t prev = 17;
++    for (int p = 1; p <= 100; p++) {
++        const uint8_t step = aw9364_step_from_percent((uint8_t)p);
++        const uint32_t ua = aw9364_step_current_ua(step);
++        const uint32_t want_ua = 200u * (uint32_t)p;   /* p % of 20 mA */
++        if (step < 1 || step > 16 || ua < want_ua || ua >= want_ua + 1250u || step > prev) {
++            bad++;
++        }
++        prev = step;
++    }
++    CHECK_EQ(bad, 0);
++}
++
++static void test_step_current_table(void)
++{
++    /* Datasheet table 1: edge n -> (17 - n) x 1.25 mA. */
++    CHECK_EQ(aw9364_step_current_ua(0), 0);
++    CHECK_EQ(aw9364_step_current_ua(1), 20000);
++    CHECK_EQ(aw9364_step_current_ua(2), 18750);
++    CHECK_EQ(aw9364_step_current_ua(9), 10000);
++    CHECK_EQ(aw9364_step_current_ua(12), 6250);
++    CHECK_EQ(aw9364_step_current_ua(16), 1250);
++    CHECK_EQ(aw9364_step_current_ua(17), 0);
++}
++
++/* The driver as the datasheet describes it, minus the unknown wrap. */
++typedef struct {
++    uint8_t step;        /* 0 = off */
++    bool overflow;       /* an edge 17 was asked for */
++} model_t;
++
++static void model_apply(model_t *m, aw9364_plan_t plan)
++{
++    if (plan.shutdown) {
++        m->step = 0;     /* EN low >= 3 ms > TOFF */
++    }
++    for (uint8_t i = 0; i < plan.edges; i++) {
++        if (m->step == 16) {
++            m->overflow = true;
++        } else {
++            m->step++;   /* from off: the enable edge is step 1 */
++        }
++    }
++}
++
++static void test_plan_all_transitions(void)
++{
++    int wrong = 0, overflow = 0, restarts_dimmer = 0;
++    for (uint8_t from = 0; from <= 16; from++) {
++        for (uint8_t to = 0; to <= 16; to++) {
++            model_t m = { .step = from };
++            const aw9364_plan_t plan = aw9364_plan(from, to);
++            model_apply(&m, plan);
++            wrong += m.step != to;
++            overflow += m.overflow;
++            /* Dimming from an on state never blinks the panel dark. */
++            restarts_dimmer += from != 0 && to > from && plan.shutdown;
++        }
++    }
++    CHECK_EQ(wrong, 0);
++    CHECK_EQ(overflow, 0);
++    CHECK_EQ(restarts_dimmer, 0);
++}
++
++static void test_plan_cases(void)
++{
++    aw9364_plan_t p = aw9364_plan(0, 1);
++    CHECK(p.shutdown);
++    CHECK_EQ(p.edges, 1);                 /* just the enable edge */
++    p = aw9364_plan(0, 16);
++    CHECK_EQ(p.edges, 16);
++    p = aw9364_plan(1, 16);               /* dimmer: 15 more edges */
++    CHECK(!p.shutdown);
++    CHECK_EQ(p.edges, 15);
++    p = aw9364_plan(9, 8);                /* one step brighter: restart, 8 edges */
++    CHECK(p.shutdown);
++    CHECK_EQ(p.edges, 8);
++    p = aw9364_plan(5, 0);                /* off */
++    CHECK(p.shutdown);
++    CHECK_EQ(p.edges, 0);
++    p = aw9364_plan(7, 7);                /* unchanged: nothing on the wire */
++    CHECK(!p.shutdown);
++    CHECK_EQ(p.edges, 0);
++    p = aw9364_plan(0, 0);
++    CHECK(!p.shutdown);
++    CHECK_EQ(p.edges, 0);
++    p = aw9364_plan(40, 3);               /* out-of-range steps clamp to 16 */
++    CHECK(p.shutdown);
++    CHECK_EQ(p.edges, 3);
++}
++
++void suite_backlight(void)
++{
++    RUN(test_percent_to_step);
++    RUN(test_step_never_below_request);
++    RUN(test_step_current_table);
++    RUN(test_plan_all_transitions);
++    RUN(test_plan_cases);
++}
+diff --git a/tests/host/test_main.c b/tests/host/test_main.c
+index 8482377..d145ecc 100644
+--- a/tests/host/test_main.c
++++ b/tests/host/test_main.c
+@@ -1,6 +1,8 @@
+ /*
+- * MAO host unit tests: the perception engine and the power policy, which
+- * are plain C with no ESP-IDF dependency. Run with tests/host/run.sh.
++ * MAO host unit tests: the perception engine, the power policy (states,
++ * charge temperature limit, charging estimate) and the A0 backlight's
++ * AW9364 step logic, which are plain C with no ESP-IDF dependency. Run with
++ * tests/host/run.sh.
+  */
+ #include "mini_test.h"
+ 
+@@ -22,6 +24,8 @@ int main(void)
+     suite_percept();
+     printf("power policy\n");
+     suite_policy();
++    printf("backlight (AW9364)\n");
++    suite_backlight();
+     printf("\n%d checks, %d failure(s)\n", g_checks, g_failures);
+     printf("%s\n", g_failures ? "HOST TESTS FAILED" : "HOST TESTS PASSED");
+     return g_failures ? 1 : 0;
+diff --git a/tests/host/test_policy.c b/tests/host/test_policy.c
+index b020074..65e3df3 100644
+--- a/tests/host/test_policy.c
++++ b/tests/host/test_policy.c
+@@ -1,4 +1,6 @@
+-/* Power policy (ACTIVE / IDLE / DROWSY / DEEP SLEEP) decisions. */
++/* Power policy (ACTIVE / IDLE / DROWSY / DEEP SLEEP) decisions, the charge
++ * temperature limit and the charging estimate. */
++#include <math.h>
+ #include "mini_test.h"
+ #include "mao_power_policy.h"
+ 
+@@ -98,6 +100,87 @@ static void test_wraparound(void)
+     CHECK_EQ(mao_policy_decide(&c, &in), MAO_POLICY_IDLE);   /* 60 s idle across the wrap */
+ }
+ 
++/* ---- Charging ------------------------------------------------------------ */
++
++static void test_charge_pause_hysteresis(void)
++{
++    /* Rising: enabled up to 42.9 C, paused from 43.0 C. */
++    CHECK(!mao_policy_charge_pause(true, false, true, 25.0f));
++    CHECK(!mao_policy_charge_pause(true, false, true, 42.9f));
++    CHECK(mao_policy_charge_pause(true, false, true, 43.0f));
++    CHECK(mao_policy_charge_pause(true, false, true, 60.0f));
++    /* Falling: stays paused down to 40.1 C, resumes at 40.0 C. */
++    CHECK(mao_policy_charge_pause(true, true, true, 42.0f));
++    CHECK(mao_policy_charge_pause(true, true, true, 40.1f));
++    CHECK(!mao_policy_charge_pause(true, true, true, 40.0f));
++    CHECK(!mao_policy_charge_pause(true, true, true, 20.0f));
++    /* Inside the band the decision keeps the current state. */
++    CHECK(!mao_policy_charge_pause(true, false, true, 41.5f));
++    CHECK(mao_policy_charge_pause(true, true, true, 41.5f));
++}
++
++static void test_charge_pause_fail_safe(void)
++{
++    /* No temperature: never paused, even if it was (the hardware NTC window
++     * stays the limit). No USB: back to the hardware default. */
++    CHECK(!mao_policy_charge_pause(true, true, false, 99.0f));
++    CHECK(!mao_policy_charge_pause(true, false, false, 99.0f));
++    CHECK(!mao_policy_charge_pause(false, true, true, 60.0f));
++    CHECK(!mao_policy_charge_pause(false, false, true, 60.0f));
++    /* A NaN reading from a broken source never pauses. */
++    CHECK(!mao_policy_charge_pause(true, false, true, NAN));
++    CHECK(!mao_policy_charge_pause(true, true, true, NAN));
++}
++
++static void test_charge_thermal_sequence(void)
++{
++    /* A charger warming the board, then cooling: one pause, one resume. */
++    static const float kTemps[] = { 30, 38, 41, 42.9f, 43.2f, 44, 42, 40.5f, 40.0f, 39, 42, 42.9f };
++    static const bool kPaused[] = { 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0 };
++    bool paused = false;
++    int transitions = 0;
++    for (unsigned i = 0; i < sizeof(kTemps) / sizeof(kTemps[0]); i++) {
++        const bool next = mao_policy_charge_pause(true, paused, true, kTemps[i]);
++        transitions += next != paused;
++        paused = next;
++        CHECK_EQ(paused, kPaused[i]);
++    }
++    CHECK_EQ(transitions, 2);
++}
++
++static void test_charging_estimate(void)
++{
++    mao_charge_input_t in = {
++        .usb_present = true, .charge_paused = false, .gauge_valid = true, .soc_pct = 60.0f, .rate_pct_per_h = 35.0f,
++    };
++    CHECK(mao_policy_charging(&in));                 /* CC phase */
++    in.rate_pct_per_h = -4.0f;
++    CHECK(mao_policy_charging(&in));                 /* just plugged in: CRATE has not turned yet */
++    in.soc_pct = 100.0f;
++    in.rate_pct_per_h = 0.0f;
++    CHECK(!mao_policy_charging(&in));                /* full and idle: done */
++    in.rate_pct_per_h = 1.0f;
++    CHECK(!mao_policy_charging(&in));                /* noise at the threshold is not charging */
++    in.rate_pct_per_h = 1.3f;
++    CHECK(mao_policy_charging(&in));                 /* a top-up past 100 % */
++    in.soc_pct = 99.9f;
++    in.rate_pct_per_h = 0.0f;
++    CHECK(mao_policy_charging(&in));                 /* not full yet */
++    in.charge_paused = true;
++    CHECK(!mao_policy_charging(&in));                /* held off by the temperature limit */
++    in.charge_paused = false;
++    in.usb_present = false;
++    in.rate_pct_per_h = 20.0f;
++    CHECK(!mao_policy_charging(&in));                /* no USB, a stale positive CRATE */
++    in.usb_present = true;
++    in.gauge_valid = false;
++    in.soc_pct = 100.0f;
++    in.rate_pct_per_h = -10.0f;
++    CHECK(mao_policy_charging(&in));                 /* no gauge: USB and enabled */
++    in.charge_paused = true;
++    CHECK(!mao_policy_charging(&in));
++}
++
+ void suite_policy(void)
+ {
+     RUN(test_progression);
+@@ -106,4 +189,8 @@ void suite_policy(void)
+     RUN(test_hold_awake_and_disabled);
+     RUN(test_redrowse_after_idle_wake);
+     RUN(test_wraparound);
++    RUN(test_charge_pause_hysteresis);
++    RUN(test_charge_pause_fail_safe);
++    RUN(test_charge_thermal_sequence);
++    RUN(test_charging_estimate);
+ }

@@ -1,0 +1,1403 @@
+{
+ "board": "MAO_MAIN_A0.kicad_pcb",
+ "parts": 142,
+ "findings": [],
+ "speaker_wall_clearance_mm": 1.1,
+ "max_body_r_mm": [
+  28.96,
+  "LS501"
+ ],
+ "limits_mm": {
+  "wall: body r max": 29.0,
+  "under the panel": 1.2,
+  "under the window (pressed)": 4.35,
+  "under the ring lip": 0.95,
+  "B side": 3.2
+ },
+ "parts_detail": [
+  {
+   "ref": "C101",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    11.61,
+    12.81
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C102",
+   "side": "F",
+   "height_mm": 0.8,
+   "r_mm": [
+    13.04,
+    14.96
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C103",
+   "side": "F",
+   "height_mm": 0.8,
+   "r_mm": [
+    16.76,
+    18.63
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C104",
+   "side": "B",
+   "height_mm": 0.5,
+   "r_mm": [
+    18.2,
+    19.44
+   ]
+  },
+  {
+   "ref": "C105",
+   "side": "B",
+   "height_mm": 0.8,
+   "r_mm": [
+    11.37,
+    13.29
+   ]
+  },
+  {
+   "ref": "C106",
+   "side": "B",
+   "height_mm": 0.8,
+   "r_mm": [
+    10.15,
+    11.88
+   ]
+  },
+  {
+   "ref": "C107",
+   "side": "B",
+   "height_mm": 0.8,
+   "r_mm": [
+    10.17,
+    11.95
+   ]
+  },
+  {
+   "ref": "C109",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    13.52,
+    14.76
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C110",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    16.8,
+    18.04
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C111",
+   "side": "B",
+   "height_mm": 0.5,
+   "r_mm": [
+    6.35,
+    7.6
+   ]
+  },
+  {
+   "ref": "C201",
+   "side": "B",
+   "height_mm": 0.8,
+   "r_mm": [
+    22.31,
+    24.03
+   ]
+  },
+  {
+   "ref": "C202",
+   "side": "B",
+   "height_mm": 0.5,
+   "r_mm": [
+    21.83,
+    22.88
+   ]
+  },
+  {
+   "ref": "C203",
+   "side": "B",
+   "height_mm": 0.5,
+   "r_mm": [
+    20.06,
+    21.3
+   ]
+  },
+  {
+   "ref": "C204",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    12.43,
+    13.68
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C205",
+   "side": "B",
+   "height_mm": 0.5,
+   "r_mm": [
+    13.19,
+    14.38
+   ]
+  },
+  {
+   "ref": "C301",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    11.11,
+    12.33
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C302",
+   "side": "F",
+   "height_mm": 0.8,
+   "r_mm": [
+    10.8,
+    12.6
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C303",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    23.37,
+    24.63
+   ],
+   "zone": "under the ring lip",
+   "limit_mm": 0.95
+  },
+  {
+   "ref": "C304",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    23.38,
+    24.62
+   ],
+   "zone": "under the ring lip",
+   "limit_mm": 0.95
+  },
+  {
+   "ref": "C305",
+   "side": "B",
+   "height_mm": 0.5,
+   "r_mm": [
+    9.77,
+    10.92
+   ]
+  },
+  {
+   "ref": "C401",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    9.93,
+    10.97
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C402",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    9.1,
+    9.94
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C403",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    21.53,
+    22.77
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "C404",
+   "side": "F",
+   "height_mm": 0.8,
+   "r_mm": [
+    23.46,
+    25.38
+   ],
+   "zone": "under the ring lip",
+   "limit_mm": 0.95
+  },
+  {
+   "ref": "C405",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    21.17,
+    22.41
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "C406",
+   "side": "B",
+   "height_mm": 0.5,
+   "r_mm": [
+    24.5,
+    25.46
+   ]
+  },
+  {
+   "ref": "C407",
+   "side": "B",
+   "height_mm": 0.5,
+   "r_mm": [
+    23.1,
+    24.1
+   ]
+  },
+  {
+   "ref": "C501",
+   "side": "F",
+   "height_mm": 0.8,
+   "r_mm": [
+    19.26,
+    21.12
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "C502",
+   "side": "F",
+   "height_mm": 0.5,
+   "r_mm": [
+    18.23,
+    19.38
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "C503",
+   "side": "B",
+   "height_mm": 0.5,
+   "r_mm": [
+    18.49,
+    19.75
+   ]
+  },
+  {
+   "ref": "C504",
+   "side": "B",
+   "height_mm": 0.5,
+   "r_mm": [
+    16.02,
+    17.08
+   ]
+  },
+  {
+   "ref": "C505",
+   "side": "B",
+   "height_mm": 0.8,
+   "r_mm": [
+    22.89,
+    24.64
+   ]
+  },
+  {
+   "ref": "C506",
+   "side": "F",
+   "height_mm": 0.8,
+   "r_mm": [
+    23.01,
+    24.83
+   ],
+   "zone": "under the ring lip",
+   "limit_mm": 0.95
+  },
+  {
+   "ref": "D101",
+   "side": "B",
+   "height_mm": 1.0,
+   "r_mm": [
+    18.82,
+    21.34
+   ]
+  },
+  {
+   "ref": "D301",
+   "side": "F",
+   "height_mm": 0.4,
+   "r_mm": [
+    23.44,
+    24.55
+   ],
+   "zone": "under the ring lip",
+   "limit_mm": 0.95
+  },
+  {
+   "ref": "D302",
+   "side": "F",
+   "height_mm": 0.4,
+   "r_mm": [
+    24.34,
+    25.42
+   ],
+   "zone": "under the ring lip",
+   "limit_mm": 0.95
+  },
+  {
+   "ref": "D303",
+   "side": "F",
+   "height_mm": 0.4,
+   "r_mm": [
+    20.33,
+    21.62
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "D304",
+   "side": "B",
+   "height_mm": 0.4,
+   "r_mm": [
+    21.25,
+    22.54
+   ]
+  },
+  {
+   "ref": "D501",
+   "side": "B",
+   "height_mm": 1.0,
+   "r_mm": [
+    26.06,
+    29.72
+   ],
+   "note": "IR LED: fires through the wall"
+  },
+  {
+   "ref": "D502",
+   "side": "B",
+   "height_mm": 1.0,
+   "r_mm": [
+    26.06,
+    29.72
+   ],
+   "note": "IR LED: fires through the wall"
+  },
+  {
+   "ref": "E301",
+   "side": "F",
+   "height_mm": null,
+   "r_mm": [
+    26.06,
+    28.94
+   ]
+  },
+  {
+   "ref": "E302",
+   "side": "F",
+   "height_mm": null,
+   "r_mm": [
+    26.06,
+    28.94
+   ]
+  },
+  {
+   "ref": "FID1",
+   "side": "F",
+   "height_mm": null,
+   "r_mm": [
+    24.05,
+    27.0
+   ]
+  },
+  {
+   "ref": "FID2",
+   "side": "F",
+   "height_mm": null,
+   "r_mm": [
+    15.6,
+    18.26
+   ]
+  },
+  {
+   "ref": "FID3",
+   "side": "F",
+   "height_mm": null,
+   "r_mm": [
+    20.55,
+    23.33
+   ]
+  },
+  {
+   "ref": "FID4",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    25.18,
+    28.06
+   ]
+  },
+  {
+   "ref": "FID5",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    23.26,
+    26.15
+   ]
+  },
+  {
+   "ref": "FID6",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    24.83,
+    27.8
+   ]
+  },
+  {
+   "ref": "H1",
+   "side": "F",
+   "height_mm": null,
+   "r_mm": [
+    22.4,
+    27.6
+   ]
+  },
+  {
+   "ref": "H2",
+   "side": "F",
+   "height_mm": null,
+   "r_mm": [
+    22.4,
+    27.6
+   ]
+  },
+  {
+   "ref": "H3",
+   "side": "F",
+   "height_mm": null,
+   "r_mm": [
+    22.6,
+    27.41
+   ]
+  },
+  {
+   "ref": "J101",
+   "side": "B",
+   "height_mm": 3.2,
+   "r_mm": [
+    22.7,
+    29.99
+   ],
+   "note": "USB-C: mating face in the wall opening"
+  },
+  {
+   "ref": "J102",
+   "side": "B",
+   "height_mm": 2.96,
+   "r_mm": [
+    16.75,
+    22.48
+   ]
+  },
+  {
+   "ref": "J201",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    18.36,
+    26.33
+   ]
+  },
+  {
+   "ref": "J301",
+   "side": "B",
+   "height_mm": 1.0,
+   "r_mm": [
+    12.14,
+    16.74
+   ]
+  },
+  {
+   "ref": "J302",
+   "side": "F",
+   "height_mm": 3.8,
+   "r_mm": [
+    21.52,
+    25.41
+   ],
+   "note": "TOP spring: presses the window-border electrode"
+  },
+  {
+   "ref": "J303",
+   "side": "B",
+   "height_mm": 3.8,
+   "r_mm": [
+    22.94,
+    25.79
+   ],
+   "note": "REAR spring: presses the base electrode"
+  },
+  {
+   "ref": "J501",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    21.68,
+    25.55
+   ]
+  },
+  {
+   "ref": "L101",
+   "side": "B",
+   "height_mm": 1.2,
+   "r_mm": [
+    12.89,
+    15.0
+   ]
+  },
+  {
+   "ref": "LS501",
+   "side": "B",
+   "height_mm": 3.3,
+   "r_mm": [
+    20.88,
+    28.96
+   ]
+  },
+  {
+   "ref": "MK401",
+   "side": "B",
+   "height_mm": 0.98,
+   "r_mm": [
+    20.23,
+    23.86
+   ]
+  },
+  {
+   "ref": "Q101",
+   "side": "B",
+   "height_mm": 1.2,
+   "r_mm": [
+    17.16,
+    20.04
+   ]
+  },
+  {
+   "ref": "Q501",
+   "side": "B",
+   "height_mm": 1.2,
+   "r_mm": [
+    22.04,
+    24.55
+   ]
+  },
+  {
+   "ref": "R101",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    18.97,
+    20.17
+   ]
+  },
+  {
+   "ref": "R102",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    16.75,
+    17.96
+   ]
+  },
+  {
+   "ref": "R103",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    13.38,
+    14.58
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R104",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    11.29,
+    12.44
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R105",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    12.35,
+    13.57
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R106",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    17.0,
+    18.32
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R108",
+   "side": "B",
+   "height_mm": 0.55,
+   "r_mm": [
+    19.04,
+    22.06
+   ]
+  },
+  {
+   "ref": "R109",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    15.68,
+    17.0
+   ]
+  },
+  {
+   "ref": "R110",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    21.5,
+    22.8
+   ]
+  },
+  {
+   "ref": "R111",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    9.25,
+    10.57
+   ]
+  },
+  {
+   "ref": "R112",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    8.74,
+    10.05
+   ]
+  },
+  {
+   "ref": "R113",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    8.0,
+    9.24
+   ]
+  },
+  {
+   "ref": "R114",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    8.22,
+    9.5
+   ]
+  },
+  {
+   "ref": "R115",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    11.88,
+    13.15
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R116",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    13.54,
+    14.67
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R117",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    18.19,
+    19.48
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R201",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    20.2,
+    21.51
+   ]
+  },
+  {
+   "ref": "R202",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    10.18,
+    11.02
+   ]
+  },
+  {
+   "ref": "R203",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    13.66,
+    14.97
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R204",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    12.99,
+    14.3
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R205",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    11.43,
+    12.22
+   ]
+  },
+  {
+   "ref": "R206",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    12.96,
+    13.9
+   ]
+  },
+  {
+   "ref": "R207",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    18.64,
+    19.95
+   ]
+  },
+  {
+   "ref": "R208",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    18.23,
+    19.38
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R209",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    17.76,
+    19.05
+   ]
+  },
+  {
+   "ref": "R210",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    21.76,
+    23.05
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "R211",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    21.37,
+    22.68
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "R212",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    20.81,
+    22.11
+   ]
+  },
+  {
+   "ref": "R213",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    9.52,
+    10.5
+   ]
+  },
+  {
+   "ref": "R214",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    8.34,
+    9.36
+   ]
+  },
+  {
+   "ref": "R301",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    0.65,
+    1.12
+   ]
+  },
+  {
+   "ref": "R302",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    1.68,
+    2.3
+   ]
+  },
+  {
+   "ref": "R306",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    23.35,
+    24.65
+   ],
+   "zone": "under the ring lip",
+   "limit_mm": 0.95
+  },
+  {
+   "ref": "R307",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    19.23,
+    20.42
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "R308",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    21.13,
+    22.29
+   ]
+  },
+  {
+   "ref": "R309",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    18.2,
+    19.41
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R310",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    17.2,
+    18.44
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "R401",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    18.92,
+    19.87
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "R402",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    22.03,
+    23.1
+   ]
+  },
+  {
+   "ref": "R403",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    11.97,
+    13.27
+   ]
+  },
+  {
+   "ref": "R501",
+   "side": "B",
+   "height_mm": 0.45,
+   "r_mm": [
+    24.22,
+    26.15
+   ]
+  },
+  {
+   "ref": "R502",
+   "side": "B",
+   "height_mm": 0.45,
+   "r_mm": [
+    24.03,
+    25.91
+   ]
+  },
+  {
+   "ref": "R503",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    20.55,
+    21.66
+   ]
+  },
+  {
+   "ref": "R504",
+   "side": "B",
+   "height_mm": 0.35,
+   "r_mm": [
+    23.41,
+    24.72
+   ]
+  },
+  {
+   "ref": "R505",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    22.33,
+    23.62
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "R506",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    23.26,
+    24.49
+   ],
+   "zone": "under the ring lip",
+   "limit_mm": 0.95
+  },
+  {
+   "ref": "R507",
+   "side": "F",
+   "height_mm": 0.35,
+   "r_mm": [
+    19.55,
+    20.8
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "SW301",
+   "side": "F",
+   "height_mm": 1.5,
+   "r_mm": [
+    2.65,
+    5.79
+   ],
+   "note": "face switch: its stem meets the carrier boss"
+  },
+  {
+   "ref": "TP1",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    11.04,
+    13.1
+   ]
+  },
+  {
+   "ref": "TP10",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    5.8,
+    7.91
+   ]
+  },
+  {
+   "ref": "TP11",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    8.03,
+    9.66
+   ]
+  },
+  {
+   "ref": "TP13",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    8.54,
+    10.73
+   ]
+  },
+  {
+   "ref": "TP14",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    24.31,
+    26.41
+   ]
+  },
+  {
+   "ref": "TP15",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    21.58,
+    23.19
+   ]
+  },
+  {
+   "ref": "TP16",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    13.69,
+    15.69
+   ]
+  },
+  {
+   "ref": "TP2",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    7.38,
+    9.74
+   ]
+  },
+  {
+   "ref": "TP3",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    9.55,
+    11.87
+   ]
+  },
+  {
+   "ref": "TP4",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    11.98,
+    14.24
+   ]
+  },
+  {
+   "ref": "TP5",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    14.46,
+    16.65
+   ]
+  },
+  {
+   "ref": "TP6",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    16.78,
+    18.88
+   ]
+  },
+  {
+   "ref": "TP7",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    13.53,
+    15.13
+   ]
+  },
+  {
+   "ref": "TP8",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    10.83,
+    12.44
+   ]
+  },
+  {
+   "ref": "TP9",
+   "side": "B",
+   "height_mm": null,
+   "r_mm": [
+    5.23,
+    6.89
+   ]
+  },
+  {
+   "ref": "U101",
+   "side": "F",
+   "height_mm": 0.63,
+   "r_mm": [
+    17.37,
+    18.67
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "U102",
+   "side": "F",
+   "height_mm": 1.0,
+   "r_mm": [
+    12.9,
+    17.25
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "U103",
+   "side": "B",
+   "height_mm": 0.8,
+   "r_mm": [
+    18.5,
+    21.47
+   ]
+  },
+  {
+   "ref": "U104",
+   "side": "B",
+   "height_mm": 1.0,
+   "r_mm": [
+    10.06,
+    12.88
+   ]
+  },
+  {
+   "ref": "U105",
+   "side": "F",
+   "height_mm": 1.1,
+   "r_mm": [
+    13.44,
+    15.81
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "U201",
+   "side": "B",
+   "height_mm": 3.1,
+   "r_mm": [
+    9.25,
+    28.95
+   ]
+  },
+  {
+   "ref": "U202",
+   "side": "B",
+   "height_mm": 1.0,
+   "r_mm": [
+    13.74,
+    18.05
+   ]
+  },
+  {
+   "ref": "U301",
+   "side": "F",
+   "height_mm": 0.4,
+   "r_mm": [
+    25.06,
+    27.43
+   ],
+   "zone": "under the ring lip",
+   "limit_mm": 0.95
+  },
+  {
+   "ref": "U302",
+   "side": "F",
+   "height_mm": 0.4,
+   "r_mm": [
+    25.01,
+    27.46
+   ],
+   "zone": "under the ring lip",
+   "limit_mm": 0.95
+  },
+  {
+   "ref": "U303",
+   "side": "B",
+   "height_mm": 0.93,
+   "r_mm": [
+    7.7,
+    10.46
+   ]
+  },
+  {
+   "ref": "U401",
+   "side": "F",
+   "height_mm": 0.8,
+   "r_mm": [
+    5.93,
+    9.56
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "U402",
+   "side": "F",
+   "height_mm": 1.02,
+   "r_mm": [
+    17.84,
+    23.87
+   ],
+   "zone": "under the panel",
+   "limit_mm": 1.2
+  },
+  {
+   "ref": "U403",
+   "side": "F",
+   "height_mm": 0.65,
+   "r_mm": [
+    19.78,
+    22.62
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  },
+  {
+   "ref": "U501",
+   "side": "B",
+   "height_mm": 0.8,
+   "r_mm": [
+    14.71,
+    18.96
+   ]
+  },
+  {
+   "ref": "U502",
+   "side": "B",
+   "height_mm": 1.1,
+   "r_mm": [
+    17.02,
+    21.34
+   ]
+  },
+  {
+   "ref": "U503",
+   "side": "F",
+   "height_mm": 4.0,
+   "r_mm": [
+    19.12,
+    23.19
+   ],
+   "zone": "under the window",
+   "limit_mm": 4.35
+  }
+ ]
+}
