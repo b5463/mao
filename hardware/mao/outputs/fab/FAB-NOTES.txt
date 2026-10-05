@@ -9,7 +9,7 @@ BOARD
 - Copper 1 oz outer, 0.5 oz inner (default). No impedance control ordered: USB 2.0 full speed only.
 - ENIG. Black solder mask, white silkscreen (visible product board, ODD JOBS 172). Green is acceptable
   for the 5-unit EVT build if black costs schedule: inspection is easier on green (ODD JOBS 173).
-- Through vias only (no blind/buried): 149 x 0.3 mm drill / 0.6 mm pad (plane and power vias) and
+- Through vias only (no blind/buried): 148 x 0.3 mm drill / 0.6 mm pad (plane and power vias) and
   60 x 0.2 / 0.5 mm (designed fan-out beside fine-pitch parts and the module pin rows), all tented both
   sides. 24 x 0.2 mm thermal vias inside the U102 / U202 / U501 exposed pads and the module ground pad.
   Via-in-pad: choose epoxy-filled and capped (POFV) if JLC offers it for this order; otherwise

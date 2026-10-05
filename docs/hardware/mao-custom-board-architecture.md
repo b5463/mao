@@ -123,7 +123,7 @@ The character never reads hardware; a sensor never maps straight to an animation
   amplifier and a bar to the backlight driver), each load by its own 0.5–0.6 mm via.
 - Probe pads on B where their signals are: a service field between the charger and the module (GND, 3V3, SYS, BAT,
   SDA, SCL, XRST, BOOT, RST and three GNDs on a 2.8 mm grid of three rows, a ground beside every rail, each name
-  upright to the right of its pad), VBUS at the USB TVS, LCDV/MIC/IRV at their switches. Tag-Connect TC2030-NL at
+  upright beside its pad), VBUS at the USB TVS, LCDV/MIC/IRV at their switches. Tag-Connect TC2030-NL at
   the UART pins. Supplies and grounds on 1.2 mm pads, signals on 1.0 mm.
   IC ground and supply pins reach their plane through a via of their own or one shared with a neighbouring pin of
   the same net within 1.6 mm (`gnd_pad_vias.py`). Decoupling capacitors get a GND via within 1.2 mm of their pad
@@ -138,7 +138,7 @@ The character never reads hardware; a sensor never maps straight to an animation
 - Two M2 screws (heat-set inserts in the chassis) on the back half, one plastic locating peg on the antenna half (ODD JOBS 69).
 - Matte black solder mask, white silk, ENIG (visible product board; rule 173 caveat noted for inspection).
 - Design rules inside JLCPCB standard capability with margin: 0.15 mm track/space minimum (0.2 default), through vias only: 0.6/0.3 mm for planes and power, 0.5/0.2 mm for the designed fan-out at fine-pitch parts and the module pin rows, 0.2 mm thermal vias in the exposed pads.
-- Silkscreen: maker's mark and identity on both faces (MAO / MAIN A0 / 2026-10), a 6 × 6 mm S/N field on the face side with JLC's order-number placeholder under it, connector and test-pad names by function (type scale 1.5 / 1.2 / 0.9 / 0.8 mm), references for every IC, connector, transistor, diode and for each passive a service procedure names; the remaining resistors and capacitors are on the assembly drawing (`outputs/fab/ASSEMBLY-*.pdf`), see `design/mao_labels.py`. A few easter eggs hide under the cell, the speaker and the panel.
+- Silkscreen: maker's mark and identity on both faces (MAO / MAIN A0 / 2026-10), a 6 × 6 mm S/N field on the face side with JLC's order-number placeholder under it, connector and test-pad names by function (type scale: identity 1.5, connector names 1.2, references and test-pad names 0.8 mm), references for every IC, connector, transistor, diode and for each passive a service procedure names; the remaining resistors and capacitors are on the assembly drawing (`outputs/fab/ASSEMBLY-*.pdf`), see `design/mao_labels.py`. A few easter eggs hide under the cell, the speaker and the panel.
 - Display: the stock Winstar panel's 70 mm FPC tail passes through a routed slot at 9 o'clock to J301 on B (`mao-mechanical.md` §4).
 
 ## 7. What was evaluated and left out

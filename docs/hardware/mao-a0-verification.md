@@ -25,8 +25,8 @@ Every finding was verified before it was acted on. The revision's changes are li
 | Enclosure check (`mech_check.py`: every part's 3D-model height against the stack, keep-outs, wall clearance, tail path) | 142 parts, 0 findings; every body inside r 29.0 except the wall-opening parts; speaker 1.1 mm from the wall |
 | Panel tabs (`panel_tabs.py`) | 130° and 320°: no copper within 1.55 mm of the edge on any layer, no part within 1.35 / 2.13 mm |
 | Fab package | 12 Gerbers, 4 drill files, BOM 48 lines / 112 fitted parts, CPL 112 rows; 1 DNP (R110) |
-| Vias | 209 through vias (149 × 0.6/0.3 mm, 60 × 0.5/0.2 mm; 74 GND, 12 of them at the rim), 24 thermal vias in exposed pads; the 6-layer first pass had 230. Drill file reconciles: 0.2 × 84, 0.3 × 153 (149 + 4 electrode joins), 4 PTH slots, 9 NPTH |
-| Routing | 935 segments, all at 0/45/90° (largest residue 0.7 µm, below the Gerber grid); 108.5 mm at 0.15 mm; L3/L4 broadside 19.4 mm (was 53.7) |
+| Vias | 208 through vias (148 × 0.6/0.3 mm, 60 × 0.5/0.2 mm; 74 GND, 12 of them at the rim), 24 thermal vias in exposed pads; the 6-layer first pass had 230. Drill file reconciles: 0.2 × 84, 0.3 × 152 (148 + 4 electrode joins), 4 PTH slots, 9 NPTH |
+| Routing | 930 segments, all at 0/45/90° (none off by more than 0.05°); 108.5 mm at 0.15 mm; L3/L4 broadside 17.4 mm (was 53.7) |
 | Firmware | 5 configurations (S3 dev / factory / release, C3 dev / release): 0 errors, 0 warnings |
 | Host tests | 240 checks, 0 failures |
 | Simulation (S1–S15) | all pass |
@@ -143,4 +143,42 @@ electrical errors and 18 ODD JOBS failures. The confirmed blockers, each fixed b
 | U105 (TPS22917) had no input capacitor | board | C110 at pin 1 |
 | Silk labels ambiguous or over vias | board | silk rebuilt; checker extended |
 
-**Second round:** see the end of this document (filled in from the second audits).
+**Second round: not ready to order.** The second pair of audits, run on the revised board, found no electrical
+blocker. The electrical audit raised 2 documentation issues and 17 notes. The ODD JOBS audit counted 15 FAIL and
+44 WEAK of the 200 rules. Every finding was checked against the board before it was acted on. Fixed:
+
+| Finding | Evidence | Fix |
+|---|---|---|
+| X1 The module's antenna-end corners reached r 30.08, into the enclosure wall | `MODULE_OUTER_R` held only on the axis; `mech_check.py` never tested the wall | Module 1.25 mm inward: corners at r 28.89, inside the board circle. The notch and keep-out follow, and everything attached to the module moved with it. New wall test: every body r ≤ 29.0 except the parts that sit in wall openings |
+| X2 Tail slack S-folded in a 0.4 mm pocket: no bend radius possible | mechanical spec | One long loop turning in a 2.4 mm well of the carrier (≥ 1 mm radius). F.Cu under the well is part-free (`TAIL_WELL`, checked) |
+| X4 L3 tracks under B tracks for 53.7 mm, including SPK_N over HAPTIC_EN | broadside scan | Router penalty for L3 under / B over another net's copper; 17.4 mm left, longest 3.0 mm. No L3 track under a display, I2S or PDM lane |
+| X5 (part) BOARD_ID: 89.8 mm with 5 vias, under the USB-C shell and along the speaker | board | Divider beside GPIO8: 4.1 mm, 1 via |
+| X6 Stitching: 61 GND vias, 1 at the rim; module pins 1/40 4.1 / 4.2 mm from a via | board | `gnd_fence.py` (ring and coverage vias, removed again if they neck a plane) and decoupling vias: 74 GND vias, 12 at the rim (the remaining gaps are the touch arcs and the antenna); pins 40 / 1 at 1.46 / 2.75 mm |
+| X7 Policy references missing from silk; the assembly drawing was illegible | `SILK-TEXT.json`, rasterised PDFs | References with leaders where no adjacent spot is unambiguous (8). 9 Fab-only parts, listed in FAB-NOTES. Assembly drawing rebuilt: A3, 4.5:1, every reference legible, no pad numbers |
+| X8 Schematic with 0 wires, orphan blocks and overprinted notes | schematic PDF | Regenerated: wired local nets, one frame per block, no duplicate notes |
+| W-e Panel-tab spots had copper on every layer | `tabs.py` | Tabs at 130° and 320° with all-layer keep-outs: copper ≥ 1.55 mm from the edge, parts ≥ 1.35 mm |
+| W-i VSYS through two 0.2 mm vias; the amplifier VDD through one | board | VSYS vias 0.6 / 0.3 mm (two at the charger, one at the amplifier) |
+| W-v, W-w Service-field names nearer a neighbour than their pad | silk check | Field re-laid on a 2.8 mm grid, each name upright beside its pad on a via-free spot reserved for it |
+| W-x Footprint outlines 0.10–0.12 mm | Gerber | Every silk outline widened to ≥ 0.15 mm |
+| W-aa, W-ab B identity smaller than the connector names; an egg in the references' room | board | B identity 1.3 mm; eggs keep out of the room policy references need |
+| I-1 No orientation check before the first panel plug-in | bring-up §3 | Pre-insertion step: tail laid in J301 unlatched, pin-1 mark at the 12 o'clock end (pad 18), first power with the backlight off |
+| I-2, N-1, N-3, N-5, N-15, N-16, N-17 Documents and comments described the pre-revision board | grep | Docs regenerated from the final board; `circuit.py` / `pinmap.py` notes corrected; rail 3.10–3.32 V with the FB bias; S3 66 mW at 47 mA; S10 turn-on vs rise; reset/download wording |
+| N-2 EN1 starts the charger in USB100; its pull-down draws 11 µA | SLUS810N | Bring-up cold-start test on USB with no cell and with a flat cell; power budget: deep sleep ~85 µA |
+| N-9 80 MHz SPI through the 70 mm tail | — | `CONFIG_MAO_A0_LCD_PCLK_MHZ` (default 80); bring-up colour test, 40 MHz fallback |
+| N-10 Charger under the panel | S13 | Bring-up §4: thermal camera on the panel while charging a 3.0 V cell |
+
+Accepted, with a reason:
+
+- **X3, no enclosure CAD.** The EVT puck is printed from the specification, and the first print is the fit check
+  (final report, risks).
+- **X5, the speaker under the LEFT arc.** The firmware holds LEFT while the amplifier runs. Bring-up checks LEFT
+  with the speaker fitted.
+- **W-a, the charger under the panel.** This keeps its heat off the cell. It is the trade the first audit asked
+  for.
+- **W-b, the IMU as the charge-temperature sensor.** Its offset is characterised at bring-up.
+- **W-c, the LRA near the antenna.** It sits on a fixed datum (r 21, 232°), about 7.4 mm from the antenna's corner,
+  in the only free spot. RSSI is checked at bring-up.
+- **N-4, N-6, N-7, N-8, N-11 – N-14.** Notes with no action needed for A0; A1 options are recorded in the
+  electrical audit.
+
+**Third round:** an independent ODD JOBS audit and electrical audit of the final board. The results are below.

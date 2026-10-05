@@ -1091,22 +1091,22 @@
       "reference": "Q101",
       "side": "B",
       "text_xy_mm": [
-        9.41,
-        -9.575
+        10.16,
+        -8.825
       ],
       "offset_mm": [
-        -5.69,
-        1.25
+        -4.94,
+        2.0
       ],
       "angle_deg": 0,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        7.926,
-        -10.088,
-        10.895,
-        -9.062
+        8.676,
+        -9.338,
+        11.645,
+        -8.312
       ],
-      "distance_to_own_part_mm": 1.66,
+      "distance_to_own_part_mm": 0.91,
       "ambiguity_mm": 0.0,
       "placement": "leader"
     },

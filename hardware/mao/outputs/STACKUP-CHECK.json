@@ -1,5 +1,5 @@
 {
- "broadside_total_mm": 19.4,
+ "broadside_total_mm": 17.4,
  "broadside_pairs": [
   [
    3.0,
@@ -10,11 +10,6 @@
    2.9,
    "LCD_RST_N",
    "SPK_N"
-  ],
-  [
-   2.33,
-   "EXP_RST_N",
-   "I2C_SDA"
   ],
   [
    1.87,
@@ -70,6 +65,11 @@
    0.55,
    "TOF_INT_N",
    "BB_L1"
+  ],
+  [
+   0.32,
+   "EXP_RST_N",
+   "I2C_SDA"
   ]
  ],
  "perimeter_gnd_vias": 12,

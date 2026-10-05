@@ -6,7 +6,9 @@ this checks every visible silkscreen text (component references and board labels
   text    the text box overlaps another silk text on the same side
   pad     the text box overlaps a pad opening (mask) on that side
   body    the text box overlaps a part body (courtyard, or outline without one) on that side,
-          including the text's own part
+          including the text's own part. A service-field name is tested against the part's body outline
+          (Fab) instead: it may use a neighbour's courtyard margin, where silk stays visible and the pad
+          check still keeps it off the copper
   graphic the text box overlaps a silkscreen graphic: a part outline or marking (including its own
           part's outline) or a board graphic such as the maker mark
   via     the text box, or a board graphic (maker mark, easter-egg art), lies on a via: the tented bump
@@ -64,6 +66,7 @@ for d in b.GetDrawings():
 pads = {'F': [], 'B': []}
 bodies = {'F': [], 'B': []}
 outlines = {'F': [], 'B': []}
+fab_bodies = {'F': [], 'B': []}                        # body outline (Fab), for the service-field names
 for f in b.GetFootprints():
     for p in f.Pads():
         r = p.GetBoundingBox()
@@ -74,6 +77,13 @@ for f in b.GetFootprints():
         bodies[s].append((f.GetReference(), tuple(pcb.FromMM(v + 50) for v in q)))
     for q in courtyard_boxes(f):                 # outline for the ambiguity test: the real courtyard, not its box
         outlines[s].append((f.GetReference(), tuple(pcb.FromMM(v + 50) for v in q)))
+    fab = [g.GetBoundingBox() for g in f.GraphicalItems()
+           if g.GetLayer() in (pcb.F_Fab, pcb.B_Fab) and not isinstance(g, pcb.PCB_TEXT)]
+    if fab:
+        fab_bodies[s].append((f.GetReference(), (min(r.GetLeft() for r in fab), min(r.GetTop() for r in fab),
+                                                 max(r.GetRight() for r in fab), max(r.GetBottom() for r in fab))))
+    else:
+        fab_bodies[s] += [(f.GetReference(), tuple(pcb.FromMM(v + 50) for v in q)) for q in courtyard_boxes(f)]
 
 graphics = {'F': [], 'B': []}
 for f in b.GetFootprints():
@@ -112,13 +122,13 @@ for i, (name, s, q, t, own) in enumerate(texts):
         if hit(q, pq): found.append({'kind': 'pad', 'side': s, 'a': name, 'b': pn})
     for vn, vq in vias:
         if hit(q, vq): found.append({'kind': 'via', 'side': s, 'a': name, 'b': vn})
-    for ref, bq in bodies[s]:
+    for ref, bq in (fab_bodies if name in FIELD and own is None else bodies)[s]:
         if ref.startswith('TP'): continue        # a probe pad's courtyard is pogo clearance, not a body: its name may sit there (the pad check still applies)
         if hit(q, bq) and not (own == ref and own in INSIDE_OK) and INSIDE_PART.get(name) != ref:
-            found.append({'kind': 'body', 'side': s, 'a': name, 'b': ref})
+            found.append({'kind': 'body', 'side': s, 'a': name, 'b': ref, 'at_mm': [mm((q[0] + q[2]) // 2), mm((q[1] + q[3]) // 2)]})
     if pcb.ToMM(t.GetTextHeight()) < 0.8 - 1e-6 or pcb.ToMM(t.GetTextThickness()) < 0.12 - 1e-6:
         found.append({'kind': 'small', 'side': s, 'a': name, 'b': f'{pcb.ToMM(t.GetTextHeight()):.2f} mm'})
-for f_ in found:
+for f_ in found:                                 # names repeat (GND x 3): findings without a place get the first
     if 'at_mm' in f_: continue
     q = next(q for n, s, q, _, _ in texts if n == f_['a'] and s == f_['side'])
     f_['at_mm'] = [mm((q[0] + q[2]) // 2), mm((q[1] + q[3]) // 2)]

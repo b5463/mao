@@ -164,7 +164,8 @@ def main():
                     g.SetLayer(pcb.B_Fab if f.IsFlipped() else pcb.F_Fab)
     pad_boxes = {'F': [], 'B': []}
     bodies = {'F': [], 'B': []}
-    graphics = {'F': [], 'B': []}
+    outlines = {'F': [], 'B': []}         # the part's own body (Fab outline): the service-field names may use a
+    graphics = {'F': [], 'B': []}         # neighbour's courtyard margin, never its body or pads
     for f in fps.values():
         for p in f.Pads():
             r = p.GetBoundingBox()
@@ -173,9 +174,18 @@ def main():
                     pad_boxes[sd].append((mm(r.GetLeft()), mm(r.GetTop()), mm(r.GetRight()), mm(r.GetBottom())))
         if not f.GetReference().startswith('TP'):
             bodies[side_of(f)] += [(q, f.GetReference()) for q in courtyard_boxes(f)]
+            fab = [g.GetBoundingBox() for g in f.GraphicalItems()
+                   if g.GetLayer() in (pcb.F_Fab, pcb.B_Fab) and not isinstance(g, pcb.PCB_TEXT)]
+            if fab:
+                outlines[side_of(f)].append(((min(mm(r.GetLeft()) for r in fab), min(mm(r.GetTop()) for r in fab),
+                                              max(mm(r.GetRight()) for r in fab), max(mm(r.GetBottom()) for r in fab)),
+                                             f.GetReference()))
+            else:
+                outlines[side_of(f)] += [(q, f.GetReference()) for q in courtyard_boxes(f)]
         if f.GetReference().startswith('FID'):
             x, y = centre(f.GetReference())
             bodies[side_of(f)].append(((x - 2.05, y - 2.05, x + 2.05, y + 2.05), f.GetReference()))
+            outlines[side_of(f)].append(((x - 2.05, y - 2.05, x + 2.05, y + 2.05), f.GetReference()))
         for g in f.GraphicalItems():
             if g.GetLayer() in (pcb.F_SilkS, pcb.B_SilkS) and not isinstance(g, pcb.PCB_TEXT):
                 r = g.GetBoundingBox()
@@ -184,6 +194,7 @@ def main():
     sl = m.TAIL_SLOT                        # the display-tail slot: no silk within 0.5 mm of the cut
     for sd in ('F', 'B'):
         bodies[sd].append(((sl[0] - 0.5, sl[1] - 0.5, sl[2] + 0.5, sl[3] + 0.5), 'slot'))
+        outlines[sd].append(((sl[0] - 0.5, sl[1] - 0.5, sl[2] + 0.5, sl[3] + 0.5), 'slot'))
     vias = {'F': [], 'B': []}               # silk never prints over a via (tented bumps read as noise)
     for t in b.GetTracks():
         if isinstance(t, pcb.PCB_VIA):
@@ -192,10 +203,10 @@ def main():
                 vias[sd].append((x - r, y - r, x + r, y + r))
     placed = {'F': [], 'B': []}
 
-    def why(bx, sd, text_gap=0.5, inside=()):
+    def why(bx, sd, text_gap=0.5, inside=(), outline=False):
         for q in pad_boxes[sd]:
             if overlap(bx, q, 0.2): return 'pad %s' % (tuple(round(v, 2) for v in q),)
-        for q, owner in bodies[sd]:
+        for q, owner in (outlines if outline else bodies)[sd]:
             if owner not in inside and overlap(bx, q, 0.0): return 'body %s %s' % (owner, tuple(round(v, 2) for v in q))
         for q in graphics[sd]:              # the board rule min_silk_clearance
             if overlap(bx, q, 0.15): return 'silk %s' % (tuple(round(v, 2) for v in q),)
@@ -398,7 +409,8 @@ def main():
     # ---- back: test pads by function (ODD JOBS 103) --------------------------------------------------------
     # The service field is labelled as one set: every name upright beside its pad or level above / below it,
     # chosen together so no two names crowd each other (0.4 mm between field names) and none sits on a pad,
-    # a body or a via; the preferred side of each pad (FIELD_SPOT) wins where the field allows it.
+    # a part's body or a via (a neighbour's courtyard margin is allowed: silk there stays visible and clear of its
+    # pads); the preferred side of each pad (FIELD_SPOT) wins where the field allows it.
     tps = sorted((r for r in fps if r.startswith('TP')), key=lambda r: int(r[2:]))
     def box_of(s_, x, y, a_, sd='B'):
         return measure(s_, x, y, sd, DEBUG, a_)
@@ -419,7 +431,7 @@ def main():
                     d_ = r + 0.72 + out
                     c = ((x + sgn * d_, y + off, 270) if kind == 'side' else (x + off, y + sgn * d_, 0))
                     bx_ = box_of(s_, *c)
-                    if why(bx_, 'B') is None:
+                    if why(bx_, 'B', outline=True) is None:
                         opts.append((rank * 10 + abs(off) * 5 + out * 8, c, bx_))
         options[ref] = sorted(opts, key=lambda o: o[0])[:int(os.environ.get('SILK_CANDS', 60))]   # best spots per pad
     field = list(options)
@@ -430,7 +442,8 @@ def main():
     best = [None, None]
     budget = [300000]                      # search steps: bounded whatever the board
     def search(domains, chosen, cost):
-        """Most-constrained pad first; every choice prunes the neighbours' spots it crowds (forward check)."""
+        """Most-constrained pad first; every choice prunes the neighbours' spots it crowds (forward check), and a
+        branch stops once its cost plus the cheapest spot left for every other pad cannot beat the best so far."""
         budget[0] -= 1
         if budget[0] < 0 or (best[0] is not None and cost >= best[0]):
             return
@@ -440,6 +453,8 @@ def main():
         for c_, cand, bx_ in domains[ref]:
             rest = {r_: [o for o in d if not overlap(bx_, o[2], FIELD_GAP)] for r_, d in domains.items() if r_ != ref}
             if all(rest.values()):
+                if best[0] is not None and cost + c_ + sum(min(o[0] for o in d) for d in rest.values()) >= best[0]:
+                    continue
                 chosen[ref] = (cand, bx_)
                 search(rest, chosen, cost + c_)
                 del chosen[ref]

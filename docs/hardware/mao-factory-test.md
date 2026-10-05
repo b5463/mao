@@ -122,8 +122,8 @@ position holds the I2C pull-ups instead of a pad, and pads sit outside the
 field), so the board cannot sit in it rotated (ODD JOBS 158).
 
 Service field, between the charger and the module (2.8 mm grid, three rows;
-each name stands upright to the right of its pad, on a via-free spot of its
-own, so no name touches another pad or name). The rails come straight down from the power
+each name stands upright beside its pad, on a via-free spot of its own; SCL
+sits on the other side, where the I2C pull-ups take its grid spot). The rails come straight down from the power
 section; every rail has a ground pad beside it for a spring-tip probe
 (ODD JOBS 39):
 

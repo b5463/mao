@@ -151,14 +151,15 @@ TAB_ARC, TAB_CLEAR = 4.0, 1.5
 # pad) or 'above' (level, over it). The pad positions come from placement.py.
 FIELD_NAMES = {'TP2': ('GND', 'right'), 'TP3': ('3V3', 'right'), 'TP4': ('SYS', 'right'), 'TP5': ('BAT', 'right'),
                'TP10': ('SCL', 'right'), 'TP1': ('GND', 'right'), 'TP16': ('GND', 'right'),
-               'TP9': ('SDA', 'right', -0.3), 'TP11': ('XRST', 'right'), 'TP8': ('BOOT', 'right'), 'TP7': ('RST', 'right')}
+               'TP9': ('SDA', 'right', -0.35), 'TP11': ('XRST', 'right'), 'TP8': ('BOOT', 'right'), 'TP7': ('RST', 'right')}
 FIELD_TEXT = 0.8                   # the names' height: the rows are 2.8 mm apart
+# (TP9's name box sits 0.35 mm up the pad: below it is the module escape via of LCD_BL_CTRL at (6.985, 0.75))
 
 
 def field_name_box(x, y, name, side, dy=0.0):
     """Board box a service-field name takes beside (or over) its pad at (x, y), slid dy along the pad."""
     r = 0.6 if name in ('GND', '3V3', 'SYS', 'BAT', 'VBUS') else 0.5
-    L = 0.62 * len(name) + 0.2
+    L = 0.72 * len(name) + 0.25           # the stroke font at 0.8 mm runs 0.6-0.7 mm a glyph (BOOT 2.97 mm long)
     y += dy
     if side == 'right':                    # the name's box (0.95 mm across) and its 0.05 mm gap to a via
         return (x + r + 0.15, y - L / 2 - 0.1, x + r + 1.3, y + L / 2 + 0.1)
