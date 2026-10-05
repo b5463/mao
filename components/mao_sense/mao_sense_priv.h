@@ -37,6 +37,8 @@ esp_err_t sense_imu_gyro(bool on);
 esp_err_t sense_imu_sample(mao_obs_imu_t *out);
 const char *sense_imu_part(void);
 esp_err_t sense_imu_id(uint32_t *id);
+/* Die temperature (OUT_TEMP); ESP_ERR_INVALID_STATE while powered down. */
+esp_err_t sense_imu_temperature(float *celsius);
 
 /* ToF: VL53L4CD through ST's ULD (mao_sense_tof.c) */
 esp_err_t sense_tof_init(void);

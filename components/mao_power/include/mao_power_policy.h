@@ -19,6 +19,14 @@
  * (woke_idle), MAO stays ACTIVE for redrowse_ms (so it can notice who or
  * what woke it) and then dozes off again, instead of waiting the full
  * drowsy_after.
+ *
+ * Charging (mao_power, boards with caps.charge_control): the LiPo cell may
+ * be charged at 0-45 C, the charger's pack-NTC window ends at 50 C. While
+ * USB is present mao_power reads the board temperature (IMU die) every
+ * ~10 s and mao_policy_charge_pause() decides, with hysteresis, whether the
+ * charger is paused. Without a temperature it never pauses: the hardware
+ * window stays the limit. mao_policy_charging() says whether the cell is
+ * charging when the board has no charger status line.
  */
 #pragma once
 
@@ -66,6 +74,34 @@ bool mao_policy_drowsy_to_deep(const mao_policy_config_t *cfg, uint32_t drowsy_m
                                bool console_attached);
 
 const char *mao_policy_state_name(mao_policy_state_t state);
+
+/* ---- Charging ------------------------------------------------------------ */
+
+#define MAO_CHARGE_PAUSE_C          43.0f   /* pause at or above (cell limit 45 C) */
+#define MAO_CHARGE_RESUME_C         40.0f   /* resume at or below */
+#define MAO_CHARGE_RATE_MIN_PCT_H   1.0f    /* gauge CRATE above this = the cell gains charge */
+
+/* Should the charger be paused now? paused: what it is now. No USB: no
+ * (the next plug-in starts from the hardware default). temp_valid false (no
+ * sensor, a failed read): no, fail-safe to the hardware limit. */
+bool mao_policy_charge_pause(bool usb_present, bool paused, bool temp_valid, float temp_c);
+
+typedef struct {
+    bool usb_present;
+    bool charge_paused;            /* by mao_policy_charge_pause() */
+    bool gauge_valid;              /* a fuel-gauge reading exists */
+    float soc_pct;
+    float rate_pct_per_h;          /* gauge CRATE, + = charging */
+} mao_charge_input_t;
+
+/* Charging, for a board without a charger status line: USB present, not
+ * paused, and the gauge either sees the cell gain charge (CRATE above
+ * MAO_CHARGE_RATE_MIN_PCT_H) or the cell is not full (SOC < 100 %). An
+ * estimate: right after plug-in it says yes before CRATE has turned; a cell
+ * the charger terminates below 100 % SOC, or a load above the USB input
+ * limit, still reads as charging while SOC < 100 %. Without a gauge it is
+ * USB present and not paused. */
+bool mao_policy_charging(const mao_charge_input_t *in);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,8 @@
 /*
- * MAO host unit tests: the perception engine and the power policy, which
- * are plain C with no ESP-IDF dependency. Run with tests/host/run.sh.
+ * MAO host unit tests: the perception engine, the power policy (states,
+ * charge temperature limit, charging estimate) and the A0 backlight's
+ * AW9364 step logic, which are plain C with no ESP-IDF dependency. Run with
+ * tests/host/run.sh.
  */
 #include "mini_test.h"
 
@@ -22,6 +24,8 @@ int main(void)
     suite_percept();
     printf("power policy\n");
     suite_policy();
+    printf("backlight (AW9364)\n");
+    suite_backlight();
     printf("\n%d checks, %d failure(s)\n", g_checks, g_failures);
     printf("%s\n", g_failures ? "HOST TESTS FAILED" : "HOST TESTS PASSED");
     return g_failures ? 1 : 0;

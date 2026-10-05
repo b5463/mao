@@ -181,6 +181,18 @@ esp_err_t mao_sense_imu_gyro(bool on)
     return err;
 }
 
+esp_err_t mao_sense_imu_temperature(float *celsius)
+{
+    ESP_RETURN_ON_FALSE(celsius, ESP_ERR_INVALID_ARG, TAG, "bad args");
+    if (!available(MAO_OBS_IMU) || !s_dev_lock) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+    xSemaphoreTake(s_dev_lock, portMAX_DELAY);
+    const esp_err_t err = sense_imu_temperature(celsius);
+    xSemaphoreGive(s_dev_lock);
+    return err;
+}
+
 esp_err_t mao_sense_mic_enable(bool on)
 {
     if (!available(MAO_OBS_MIC)) {
@@ -525,6 +537,10 @@ esp_err_t mao_sense_init(void)
         ESP_RETURN_ON_ERROR(install_isr(MAO_IRQ_TOF, SENSE_BIT_TOF), TAG, "tof int");
     }
     mao_power_register_hook("sense", power_hook, NULL);
+    if (available(MAO_OBS_IMU)) {
+        /* The IMU die is the board thermometer for the charge limit. */
+        mao_power_set_temp_source(mao_sense_imu_temperature);
+    }
     register_devcmds();
     ESP_LOGI(TAG, "sense: %s%s%s%s%s", available(MAO_OBS_IMU) ? "imu " : "", available(MAO_OBS_TOF) ? "tof " : "",
              available(MAO_OBS_ALS) ? "als " : "", available(MAO_OBS_TOUCH) ? "touch " : "",

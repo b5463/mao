@@ -35,3 +35,4 @@ void run_test(const char *name, test_fn_t fn);
 /* Suites */
 void suite_percept(void);
 void suite_policy(void);
+void suite_backlight(void);

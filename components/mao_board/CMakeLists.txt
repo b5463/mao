@@ -13,7 +13,8 @@ elseif(CONFIG_MAO_BOARD_MAIN_A0)
                      "boards/main_a0/mao_board_a0_i2c.c"
                      "boards/main_a0/mao_board_a0_display.c"
                      "boards/main_a0/mao_board_a0_audio.c"
-                     "boards/main_a0/mao_board_a0_sleep.c")
+                     "boards/main_a0/mao_board_a0_sleep.c"
+                     "boards/main_a0/aw9364_dimming.c")
 elseif(NOT CMAKE_BUILD_EARLY_EXPANSION)
     message(FATAL_ERROR "MAO: no board profile for target ${IDF_TARGET}")
 endif()
@@ -24,5 +25,5 @@ idf_component_register(
     PRIV_INCLUDE_DIRS "." ${board_dir}
     REQUIRES esp_lcd esp_driver_i2s esp_driver_i2c led_strip
     PRIV_REQUIRES esp_driver_gpio esp_driver_ledc esp_driver_spi esp_hw_support esp_adc
-                  esp_hal_gpspi freertos mao_system
+                  esp_hal_gpspi esp_timer freertos mao_system
 )

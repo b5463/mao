@@ -146,6 +146,12 @@ esp_err_t mao_board_line_get(mao_board_line_t line, bool *active)
     return ESP_ERR_NOT_SUPPORTED;
 }
 
+esp_err_t mao_board_charge_enable(bool enable)
+{
+    (void)enable;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
 esp_err_t mao_board_irq_get(mao_board_irq_t irq, mao_board_irq_desc_t *out)
 {
     (void)irq;

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run MAO's host unit tests (perception engine, power policy).
+# Run MAO's host unit tests (perception engine, power policy, AW9364 steps).
 #   tests/host/run.sh            local cc/gcc + make if available, else Docker
 #   tests/host/run.sh --docker   always in espressif/idf:v6.0.3 (gcc, Linux)
 set -e

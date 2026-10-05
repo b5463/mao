@@ -44,7 +44,8 @@ typedef struct {
     bool mic;              /* PDM microphone */
     bool touch;            /* capacitive touch electrodes */
     bool ir;               /* separate IR transmitter and receiver */
-    bool power_status;     /* USB-present and charging lines */
+    bool power_status;     /* USB-present line (and a charging line where wired) */
+    bool charge_control;   /* firmware can pause the charger (mao_board_charge_enable) */
     bool hall_fast;        /* dial sensors have a fast / low-power sampling control */
     bool sleep;            /* board defines light / deep sleep wake lines */
     /* Fitted by design; whether each one answered is in mao_board_i2c_device(). */
@@ -98,7 +99,11 @@ void mao_board_display_get_resolution(uint16_t *h_res, uint16_t *v_res);
  * max_transfer_bytes: largest single SPI transfer (the LVGL draw buffer). */
 esp_err_t mao_board_display_init(size_t max_transfer_bytes, mao_board_display_t *out);
 
-/* Backlight 0..100 %. Valid after mao_board_display_init(). */
+/* Backlight 0..100 % (0 = off). Valid after mao_board_display_init().
+ * Safe to call from any task. A0: AW9364 constant-current driver with 16
+ * steps of 1/16 of 40 mA; a non-zero value is rounded up to the next step,
+ * and a brighter step goes dark for ~3 ms (the driver is restarted and its
+ * steps counted again). LCDkit: PWM. */
 esp_err_t mao_board_backlight_set(uint8_t percent);
 
 /* Panel sleep-in / sleep-out (controller keeps its RAM, draws microamps). */
@@ -263,7 +268,9 @@ esp_err_t mao_board_display_reinit(void);
 
 typedef enum {
     MAO_LINE_USB_PRESENT = 0, /* USB power valid */
-    MAO_LINE_CHARGING,        /* charger is charging */
+    MAO_LINE_CHARGING,        /* charger status output says charging. ESP_ERR_NOT_SUPPORTED where
+                               * it is not wired (A0: mao_power derives charging from USB present
+                               * and the fuel gauge instead) */
     MAO_LINE_SENSE_ALERT,     /* fuel-gauge or light-sensor alert asserted */
     MAO_LINE_COUNT,
 } mao_board_line_t;
@@ -271,6 +278,14 @@ typedef enum {
 /* Logical state (true = asserted); the board handles polarity. Reading an
  * expander line also clears the expander interrupt. */
 esp_err_t mao_board_line_get(mao_board_line_t line, bool *active);
+
+/* Charger enable (caps.charge_control): false pauses charging while USB is
+ * present (the system keeps running from USB through the charger's power
+ * path), true lets the charger charge. The charging policy (mao_power: the
+ * cell's temperature window) owns it; a reset, an expander reset and deep
+ * sleep fall back to enabled, the hardware default. A0: expander P6 = the
+ * BQ24073's /CE. ESP_ERR_NOT_SUPPORTED on boards without the line. */
+esp_err_t mao_board_charge_enable(bool enable);
 
 typedef enum {
     MAO_IRQ_IMU_INT1 = 0,     /* wake-up / activity, tap */

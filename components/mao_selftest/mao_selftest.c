@@ -54,10 +54,11 @@ static const char *TAG = "MAO_SELFTEST";
 #define RESULT_HOLD_MS          15000
 
 /* ---- Pass / fail limits (docs/hardware/mao-factory-test.md) -------------- */
-/* Board ID: A0 = 1M/1M divider of 3.3 V = 1.65 V nominal. 1 % resistors and
- * the calibrated ADC (+-~20 mV) stay well inside +-100 mV. */
-#define LIM_ID_MIN_MV           1550
-#define LIM_ID_MAX_MV           1750
+/* Board ID: A0 = 1M/1M divider of +3V3 = 3.18 V (3.10-3.28 V worst case) =
+ * 1.59 V nominal, 1.55-1.64 V. 1 % resistors (+-16 mV) and the calibrated
+ * ADC (+-~20 mV) widen that to ~1.51-1.68 V; the limits keep ~25 mV beyond. */
+#define LIM_ID_MIN_MV           1480
+#define LIM_ID_MAX_MV           1700
 #define LIM_ACCEL_MIN_G         0.85f
 #define LIM_ACCEL_MAX_G         1.15f
 #define LIM_TOF_RESULTS         3          /* new results within LIM_TOF_WINDOW_MS */
@@ -320,7 +321,7 @@ static result_t t_expander(char *d)
 
 static result_t t_expander_reset(char *d)
 {
-    /* Pulses EXP_RST_N (GPIO38): the expander must really reset (CONFIG
+    /* Pulses EXP_RST_N (GPIO39): the expander must really reset (CONFIG
      * back at 0xFF) and come back with every rail as it was. The panel, the
      * ToF and the haptic driver see their lines drop and are re-initialised
      * by their owners; give them a moment. */
@@ -427,13 +428,26 @@ static result_t t_gauge_voltage(char *d)
 
 static result_t t_charger(char *d)
 {
-    bool usb = false, chg = false;
+    bool usb = false;
     const esp_err_t e1 = mao_board_line_get(MAO_LINE_USB_PRESENT, &usb);
-    const esp_err_t e2 = mao_board_line_get(MAO_LINE_CHARGING, &chg);
-    /* The test runs over USB, so PGOOD must be asserted. CHG depends on the
-     * cell (charging or full); both are reported for the record. */
-    snprintf(d, DETAIL_LEN, "PGOOD(usb)=%d CHG=%d%s", usb, chg, (e1 || e2) ? " (line read error)" : "");
-    return e1 == ESP_OK && e2 == ESP_OK && usb ? R_PASS : R_FAIL;
+    mao_power_status_t st;
+    mao_power_get_status(&st);
+    /* The test runs over USB, so PGOOD must be asserted. Charging (estimated
+     * from the gauge on the A0: /CHG is not wired) depends on the cell and is
+     * reported for the record. Where firmware limits the charge temperature
+     * (/CE), the board temperature it relies on must be readable. */
+    float temp = 0.0f;
+    const esp_err_t et = s_caps.charge_control ? mao_sense_imu_temperature(&temp) : ESP_ERR_NOT_SUPPORTED;
+    const int n = snprintf(d, DETAIL_LEN, "PGOOD(usb)=%d%s chg=%d%s", usb, e1 ? " (read error)" : "", st.charging,
+                           st.charge_paused ? " PAUSED" : "");
+    if (s_caps.charge_control) {
+        if (et == ESP_OK) {
+            snprintf(d + n, DETAIL_LEN - n, ", board %.1f C", (double)temp);
+        } else {
+            snprintf(d + n, DETAIL_LEN - n, ", no board temp (%s)", esp_err_to_name(et));
+        }
+    }
+    return e1 == ESP_OK && usb && (!s_caps.charge_control || et == ESP_OK) ? R_PASS : R_FAIL;
 }
 
 static result_t t_haptic_id(char *d)

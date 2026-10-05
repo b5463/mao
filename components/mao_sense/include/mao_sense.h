@@ -157,6 +157,13 @@ esp_err_t mao_sense_mic_enable(bool on);
  * ESP_ERR_NOT_SUPPORTED for kinds without an id or sensors not running. */
 esp_err_t mao_sense_identify(mao_obs_kind_t kind, uint32_t *id);
 
+/* IMU die temperature in C, read now under the sense device lock (any task).
+ * A board-temperature estimate: typical 256 LSB / C, offset +-15 C per the
+ * LSM6DSOX datasheet. mao_power uses it for the charge temperature limit.
+ * ESP_ERR_NOT_SUPPORTED without a running IMU, ESP_ERR_INVALID_STATE while
+ * it is powered down (critical battery). */
+esp_err_t mao_sense_imu_temperature(float *celsius);
+
 const char *mao_obs_kind_name(mao_obs_kind_t kind);
 
 #ifdef __cplusplus

@@ -2,9 +2,18 @@
  * MAO power manager: one task ("mao_power") owns the gauge, the charger and
  * USB lines, the battery policy and every power-state transition.
  *
- * Lines: USB PGOOD (GPIO, both edges) and the expander INT (charger CHG and
- * the gauge/light alert, falling edge) only notify the task; all I2C work
- * happens in task context. The gauge is also polled (it changes slowly).
+ * Lines: USB PGOOD (GPIO, both edges) and the expander INT (the gauge/light
+ * alert, falling edge) only notify the task; all I2C work happens in task
+ * context. The gauge is also polled (it changes slowly).
+ *
+ * Charging: from the board's charger status line where it has one; on the
+ * A0 (no /CHG line) estimated from USB present and the gauge
+ * (mao_policy_charging). Charge temperature limit (boards with
+ * caps.charge_control): while USB is present the registered board
+ * temperature is read every CHARGE_LIMIT_PERIOD_MS and the charger paused /
+ * resumed through mao_board_charge_enable() (mao_policy_charge_pause:
+ * >= 43 C pause, <= 40 C resume). A missing or failing temperature leaves
+ * charging enabled; the charger's pack NTC still stops it outside 0-50 C.
  *
  * Transitions run the registered hooks in this task, so a hook never races
  * another transition. DROWSY is a light-sleep loop inside this task: wake
@@ -52,6 +61,7 @@ static const char *TAG = "MAO_POWER";
 #define CRITICAL_READINGS       3          /* consecutive readings before acting */
 #define CRITICAL_GRACE_MS       5000       /* time for the app to save state */
 #define DROWSY_HOUSEKEEPING_S   60
+#define CHARGE_LIMIT_PERIOD_MS  10000      /* board temperature check while on USB */
 #define LOG_FLUSH_MS            50         /* let the console drain before sleeping */
 
 #define NOTIFY_USB              (1u << 0)
@@ -102,6 +112,8 @@ static mao_power_continuity_t s_cont;
 static volatile mao_wake_source_t s_last_wake = MAO_WAKE_NONE;
 static bool s_gauge_ok;
 static mao_board_caps_t s_caps;
+static bool s_chg_line;                  /* the board has a charger status line */
+static volatile mao_power_temp_source_t s_temp_source;
 
 static void battery_policy(void);
 
@@ -111,6 +123,11 @@ static int s_critical_count;
 static bool s_critical_reported;
 static uint32_t s_policy_reading_ms;     /* gauge reading the policy last counted */
 static int64_t s_critical_deadline_us;
+
+/* Charge limit state (task only). */
+static bool s_charge_paused;
+static int64_t s_next_charge_check_us;
+static bool s_temp_fail_logged;
 
 /* ------------------------------------------------------------------------ */
 /* Names                                                                    */
@@ -216,6 +233,11 @@ const mao_power_continuity_t *mao_power_continuity(void)
     return &s_cont;
 }
 
+void mao_power_set_temp_source(mao_power_temp_source_t source)
+{
+    s_temp_source = source;
+}
+
 static void update_gauge(void)
 {
     if (!s_gauge_ok) {
@@ -233,45 +255,129 @@ static void update_gauge(void)
     xSemaphoreGive(s_lock);
 }
 
-/* USB and charger lines: post an event for every change. */
+/* The charging state from the board line or the estimate; false when a
+ * board line could not be read (keep the previous state). */
+static bool charging_now(bool *out)
+{
+    if (s_chg_line) {
+        return mao_board_line_get(MAO_LINE_CHARGING, out) == ESP_OK;
+    }
+    const mao_charge_input_t in = {
+        .usb_present = s_status.usb_present,
+        .charge_paused = s_charge_paused,
+        .gauge_valid = s_gauge_ok && s_status.updated_ms != 0,
+        .soc_pct = s_status.soc_pct,
+        .rate_pct_per_h = s_status.rate_pct_per_h,
+    };
+    *out = mao_policy_charging(&in);
+    return true;
+}
+
+/* Charging state: post an event for every change. */
+static void update_charging(void)
+{
+    bool chg = false;
+    if (!charging_now(&chg) || chg == s_status.charging) {
+        return;
+    }
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    s_status.charging = chg;
+    xSemaphoreGive(s_lock);
+    const int32_t soc = (int32_t)s_status.soc_pct;
+    if (chg) {
+        ESP_LOGI(TAG, "charging started");
+        mao_event_post(MAO_EVENT_CHARGING_STARTED, soc);
+    } else if (s_status.usb_present && !s_charge_paused) {
+        /* Stopped with USB still present and nothing holding it off:
+         * charge complete. */
+        ESP_LOGI(TAG, "charging done");
+        mao_event_post(MAO_EVENT_CHARGING_DONE, soc);
+    }
+}
+
+/* Charge temperature limit. Runs every CHARGE_LIMIT_PERIOD_MS while USB is
+ * present, and at once (force) when USB comes or goes. */
+static void charge_limit(bool force)
+{
+    if (!s_caps.charge_control) {
+        return;
+    }
+    const int64_t now = esp_timer_get_time();
+    if (!force && now < s_next_charge_check_us) {
+        return;
+    }
+    s_next_charge_check_us = now + (int64_t)CHARGE_LIMIT_PERIOD_MS * 1000;
+
+    const bool usb = s_status.usb_present;
+    float temp = 0.0f;
+    bool valid = false;
+    if (usb) {
+        const mao_power_temp_source_t source = s_temp_source;
+        const esp_err_t err = source ? source(&temp) : ESP_ERR_NOT_SUPPORTED;
+        valid = err == ESP_OK;
+        if (!valid && !s_temp_fail_logged) {
+            ESP_LOGW(TAG, "charge limit: no board temperature (%s); charging stays enabled "
+                     "(the pack NTC still stops it at 50 C)", esp_err_to_name(err));
+        }
+        s_temp_fail_logged = !valid;
+    }
+
+    const bool pause = mao_policy_charge_pause(usb, s_charge_paused, valid, temp);
+    if (pause != s_charge_paused) {
+        const esp_err_t err = mao_board_charge_enable(!pause);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "charge limit: could not %s the charger (%s), retrying", pause ? "pause" : "enable",
+                     esp_err_to_name(err));
+        } else if (pause) {
+            s_charge_paused = true;
+            ESP_LOGW(TAG, "charging paused: board %.1f C >= %.0f C (cell limit 45 C)", (double)temp,
+                     (double)MAO_CHARGE_PAUSE_C);
+        } else {
+            s_charge_paused = false;
+            if (valid) {
+                ESP_LOGI(TAG, "charging resumed: board %.1f C <= %.0f C", (double)temp, (double)MAO_CHARGE_RESUME_C);
+            } else {
+                ESP_LOGI(TAG, "charging enabled again (%s)", usb ? "no board temperature" : "USB removed");
+            }
+        }
+    }
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    s_status.charge_paused = s_charge_paused;
+    s_status.temp_valid = valid;
+    if (valid) {
+        s_status.temp_c = temp;
+    }
+    xSemaphoreGive(s_lock);
+}
+
+/* USB line: post an event for every change; then the charging state. */
 static void check_lines(void)
 {
     bool usb = s_status.usb_present;
-    bool chg = s_status.charging;
     mao_board_line_get(MAO_LINE_USB_PRESENT, &usb);
-    mao_board_line_get(MAO_LINE_CHARGING, &chg);   /* also clears the expander INT */
 
     const bool usb_was = s_status.usb_present;
-    const bool chg_was = s_status.charging;
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_status.usb_present = usb;
-    s_status.charging = chg;
     xSemaphoreGive(s_lock);
 
     if (usb != usb_was) {
         ESP_LOGI(TAG, "USB %s", usb ? "connected" : "disconnected");
         mao_event_post(usb ? MAO_EVENT_USB_CONNECTED : MAO_EVENT_USB_DISCONNECTED, 0);
+        update_gauge();          /* fresh SOC / rate for the charging estimate */
+        charge_limit(true);      /* starts (or stops) watching the temperature now */
     }
-    if (chg != chg_was) {
-        const int32_t soc = (int32_t)s_status.soc_pct;
-        if (chg) {
-            ESP_LOGI(TAG, "charging started");
-            mao_event_post(MAO_EVENT_CHARGING_STARTED, soc);
-        } else if (usb) {
-            /* CHG released with USB still present: charge complete. */
-            ESP_LOGI(TAG, "charging done");
-            mao_event_post(MAO_EVENT_CHARGING_DONE, soc);
-        }
-    }
+    update_charging();
 }
 
 /* The alert line is a wired-OR of the gauge ALRT and the light sensor INT.
- * Only the gauge's part is handled here; the light sensor clears its own
- * latch when mao_sense reads it. */
+ * Reading it also clears the expander INT, so it is read on every expander
+ * interrupt, gauge or not. Only the gauge's part is handled here; the light
+ * sensor clears its own latch when mao_sense reads it. */
 static void check_alert(void)
 {
     bool alert = false;
-    if (!s_gauge_ok || mao_board_line_get(MAO_LINE_SENSE_ALERT, &alert) != ESP_OK || !alert) {
+    if (mao_board_line_get(MAO_LINE_SENSE_ALERT, &alert) != ESP_OK || !alert || !s_gauge_ok) {
         return;
     }
     uint16_t flags = 0;
@@ -400,6 +506,10 @@ static void drowsy_loop(uint32_t duration_s)
                 sleep_us = (uint64_t)left_ms * 1000ULL + 1000ULL;
             }
         }
+        if (s_status.usb_present && s_caps.charge_control &&
+            sleep_us > (uint64_t)CHARGE_LIMIT_PERIOD_MS * 1000ULL) {
+            sleep_us = (uint64_t)CHARGE_LIMIT_PERIOD_MS * 1000ULL;   /* the charge limit keeps watching */
+        }
         if (until) {
             const int64_t left = until - esp_timer_get_time();
             if (left <= 0) {
@@ -426,9 +536,12 @@ static void drowsy_loop(uint32_t duration_s)
             break;
         }
         /* Housekeeping on every wake: the battery may have moved (a
-         * critical battery deep-sleeps from here). */
+         * critical battery deep-sleeps from here), and on a charger the
+         * temperature is checked. */
         check_lines();
         update_gauge();
+        charge_limit(false);
+        update_charging();
         battery_policy();
         if (source != MAO_WAKE_TIMER) {
             break;
@@ -529,7 +642,11 @@ static void power_task(void *arg)
     for (;;) {
         const bool watch = s_low_reported || s_critical_count > 0 || s_critical_reported;
         const uint32_t period_ms = watch ? GAUGE_PERIOD_LOW_MS : GAUGE_PERIOD_MS;
-        int64_t wait_us = next_gauge_us - esp_timer_get_time();
+        int64_t next_us = next_gauge_us;
+        if (s_status.usb_present && s_caps.charge_control && s_next_charge_check_us < next_us) {
+            next_us = s_next_charge_check_us;
+        }
+        int64_t wait_us = next_us - esp_timer_get_time();
         wait_us = wait_us < 0 ? 0 : wait_us;
 
         uint32_t bits = 0;
@@ -545,6 +662,8 @@ static void power_task(void *arg)
             update_gauge();
             next_gauge_us = esp_timer_get_time() + (int64_t)period_ms * 1000;
         }
+        charge_limit(false);
+        update_charging();
         battery_policy();
 
         request_t req;
@@ -627,8 +746,17 @@ static void devcmd_power(const char *args)
     } else {
         ESP_LOGI(TAG, "battery: no fuel gauge");
     }
-    ESP_LOGI(TAG, "charger: usb=%d charging=%d; state %s", st.usb_present, st.charging,
+    ESP_LOGI(TAG, "charger: usb=%d charging=%d%s%s; state %s", st.usb_present, st.charging,
+             s_chg_line ? "" : " (estimated from the gauge)", st.charge_paused ? ", PAUSED (temperature)" : "",
              mao_power_state_name(s_state));
+    if (s_caps.charge_control) {
+        if (st.temp_valid) {
+            ESP_LOGI(TAG, "charge limit: board %.1f C (pause >= %.0f C, resume <= %.0f C)", (double)st.temp_c,
+                     (double)MAO_CHARGE_PAUSE_C, (double)MAO_CHARGE_RESUME_C);
+        } else {
+            ESP_LOGI(TAG, "charge limit: %s", st.usb_present ? "no board temperature" : "idle (no USB)");
+        }
+    }
     const mao_power_continuity_t *c = &s_cont;
     ESP_LOGI(TAG, "continuity: woke_from_sleep=%d reason=%s source=%s slept=%" PRIu64 " ms sleeps=%" PRIu32,
              c->woke_from_sleep, reason_name(c->reason), mao_wake_source_name(c->source), c->slept_ms,
@@ -702,8 +830,16 @@ esp_err_t mao_power_init(void)
     s_gauge_ok = mao_system_report("fuel gauge", mao_gauge_init()) == ESP_OK;
     s_status.gauge = s_gauge_ok;
     mao_board_line_get(MAO_LINE_USB_PRESENT, &s_status.usb_present);
-    mao_board_line_get(MAO_LINE_CHARGING, &s_status.charging);
+    bool chg = false;
+    s_chg_line = mao_board_line_get(MAO_LINE_CHARGING, &chg) == ESP_OK;
     update_gauge();
+    if (charging_now(&chg)) {
+        s_status.charging = chg;
+    }
+    /* The expander came up with the charger enabled. The first temperature
+     * check waits one period, so the source (mao_sense, started after this)
+     * is registered by then. */
+    s_next_charge_check_us = esp_timer_get_time() + (int64_t)CHARGE_LIMIT_PERIOD_MS * 1000;
 
     if (xTaskCreate(power_task, "mao_power", TASK_STACK, NULL, TASK_PRIO, &s_task) != pdPASS) {
         return ESP_ERR_NO_MEM;
@@ -717,8 +853,8 @@ esp_err_t mao_power_init(void)
     }
     register_devcmds();
 
-    ESP_LOGI(TAG, "power: battery %u mV %.1f %%, usb=%d charging=%d; sleep timer %d min" CRITICAL_NOTE,
+    ESP_LOGI(TAG, "power: battery %u mV %.1f %%, usb=%d charging=%d%s; sleep timer %d min" CRITICAL_NOTE,
              s_status.voltage_mv, (double)s_status.soc_pct, s_status.usb_present, s_status.charging,
-             CONFIG_MAO_POWER_WAKE_INTERVAL_MIN);
+             s_chg_line ? "" : " (estimated)", CONFIG_MAO_POWER_WAKE_INTERVAL_MIN);
     return ESP_OK;
 }

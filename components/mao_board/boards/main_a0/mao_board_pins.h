@@ -28,12 +28,12 @@
 #define MAO_PIN_MIC_PWR            35   /* microphone supply (GPIO-powered through 100R/1uF) */
 #define MAO_PIN_MIC_DATA           36   /* I2S0 PDM data from the microphone */
 #define MAO_PIN_MIC_CLK            37   /* I2S0 PDM clock to the microphone */
-#define MAO_PIN_EXP_RST_N          38   /* expander RESET: pulse low to recover a wedged TCA6408A without a power cycle */
-#define MAO_PIN_IR_TX              39   /* IR LED driver gate (RMT carrier) */
+#define MAO_PIN_IR_TX              38   /* IR LED driver gate (RMT carrier) */
+#define MAO_PIN_EXP_RST_N          39   /* expander RESET: pulse low to recover a wedged TCA6408A without a power cycle */
 #define MAO_PIN_IR_RX              40   /* IR receiver output (RMT) */
 #define MAO_PIN_HALL_A             41   /* ring dial channel A */
 #define MAO_PIN_HALL_B             42   /* ring dial channel B */
-#define MAO_PIN_LCD_BL_PWM         45   /* backlight PWM (LEDC) */
+#define MAO_PIN_LCD_BL_CTRL        45   /* backlight driver EN: AW9364 1-wire dimming (16 steps by pulse count) */
 #define MAO_PIN_IMU_INT2           47   /* IMU INT2: orientation, free-fall */
 #define MAO_PIN_TOF_INT_N          48   /* proximity GPIO1: threshold interrupt */
 
@@ -44,7 +44,7 @@
 #define MAO_EXP_HAPTIC_EN          3    /* haptic driver enable; 100k pull-down: off */
 #define MAO_EXP_TOF_XSHUT          4    /* proximity sensor shutdown (low = off); 100k pull-down: off */
 #define MAO_EXP_IR_RX_PWR          5    /* IR receiver supply (via RC filter); 100k pull-down: off */
-#define MAO_EXP_CHG_N              6    /* charger CHG (open-drain): low = charging; 100k pull-up */
+#define MAO_EXP_CHG_CE_N           6    /* charger /CE: high pauses charging (firmware thermal limit: the cell allows 0-45 C); 100k pull-down at the charger: charging on from reset */
 #define MAO_EXP_SENSE_ALRT_N       7    /* fuel-gauge ALRT + light-sensor INT (wired-OR, open-drain); 100k pull-up */
 
 /* I2C 7-bit addresses */

@@ -37,6 +37,7 @@ static const char *TAG = "MAO_SENSE";
 #define REG_CTRL7_G         0x16
 #define REG_CTRL9_XL        0x18
 #define REG_WAKE_UP_SRC     0x1B     /* then TAP_SRC 0x1C, D6D_SRC 0x1D */
+#define REG_OUT_TEMP_L      0x20     /* then OUT_TEMP_H 0x21 */
 #define REG_OUTX_L_G        0x22
 #define REG_OUTX_L_A        0x28
 #define REG_DSOX_TAP_CFG0   0x56
@@ -68,6 +69,10 @@ static const char *TAG = "MAO_SENSE";
 
 #define ACC_G_PER_LSB       0.000122f    /* +-4 g */
 #define GYRO_DPS_PER_LSB    0.00875f     /* 250 dps */
+/* Both parts: 256 LSB / C, 0 = 25 C (typical; the LSM6DSOX offset is
+ * specified only as +-15 C, so this is a board-temperature estimate). */
+#define TEMP_LSB_PER_C      256.0f
+#define TEMP_ZERO_C         25.0f
 
 /* Thresholds at +-4 g (VERIFY AT BRING-UP). */
 #define TAP_THS             6            /* 6 x FS/32 = 750 mg */
@@ -253,6 +258,23 @@ esp_err_t sense_imu_sample(mao_obs_imu_t *out)
         out->accel_g = (mao_vec3_t) { axis(&raw[0], ACC_G_PER_LSB), axis(&raw[2], ACC_G_PER_LSB),
                                       axis(&raw[4], ACC_G_PER_LSB) };
     }
+    return ESP_OK;
+}
+
+/* Quiet on failure: the caller (the charge limit, every 10 s on USB) reports
+ * it once. Powered down, the sensor stops converting and the register would
+ * be stale; in the low-power modes it converts at the accelerometer ODR. */
+esp_err_t sense_imu_temperature(float *celsius)
+{
+    if (!s_dev || !celsius || s_powered_down) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    uint8_t raw[2];
+    const esp_err_t err = rd(REG_OUT_TEMP_L, raw, sizeof(raw));
+    if (err != ESP_OK) {
+        return err;
+    }
+    *celsius = TEMP_ZERO_C + (float)(int16_t)(raw[0] | (raw[1] << 8)) / TEMP_LSB_PER_C;
     return ESP_OK;
 }
 

@@ -3,8 +3,10 @@
  * and pad does while it sleeps.
  *
  * Wake lines (all active low): face press GPIO0, IMU INT1 GPIO14, charger
- * PGOOD GPIO3 and expander INT GPIO21 are RTC pads, combined in one ext1
- * ANY_LOW group. The proximity interrupt (GPIO48, light sleep only: the ToF is
+ * PGOOD GPIO3 and expander INT GPIO21 (gauge / light alert) are RTC pads,
+ * combined in one ext1 ANY_LOW group. IMU INT1 has no pull (an LSM6DSOX
+ * powering up with INT1 high locks itself into I3C), so it is armed only
+ * when the IMU answered at boot: a missing IMU leaves the pad floating. The proximity interrupt (GPIO48, light sleep only: the ToF is
  * off in deep sleep) is not an RTC pad and wakes through the GPIO wake source
  * instead. Two consequences of the ext1 group:
  *   - a line that is already low would wake the chip at once, so it is left
@@ -56,6 +58,12 @@ static bool line_idle(int gpio)
     return gpio_get_level((gpio_num_t)gpio) == 1;
 }
 
+static bool imu_present(void)
+{
+    mao_board_i2c_info_t info;
+    return mao_board_i2c_device(MAO_I2C_IMU, &info) == ESP_OK && info.present;
+}
+
 /* Build the ANY_LOW mask from the requested lines that are idle now. */
 static uint64_t wake_mask(const mao_board_wake_t *want, bool light, mao_board_wake_t *armed, bool *usb_ext0,
                           bool *prox_gpio)
@@ -68,7 +76,7 @@ static uint64_t wake_mask(const mao_board_wake_t *want, bool light, mao_board_wa
         mask |= 1ULL << MAO_PIN_PRESS_N;
         a.press = true;
     }
-    if (want->motion && line_idle(MAO_PIN_IMU_INT1)) {
+    if (want->motion && imu_present() && line_idle(MAO_PIN_IMU_INT1)) {
         mask |= 1ULL << MAO_PIN_IMU_INT1;
         a.motion = true;
     }
@@ -118,7 +126,10 @@ esp_err_t mao_board_deep_sleep_prepare(const mao_board_wake_t *want, mao_board_w
 
     /* Every rail off: panel held in reset, amplifier, haptic driver, ToF and
      * IR receiver unpowered. The display bus is isolated first so the panel
-     * is never back-powered while its rail collapses. */
+     * is never back-powered while its rail collapses. P6 (charger /CE) goes
+     * low with them: charging enabled, the hardware default, since nothing
+     * watches the temperature while the chip sleeps (the pack NTC still
+     * stops the charger outside 0-50 C). */
     mao_board_backlight_set(0);
     a0_display_park(true);
     if (a0_expander_ok()) {

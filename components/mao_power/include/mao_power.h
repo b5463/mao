@@ -2,9 +2,17 @@
  * MAO power: battery, charger and USB status, power events, and the power
  * state manager.
  *
- *   MAX17048 fuel gauge + BQ24073 charger lines -> mao_power task
+ *   MAX17048 fuel gauge + BQ24073 charger (USB PGOOD, /CE) -> mao_power task
  *       -> MAO events: USB_CONNECTED / USB_DISCONNECTED, CHARGING_STARTED /
  *          CHARGING_DONE, BATTERY_LOW, BATTERY_CRITICAL, POWER_STATE
+ *
+ * Charging: on the A0 the charger's /CHG output is not wired; "charging" is
+ * derived from USB present and the gauge (mao_power_policy.h,
+ * mao_policy_charging). Charge temperature limit: while USB is present the
+ * board temperature (a source registered with mao_power_set_temp_source(),
+ * the IMU die) is read every ~10 s; charging pauses at >= 43 C and resumes
+ * at <= 40 C (cell window 0-45 C; the charger's pack NTC stops it outside
+ * 0-50 C regardless). No temperature = charging left enabled.
  *
  * Power states, from most to least awake:
  *   ACTIVE      everything running.
@@ -70,7 +78,10 @@ typedef struct {
     float soc_pct;                /* state of charge */
     float rate_pct_per_h;         /* + charging, - discharging */
     bool usb_present;
-    bool charging;
+    bool charging;                /* derived where the board has no charger status line */
+    bool charge_paused;           /* charge temperature limit holds the charger off */
+    bool temp_valid;              /* temp_c is a fresh reading (USB present, source answered) */
+    float temp_c;                 /* board temperature used by the charge limit */
     bool low;
     bool critical;
     uint32_t updated_ms;          /* ms since boot of the last gauge reading */
@@ -126,6 +137,14 @@ mao_wake_source_t mao_power_last_wake(void);
  * enabled is false on boards without power management. */
 struct mao_policy_config;
 void mao_power_policy_config(struct mao_policy_config *out);
+
+/* Board temperature for the charge limit, degrees C. Called in the
+ * mao_power task; must not block for long. */
+typedef esp_err_t (*mao_power_temp_source_t)(float *celsius);
+
+/* Register the board-temperature source (mao_sense: the IMU die). May be
+ * called before or after mao_power_init(); NULL removes it. */
+void mao_power_set_temp_source(mao_power_temp_source_t source);
 
 /* Read the fuel gauge now (normally every 30 s). */
 esp_err_t mao_power_refresh(void);

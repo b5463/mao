@@ -34,14 +34,14 @@ channel, ADC1 = ADC usable with Wi-Fi on.
 | 35 | `MIC_PWR` | out | microphone supply (GPIO-powered through 100R/1uF) |  | 100k pull-down: mic off at reset and in deep sleep (pad high-Z). SPH0641 draws 80 uA even with the clock stopped, so it is powered only while listening. Right column: the mic group (pins 28-30) leaves together towards MK401 |
 | 36 | `MIC_DATA` | in | I2S0 PDM data from the microphone |  | mic group |
 | 37 | `MIC_CLK` | out | I2S0 PDM clock to the microphone |  | mic group |
-| 38 | `EXP_RST_N` | out | expander RESET: pulse low to recover a wedged TCA6408A without a power cycle |  | 10k pull-up: released from power-on; drive open-drain |
-| 39 | `IR_TX` | out | IR LED driver gate (RMT carrier) |  | 100k pull-down: LED off at reset (ODD JOBS 117) |
+| 38 | `IR_TX` | out | IR LED driver gate (RMT carrier) |  | 100k pull-down: LED off at reset (ODD JOBS 117). GPIO38 has no reset pull (GPIO39 = MTCK has one, which would light the LEDs) |
+| 39 | `EXP_RST_N` | out | expander RESET: pulse low to recover a wedged TCA6408A without a power cycle |  | 10k pull-up: released from power-on; drive open-drain. MTCK: its reset pull-up only agrees with the 10k |
 | 40 | `IR_RX` | in | IR receiver output (RMT) |  | 10k pull-up R506 to the receiver supply |
 | 41 | `HALL_A` | in | ring dial channel A |  | push-pull from the Hall latch |
 | 42 | `HALL_B` | in | ring dial channel B |  |  |
 | 43 | `UART_TX` | out | UART0 TX (service) |  | service pad |
 | 44 | `UART_RX` | in | UART0 RX (service) |  | service pad |
-| 45 | `LCD_BL_PWM` | out | backlight PWM (LEDC) | strap | S (VDD_SPI strap, must read 0 at reset): the 100k gate pull-down R305 (through 100R) holds it low, which also keeps the backlight off. Top-row end pin: the line leaves on L3 clear of the display bus |
+| 45 | `LCD_BL_CTRL` | out | backlight driver EN: AW9364 1-wire dimming (16 steps by pulse count) | strap | S (VDD_SPI strap; flash voltage fixed by eFuse on this module): the AW9364 150k EN pull-down holds it low, so the backlight is dark from reset |
 | 46 | — | nc | spare | strap | S (must read 0 for download boot): left NC with its internal pull-down; boxed in by the display bus, so not used |
 | 47 | `IMU_INT2` | in | IMU INT2: orientation, free-fall |  |  |
 | 48 | `TOF_INT_N` | in | proximity GPIO1: threshold interrupt |  | 10k pull-up (ST application circuit) |
@@ -61,7 +61,7 @@ so the external resistors below are the hardware defaults (ODD JOBS 116/117).
 | P3 | `HAPTIC_EN` | out | haptic driver enable | 100k pull-down: off |
 | P4 | `TOF_XSHUT` | out | proximity sensor shutdown (low = off) | 100k pull-down: off |
 | P5 | `IR_RX_PWR` | out | IR receiver supply (via RC filter) | 100k pull-down: off |
-| P6 | `CHG_N` | in | charger CHG (open-drain): low = charging | 100k pull-up |
+| P6 | `CHG_CE_N` | out | charger /CE: high pauses charging (firmware thermal limit: the cell allows 0-45 C) | 100k pull-down at the charger: charging on from reset |
 | P7 | `SENSE_ALRT_N` | in | fuel-gauge ALRT + light-sensor INT (wired-OR, open-drain) | 100k pull-up |
 
 ## I2C address map (one bus, 2.2 kΩ pull-ups, 400 kHz)

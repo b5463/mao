@@ -59,9 +59,9 @@ static void devcmd_board(const char *args)
     ESP_LOGI(TAG, "board: %s, revision %s (%d mV)", MAO_BOARD_NAME,
              mao_board_revision(), mao_board_revision_mv());
     ESP_LOGI(TAG, "caps: led=%d display_power=%d i2c=%d expander=%d amp_switch=%d mic=%d touch=%d "
-             "ir=%d power_status=%d hall_fast=%d sleep=%d",
+             "ir=%d power_status=%d charge_control=%d hall_fast=%d sleep=%d",
              c.rgb_led, c.display_power, c.i2c, c.expander, c.amp_switch, c.mic, c.touch,
-             c.ir, c.power_status, c.hall_fast, c.sleep);
+             c.ir, c.power_status, c.charge_control, c.hall_fast, c.sleep);
     if (!c.i2c) {
         return;
     }
@@ -93,9 +93,10 @@ static void devcmd_board(const char *args)
     }
     bool usb = false, chg = false, alert = false;
     mao_board_line_get(MAO_LINE_USB_PRESENT, &usb);
-    mao_board_line_get(MAO_LINE_CHARGING, &chg);
+    const bool chg_wired = mao_board_line_get(MAO_LINE_CHARGING, &chg) == ESP_OK;
     mao_board_line_get(MAO_LINE_SENSE_ALERT, &alert);
-    ESP_LOGI(TAG, "rails:%s; lines: usb=%d charging=%d sense_alert=%d", rails, usb, chg, alert);
+    ESP_LOGI(TAG, "rails:%s; lines: usb=%d charging=%s sense_alert=%d", rails, usb,
+             chg_wired ? (chg ? "1" : "0") : "- (see mao power)", alert);
 }
 
 void mao_board_common_init(void)

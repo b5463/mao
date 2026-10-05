@@ -13,6 +13,10 @@ states (§4.1), the boot experience (§7), the boot check and the factory
 self-test (§8, with `docs/hardware/mao-factory-test.md`), and the display
 rotation setting (§3.1).
 
+The A0 board revision (AW9364 backlight, charger /CE, GPIO38/39 swap, IMU
+INT pulls) is followed as described below; what changed and how to port it
+onto another tree is in `docs/firmware/mao-a0-rev-merge.md`.
+
 ## 1. Board profiles
 
 | | ESP32-C3-LCDkit | MAO_MAIN A0 |
@@ -60,33 +64,48 @@ Host unit tests (no IDF): `tests/host/run.sh` (§11).
 
 | Area | API | A0 implementation |
 |---|---|---|
-| Identity | `mao_board_init`, `_get_caps`, `_revision`, `_revision_mv` | chip check, release sleep holds, HALL_FAST high, mic off, IRQ inputs, board ID (ADC1_CH7 on GPIO8, one-shot, curve-fitting cal, 8 samples, 1.40–1.90 V = "A0"), I2C + expander |
+| Identity | `mao_board_init`, `_get_caps`, `_revision`, `_revision_mv` | chip check, release sleep holds, HALL_FAST high, mic off, IRQ inputs, board ID (ADC1_CH7 on GPIO8, one-shot, curve-fitting cal, 8 samples, 1.40–1.90 V = "A0"; 1M/1M of the 3.18 V rail = 1.59 V nominal), I2C + expander |
 | I2C | `_i2c_bus`, `_i2c_device`, `_i2c_add`, `_i2c_scan`, `_i2c_name` | I2C0, SDA 7 / SCL 15, 400 kHz, internal pull-ups off. Every device is probed at boot; ToF and haptic rails are powered for the probe or scan only |
 | Rails | `_rail_set`, `_rail_is_on`, `_rail_readback` (`DISPLAY`, `AMP`, `HAPTIC`, `TOF`, `IR_RX`, `MIC`) | expander P1/P2/P3/P4/P5; MIC = GPIO35 (input+output, so it can be read back). Readback = the pin level (expander input register / GPIO), not the commanded one |
 | Diagnostics | `_expander_test` | CONFIG readback, POLARITY round trip 0x2A / 0x15 on the output pins (polarity only acts on inputs: no rail moves), output pins read back their commanded level |
-| Expander reset | `_expander_resets`, `_expander_reset_test`, `_display_reinit` | GPIO38 = EXP_RST_N (open drain, R205 10 k pull-up): automatic recovery of a wedged expander and the self-test pulse; a reset counter tells the rail owners to re-initialise (below) |
-| Lines | `_line_get` (`USB_PRESENT`, `CHARGING`, `SENSE_ALERT`) | GPIO3 low; expander P6 low; P7 low (reading the input register clears the expander INT) |
-| IRQs | `_irq_get` (`IMU_INT1/2`, `TOF`, `EXPANDER`, `USB_PRESENT`) | GPIO 14 / 47 / 48 / 21 / 3, all active low, already inputs |
+| Expander reset | `_expander_resets`, `_expander_reset_test`, `_display_reinit` | GPIO39 = EXP_RST_N (open drain, R22 10 k pull-up, TP11): automatic recovery of a wedged expander and the self-test pulse; a reset counter tells the rail owners to re-initialise (below) |
+| Lines | `_line_get` (`USB_PRESENT`, `CHARGING`, `SENSE_ALERT`) | GPIO3 low; `CHARGING` = `ESP_ERR_NOT_SUPPORTED` (the BQ24073 /CHG is not wired; `mao_power` estimates charging, §3.4); P7 low (reading the input register clears the expander INT) |
+| Charger | `_charge_enable` (caps `charge_control`) | expander P6 = BQ24073 /CE: 0 = charging enabled (also the 100 k pull-down default), 1 = paused. Owned by the charge temperature limit (§3.4) |
+| IRQs | `_irq_get` (`IMU_INT1/2`, `TOF`, `EXPANDER`, `USB_PRESENT`) | GPIO 14 / 47 / 48 / 21 / 3, all active low, already inputs. No internal pulls: the IMU drives push-pull, and an LSM6DSOX that sees INT1 high at its power-up locks itself into I3C-only mode |
 | Display | `_display_init`, `_backlight_set`, `_display_sleep`, `_display_get_resolution` | §3.1; the descriptor carries the panel-native orientation and the mounting `rotation` |
 | Input | `_input_init`, `_hall_fast_set` | Hall A 41 / B 42, press GPIO0 (input only), same decoder parameters as the EC11 |
 | Touch | `_touch_get`, `_touch_zone_name` | RIGHT T1, LEFT T4, TOP T5, REAR T6; wake zone TOP |
 | Audio | `_audio_init`, `_audio_gain`, `_mic_init` | §3.2 |
-| IR | `_ir_get` | TX 35, RX 36 (active low), 38 kHz / 33 %, RX settle 1 ms |
+| IR | `_ir_get` | TX GPIO38 (no reset pull on that pad; 100 k gate pull-down: LEDs dark from reset), RX GPIO40 (active low), 38 kHz / 33 %, RX settle 1 ms |
 | LED | `_led_init` | `ESP_ERR_NOT_SUPPORTED` (no LED on the A0) |
 | Sleep | `_deep_sleep_prepare`, `_light_sleep_prepare`, `_light_sleep_done`, `_wake_decode` | §4 |
 
 ### TCA6408A expander (0x20)
 The power-up state is all inputs with the output register at 0xFF. The
-driver writes OUTPUT = 0x00 first, then POLARITY = 0x00, then CONFIG = 0xC0
-(P6/P7 inputs), and reads CONFIG back. If CONFIG were written first, every
-rail would glitch on. Writes are read-modify-write on a shadow register
-under a mutex. A missing expander is reported `[!!] I2C expander` and boot
-continues, but rails, display power and the charger line are then unavailable.
+driver writes OUTPUT = 0x00 first, then POLARITY = 0x00, then CONFIG = 0x80
+(P7 the only input; P0-P5 rails and resets, P6 the charger /CE driven 0 =
+charging enabled), and reads CONFIG back. If CONFIG were written first, every
+rail would glitch on and charging would pause. Writes are read-modify-write
+on a shadow register under a mutex. A missing expander is reported
+`[!!] I2C expander` and boot continues, but rails, display power and the
+charge temperature limit are then unavailable (charging stays enabled by the
+/CE pull-down).
 
-**Recovery through GPIO38 (EXP_RST_N).** GPIO38 drives the expander's RESET
+| Bit | Net | Dir | Default (pull) |
+|---|---|---|---|
+| P0 | LCD_RST_N | out | 100 k down: panel in reset |
+| P1 | LCD_PWR_EN | out | 100 k down: panel logic rail off |
+| P2 | AMP_SD_N | out | 100 k down: amplifier shut down (2.2 k series into SD_MODE) |
+| P3 | HAPTIC_EN | out | 100 k down |
+| P4 | TOF_XSHUT | out | 100 k down |
+| P5 | IR_RX_PWR | out | 100 k down |
+| P6 | CHG_CE_N | out | 100 k down: charging enabled |
+| P7 | SENSE_ALRT_N | in | 100 k up (gauge ALRT + light INT, wired-OR) |
+
+**Recovery through GPIO39 (EXP_RST_N).** GPIO39 drives the expander's RESET
 pin (open drain, released high from the first instruction of
-`a0_i2c_init()`; R205 10 k pull-up holds it high through boot and deep
-sleep). The 4-layer board uses every module pin except the strap GPIO46
+`a0_i2c_init()`; R22 10 k pull-up holds it high through boot and deep
+sleep; GPIO39 = MTCK has a reset pull-up, which agrees with it). The 4-layer board uses every module pin except the strap GPIO46
 (see `mao-pin-map.md`). When an expander write or input read fails, the driver resets the I2C
 bus (`i2c_master_bus_reset()`), pulses RESET low for 10 µs, reprograms the
 expander from the shadow registers (output before direction, as at power-up)
@@ -96,7 +115,9 @@ cycle.
 A reset is not free: from the pulse until the output register is rewritten
 (~0.2 ms) every expander pin is an input, so the rails fall to their
 pull-down defaults. The panel sees LCD_RST_N low and a supply dip, the ToF
-its XSHUT, the haptic driver its EN; each loses its configuration. Every
+its XSHUT, the haptic driver its EN; each loses its configuration. A paused
+charger may run for that moment (/CE pull-down); the shadow restores the
+pause. Every
 pulse increments `mao_board_expander_resets()`, and the owners re-initialise:
 
 | Owner | Notices | Re-initialises |
@@ -111,8 +132,9 @@ the IMU, light sensor, gauge and mic are not on the expander.
 another task has in flight at that moment fails once and is retried by its
 owner. The self-test's `expander_reset` step uses
 `mao_board_expander_reset_test()`: pulse, check CONFIG is back at its 0xFF
-default (the line really reset the chip), reprogram, check CONFIG 0xC0 and
-every output pin.
+default (the line really reset the chip), reprogram, check CONFIG 0x80 and
+every output pin. The expander test's POLARITY patterns are 0x6A / 0x15, so
+every output bit P0-P6 is set and cleared once.
 
 ## 3. Drivers
 
@@ -124,9 +146,38 @@ every output pin.
   CS 13 through the GPIO matrix, DC 10 a plain GPIO; the module pins follow the
   connector's pin order (no crossing on the board). `unpark()` restores the same
   routing after a rail power cycle. TE (tearing effect) is GPIO9, an input with
-  the internal pull-down; the flush does not use it yet. Backlight: LEDC ch0,
-  5 kHz, 10 bit on GPIO45 (a strap, held low by the 100 k gate pull-down). It is
-  set to 0 % before the rail comes up.
+  the internal pull-down; the flush does not use it yet.
+- **Backlight: Awinic AW9364** constant-current sink, EN = `MAO_PIN_LCD_BL_CTRL`
+  (GPIO45). The panel LEDs hang from VSYS (not from the switched 3V3_LCD rail)
+  into two 20 mA channels: 40 mA, the panel's rating, is the hardware maximum,
+  so there is no firmware cap any more (the old `A0_BACKLIGHT_MAX_PCT` 80 %
+  PWM ceiling is gone). EN low is the only thing that darkens the LEDs, so
+  every rail-off and sleep path sets 0 % first.
+  - 1-wire pulse-count dimming (datasheet V2.3): the enable edge is edge 1 =
+    20 mA per channel; edge n = (17 − n)/16 × 20 mA, 16 steps down to
+    1.25 mA; ready time > 20 µs after the enable edge, then TLO 0.5–500 µs and
+    THI > 0.5 µs per edge; the current holds while EN stays high; EN low longer
+    than TOFF (0.8–2.5 ms) shuts it down.
+  - `mao_board_backlight_set(percent)`: 0 = EN low; otherwise step
+    n = 17 − ceil(16 × percent / 100), clamped 1..16 (per channel: 1 % →
+    1.25 mA, 50 % → 10 mA, 94–100 % → 20 mA). The current is never below the
+    request and less than one step above it.
+  - Dimmer: (n_new − n_cur) more edges. Brighter: EN low ≥ 3 ms (shutdown,
+    measured with `esp_timer`, sleeping for the bulk), then the enable edge
+    and n − 1 edges. The datasheet does not say whether edge 17 wraps, so the
+    driver never counts past 16; the price is a ~3 ms dark gap on every
+    brighter step (VERIFY AT BRING-UP whether it is visible in a fade-in).
+    Each pulse train (≤ 16 edges, 2 µs low / 2 µs high, 30 µs ready: under
+    100 µs) runs in a critical section with `esp_rom_delay_us`, so no
+    interrupt can stretch a low phase towards TOFF. A mutex serialises callers
+    (LVGL task, power hook, app, self-test); an unchanged step sends nothing.
+  - The percent → step math and the edge plan are pure C
+    (`boards/main_a0/aw9364_dimming.c`), host-tested (§11). `mao backlight`
+    (§10) drives the steps directly for bring-up.
+  - GPIO45 is the VDD_SPI strap. On this module the flash voltage comes from
+    eFuse, and the AW9364's 150 k EN pull-down holds the pin low through reset
+    anyway (dark from power-on). The pin becomes a plain GPIO output, latched
+    low first, only in `mao_board_display_init()`.
 - Power-up sequence: RST_N low, PWR_EN high, 10 ms, 10 ms with reset low,
   RST_N high, 120 ms, then `esp_lcd` GC9A01 init with `reset_gpio = -1`. The
   driver's software reset is kept; it is redundant but harmless.
@@ -156,7 +207,7 @@ every output pin.
   redraws and resumes rendering. The UI keeps running meanwhile (the LVGL
   lock is not held).
 - After an expander reset the panel is re-initialised automatically (§2,
-  "Recovery through GPIO38").
+  "Recovery through GPIO39").
 - With the rail off (`MAO_RAIL_DISPLAY` off), DC, CS, MOSI and SCLK are
   driven low as GPIOs. For deep sleep they are isolated (high-Z, held). When
   the rail is switched on again, the panel is re-initialised and the pins are
@@ -226,11 +277,42 @@ every output pin.
   (0x001x), HIBRT 0x0A = 0x8030, CONFIG 0x0C (RCOMP kept, ATHD = 27 → empty
   alert at 5 %, ALSC off), VALRT 0x14 = 0xA5FF (3.30 V low), CRATE 0x16
   (0.208 %/h), STATUS 0x1A (flags cleared after reading).
-- Charger: USB present = GPIO3 low (both edges), charging = P6 low (via the
-  expander INT on GPIO21). Fast charge is 297 mA with a USB500 input limit,
-  set in hardware.
+- Charger: BQ24073, USB present = PGOOD on GPIO3 low (both edges). Charge
+  current 207 mA (ISET 4.3 k; the cell allows 250 mA) with a USB500 input
+  limit, set in hardware; the pack NTC on TS stops charging outside 0–50 °C.
+  /CHG is **not wired** on this revision; expander P6 is the charger's /CE.
+- **Charging (estimated).** `mao_board_line_get(MAO_LINE_CHARGING)` returns
+  `ESP_ERR_NOT_SUPPORTED` on the A0, so `mao_power` derives it
+  (`mao_policy_charging()`, host-tested): USB present AND not paused by the
+  temperature limit AND (gauge CRATE > +1 %/h OR SOC < 100 %). Without a
+  gauge: USB present and not paused. Honest limits: right after plug-in it
+  says "charging" before CRATE has turned positive; a charger that terminates
+  while the gauge reads below 100 % (or a load above the USB500 limit that
+  draws on the cell) still reads as charging until SOC reaches 100 %. CRATE
+  is the gauge's approximate SOC rate (0.208 %/h per LSB, "not for conversion
+  to ampere"). The estimate is refreshed with every gauge reading (30 s) and
+  at once when USB comes or goes (the gauge is re-read then).
+- **Charge temperature limit.** The LiPo cell may be charged at 0–45 °C, but
+  the charger's NTC window ends at 50 °C. While USB is present, `mao_power`
+  reads the board temperature every 10 s (and at once on plug-in) and
+  pauses charging (`mao_board_charge_enable(false)`, /CE = 1) at ≥ 43 °C,
+  resumes at ≤ 40 °C (`mao_policy_charge_pause()`, host-tested); transitions
+  are logged (`charging paused: board 43.4 C >= 43 C` / `charging resumed`).
+  The source is the IMU die temperature (`mao_sense_imu_temperature()`,
+  LSM6DSOX OUT_TEMP 0x20/0x21, 256 LSB/°C, 0 = 25 °C), registered by
+  `mao_sense` with `mao_power_set_temp_source()`. Fail-safe: no source, a
+  failed read or a NaN leaves charging **enabled** (logged once); the pack NTC
+  still stops the charger at 50 °C. The IMU die is a board-temperature proxy,
+  not the cell, and its offset is only specified as ±15 °C (VERIFY AT
+  BRING-UP against a thermocouple). Unplugging USB returns /CE to 0. In
+  DROWSY on a charger the light-sleep timer is shortened to 10 s so the check
+  keeps running (the IMU converts at its 12.5 Hz low-power ODR). Deep sleep
+  writes every expander output 0, so charging is enabled while the chip
+  sleeps (nothing watches the temperature then; deep sleep on USB is off by
+  default, `MAO_POWER_DEEP_ON_USB`). Cold is left to the NTC (0 °C).
 - Events: `USB_CONNECTED` / `USB_DISCONNECTED`, `CHARGING_STARTED`,
-  `CHARGING_DONE` (CHG released while USB is still present),
+  `CHARGING_DONE` (charging estimate went false while USB is still present
+  and nothing holds the charger off; a temperature pause posts no event),
   `BATTERY_LOW` (SOC ≤ 15 %, re-armed above 20 %), `BATTERY_CRITICAL`
   (on battery with SOC ≤ 2 % or VCELL < 3.35 V for 3 readings in a row),
   `POWER_STATE`. After a critical alert, a 5 s grace period follows, then
@@ -243,11 +325,16 @@ every output pin.
   `mao_power_gauge_version()`, `mao_power_last_wake()` (what ended the last
   DROWSY), `mao_power_policy_config()` (§4.1), sleep reason
   `MAO_SLEEP_REASON_IDLE`.
+- Added with the board revision: `mao_power_set_temp_source()`, and
+  `mao_power_status_t` fields `charge_paused`, `temp_valid`, `temp_c`.
+- The expander INT (GPIO21) now carries only the gauge / light alert: every
+  expander interrupt reads `MAO_LINE_SENSE_ALERT`, which clears the INT even
+  without a gauge.
 
 ### 3.5 Sense (`mao_sense`): observations only
 | Sensor | Part / addr | Configuration | Observation |
 |---|---|---|---|
-| IMU | LSM6DSOX 0x6A (WHO_AM_I 0x6C; LSM6DS3TR-C 0x6A accepted) | CTRL3_C 0x64 (BDU, H_LACTIVE, IF_INC, push-pull), XL 104 Hz normal mode ±4 g, gyro off (`mao_sense_imu_gyro`). INT1 = wake-up (125 mg) + tap + double tap; INT2 = 6D (60°) + free-fall (312 mg, 58 ms). LIR latched. DSOX: TAP_CFG0/1/2 0x56–0x58, I3C off; DS3TR-C: TAP_CFG 0x58 | accel g, gyro dps, event flags, 6D orientation |
+| IMU | LSM6DSOX 0x6A (WHO_AM_I 0x6C; LSM6DS3TR-C 0x6A accepted) | CTRL3_C 0x64 (BDU, H_LACTIVE, IF_INC, push-pull), XL 104 Hz normal mode ±4 g, gyro off (`mao_sense_imu_gyro`). INT1 = wake-up (125 mg) + tap + double tap; INT2 = 6D (60°) + free-fall (312 mg, 58 ms). LIR latched. DSOX: TAP_CFG0/1/2 0x56–0x58, I3C off; DS3TR-C: TAP_CFG 0x58. INT lines without MCU pulls (INT1 high at IMU power-up = I3C-only). Die temperature OUT_TEMP 0x20/0x21 on request (`mao_sense_imu_temperature`, for the charge limit) | accel g, gyro dps, event flags, 6D orientation |
 | ToF | VL53L4CD 0x29, ST ULD 2.2.2 (vendored, `vl53l4cd/README.md`) | XSHUT = P4; autonomous 20 ms budget every 200 ms (ACTIVE) / 500 ms (IDLE); DROWSY: interrupt only below 150 mm; off in deep sleep | distance, range status, signal, sigma, threshold flag |
 | ALS | OPT3004 0x44 (0x7E = 0x5449, 0x7F = 0x3001) | CONFIG 0xCE11: auto range, 800 ms, continuous, latched window ±25 % (min ±2 lx) re-centred each read; reading CONFIG clears the latch; off when drowsy / asleep | lux |
 | Touch | S3 touch v2, 4 zones | default sample config (500 charges, 0.5–2.2 V), threshold = 2 % of benchmark, hardware filter, active/inactive callbacks; TOP = deep-sleep wake channel. LEFT holds its last reading while the speaker amplifier is on and 150 ms after: the speaker lies partly over that electrode and the class-D outputs switch at ~330 kHz | raw, baseline, delta 0..1 (1 = 2 × threshold), touched, changed mask |
@@ -295,15 +382,17 @@ Stage 2 extends `mao_input_stats_t` with per-channel edge counters
 | DROWSY | panel sleep-in, backlight off | IMU wake-on-motion only (12.5 Hz LP), ToF approach threshold, ALS off, mic off | amp, haptics and IR RX off; HALL_FAST low; CPU in light sleep |
 | DEEP_SLEEP | rail off, bus isolated | IMU wake-on-motion (off on a critical battery), ToF / ALS / mic off | every expander rail off, HALL_FAST low and held |
 
-- Deep-sleep wake: ext1 ANY_LOW on GPIO0 (press), GPIO14 (IMU INT1), GPIO3
-  (USB plugged) and GPIO21 (expander: charger / alerts). A line that is
-  already low is not armed. With USB present, ext0 waits on GPIO3 going high
+- Deep-sleep wake: ext1 ANY_LOW on GPIO0 (press), GPIO14 (IMU INT1, only if
+  the IMU answered at boot: the pad has no pull), GPIO3 (USB plugged) and
+  GPIO21 (expander: gauge / light alert). A line that is already low is not
+  armed. With USB present, ext0 waits on GPIO3 going high
   (unplug) instead. Touch wakes on the TOP zone, and a timer wakes every
   `CONFIG_MAO_POWER_WAKE_INTERVAL_MIN` (30 min). On a critical battery only
   USB can wake MAO.
 - Light-sleep (DROWSY) wake: the same lines plus GPIO48 (ToF threshold, through the GPIO wake source: GPIO48 is not an RTC pad), any
-  touch zone, and a 60 s housekeeping timer. The timer only refreshes the
-  battery state and sleeps again; any other source returns to ACTIVE. Ring
+  touch zone, and a 60 s housekeeping timer (10 s on USB power, for the charge
+  temperature limit, §3.4). The timer only refreshes the battery state (and
+  on USB checks the temperature) and sleeps again; any other source returns to ACTIVE. Ring
   rotation alone is not a wake source (GPIO 41/42 are not RTC pads), but
   touching the ring usually trips the IMU or a touch zone. ext1 moves its
   pads to RTC IO, so they are given back to the GPIO matrix after every
@@ -503,7 +592,7 @@ console (`[OK]` / `[!!]` / `[--]` lines, `mao board`, `mao selftest boot`).
 - **Factory self-test**: `mao selftest` (interactive), `mao selftest auto`
   (operator steps skipped), or at every boot with `CONFIG_MAO_SELFTEST_AT_BOOT`
   (profile `sdkconfig.factory`). On the A0: 24 automatic steps (including
-  `expander_reset`, which pulses GPIO38), 3 probe-pad steps (`pad_lcd`,
+  `expander_reset`, which pulses GPIO39), 3 probe-pad steps (`pad_lcd`,
   `pad_mic`, `pad_irv`: each rail off then on, measured at TP13 / TP14 /
   TP15 by the fixture DMM or the operator) and 6 operator steps; 7 steps on
   the LCDkit. Answers: `mao selftest yes|no|skip`, a face press = yes,
@@ -514,6 +603,12 @@ console (`[OK]` / `[!!]` / `[--]` lines, `mao board`, `mao selftest boot`).
   `SELFTEST PASS 33/33` / `FAIL …` / `INCOMPLETE …`, `SELFTEST_JSON {…}`.
   Station script: `tools/factory_test.py`. Steps, limits, fixture, test
   pads: `docs/hardware/mao-factory-test.md`.
+- Board revision changes: `board_id` limits 1480 … 1700 mV (3.18 V rail:
+  1.59 V nominal; was 1550 … 1750 for 3.3 V); `charger` passes on PGOOD and,
+  where the board limits the charge temperature, a readable board temperature;
+  it reports the estimated charging state, a pause and the temperature
+  (`PGOOD(usb)=1 chg=1, board 29.4 C`). `docs/hardware/mao-factory-test.md`
+  still lists the old values (owned by the hardware docs).
 
 ## 9. Bring-up order (`main/mao_main.c`)
 system → board (chip, pads, board ID, I2C, expander with every rail off) →
@@ -532,7 +627,8 @@ the UI degrades instead of crashing.
 | `mao sense` | A0 | latest observation of every sensor |
 | `mao haptic <name>` | A0 | play a touch; also `calibrate`, `on`, `off`, `strength N` |
 | `mao ir send <addr> <cmd>` | A0 | one NEC frame (hex with `0x`); `mao ir rx on\|off` |
-| `mao power` | A0 | battery V / % / rate, USB, charging, state, continuity |
+| `mao power` | A0 | battery V / % / rate, USB, charging (estimated), temperature pause, charge-limit board temperature, state, continuity |
+| `mao backlight <0..100>` | A0 | AW9364 bring-up, bypassing `mao_display`: set a level; `step <1..16>` one driver step; `edge` one raw extra edge (at step 16: does edge 17 wrap to full?); the next set restarts the driver |
 | `mao sleep [s]` | A0 | deep sleep, timer wake after s (default 30 min); `mao sleep light [s]` = DROWSY test |
 | `mao percept` | both | senses in use, held / near, room level, absence, fiddling level and score; `log on\|off`; `inject <NAME> [detail] [confidence]` |
 | `mao rotate [deg]` | both | display rotation: show, set live (0/90/180/270), `save` (NVS), `default` |
@@ -545,7 +641,10 @@ without `CONFIG_MAO_DEV_CONSOLE` (release).
 
 ## 11. Host unit tests
 
-The perception engine and the power policy are plain C. `tests/host/` builds
+The perception engine, the power policy (states, the charge temperature
+limit and the charging estimate) and the A0 backlight's AW9364 step logic
+(percent → step, the edge plan between any two steps against a driver model
+that never counts past edge 16) are plain C. `tests/host/` builds
 them with the host compiler (C99, `-Wall -Wextra -Werror`, AddressSanitizer
 and UBSan) together with scenario tests: a small world simulator feeds every
 sense at the A0's rates (IMU 100 ms, ToF 200 ms, light 1 s, touch 100 ms,
@@ -570,9 +669,18 @@ tests/host/run.sh --docker   # gcc inside espressif/idf:v6.0.3
   1 M / 1 M everywhere; the pull-up notes in `pinmap.py` now match
   `circuit.py` (TOF_INT_N 10 k, SENSE_ALRT_N 100 k); the `pinmap.py`
   docstring names `hardware/mao/design/gen_pinmap.py`.
-- Hardware changes after stage 2 that the firmware follows: GPIO38 is
-  EXP_RST_N (expander reset, TP11 XRST); TP13-TP15 expose the switched rails;
-  the IR receiver output has a 10 k pull-up (R506) to its switched supply.
+- Hardware changes after stage 2 that the firmware follows: TP13-TP15 expose
+  the switched rails; the IR receiver output has a 10 k pull-up (R506) to its
+  switched supply.
+- Board revision (`docs/firmware/mao-a0-rev-merge.md`): GPIO38 = IR_TX and
+  GPIO39 = EXP_RST_N (swapped: GPIO39 = MTCK has a reset pull-up that would
+  have lit the IR LEDs); GPIO45 = LCD_BL_CTRL (AW9364 EN) instead of the LEDC
+  backlight PWM; expander P6 = CHG_CE_N output instead of the CHG_N input;
+  +3V3 = 3.18 V; the amplifier's SD_MODE has a 2.2 k series resistor (no
+  firmware change); the panel tail still leaves at 9 o'clock.
+- `pinmap.py` text the firmware does not use but that is now stale: the
+  BOARD_ID note says 1.65 V (1.59 V with the 3.18 V rail), and the EXP_INT_N
+  note still mentions charger status (only the gauge / light alert is left).
 - The brief listed GPIO13 as a spare. The 4-layer pin map uses GPIO13 for LCD_CS and GPIO35
   as `MIC_PWR` (the mic draws 80 µA even with its clock stopped), and the
   firmware follows the header.
@@ -613,3 +721,17 @@ Stage 2:
 - Expander reset: the 10 µs pulse; that the panel, ToF and haptic driver
   come back cleanly after `expander_reset` (and after a real recovery), and
   how visible the panel re-init is (~0.3 s blank).
+
+Board revision (details in `docs/firmware/mao-a0-rev-merge.md` §5):
+- **AW9364 steps**: 16 distinct levels from `mao_board_backlight_set()`;
+  LED current at 100 % (≈ 40 mA, 33–47 mA by the datasheet spread) and at 1 %
+  (≈ 2.5 mA); whether edge 17 wraps to step 1 (if it does, a brighter step
+  could skip the 3 ms shutdown); whether that dark gap shows during the
+  self-test's fade-in.
+- **Charge pause**: warm the board past 43 °C on USB and watch
+  `charging paused` (and the charge current fall), cool below 40 °C for
+  `charging resumed`; IMU temperature offset against a thermocouple at room
+  temperature (datasheet ±15 °C).
+- **IR LEDs dark at boot and reset** (GPIO38: no reset pull; 100 k gate
+  pull-down), and `expander_reset` still pulses through GPIO39.
+- Board ID at 3.18 V (≈ 1.59 V).

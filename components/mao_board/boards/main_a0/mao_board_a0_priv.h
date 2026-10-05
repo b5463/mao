@@ -25,7 +25,10 @@
 #define A0_EXP_REG_OUTPUT           0x01
 #define A0_EXP_REG_POLARITY         0x02
 #define A0_EXP_REG_CONFIG           0x03   /* 1 = input */
-#define A0_EXP_INPUT_MASK           ((1u << MAO_EXP_CHG_N) | (1u << MAO_EXP_SENSE_ALRT_N))
+/* P7 (gauge / light alert) is the only input. P6 is the charger's /CE, an
+ * output like the rails: 0 = charging enabled (also its 100 k pull-down
+ * default, so a reset or deep sleep never blocks charging), 1 = paused. */
+#define A0_EXP_INPUT_MASK           (1u << MAO_EXP_SENSE_ALRT_N)
 
 /* --- Display: 1.28" round GC9A01 panel in the J301 18-pin FPC connector ---- */
 #define A0_LCD_H_RES                240
@@ -34,11 +37,9 @@
 #define A0_LCD_PWR_SETTLE_MS        10     /* load switch on -> reset sequence */
 #define A0_LCD_RESET_LOW_MS         10
 #define A0_LCD_RESET_WAIT_MS        120    /* reset released -> first command */
-/* Backlight ceiling: 100 % brightness = 80 % PWM. Two LEDs from 3V3_LCD through
- * 10R draw 17-50 mA by panel Vf bin (2.8-3.2 V, simulation S3 in
- * docs/hardware/mao-a0-verification.md); 80 % keeps the average at or under the
- * panel's 40 mA on every bin. */
-#define A0_BACKLIGHT_MAX_PCT        80
+/* Backlight: AW9364 on MAO_PIN_LCD_BL_CTRL, 2 x 20 mA = 40 mA (the panel's
+ * rating) at step 1, so 100 % needs no cap. Timing in aw9364_dimming.h.
+ * VERIFY AT BRING-UP: 16 distinct steps, ~40 mA at 100 %. */
 /* Colour handling and the panel-native orientation are properties of the
  * glass + GC9A01; these are the LCDkit's values for the same 1.28" IPS round
  * glass. The plug-in panel's tail leaves at 9 o'clock (as the LCDkit's did at
@@ -82,6 +83,8 @@
 #define A0_IR_RX_SETTLE_MS          1
 
 /* --- Board ID divider (ADC1 on GPIO8) ------------------------------------- */
+/* 1M/1M from +3V3 = 3.18 V (3.10-3.28 V worst case) -> 1.59 V (1.55-1.64 V,
+ * ~1.51-1.68 V with 1 % resistors and the calibrated ADC): well inside. */
 #define A0_ID_A0_MIN_MV             1400
 #define A0_ID_A0_MAX_MV             1900
 #define A0_ID_SAMPLES               8

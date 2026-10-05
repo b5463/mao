@@ -5,12 +5,13 @@
  * as rails and lines (mao_board_rail_set / mao_board_line_get).
  *
  * TCA6408A power-up state: every pin an input, output register 0xFF. If the
- * config register were cleared first, every rail would glitch on. So the
- * output register is ALWAYS written first (0x00: every rail off, panel held
- * in reset), and only then are the output pins enabled.
+ * config register were cleared first, every rail would glitch on (and
+ * charging would pause). So the output register is ALWAYS written first
+ * (0x00: every rail off, panel held in reset, charger enabled), and only
+ * then are the output pins P0-P6 enabled; P7 (alert) stays an input.
  *
- * Recovery: MAO_PIN_EXP_RST_N (GPIO38) drives the expander's RESET (open-drain, 10 k pull-up
- * R205 on the board). If a write or an input read fails, the bus is reset,
+ * Recovery: MAO_PIN_EXP_RST_N (GPIO39) drives the expander's RESET (open-drain, 10 k pull-up
+ * R22, test pad TP11 XRST). If a write or an input read fails, the bus is reset,
  * the expander is pulsed into reset and reprogrammed from the shadow
  * registers, and the access is retried once. A wedged expander no longer
  * needs a power cycle.
@@ -19,7 +20,8 @@
  * rewritten (~0.2 ms) every expander pin is an input, so the rails fall to
  * their pull-down defaults: the panel sees LCD_RST_N low and its supply
  * dip, the ToF its XSHUT, the haptic driver its EN. Those devices lose their
- * configuration. Every reset therefore bumps a counter
+ * configuration (a paused charger may also run for that moment: /CE has a
+ * pull-down; the shadow restores the pause). Every reset therefore bumps a counter
  * (mao_board_expander_resets()); the display, sense and haptics owners
  * notice the change and re-initialise their device.
  *
@@ -202,8 +204,9 @@ esp_err_t mao_board_expander_test(uint8_t *failed_bits)
         err = ESP_ERR_INVALID_RESPONSE;
     }
     /* Polarity inversion acts on inputs only: patterns on the output pins
-     * round-trip through the register without touching any rail. */
-    static const uint8_t kPatterns[] = { 0x2A, 0x15 };
+     * round-trip through the register without touching any rail. Together
+     * the two patterns set and clear every output bit P0-P6. */
+    static const uint8_t kPatterns[] = { 0x6A, 0x15 };
     for (size_t i = 0; err == ESP_OK && i < sizeof(kPatterns); i++) {
         const uint8_t pattern = kPatterns[i] & A0_EXP_OUTPUT_MASK;
         uint8_t back = 0;
@@ -246,7 +249,8 @@ esp_err_t mao_board_expander_reset_test(uint8_t *config_after_pulse, uint8_t *fa
     ESP_RETURN_ON_FALSE(s_exp_ok, ESP_ERR_INVALID_STATE, TAG, "expander not configured");
     xSemaphoreTake(s_exp_lock, portMAX_DELAY);
     /* 1. The pulse must really reset it: CONFIG reads its default, all
-     *    inputs (0xFF). A stuck-high EXP_RST_N would leave 0xC0. */
+     *    inputs (0xFF). A stuck-high EXP_RST_N would leave A0_EXP_INPUT_MASK
+     *    (0x80). */
     exp_pulse_reset();
     uint8_t config = 0;
     esp_err_t err = exp_read(A0_EXP_REG_CONFIG, &config);

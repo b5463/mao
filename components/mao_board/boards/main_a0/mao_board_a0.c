@@ -107,25 +107,21 @@ int mao_board_revision_mv(void)
 static esp_err_t config_irq_inputs(void)
 {
     /* Expander INT, ToF GPIO1 and charger PGOOD are open-drain with external
-     * pull-ups. The IMU drives its INTs push-pull, but gets a weak internal
-     * pull-up so the lines stay defined (inactive) if the IMU is missing. */
-    const gpio_config_t od = {
+     * pull-ups. The IMU drives INT1/INT2 push-pull and gets NO pull: an
+     * LSM6DSOX that sees INT1 high while it powers up (a brown-out, a 3V3
+     * glitch) switches to I3C-only and never answers I2C again. Without the
+     * IMU the lines float; the IMU's ISRs and its deep-sleep wake are only
+     * armed when it answered at boot. */
+    const gpio_config_t cfg = {
         .pin_bit_mask = (1ULL << MAO_PIN_EXP_INT_N) | (1ULL << MAO_PIN_TOF_INT_N) |
-                        (1ULL << MAO_PIN_USB_PRESENT_N),
+                        (1ULL << MAO_PIN_USB_PRESENT_N) | (1ULL << MAO_PIN_IMU_INT1) |
+                        (1ULL << MAO_PIN_IMU_INT2),
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE,
     };
-    ESP_RETURN_ON_ERROR(gpio_config(&od), TAG, "irq inputs");
-    const gpio_config_t imu = {
-        .pin_bit_mask = (1ULL << MAO_PIN_IMU_INT1) | (1ULL << MAO_PIN_IMU_INT2),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    return gpio_config(&imu);
+    return gpio_config(&cfg);
 }
 
 esp_err_t mao_board_init(void)
@@ -201,6 +197,7 @@ void mao_board_get_caps(mao_board_caps_t *out)
         .touch = true,
         .ir = true,
         .power_status = true,
+        .charge_control = exp,
         .hall_fast = true,
         .sleep = true,
         .imu = true,
@@ -366,20 +363,28 @@ esp_err_t mao_board_rail_readback(mao_board_rail_t rail, bool *on)
 esp_err_t mao_board_line_get(mao_board_line_t line, bool *active)
 {
     ESP_RETURN_ON_FALSE(active, ESP_ERR_INVALID_ARG, TAG, "bad args");
-    if (line == MAO_LINE_USB_PRESENT) {
+    switch (line) {
+    case MAO_LINE_USB_PRESENT:
         *active = gpio_get_level(MAO_PIN_USB_PRESENT_N) == 0;   /* PGOOD, active low */
         return ESP_OK;
-    }
-    uint8_t in = 0;
-    ESP_RETURN_ON_ERROR(a0_expander_read_inputs(&in), TAG, "expander inputs");
-    switch (line) {
     case MAO_LINE_CHARGING:
-        *active = (in & (1u << MAO_EXP_CHG_N)) == 0;
-        return ESP_OK;
-    case MAO_LINE_SENSE_ALERT:
+        /* The BQ24073 /CHG output is not connected on this board (P6 is
+         * its /CE now): mao_power derives charging from PGOOD and the gauge. */
+        return ESP_ERR_NOT_SUPPORTED;
+    case MAO_LINE_SENSE_ALERT: {
+        uint8_t in = 0;
+        ESP_RETURN_ON_ERROR(a0_expander_read_inputs(&in), TAG, "expander inputs");
         *active = (in & (1u << MAO_EXP_SENSE_ALRT_N)) == 0;
         return ESP_OK;
+    }
     default:
         return ESP_ERR_INVALID_ARG;
     }
+}
+
+esp_err_t mao_board_charge_enable(bool enable)
+{
+    ESP_RETURN_ON_FALSE(a0_expander_ok(), ESP_ERR_INVALID_STATE, TAG, "expander missing");
+    /* P6 = BQ24073 /CE: low enables charging, high pauses it. */
+    return a0_expander_write_bit(MAO_EXP_CHG_CE_N, !enable);
 }

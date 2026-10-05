@@ -4,8 +4,15 @@
  * 80 MHz, write-only: SCLK and MOSI on SPI2's IO_MUX pads, CS through the GPIO
  * matrix (the module pins follow the connector's pin order), DC a plain GPIO.
  * TE (tearing effect) is wired to MAO_PIN_LCD_TE as an input; the flush does
- * not wait for it yet (VERIFY AT BRING-UP). The panel and backlight sit behind
- * a load switch (expander LCD_PWR_EN) and the panel reset is expander LCD_RST_N.
+ * not wait for it yet (VERIFY AT BRING-UP). The panel logic sits behind a load
+ * switch (expander LCD_PWR_EN) and the panel reset is expander LCD_RST_N.
+ *
+ * Backlight: the panel LEDs hang from VSYS into an Awinic AW9364 constant-
+ * current sink (two 20 mA channels on the cathode: 40 mA is the hardware
+ * maximum, so no firmware value can overdrive the panel). Its EN pin is
+ * MAO_PIN_LCD_BL_CTRL and takes 1-wire pulse-count dimming, 16 steps
+ * (aw9364_dimming.h). The LEDs are NOT on the switched panel rail: EN low is
+ * the only thing that darkens them, so every rail-off path drops EN first.
  *
  * Power-up: rail on, 10 ms, reset low 10 ms, reset high, 120 ms, then the
  * GC9A01 init. With the rail off, the bus is driven low (or isolated for
@@ -15,10 +22,13 @@
 #include "mao_board.h"
 #include "mao_board_a0_priv.h"
 
+#include <inttypes.h>
+#include <stdlib.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
-#include "driver/ledc.h"
 #include "driver/rtc_io.h"
 #include "driver/spi_master.h"
 #include "esp_private/gpio.h"     /* gpio_iomux_output(), gpio_func_sel(): give parked pins back to SPI2 */
@@ -30,14 +40,16 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
+#include "esp_rom_sys.h"
+#include "esp_timer.h"
+#include "sdkconfig.h"
+#include "mao_system.h"
+#include "aw9364_dimming.h"
 
 static const char *TAG = "MAO_BOARD";
 
 #define LCD_SPI_HOST             SPI2_HOST
-#define BACKLIGHT_LEDC_TIMER     LEDC_TIMER_0
-#define BACKLIGHT_LEDC_CHANNEL   LEDC_CHANNEL_0
-#define BACKLIGHT_LEDC_RES       LEDC_TIMER_10_BIT
-#define BACKLIGHT_LEDC_FREQ_HZ   5000
+#define BL_STEP_UNKNOWN          0xFF    /* after a raw bring-up edge: restart on the next set */
 #define SLEEP_OUT_WAIT_MS        120     /* GC9A01: sleep-out to next sleep-in / full operation */
 
 static const int kBusPins[] = { MAO_PIN_LCD_SCLK, MAO_PIN_LCD_MOSI, MAO_PIN_LCD_CS, MAO_PIN_LCD_DC };
@@ -45,6 +57,10 @@ static const int kBusPins[] = { MAO_PIN_LCD_SCLK, MAO_PIN_LCD_MOSI, MAO_PIN_LCD_
 static esp_lcd_panel_io_handle_t s_io;
 static esp_lcd_panel_handle_t s_panel;
 static bool s_backlight_ready;
+static SemaphoreHandle_t s_bl_lock;     /* one pulse train at a time, from any task */
+static portMUX_TYPE s_bl_mux = portMUX_INITIALIZER_UNLOCKED;
+static uint8_t s_bl_step;               /* AW9364 step now set: 0 = off, 1 = brightest .. 16, or unknown */
+static int64_t s_bl_low_since_us;       /* when EN last went low (0: low since reset) */
 static bool s_parked;
 static bool s_oriented;      /* panel orientation set once; the driver keeps it since */
 
@@ -52,43 +68,178 @@ static bool s_oriented;      /* panel orientation set once; the driver keeps it 
 /* Backlight                                                                */
 /* ------------------------------------------------------------------------ */
 
+static void register_devcmd(void);
+
 static esp_err_t backlight_init(void)
 {
-    /* GPIO45 is a strap (VDD_SPI: must read 0 at reset); the 100 k gate
-     * pull-down holds it low and keeps the backlight off until
-     * LEDC takes the pin here, long after boot, at 0 % duty. */
-    const ledc_timer_config_t timer = {
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .duty_resolution = BACKLIGHT_LEDC_RES,
-        .timer_num = BACKLIGHT_LEDC_TIMER,
-        .freq_hz = BACKLIGHT_LEDC_FREQ_HZ,
-        .clk_cfg = LEDC_AUTO_CLK,
+    /* GPIO45 is a strap (VDD_SPI). On this module the flash voltage comes
+     * from eFuse, and the AW9364's 150 k EN pull-down holds the pin low
+     * through reset anyway, so the backlight is dark from power-on. The pin
+     * becomes a plain output only now, long after boot, latched low first. */
+    if (!s_bl_lock) {
+        s_bl_lock = xSemaphoreCreateMutex();
+        ESP_RETURN_ON_FALSE(s_bl_lock, ESP_ERR_NO_MEM, TAG, "backlight mutex");
+        register_devcmd();
+    }
+    gpio_set_level(MAO_PIN_LCD_BL_CTRL, 0);
+    const gpio_config_t cfg = {
+        .pin_bit_mask = 1ULL << MAO_PIN_LCD_BL_CTRL,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
     };
-    ESP_RETURN_ON_ERROR(ledc_timer_config(&timer), TAG, "backlight timer");
-    const ledc_channel_config_t channel = {
-        .gpio_num = MAO_PIN_LCD_BL_PWM,
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = BACKLIGHT_LEDC_CHANNEL,
-        .timer_sel = BACKLIGHT_LEDC_TIMER,
-        .duty = 0,
-        .hpoint = 0,
-    };
-    ESP_RETURN_ON_ERROR(ledc_channel_config(&channel), TAG, "backlight channel");
+    ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "backlight pin");
+    gpio_set_level(MAO_PIN_LCD_BL_CTRL, 0);
+    if (s_bl_step != 0) {
+        s_bl_low_since_us = esp_timer_get_time();
+    }
+    s_bl_step = 0;
     s_backlight_ready = true;
     return ESP_OK;
+}
+
+/* EN low: the driver shuts down after TOFF (0.8 .. 2.5 ms). */
+static void bl_en_low(void)
+{
+    gpio_set_level(MAO_PIN_LCD_BL_CTRL, 0);
+    s_bl_low_since_us = esp_timer_get_time();
+}
+
+/* Before an enable edge: EN must have been low for AW9364_T_SHUTDOWN_US,
+ * or the edge would count as a dimming step of a driver still on. Waiting
+ * longer is harmless, so the bulk sleeps and only the tail spins. */
+static void bl_wait_shutdown(void)
+{
+    if (s_bl_low_since_us == 0) {
+        return;                       /* low since reset */
+    }
+    for (;;) {
+        const int64_t left_us = s_bl_low_since_us + AW9364_T_SHUTDOWN_US - esp_timer_get_time();
+        if (left_us <= 0) {
+            return;
+        }
+        if (left_us > 1000) {
+            vTaskDelay(1);
+        } else {
+            esp_rom_delay_us((uint32_t)left_us);
+        }
+    }
+}
+
+/* Emit rising edges on EN. from_off: EN is low and the driver shut down,
+ * so the first edge enables it (step 1) and is followed by the ready time.
+ * Every low phase must stay under 500 us: the whole train runs in a
+ * critical section (16 edges x 4 us + 30 us at most), so neither an
+ * interrupt nor the other task on this core can stretch one. */
+static void bl_edges(uint8_t edges, bool from_off)
+{
+    portENTER_CRITICAL(&s_bl_mux);
+    for (uint8_t i = 0; i < edges; i++) {
+        const bool enable_edge = from_off && i == 0;
+        if (!enable_edge) {
+            gpio_set_level(MAO_PIN_LCD_BL_CTRL, 0);
+            esp_rom_delay_us(AW9364_T_LOW_US);
+        }
+        gpio_set_level(MAO_PIN_LCD_BL_CTRL, 1);
+        esp_rom_delay_us(enable_edge ? AW9364_T_READY_US : AW9364_T_HIGH_US);
+    }
+    portEXIT_CRITICAL(&s_bl_mux);
 }
 
 esp_err_t mao_board_backlight_set(uint8_t percent)
 {
     ESP_RETURN_ON_FALSE(s_backlight_ready, ESP_ERR_INVALID_STATE, TAG, "backlight not initialised");
-    if (percent > 100) {
-        percent = 100;
+    const uint8_t step = aw9364_step_from_percent(percent);
+    xSemaphoreTake(s_bl_lock, portMAX_DELAY);
+    if (s_bl_step == BL_STEP_UNKNOWN) {
+        bl_en_low();                  /* count from a known state again */
+        s_bl_step = 0;
     }
-    const uint32_t max_duty = (1u << BACKLIGHT_LEDC_RES) - 1;
-    const uint32_t duty = (max_duty * percent * A0_BACKLIGHT_MAX_PCT) / (100u * 100u);
-    ESP_RETURN_ON_ERROR(ledc_set_duty(LEDC_LOW_SPEED_MODE, BACKLIGHT_LEDC_CHANNEL, duty), TAG, "duty");
-    return ledc_update_duty(LEDC_LOW_SPEED_MODE, BACKLIGHT_LEDC_CHANNEL);
+    const aw9364_plan_t plan = aw9364_plan(s_bl_step, step);
+    if (plan.shutdown) {
+        if (s_bl_step != 0) {
+            bl_en_low();
+        }
+        if (plan.edges) {
+            bl_wait_shutdown();
+        }
+    }
+    if (plan.edges) {
+        bl_edges(plan.edges, plan.shutdown);
+    }
+    if (plan.shutdown || plan.edges) {
+        ESP_LOGD(TAG, "backlight %u %% -> AW9364 step %u (%" PRIu32 " uA per channel)%s", percent, step,
+                 aw9364_step_current_ua(step), plan.shutdown && plan.edges ? ", restarted" : "");
+    }
+    s_bl_step = step;
+    xSemaphoreGive(s_bl_lock);
+    return ESP_OK;
 }
+
+#if CONFIG_MAO_DEV_CONSOLE
+
+/* Bring-up of the AW9364 (A0 only), bypassing mao_display: its own
+ * brightness comes back with the next mao_display_set_brightness().
+ *   backlight <0..100>     level through mao_board_backlight_set()
+ *   backlight step <1..16> one AW9364 step (16 = dimmest)
+ *   backlight edge         one more raw rising edge from the current state:
+ *                          at step 16 this shows whether edge 17 wraps to
+ *                          step 1 (full) or does nothing */
+static void devcmd_backlight(const char *args)
+{
+    if (!s_backlight_ready) {
+        ESP_LOGW(TAG, "backlight: display not initialised");
+        return;
+    }
+    if (strncmp(args, "edge", 4) == 0) {
+        xSemaphoreTake(s_bl_lock, portMAX_DELAY);
+        const uint8_t was = s_bl_step;
+        if (was != 0 && was != BL_STEP_UNKNOWN) {
+            bl_edges(1, false);
+            s_bl_step = BL_STEP_UNKNOWN;
+        }
+        xSemaphoreGive(s_bl_lock);
+        if (was == 0 || was == BL_STEP_UNKNOWN) {
+            ESP_LOGW(TAG, "backlight edge: set a step first");
+        } else {
+            ESP_LOGI(TAG, "backlight: one edge after step %u (expected step %u%s); next set restarts the driver",
+                     was, was + 1u, was == AW9364_STEPS ? ": edge 17, wrap to full or no change?" : "");
+        }
+        return;
+    }
+    uint8_t percent;
+    if (strncmp(args, "step", 4) == 0) {
+        const int step = atoi(args + 4);
+        if (step < 1 || step > AW9364_STEPS) {
+            ESP_LOGW(TAG, "backlight step: 1..%d", AW9364_STEPS);
+            return;
+        }
+        /* The smallest percent that maps to this step. */
+        percent = (uint8_t)((100 * (AW9364_STEPS - step) + AW9364_STEPS) / AW9364_STEPS);
+    } else {
+        const int pct = atoi(args);
+        percent = (uint8_t)(pct < 0 ? 0 : (pct > 100 ? 100 : pct));
+    }
+    const esp_err_t err = mao_board_backlight_set(percent);
+    const uint8_t step = aw9364_step_from_percent(percent);
+    ESP_LOGI(TAG, "backlight %u %%: AW9364 step %u, %" PRIu32 " uA per channel x 2 (%s)", percent, step,
+             aw9364_step_current_ua(step), esp_err_to_name(err));
+}
+
+static void register_devcmd(void)
+{
+    mao_devcmd_register("backlight", "backlight <0..100> | step <1..16> | edge  (A0 AW9364 bring-up)",
+                        devcmd_backlight);
+}
+
+#else
+
+static void register_devcmd(void)
+{
+}
+
+#endif
 
 /* ------------------------------------------------------------------------ */
 /* Rail sequencing                                                          */
@@ -207,7 +358,8 @@ esp_err_t mao_board_display_init(size_t max_transfer_bytes, mao_board_display_t 
 {
     ESP_RETURN_ON_FALSE(out && max_transfer_bytes > 0, ESP_ERR_INVALID_ARG, TAG, "bad args");
 
-    /* Backlight first, at 0 %, so the panel's power-on garbage is never visible. */
+    /* Backlight first, EN held low (AW9364 off), so the panel's power-on
+     * garbage is never visible. */
     ESP_RETURN_ON_ERROR(backlight_init(), TAG, "backlight");
     ESP_RETURN_ON_ERROR(rail_up(), TAG, "display rail");
 
