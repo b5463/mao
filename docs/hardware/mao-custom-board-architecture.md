@@ -70,7 +70,7 @@ GPIO35 ─ RC ─► MIC_VDD      expander P5 ─ RC ─► IR_RX_VCC
 | Topic | Decision |
 |---|---|
 | Charger | BQ24073: linear (no second switch node near the mic and IMU), runs MAO while charging (DPPM), PGOOD to the MCU, /CE from the expander (firmware pauses charging above 43 °C board temperature: the cell allows 0–45 °C, the chip's NTC window is 0–50 °C), 207 mA (0.4C), timers. BQ24074 drop-in via R105. On the face side under the panel, so its heat stays off the cell |
-| 3.3 V rail | TPS63802 buck-boost at 3.18 V (3.10–3.28 V: the Winstar panel's VCI maximum is 3.3 V): uses the whole cell (an LDO would strand the last 10–15 %), 11 µA Iq, precise EN used as hardware UVLO |
+| 3.3 V rail | TPS63802 buck-boost at 3.18 V (3.10–3.32 V worst case: the Winstar panel's VCI maximum is 3.3 V): uses the whole cell (an LDO would strand the last 10–15 %), 11 µA Iq, precise EN used as hardware UVLO |
 | Battery protection | Cell PCM (mandatory in the cell spec, checked on receipt) + hardware UVLO + NTC charge window + firmware cut-off from the gauge + reverse-polarity P-FET. No second protector IC: the pin-out of the common FS8205A could not be verified, and the UVLO covers over-discharge (ODD JOBS 49/51) |
 | Fuel gauge | MAX17048 ModelGauge: real SOC without a sense resistor, 3 µA hibernate |
 | Rail control | Display logic (load switch), backlight (AW9364 EN), mic (GPIO supply), IR receiver (expander supply), amp (SD), haptic (EN), ToF (XSHUT), Hall sampling (SEL), charging (/CE). Each can be off; all loads are off at reset and charging is on. The three switched rails have probe pads (TP13–15) so the fixture can prove they switch |

@@ -134,6 +134,10 @@ ADD = [
     # east on B to a via beside the face switch's keep-out
     ('EXP_RST_N', 'B', 0.2, [(-10.4375, -12.35), (-10.95, -12.35), (-10.95, -9.6), (-4.0, -9.6), (-4.0, -2.6),
                              (4.45, -2.6)]), ('EXP_RST_N', V, 0.5, [(4.45, -2.6)]),     # east of SW301's keep-out
+    # on to TP11 / the pull-up on L3 under the service field, designed so the router need not find it (left to the
+    # router, the L3 leg pocketed +3V3 against TOF_INT_N's and the run detoured: audit-3 rebuild)
+    ('EXP_RST_N', 'I2', 0.2, [(4.45, -2.6), (4.45, -2.3), (6.35, -2.3), (7.75, -0.9), (8.55, -0.9), (9.1, -1.45)]),
+    ('EXP_RST_N', V, 0.6, [(9.1, -1.45)]), ('EXP_RST_N', 'B', 0.2, [(9.1, -1.45), (8.8, -1.15), (8.8, -0.5)]),
     # (from this via the router takes it to TP11, R205 and GPIO39, with the plane check on L3)
     # GPIO0 pull-up's +3V3 end: its plane via west of it, clear of the XRST name
     ('+3V3', 'B', 0.3, M((10.4, 2.74), (9.6, 2.74))), ('+3V3', V, 0.6, M((9.6, 2.74))),
@@ -204,7 +208,7 @@ ADD = [
     # ---- module EN and 3V3 corner: EN through its pull-up and delay cap, out to L3 past the bulk cap -------
     ('MCU_EN', 'B', 0.2, M((-8.75, 18.8), (-12.9, 18.8))), ('MCU_EN', V, 0.5, M((-12.9, 18.8))),
     ('+3V3', 'B', 0.5, M((-8.75, 19.94), (-12.625, 19.94))),                    # module feed: 0.5 mm, two
-    ('+3V3', V, 0.6, M((-11.15, 19.94))),                                           # plane vias (TX peaks 355 mA)
+    ('+3V3', V, 0.6, M((-11.23, 19.94))),                                           # plane vias (TX peaks 355 mA); on C202's branch axis
     ('+3V3', 'B', 0.25, M((-11.23, 19.94), (-11.23, 21.05))),
     ('+3V3', 'B', 0.3, M((-12.4, 19.94), (-12.4, 21.0))), ('+3V3', V, 0.6, M((-12.4, 21.0))),
     ('GND', 'B', 0.3, M((-10.27, 21.05), (-8.75, 21.05))),

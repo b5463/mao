@@ -144,7 +144,8 @@ MLCC_EDGE = 1.5
 # Breakaway tabs for a panelised order (ODD JOBS 142, 145): two fixed spots, clear of the touch arcs, the antenna
 # band, USB-C and the IR LEDs; at each, no copper on any layer within TAB_CLEAR of the edge over TAB_ARC of rim
 # (a mouse bite then cuts laminate only).
-TAB_ANGLES = (130.0, 320.0)
+TAB_ANGLES = (130.0, 328.0)        # 328, not 320: the L3 VSYS band rounds H1's screw ring (312 deg) next to the rim, and a
+                                   # tab sector over that ring's angles necked it to 0.27 mm (electrical audit 3, I-1)
 TAB_ARC, TAB_CLEAR = 4.0, 1.5
 # Service-field names (silk.py): each probe pad's name has a via-free spot of its own, so no router, stitching or
 # pad via lands where the name has to go (ODD JOBS 103). ref: (name, side) with side 'right' (upright beside the
@@ -153,6 +154,13 @@ FIELD_NAMES = {'TP2': ('GND', 'right'), 'TP3': ('3V3', 'right'), 'TP4': ('SYS', 
                'TP10': ('SCL', 'right'), 'TP1': ('GND', 'right'), 'TP16': ('GND', 'right'),
                'TP9': ('SDA', 'right', -0.35), 'TP11': ('XRST', 'right'), 'TP8': ('BOOT', 'right'), 'TP7': ('RST', 'right')}
 FIELD_TEXT = 0.8                   # the names' height: the rows are 2.8 mm apart
+# The back's maker mark and identity (silk.py): a reserved via-free spot, so routing changes cannot take it. Over the
+# cell (seen with the base off, at bring-up and service): the back has no free 5 x 7 mm field outside it.
+B_IDENT_AT = (-2.2, -6.2)          # mark centre; 'MAO A0' and the date below it
+B_IDENT_KEEPOUT = [(-4.65, -8.2, 0.15, -4.2), (-5.5, -4.2, 1.1, -1.0)]   # mark; text lines (vias only)
+# Where the L3 VSYS branch turns down into the backlight bar, a via's antipad necks the only feed of the amplifier,
+# haptic driver and backlight (a C205/U202 ground via left 0.26 mm there, electrical audit 3): no via in that corner
+VSYS_CORNER_KEEPOUT = (-11.2, -11.9, -9.6, -9.9)
 # (TP9's name box sits 0.35 mm up the pad: below it is the module escape via of LCD_BL_CTRL at (6.985, 0.75))
 
 

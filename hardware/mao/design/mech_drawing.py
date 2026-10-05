@@ -67,7 +67,7 @@ def main():
     # antenna
     e.append(rect(-m.MODULE_W / 2, m.ANTENNA_EDGE_Y, m.MODULE_W / 2, m.MODULE_OUTER_R, '#c00', '#fde', 1.0))
     e.append(text(0, m.ANTENNA_EDGE_Y + 2.6, 'ANTENNA', 11, 'middle', '#c00'))
-    e.append(text(0, m.ANTENNA_EDGE_Y + 4.4, 'no metal within 15 mm', 10, 'middle', '#c00'))
+    e.append(text(0, m.ANTENNA_EDGE_Y + 4.4, 'no metal within 15 mm (LRA can 7.4 mm: RSSI A/B check)', 10, 'middle', '#c00'))
     # battery
     bw, bd, bh = m.BATTERY_ENVELOPE
     bx, by = m.BATTERY_CENTRE

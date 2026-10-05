@@ -1283,7 +1283,7 @@
 	)
 	(rectangle
 		(start 12.7 20.32)
-		(end 113.03 87.63)
+		(end 113.03 88.9)
 		(stroke (width 0.15) (type dash) (color 120 120 120 1))
 		(fill (type none))
 		(uuid "9b4861e6-c4c6-500d-9373-e4d1812b1aa0")
@@ -1308,12 +1308,12 @@
 	)
 	(text "LSM6DS3TR-C fallback. INT1/INT2 push-pull, configured active-low for ext1 wake."
 		(exclude_from_sim no)
-		(at 15.24 83.82 0)
+		(at 15.24 85.09 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "a3230e3a-3801-5a24-9521-d9a5473ca41e")
+		(uuid "bd190429-015a-52e4-b33f-e4ad16714443")
 	)
 	(symbol
 		(lib_id "MAO:LSM6DSOX")
@@ -2090,7 +2090,7 @@
 	)
 	(rectangle
 		(start 120.65 20.32)
-		(end 227.33 87.63)
+		(end 227.33 88.9)
 		(stroke (width 0.15) (type dash) (color 120 120 120 1))
 		(fill (type none))
 		(uuid "8b46c5ab-1b5f-5ba0-b665-9f857249af5f")
@@ -2115,12 +2115,12 @@
 	)
 	(text "open-drain with the 10k pull-up ST recommends. AVDD decoupled 4.7 uF + 100 nF per ST."
 		(exclude_from_sim no)
-		(at 123.19 83.82 0)
+		(at 123.19 85.09 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "96731ffa-1b33-5219-9c65-4ae1b8159d88")
+		(uuid "23419303-6a55-5731-9916-5110d070852c")
 	)
 	(symbol
 		(lib_id "Sensor_Distance:VL53L0CXV0DH1")
@@ -2911,7 +2911,7 @@
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "fe2bb136-a709-59ef-b0e6-1e53cafd6396")
+		(uuid "d6df35f7-a206-5779-b041-ddf70f820c52")
 	)
 	(symbol
 		(lib_id "MAO:OPT3004")
@@ -3413,20 +3413,20 @@
 		)
 	)
 	(rectangle
-		(start 12.7 95.25)
+		(start 12.7 96.52)
 		(end 116.84 148.59)
 		(stroke (width 0.15) (type dash) (color 120 120 120 1))
 		(fill (type none))
-		(uuid "2f6c520c-ac13-5df0-b861-bdd7f542de58")
+		(uuid "1cb1430d-101a-5364-943c-547722531733")
 	)
 	(text "MICROPHONE"
 		(exclude_from_sim no)
-		(at 15.24 99.06 0)
+		(at 15.24 100.33 0)
 		(effects
 			(font (size 1.524 1.524) (bold yes))
 			(justify left bottom)
 		)
-		(uuid "19697e14-2da0-585e-8266-f7f659daf175")
+		(uuid "dd375954-6670-530c-ab23-90e3e401be16")
 	)
 	(text "SPH0641 bottom-port PDM mic on B.Cu, port through the board (0.5 mm hole) to the top. Powered from GPIO35"
 		(exclude_from_sim no)
@@ -3435,7 +3435,7 @@
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "1d735ba6-1dea-59c9-b2f1-71b616de6e48")
+		(uuid "18accf33-5d59-5c43-b66b-4cd41e54763f")
 	)
 	(text "through 100R/1 uF only while listening: it draws 80 uA even with the clock stopped. SEL low."
 		(exclude_from_sim no)
@@ -3444,7 +3444,7 @@
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "743af527-dccc-553b-a075-c8e0ddb331e8")
+		(uuid "b5ecb02f-8258-593c-8e5e-a7c774ae638c")
 	)
 	(symbol
 		(lib_id "Sensor_Audio:SPH0641LU4H-1")
@@ -4338,59 +4338,59 @@
 		)
 	)
 	(rectangle
-		(start 124.46 95.25)
-		(end 144.78 123.19)
+		(start 124.46 96.52)
+		(end 144.78 124.46)
 		(stroke (width 0.15) (type dash) (color 120 120 120 1))
 		(fill (type none))
-		(uuid "84b51d84-a9fd-5e7a-a983-64796d458483")
+		(uuid "1a4b1b2d-aca8-5780-9a39-dd2df0c038a7")
 	)
 	(text "RAIL SOURCES"
 		(exclude_from_sim no)
-		(at 127 99.06 0)
+		(at 127 100.33 0)
 		(effects
 			(font (size 1.524 1.524) (bold yes))
 			(justify left bottom)
 		)
-		(uuid "1eadb115-8fda-533d-b8ff-fb6240cc2a7f")
+		(uuid "e77acd8c-8987-528d-aab6-44ef3bb57271")
 	)
 	(symbol
 		(lib_id "MAO:MIC_VDD")
-		(at 129.54 110.49 0)
+		(at 129.54 111.76 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "b0ed1307-d7b0-5f50-a6c3-dd67c86ac229")
+		(uuid "9b77877d-97d2-5d14-973e-fb71050b23ad")
 		(property "Reference" "#PWR532"
-			(at 129.54 110.49 0)
+			(at 129.54 111.76 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Value" "MIC_VDD"
-			(at 129.54 106.68 0)
+			(at 129.54 107.95 0)
 			(effects
 				(font (size 1.27 1.27))
 			)
 		)
 		(property "Footprint" ""
-			(at 129.54 110.49 0)
+			(at 129.54 111.76 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 129.54 110.49 0)
+			(at 129.54 111.76 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(pin "1"
-			(uuid "9324a536-9e5f-5888-bce2-12db2403c7ec")
+			(uuid "c12c10a5-43e9-5c02-8fae-720bd95b911f")
 		)
 		(instances
 			(project "MAO_MAIN_A0"
@@ -4403,42 +4403,42 @@
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
-		(at 129.54 110.49 180)
+		(at 129.54 111.76 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "712cb72c-f943-5ef1-b3be-b9aab5ac0909")
+		(uuid "a418862b-8a2d-55b5-8f44-b1137a00996b")
 		(property "Reference" "#FLG533"
-			(at 129.54 110.49 0)
+			(at 129.54 111.76 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Value" "PWR_FLAG"
-			(at 129.54 114.3 0)
+			(at 129.54 115.57 0)
 			(effects
 				(font (size 1.27 1.27))
 			)
 		)
 		(property "Footprint" ""
-			(at 129.54 110.49 0)
+			(at 129.54 111.76 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 129.54 110.49 0)
+			(at 129.54 111.76 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(pin "1"
-			(uuid "a7c2797a-ac28-5459-857e-75d6a4fd233c")
+			(uuid "a5f78983-94ce-556d-8ac4-183356de4b46")
 		)
 		(instances
 			(project "MAO_MAIN_A0"
@@ -4451,12 +4451,12 @@
 	)
 	(text "MIC_VDD"
 		(exclude_from_sim no)
-		(at 130.81 116.84 0)
+		(at 130.81 118.11 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "86c01626-5582-51a5-83b1-1b3100d87425")
+		(uuid "8296e3ea-958e-5ab9-96ca-e7b41c1bf34c")
 	)
 	(embedded_fonts no)
 )

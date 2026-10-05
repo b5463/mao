@@ -77,7 +77,7 @@ b.part('J1', 'Connector:USB_C_Receptacle_USB2.0_16P', 'Connector_USB:USB_C_Recep
        lcsc='C165948', mpn='TYPE-C-31-M-12', mfr='Korean Hroparts', note='USB 2.0 16P receptacle, 4 THT shell legs')
 b.R('R1', '5.1k', 'USB_CC1', 'GND', note='Rd: sink, default USB power')
 b.R('R2', '5.1k', 'USB_CC2', 'GND', note='Rd')
-b.part('D1', 'Device:D_TVS', 'Diode_SMD:D_SMF', 'SMF15A', {'1': 'VBUS', '2': 'GND'}, lcsc='C123802', mpn='SMF15A',
+b.part('D1', 'Device:D_Zener', 'Diode_SMD:D_SMF', 'SMF15A', {'1': 'VBUS', '2': 'GND'}, lcsc='C123802', mpn='SMF15A',
        mfr='MDD', note='VBUS TVS: 15 V standoff, clamps below the charger 28 V abs max')
 b.part('U1', 'Power_Protection:TPD2E2U06DRL', 'Package_TO_SOT_SMD:SOT-553', 'TPD2E2U06',
        {'3': 'USB_DP', '5': 'USB_DN', '4': 'GND', '1': NC, '2': NC}, lcsc='C1972959', mpn='TPD2E2U06DRLR', mfr='TI',
@@ -129,7 +129,7 @@ b.C('C4', '100n', 'VBAT', note='gauge VDD')
 b.at('power', '3V3 BUCK-BOOST',
      'TPS63802: VSYS 2.9-4.4 V to +3V3, 2 A, 11 uA Iq. EN divider = hardware UVLO: on at 3.25 V, off at 2.96 V '
      '(protects the cell even if firmware fails), 100 nF so load steps cannot trip it. MODE low = PFM. '
-     'FB 536k/100k = 3.18 V (3.10-3.28 V worst case: under the panel VCI 3.3 V maximum). L = 0.47 uH only.')
+     'FB 536k/100k = 3.18 V (3.10-3.27 V over the tolerances, 3.32 V with the FB bias current: at the panel VCI 3.3 V maximum, far under its 4.6 V absolute maximum). L = 0.47 uH only.')
 b.part('U4', 'MAO:TPS63802', 'MAO:TI_DLA0010A_VSON-HR-10_2x3mm_P0.5mm', 'TPS63802DLAR',
        {'10': 'VSYS', '1': 'BB_EN', '2': 'GND', '9': 'BB_L1', '7': 'BB_L2', '6': '+3V3', '4': 'BB_FB', '5': NC,
         '3': 'GND', '8': 'GND'}, lcsc='C2845237', mpn='TPS63802DLAR', mfr='TI',
@@ -146,7 +146,7 @@ b.R('R16', '100k', 'BB_FB', 'GND', note='FB bottom: 0.5 V x 6.36 = 3.18 V')
 
 b.at('power', 'DISPLAY RAIL',
      'TPS22919 switches 3V3_LCD (panel logic; the backlight runs from VSYS). ON pulled down: off until firmware enables it. '
-     'Fixed 1.6 ms soft start (datasheet 1.75 ms at 3.6 V), so the ~20 mA panel inrush cannot brown out the MCU. '
+     'Fixed slew: turn-on about 1.7 ms, 10-90 %% rise about 1.0 ms at 3.18 V, so the ~26 mA panel inrush cannot brown out the MCU. '
      'QOD to VOUT through 100R: clean power-down. SC70-6, 1.1 mm: it sits under the panel (zone A <= 1.2 mm).')
 b.part('U5', 'Power_Management:TPS22919DCK', 'Package_TO_SOT_SMD:SOT-363_SC-70-6', 'TPS22919DCKR',
        {'1': '+3V3', '2': 'GND', '3': 'LCD_PWR_EN', '4': NC, '5': 'LCD_SW_QOD', '6': '3V3_LCD'},
@@ -298,8 +298,8 @@ b.at('interface', 'DISPLAY',
      'Pins 1-6 serve the touch controller of touch variants: not wired (MAO\'s face is a pressed window), '
      'TP_GND to GND. TE to GPIO%d for tear-free frames. 22R on SCLK/MOSI damps 80 MHz edges (ODD JOBS 29). ' % G['LCD_TE'] +
      'Panel logic on the switched 3V3_LCD rail, backlight anode on VSYS through the constant-current driver; RST held '
-     'low until firmware. The stock 70 mm tail S-folds in the face carrier, drops through the board slot at 9 '
-     "o'clock and plugs into J301 on B.Cu.")
+     'low until firmware. The stock 70 mm tail lies as one loop under the panel (turning in a 2.4 mm well of the '
+     "face carrier), drops through the board slot at 9 o'clock and plugs into J301 on B.Cu.")
 b.part('J301', 'MAO:ROUND_LCD_FPC18', 'MAO:HDGC_0.5K-HX-18PWB_1x18-1MP_P0.5mm_Horizontal', 'LCD',
        dict({str(19 - k): net for k, net in ((1, NC), (2, NC), (3, NC), (4, NC), (5, 'GND'), (6, NC), (7, 'VSYS'),
                                              (8, 'LCD_BL_K'), (9, 'GND'), (10, 'LCD_CS'), (11, 'LCD_SCLK_P'),
@@ -316,10 +316,10 @@ b.C('C302', '4.7u', '3V3_LCD', pkg='0603', note='panel bulk (ODD JOBS 15)')
 
 b.at('interface', 'BACKLIGHT',
      'Panel LEDs (one group of two) need VLED+ 3.0/3.2/3.4 V at 40 mA (Winstar spec 4.2): more than 3V3 can drive. '
-     'AW9364 constant-current sinks from VSYS (40-50 mV dropout): LED1+LED2 on VLED- = 2 x 20 mA = 40 mA nominal '
+     'AW9364 constant-current sinks from VSYS (50 mV typical, 170 mV maximum dropout): LED1+LED2 on VLED- = 2 x 20 mA = 40 mA nominal '
      '(33-47 mA: +-17.5 %% part tolerance), set by the part, not by firmware. 16 steps by EN pulses on GPIO%d; its 150k EN '
      'pull-down keeps the panel dark from reset (ODD JOBS 116). Full 40 mA down to VSYS 3.4 V on the typical 3.2 V '
-     'bin, 3.6 V on the 3.4 V bin (sim S3); dimmer below.' % G['LCD_BL_CTRL'])
+     'bin, 3.6 V on the 3.4 V bin (sim S3; 0.12 V higher at the maximum dropout); dimmer below.' % G['LCD_BL_CTRL'])
 
 b.at('interface', 'RING DIAL',
      'Two DRV5012 Hall latches under the ring\'s 30-pole ferrite strip, 6 deg apart (half a pole = 90 deg electrical): '

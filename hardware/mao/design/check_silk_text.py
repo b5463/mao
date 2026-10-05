@@ -13,6 +13,8 @@ this checks every visible silkscreen text (component references and board labels
           part's outline) or a board graphic such as the maker mark
   via     the text box, or a board graphic (maker mark, easter-egg art), lies on a via: the tented bump
           breaks the print (ODD JOBS 94)
+  electrode  the text box lies on touch-electrode copper (E301/E302, under mask): a name there reads as the
+          electrode's, and the electrode is no place for print (rules 43, 103)
   small   text under 0.8 mm high or 0.12 mm stroke (board minimum, rule 95)
   crowded two texts on one side closer than 0.5 mm: they read as one word (lines stacked in one
           board text block, at least 0.3 mm apart, are line spacing); two service-field names (0.8 mm in
@@ -85,6 +87,23 @@ for f in b.GetFootprints():
     else:
         fab_bodies[s] += [(f.GetReference(), tuple(pcb.FromMM(v + 50) for v in q)) for q in courtyard_boxes(f)]
 
+electrodes = {'F': [], 'B': []}
+for f in b.GetFootprints():
+    if f.GetReference().startswith('E'):
+        for p in f.Pads():
+            for s, lay in (('F', pcb.F_Cu), ('B', pcb.B_Cu)):
+                if p.IsOnLayer(lay):
+                    poly = p.GetEffectivePolygon(lay); r = poly.BBox()
+                    electrodes[s].append((f.GetReference(), poly, (r.GetLeft(), r.GetTop(), r.GetRight(), r.GetBottom())))
+def on_electrode(q, s):
+    for ref, poly, pb in electrodes[s]:
+        if not hit(q, pb): continue
+        n = max(2, int((q[2] - q[0]) / pcb.FromMM(0.15)) + 2), max(2, int((q[3] - q[1]) / pcb.FromMM(0.15)) + 2)
+        for i in range(n[0]):
+            for j in range(n[1]):
+                if poly.Collide(pcb.VECTOR2I(int(q[0] + (q[2] - q[0]) * i / (n[0] - 1)), int(q[1] + (q[3] - q[1]) * j / (n[1] - 1))), pcb.FromMM(0.1)):
+                    return ref
+    return None
 graphics = {'F': [], 'B': []}
 for f in b.GetFootprints():
     for g in f.GraphicalItems():
@@ -122,6 +141,8 @@ for i, (name, s, q, t, own) in enumerate(texts):
         if hit(q, pq): found.append({'kind': 'pad', 'side': s, 'a': name, 'b': pn})
     for vn, vq in vias:
         if hit(q, vq): found.append({'kind': 'via', 'side': s, 'a': name, 'b': vn})
+    e_ref = on_electrode(q, s)
+    if e_ref: found.append({'kind': 'electrode', 'side': s, 'a': name, 'b': e_ref, 'at_mm': [mm((q[0] + q[2]) // 2), mm((q[1] + q[3]) // 2)]})
     for ref, bq in (fab_bodies if name in FIELD and own is None else bodies)[s]:
         if ref.startswith('TP'): continue        # a probe pad's courtyard is pogo clearance, not a body: its name may sit there (the pad check still applies)
         if hit(q, bq) and not (own == ref and own in INSIDE_OK) and INSIDE_PART.get(name) != ref:

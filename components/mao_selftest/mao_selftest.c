@@ -54,11 +54,12 @@ static const char *TAG = "MAO_SELFTEST";
 #define RESULT_HOLD_MS          15000
 
 /* ---- Pass / fail limits (docs/hardware/mao-factory-test.md) -------------- */
-/* Board ID: A0 = 1M/1M divider of +3V3 = 3.18 V (3.10-3.28 V worst case) =
- * 1.59 V nominal, 1.55-1.64 V. 1 % resistors (+-16 mV) and the calibrated
- * ADC (+-~20 mV) widen that to ~1.51-1.68 V; the limits keep ~25 mV beyond. */
+/* Board ID: A0 = 1M/1M divider of +3V3 = 3.18 V (3.10-3.32 V worst case, the
+ * top with the TPS63802 FB bias current) = 1.59 V nominal, 1.55-1.66 V. 1 %
+ * resistors (+-16 mV) and the calibrated ADC (+-~20 mV) widen that to
+ * ~1.51-1.70 V; the limits keep 20-30 mV beyond. */
 #define LIM_ID_MIN_MV           1480
-#define LIM_ID_MAX_MV           1700
+#define LIM_ID_MAX_MV           1720
 #define LIM_ACCEL_MIN_G         0.85f
 #define LIM_ACCEL_MAX_G         1.15f
 #define LIM_TOF_RESULTS         3          /* new results within LIM_TOF_WINDOW_MS */
@@ -88,7 +89,7 @@ static const char *TAG = "MAO_SELFTEST";
 #define IR_TEST_COMMAND         0x3C
 /* Switched rails at their probe pads (TP13 3V3_LCD, TP14 MIC_VDD, TP15
  * IR_RX_VCC), measured to GND by the fixture DMM or the operator. The A0
- * rail is 3.18 V (3.10-3.28 V); TP14/TP15 sit behind 100 R and their load
+ * rail is 3.18 V (3.10-3.32 V); TP14/TP15 sit behind 100 R and their load
  * (0.6 / 0.7 mA + the 10 k pull-up), so a low rail reads ~2.97 V there
  * (sim S5/S6). The floor keeps the IR receiver's 2.7 V minimum in sight. */
 #define LIM_PAD_OFF_MAX_MV      300

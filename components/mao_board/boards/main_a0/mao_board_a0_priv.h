@@ -83,8 +83,8 @@
 #define A0_IR_RX_SETTLE_MS          1
 
 /* --- Board ID divider (ADC1 on GPIO8) ------------------------------------- */
-/* 1M/1M from +3V3 = 3.18 V (3.10-3.28 V worst case) -> 1.59 V (1.55-1.64 V,
- * ~1.51-1.68 V with 1 % resistors and the calibrated ADC): well inside. */
+/* 1M/1M from +3V3 = 3.18 V (3.10-3.32 V worst case) -> 1.59 V (1.55-1.66 V,
+ * ~1.51-1.70 V with 1 % resistors and the calibrated ADC): well inside. */
 #define A0_ID_A0_MIN_MV             1400
 #define A0_ID_A0_MAX_MV             1900
 #define A0_ID_SAMPLES               8

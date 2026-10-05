@@ -56,7 +56,6 @@ for z in b.Zones():
         for layer in (pcb.F_Cu, pcb.B_Cu):
             if z.IsOnLayer(layer):
                 fills.append((layer, z.GetFilledPolysList(layer)))
-regions = [o for _, _, o, _ in power_regions.zones()]
 added = []
 INNER = [z for z in b.Zones() if not z.GetIsRuleArea() and (z.IsOnLayer(pcb.In1_Cu) or z.IsOnLayer(pcb.In2_Cu))]
 
@@ -72,21 +71,6 @@ def inner_pieces():
     return out
 
 
-def region_ok(x, y, poly):
-    """A GND via may sit outside an L3 power region (0.6 mm off it) or deep inside one (1.2 mm from every edge
-    that lies on the board): there its hole is an island in the rail's fill and pinches nothing."""
-    inside, edge = False, 99.0
-    for (x1, y1), (x2, y2) in zip(poly, poly[1:] + poly[:1]):
-        if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
-            inside = not inside
-        dx, dy = x2 - x1, y2 - y1
-        t = max(0.0, min(1.0, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy or 1)))
-        px, py = x1 + t * dx, y1 + t * dy
-        if math.hypot(px, py) < m.PCB_R - 0.3:                # edges beyond the milled edge do not count
-            edge = min(edge, math.hypot(x - px, y - py))
-    return edge >= 1.2 if inside else edge >= 0.6
-
-
 def site_ok(x, y):
     c = at(x, y)
     via = pcb.SHAPE_CIRCLE(c, pcb.FromMM(0.3))
@@ -94,7 +78,7 @@ def site_ok(x, y):
         return False
     if any(z.Outline().Collide(c, pcb.FromMM(0.3)) for z in keep): return False
     if any(math.hypot(x - fx, y - fy) < 2.2 for fx, fy in fid): return False
-    if not all(region_ok(x, y, poly) for poly in regions): return False
+    if not power_regions.gnd_via_ok(x, y): return False
     for t in tracks + added:
         if isinstance(t, pcb.PCB_VIA):
             if (t.GetPosition() - c).EuclideanNorm() < pcb.FromMM(0.6 + 0.25): return False

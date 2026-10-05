@@ -606,8 +606,8 @@ console (`[OK]` / `[!!]` / `[--]` lines, `mao board`, `mao selftest boot`).
   `SELFTEST PASS 33/33` / `FAIL …` / `INCOMPLETE …`, `SELFTEST_JSON {…}`.
   Station script: `tools/factory_test.py`. Steps, limits, fixture, test
   pads: `docs/hardware/mao-factory-test.md`.
-- Board revision changes: `board_id` limits 1480 … 1700 mV (3.18 V rail:
-  1.59 V nominal; was 1550 … 1750 for 3.3 V); `charger` passes on PGOOD and,
+- Board revision changes: `board_id` limits 1480 … 1720 mV (3.18 V rail:
+  1.59 V nominal, 1.51–1.70 V over every tolerance; was 1550 … 1750 for 3.3 V); `charger` passes on PGOOD and,
   where the board limits the charge temperature, a readable board temperature;
   it reports the estimated charging state, a pause and the temperature
   (`PGOOD(usb)=1 chg=1, board 29.4 C`). `docs/hardware/mao-factory-test.md`

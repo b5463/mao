@@ -23,7 +23,7 @@ The pin header is generated from `pinmap.py`; never hand-merge it.
 | 3 | Expander P6: input `CHG_N` (charger /CHG) became output `CHG_CE_N` (charger /CE), 100 k pull-down at the charger | Firmware must be able to pause charging (item 4); /CHG is no longer connected | P6 is an output driven 0 (charging enabled) from expander init on; `MAO_LINE_CHARGING` is `ESP_ERR_NOT_SUPPORTED` on the A0 and `mao_power` estimates charging from PGOOD + the fuel gauge |
 | 4 | Charge thermal limit (new) | The LiPo cell may be charged only at 0–45 °C, but the BQ24073's pack-NTC window ends at 50 °C | `mao_power` reads the IMU die temperature every 10 s while USB is present; /CE = 1 (pause) at ≥ 43 °C, back to 0 at ≤ 40 °C; transitions logged; fail-safe = charging enabled |
 | 5 | IMU INT1/INT2 (GPIO14/47) without MCU pull-ups | An LSM6DSOX that sees INT1 high at its power-up selects I3C-only mode (datasheet §5.3, "INT1 must be set to '0' or left unconnected during power-on") | Internal pull-ups removed in `config_irq_inputs()`; the IMU's deep-sleep wake is armed only if the IMU answered at boot (a missing IMU leaves the pad floating) |
-| 6 | +3V3 = 3.18 V (3.10–3.28 V worst case) | Panel VCI maximum 3.3 V | Board-ID window 1400–1900 mV still holds (1.59 V nominal, ~1.51–1.68 V worst case): unchanged. The self-test's tighter `board_id` limits were re-centred: 1550–1750 → 1480–1700 mV |
+| 6 | +3V3 = 3.18 V (3.10–3.32 V worst case, the top with the TPS63802 FB bias current) | Panel VCI maximum 3.3 V | Board-ID window 1400–1900 mV still holds (1.59 V nominal, ~1.51–1.70 V worst case): unchanged. The self-test's tighter `board_id` limits were re-centred: 1550–1750 → 1480–1720 mV (electrical audit 3: 1700 left 3 mV at the top corner) |
 | 7 | Amplifier SD_MODE through 2.2 k series resistor | MAX98357A datasheet case VDDIO > VDD | None (SD_MODE high still selects the left channel) |
 | 8 | Display orientation | — | None: the panel tail still leaves at 9 o'clock (`CONFIG_MAO_A0_LCD_ROTATION` default 90) |
 | 9 | Display SPI through the stock 70 mm FPC tail (was a 10–12 mm tail) | 80 MHz over 70 mm of FPC with SCL beside CS/SDA is plausible but unproven (electrical audit 2, N-9) | New Kconfig `CONFIG_MAO_A0_LCD_PCLK_MHZ` (int, 10–80, default 80) sets `A0_LCD_PCLK_HZ`; bring-up §3 sets 40 if the colour test glitches. No code path changes |
@@ -68,7 +68,7 @@ Sense (`components/mao_sense`):
 | `mao_sense_imu.c`, `mao_sense_priv.h` | `sense_imu_temperature()`: OUT_TEMP_L/H 0x20/0x21, 25 °C + raw / 256; `ESP_ERR_INVALID_STATE` while powered down (stale register); quiet on failure | Item 4 (LSM6DS3TR-C fallback has the same registers and scale) |
 | `include/mao_sense.h`, `mao_sense.c` | Public `mao_sense_imu_temperature()` under the sense device lock; registered with `mao_power_set_temp_source()` when the IMU runs | Item 4, without a mao_power → mao_sense dependency (mao_sense already depends on mao_power) |
 
-Self-test (`components/mao_selftest/mao_selftest.c`): `board_id` limits 1480–1700 mV
+Self-test (`components/mao_selftest/mao_selftest.c`): `board_id` limits 1480–1720 mV
 (item 6); switched-rail pad floor 3000 → 2850 mV (`LIM_PAD_ON_MIN_MV`: on a 3.10 V rail the
 100 R-fed MIC_VDD / IR_RX_VCC pads read ≈ 2.97 V, sim S5/S6); `charger` step no longer reads `MAO_LINE_CHARGING` (it would fail with
 `ESP_ERR_NOT_SUPPORTED`): passes on PGOOD and, with `caps.charge_control`, a
@@ -218,7 +218,7 @@ cycle). Also check the IMU wake from deep sleep still works (no pull on INT1:
 the IMU drives it push-pull, active low).
 
 **Other.** Board ID reads ≈ 1590 mV (`mao board`), inside the self-test's
-1480–1700 mV; `mao board` shows `charge_control=1` and `charging=- (see mao
+1480–1720 mV; `mao board` shows `charge_control=1` and `charging=- (see mao
 power)`; the expander test and reset test pass with CONFIG 0x80.
 
 ## 6. Checklist
@@ -232,10 +232,10 @@ power)`; the expander test and reset test pass with CONFIG 0x80.
 - [ ] Nobody outside `mao_power` relies on `MAO_LINE_CHARGING` succeeding on the A0
 - [ ] `charge_limit()` runs every 10 s on USB (also while DROWSY) and on every USB change; fails safe to enabled
 - [ ] Every expander interrupt reads `MAO_LINE_SENSE_ALERT`
-- [ ] Self-test `board_id` limits 1480–1700 mV; `charger` step uses the power status
+- [ ] Self-test `board_id` limits 1480–1720 mV; `charger` step uses the power status
 - [ ] `CONFIG_MAO_A0_LCD_PCLK_MHZ` present (default 80); `idf.py reconfigure` run in old build directories
 - [ ] All five configurations build with zero warnings; host tests pass
 - [ ] Bring-up (§5 and `mao-bringup.md` §3): colour test at 80 MHz passed (or 40 set and recorded), 16 steps, ~40 mA at 100 %, wrap result recorded, fade-in gap judged, IR dark at boot, pause at 43 °C / resume at 40 °C seen, IMU temperature offset recorded, IMU survives power cycles
 - [ ] Hardware docs: `docs/hardware/mao-factory-test.md` and `mao-bringup.md` already describe the revised board
-      (board_id 1480–1700 mV, CONFIG 0x80, GPIO39 = EXP_RST_N / TP11, AW9364 backlight, 207 mA charge,
+      (board_id 1480–1720 mV, CONFIG 0x80, GPIO39 = EXP_RST_N / TP11, AW9364 backlight, 207 mA charge,
       the 80 / 40 MHz panel clock check); carry them over with the hardware, not by hand

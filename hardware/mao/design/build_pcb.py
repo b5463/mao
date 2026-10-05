@@ -349,6 +349,13 @@ def build():
         x0, y0, x1, y1 = m.field_name_box(PLACE[ref][0], PLACE[ref][1], *spec)
         keepout(board, allcu, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], 'NAME %s' % ref,
                 tracks=False, vias=True, pads=False, pours=False)
+    # The back's maker mark and identity: their spot stays via-free (silk.py places them there)
+    for k, (x0, y0, x1, y1) in enumerate(m.B_IDENT_KEEPOUT):
+        keepout(board, allcu, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], 'B IDENT %d' % k,
+                tracks=False, vias=True, pads=False, pours=False)
+    x0, y0, x1, y1 = m.VSYS_CORNER_KEEPOUT       # the L3 VSYS branch's turn into the backlight bar: no via antipad
+    keepout(board, allcu, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], 'VSYS CORNER',
+            tracks=False, vias=True, pads=False, pours=False)
     # Display tail: no part between the slot and J301 on B, none on the slot's inboard side on F.
     for layer, (x0, y0, x1, y1), name in ((pcb.B_Cu, m.TAIL_CORRIDOR, 'TAIL CORRIDOR'),
                                          (pcb.F_Cu, m.TAIL_F_CLEAR, 'TAIL CLEAR'),

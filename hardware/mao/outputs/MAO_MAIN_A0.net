@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "/Users/moravcik/Library/Application Support/Claude/scratch-workspaces/fd95d868-fd9f-42b4-ab0f-1fa3f0ecd399/883b8d98-75ff-4844-b199-4b97bf4e807f/scratch-2026-10-03-a0bc0e/mao/hardware/mao/MAO_MAIN_A0.kicad_sch")
-		(date "2026-10-05T15:54:37")
+		(date "2026-10-05T18:14:52")
 		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
@@ -1036,8 +1036,8 @@
 			)
 			(libsource
 				(lib "Device")
-				(part "D_TVS")
-				(description "Bidirectional transient-voltage-suppression diode")
+				(part "D_Zener")
+				(description "Zener diode")
 			)
 			(property
 				(name "MPN")
@@ -1061,7 +1061,7 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "diode TVS thyrector")
+				(value "diode")
 			)
 			(property
 				(name "ki_fp_filters")
@@ -11630,8 +11630,8 @@
 		)
 		(libpart
 			(lib "Device")
-			(part "D_TVS")
-			(description "Bidirectional transient-voltage-suppression diode")
+			(part "D_Zener")
+			(description "Zener diode")
 			(footprints
 				(fp "TO-???*")
 				(fp "*_Diode_*")
@@ -11642,7 +11642,7 @@
 				(field
 					(name "Reference") "D")
 				(field
-					(name "Value") "D_TVS")
+					(name "Value") "D_Zener")
 				(field
 					(name "Footprint")
 				)
@@ -11650,17 +11650,17 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "Bidirectional transient-voltage-suppression diode")
+					(name "Description") "Zener diode")
 			)
 			(pins
 				(pin
 					(num "1")
-					(name "A1")
+					(name "K")
 					(type "passive")
 				)
 				(pin
 					(num "2")
-					(name "A2")
+					(name "A")
 					(type "passive")
 				)
 			)
@@ -14247,7 +14247,7 @@
 			(node
 				(ref "D101")
 				(pin "2")
-				(pinfunction "A2_2")
+				(pinfunction "A_2")
 				(pintype "passive")
 			)
 			(node
@@ -16038,7 +16038,7 @@
 			(node
 				(ref "D101")
 				(pin "1")
-				(pinfunction "A1_1")
+				(pinfunction "K_1")
 				(pintype "passive")
 			)
 			(node

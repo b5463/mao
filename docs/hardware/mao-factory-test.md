@@ -43,7 +43,7 @@ prints `SELFTEST STEP <n>/<total> <id> PASS|FAIL|SKIP <detail>`.
 
 | # | id | Checks | Pass limits |
 |---:|---|---|---|
-| 1 | `board_id` | board-ID divider (GPIO8, 1M/1M, ADC1 calibrated, measured at boot) | 1480 … 1700 mV (A0 nominal 1590 on the 3.18 V rail) |
+| 1 | `board_id` | board-ID divider (GPIO8, 1M/1M, ADC1 calibrated, measured at boot) | 1480 … 1720 mV (A0 nominal 1590 on the 3.18 V rail; 1.51–1.70 V over every tolerance) |
 | 2 | `i2c_bus` | live scan of the bus (switchable devices powered for it) | 0x20, 0x29, 0x36, 0x44, 0x5A, 0x6A all answer |
 | 3 | `expander` | TCA6408A CONFIG readback (0x80: P0-P6 outputs, P7 the alert input), POLARITY round trip 0x6A / 0x15 on the output pins, every output pin reads back its commanded level | all match |
 | 4 | `expander_reset` | pulses EXP_RST_N (GPIO39, TP11 XRST): the expander must really reset (CONFIG back at its 0xFF default), then is reprogrammed from the shadow registers: CONFIG re-read, every output pin at its commanded level. The panel, ToF and haptic driver are re-initialised by their owners afterwards | CONFIG 0xFF after the pulse; 0x80 and all outputs restored after |

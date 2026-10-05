@@ -28,6 +28,10 @@ def snap(v):
     return round(v / GRID) * GRID
 
 
+NOTE_PITCH = 2 * 1.27    # note lines on a grid multiple: text positions snap to GRID, so a 2.29 mm pitch printed
+                         # alternately 1.27 and 2.54 mm apart and the close pairs touched (ODD JOBS audit 3)
+
+
 def eff(size=1.27, justify=None, hide=False):
     e = ['effects', ['font', ['size', size, size]]]
     if justify:
@@ -507,7 +511,7 @@ def layout_sheet(circuit, sheet, parts, global_nets, page='A3', nets=None, extra
         bw = maxx + 5.08
         desc = circuit.blocks.get((sheet.stem, bname), '')
         lines = wrap(desc, max(40, int(bw / 0.95))) if desc else []
-        bh = maxy + 5.08 + len(lines) * 2.29 + 2.54
+        bh = maxy + 5.08 + len(lines) * NOTE_PITCH + 2.54
         if x + bw > W - margin and x > margin:
             x = margin
             y += row_h + 12.7
@@ -517,7 +521,7 @@ def layout_sheet(circuit, sheet, parts, global_nets, page='A3', nets=None, extra
         sheet.rect(snap(x - 2.54), snap(y - 5.08), snap(x + bw), snap(y + bh))
         sheet.text(bname, x, y - 1.27, size=1.524, bold=True)
         for k, line in enumerate(lines):
-            sheet.text(line, x, y + maxy + 6.35 + k * 2.29, size=1.0, justify=('left', 'bottom'))
+            sheet.text(line, x, y + maxy + 6.35 + k * NOTE_PITCH, size=1.0, justify=('left', 'bottom'))
         for p, r, ox, oy in placements:
             part_symbol(sheet, circuit, p, (snap(x + ox), snap(y + 2.54 + oy)), r, global_nets)
         mx, my = snap(x + placements[0][2]), snap(y + 2.54 + placements[0][3])

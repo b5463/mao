@@ -105,6 +105,21 @@ class Bins:
             s.d[k] = keep
         return out
 hard = {'F': Bins(), 'B': Bins()}       # part bodies, pads, through-holes, fasteners
+electrodes = {'F': [], 'B': []}         # touch-electrode copper under mask: a reference there reads as the electrode's
+for f_ in fs.values():
+    if f_.GetReference().startswith('E'):
+        for p_ in f_.Pads():
+            for s_, lay_ in (('F', pcb.F_Cu), ('B', pcb.B_Cu)):
+                if p_.IsOnLayer(lay_):
+                    poly_ = p_.GetEffectivePolygon(lay_); electrodes[s_].append((poly_, box(poly_.BBox())))
+def on_electrode(q, s, gap=.1):
+    for poly, pb in electrodes[s]:
+        if not intersects(grow(q, gap), pb): continue
+        nx, ny = max(2, int((q[2] - q[0]) / .15) + 2), max(2, int((q[3] - q[1]) / .15) + 2)
+        if any(poly.Collide(pcb.VECTOR2I(pcb.FromMM(50 + q[0] + (q[2] - q[0]) * i / (nx - 1)), pcb.FromMM(50 + q[1] + (q[3] - q[1]) * j / (ny - 1))),
+                            pcb.FromMM(gap)) for i in range(nx) for j in range(ny)):
+            return True
+    return False
 text = {'F': Bins(), 'B': Bins()}       # silkscreen texts and markings, each grown by TEXT_GAP
 bodies = {'F': Bins(), 'B': Bins()}     # bare part outlines, for the ambiguity test
 own_rect = {r: rect(f, 0) for r, f in fs.items()}
@@ -177,7 +192,7 @@ def judge(r, s, w, h, c, vertical):
     """None if the box is blocked, else (score, ambiguity, distance to own part)."""
     q = (c[0] - w / 2, c[1] - h / 2, c[0] + w / 2, c[1] + h / 2)
     if not on_board(q, EDGE): return None
-    if hard[s].hit(grow(q, BODY_GAP), r if r in INSIDE_OK else None) or text[s].hit(grow(q, TEXT_GAP)): return None
+    if hard[s].hit(grow(q, BODY_GAP), r if r in INSIDE_OK else None) or text[s].hit(grow(q, TEXT_GAP)) or on_electrode(q, s): return None
     o = own_rect[r]; d_own = min(dist(q, p) for p in own_boxes[r])   # the real outline (courtyard strips)
     d_other = min((dist(q, p) for k in bodies[s].keys(grow(q, d_own + AMBIGUITY + .5)) for n, p in bodies[s].d[k] if n != r), default=99.)
     amb = max(0., d_own + AMBIGUITY - d_other)
@@ -295,7 +310,9 @@ while moved:
                 if done: break
             if done: break
 # Leaders (ODD JOBS 177, the silk policy): a part with no clear spot beside it gets its reference up to 6 mm away
-# with a straight 0.15 mm silk leader from just off the text to 0.25 mm short of its own outline. The leader keeps
+# with a straight 0.15 mm silk leader from just off the text to 0.3 mm off the part (its body and pads), so it ends
+# at the part it names, never between two parts. It keeps the silk clearance from every outline, its own part's too
+# (KiCad: silk overlap), and never crosses a pad; where that route is blocked it stops 0.25 mm short of the courtyard. The leader keeps
 # 0.125 mm from every other part's outline, hole, via, fastener and silkscreen text and from other leaders, and
 # the silk clearance from every footprint's silk graphics; the
 # reference box keeps the usual clearances. Shortest leader wins; vertical text costs a little. A leader is at least
@@ -321,9 +338,24 @@ def leader_ok(s, r, a, c):
         if any(math.hypot(x - vx, y - vy) < vr + LEADER_W / 2 + .05 for (vx, vy), vr in vias_c): return False
         if sgfx[s].hit((x - LEADER_W / 2 - SILK_CLR, y - LEADER_W / 2 - SILK_CLR, x + LEADER_W / 2 + SILK_CLR, y + LEADER_W / 2 + SILK_CLR)):
             return False
+        if any(intersects(q, pq) for pq in own_pads[r]): return False
     return True
 def nearest(q, p):
     return (min(max(p[0], q[0]), q[2]), min(max(p[1], q[1]), q[3]))
+def fab_box(f):
+    g = [x.GetBoundingBox() for x in f.GraphicalItems() if x.GetLayer() in (pcb.F_Fab, pcb.B_Fab) and not isinstance(x, pcb.PCB_TEXT)]
+    return (min(pcb.ToMM(r.GetLeft()) for r in g) - 50, min(pcb.ToMM(r.GetTop()) for r in g) - 50,
+            max(pcb.ToMM(r.GetRight()) for r in g) - 50, max(pcb.ToMM(r.GetBottom()) for r in g) - 50) if g else None
+own_pads = {r_: [box(p_.GetBoundingBox(), .1) for p_ in f_.Pads()] for r_, f_ in fs.items()}
+def extent(r_):                         # the part as seen: its body (Fab) and its pads
+    qs = [q_ for q_ in [fab_box(fs[r_])] + [grow(pq, -.1) for pq in own_pads[r_]] if q_]
+    return (min(q_[0] for q_ in qs), min(q_[1] for q_ in qs), max(q_[2] for q_ in qs), max(q_[3] for q_ in qs)) if qs else None
+own_body = {r_: extent(r_) for r_ in fs}
+def end_margin(r_, s_, e_):             # how much nearer the leader's end is to its own part than to any other
+    dp = lambda q_: math.hypot(max(q_[0] - e_[0], 0, e_[0] - q_[2]), max(q_[1] - e_[1], 0, e_[1] - q_[3]))
+    others = [dp(own_body[n_]) for n_ in hard[s_].near((e_[0] - 3, e_[1] - 3, e_[0] + 3, e_[1] + 3))
+              if n_ in fs and n_ != r_ and own_body.get(n_)]
+    return (min(others) if others else 9.0) - dp(own_body[r_])
 for r in [r for r in list(unplaced) if r not in fab_only]:
     f = fs[r]; s = side_of(f); size = SIZES[0]; style(f, size); best = None
     o = own_rect[r]; cx, cy = (o[0] + o[2]) / 2, (o[1] + o[3]) / 2
@@ -337,10 +369,15 @@ for r in [r for r in list(unplaced) if r not in fab_only]:
                     [(o[2] + g + w / 2, cy + k * .25) for k in range(-ky, ky + 1)]
             for c in cands:
                 q = (c[0] - w / 2, c[1] - h / 2, c[0] + w / 2, c[1] + h / 2)
-                if not on_board(q, EDGE) or hard[s].hit(grow(q, BODY_GAP)) or text[s].hit(grow(q, TEXT_GAP)):
+                if not on_board(q, EDGE) or hard[s].hit(grow(q, BODY_GAP)) or text[s].hit(grow(q, TEXT_GAP)) or on_electrode(q, s):
                     continue
-                end = min((nearest(grow(ob, .25), c) for ob in own_boxes[r]), key=lambda p_: math.hypot(p_[0] - c[0], p_[1] - c[1]))
-                st = nearest(grow(q, LEADER_W / 2 + SILK_CLR), end)      # silk clearance to its own text
+                ends = [nearest(grow(own_body[r], .3), c)] if own_body[r] else []
+                ends.append(min((nearest(grow(ob, .25), c) for ob in own_boxes[r]), key=lambda p_: math.hypot(p_[0] - c[0], p_[1] - c[1])))
+                for end in ends:                       # the body first, the courtyard if a pad is in the way
+                    st = nearest(grow(q, LEADER_W / 2 + SILK_CLR), end)      # silk clearance to its own text
+                    if leader_ok(s, r, st, end) and end_margin(r, s, end) >= .1: break   # ends at its own part
+                else:
+                    continue
                 L = math.hypot(end[0] - st[0], end[1] - st[1])
                 if L > 9.0 or (best and L + (.3 if vertical else 0) >= best[0]):
                     continue

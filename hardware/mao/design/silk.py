@@ -202,10 +202,30 @@ def main():
             for sd in ('F', 'B'):
                 vias[sd].append((x - r, y - r, x + r, y + r))
     placed = {'F': [], 'B': []}
+    electrodes = {'F': [], 'B': []}         # touch-electrode copper, under mask: a name printed there labels the wrong thing
+    for f in fps.values():
+        if f.GetReference().startswith('E'):
+            for p in f.Pads():
+                for sd, lay in (('F', pcb.F_Cu), ('B', pcb.B_Cu)):
+                    if p.IsOnLayer(lay):
+                        poly = p.GetEffectivePolygon(lay); r = poly.BBox()
+                        electrodes[sd].append((poly, (mm(r.GetLeft()), mm(r.GetTop()), mm(r.GetRight()), mm(r.GetBottom()))))
+
+    def on_electrode(bx, sd, gap=0.1):
+        for poly, pb in electrodes[sd]:
+            if not overlap(bx, pb, gap): continue
+            nx, ny = max(2, int((bx[2] - bx[0]) / 0.15) + 2), max(2, int((bx[3] - bx[1]) / 0.15) + 2)
+            for i in range(nx):
+                for j in range(ny):
+                    if poly.Collide(at(bx[0] + (bx[2] - bx[0]) * i / (nx - 1), bx[1] + (bx[3] - bx[1]) * j / (ny - 1)),
+                                    pcb.FromMM(gap)):
+                        return True
+        return False
 
     def why(bx, sd, text_gap=0.5, inside=(), outline=False):
         for q in pad_boxes[sd]:
             if overlap(bx, q, 0.2): return 'pad %s' % (tuple(round(v, 2) for v in q),)
+        if on_electrode(bx, sd): return 'electrode copper'
         for q, owner in (outlines if outline else bodies)[sd]:
             if owner not in inside and overlap(bx, q, 0.0): return 'body %s %s' % (owner, tuple(round(v, 2) for v in q))
         for q in graphics[sd]:              # the board rule min_silk_clearance
@@ -344,6 +364,9 @@ def main():
     spots = sorted(((x_ / 5, y_ / 5) for x_ in range(-130, 131) for y_ in range(-130, 131)
                     if math.hypot(x_ / 5, y_ / 5) < m.PCB_R - 4.0),
                    key=lambda p_: 8.0 * under_cell(*p_) + 0.1 * math.hypot(p_[0] - B_MARK_AT[0], p_[1] - B_MARK_AT[1]))
+    for probe in filter(None, os.environ.get('SILK_MARK_PROBE', '').split(';')):   # debugging: why a spot fails
+        x_, y_ = map(float, probe.split(','))
+        print('silk: back mark probe (%.1f, %.1f):' % (x_, y_), [why(q, 'B') for q in block(x_, y_, 1.3)[1]])
     found = None
     for ident in (1.5, 1.3, 1.2):
         for cx_, cy_ in spots:
@@ -363,7 +386,9 @@ def main():
     else:
         cx_, cy_ = B_MARK_AT
         lines_, boxes_ = block(cx_, cy_)
-        print('silk: back mark: no clear spot |', [why(q, 'B') for q in boxes_])
+        print('silk: back mark: no clear spot | best-ranked spots:',
+              ['(%.1f, %.1f) %s' % (x_, y_, next((w_ for w_ in (why(q, 'B') for q in block(x_, y_, 1.2)[1]) if w_), None))
+               for x_, y_ in spots[:4]])
     b_mark = (cx_, cy_)
     mark(b_mark, bw, 'B')
     placed['B'].append(boxes_[0])
@@ -603,7 +628,7 @@ BRAND_CENTRE = (-6.6, 8.6)       # F, under the module's left half: the calmest 
 SN_SPOTS = [(x_ / 10, y_ / 10) for y_ in (140, 142, 138, 144, 136, 146) for x_ in (0, 2, -2, 4, -4, 6, -6, 8, -8)]
                                  # F: centre of the 6 x 6 mm S/N field (the back has no clear 6 x 6 field)
 B_MARK_W = 4.6                   # B mark width: the artwork's finest strokes (0.07 mm at 2 mm) reach 0.16 mm
-B_MARK_AT = (15.6, 9.6)          # B, east of the module, outside the cell: the one clear field on the back
+B_MARK_AT = m.B_IDENT_AT          # B: the reserved via-free spot (mechanical.B_IDENT_KEEPOUT); a clear field outside the cell wins
 CAT_AT = (-4.3, -7.7)            # F, under the panel: preferred centre of the sleeping cat
 BAD_IDEAS_AT = (6.0, 6.0)        # F, under the panel: preferred spot of the ODD JOBS line (rule 175), two lines
 

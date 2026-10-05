@@ -56,8 +56,9 @@ def write():
     pro['net_settings']['classes'] = classes
     pro['net_settings']['netclass_patterns'] = patterns
     ds = pro['board']['design_settings']
-    # build_pcb.trim_silk cuts the module's and the USB-C's silk back from the board edge on purpose, so
-    # those two footprints differ from the stock library by design (review doc, PCB section)
+    # Footprints that differ from their library copy by design, pads identical (electrical audit 3 compared them):
+    # build_pcb.trim_silk cuts the silk of the parts that reach the rim back from the milled edge (U201, J101, LS501),
+    # and silk.py moves every test pad's silk ring to Fab, since its function name is the cue (TP1-TP16)
     ds['rule_severities']['lib_footprint_mismatch'] = 'ignore'
     ds['track_widths'] = [0.0, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8]
     ds['via_dimensions'] = [{'diameter': 0.0, 'drill': 0.0}, {'diameter': 0.6, 'drill': 0.3}]

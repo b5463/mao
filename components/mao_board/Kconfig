@@ -59,7 +59,8 @@ menu "MAO board"
             The GC9A01's SPI clock. On the A0 it runs through the panel's stock
             70 mm FPC tail. VERIFY AT BRING-UP (mao-bringup.md section 3): run the
             colour test and the animation at 80 MHz; if lines tear or pixels go
-            wrong, set 40 here.
+            wrong, set 40 here. Use 80 or 40: the SPI clock divides 80 MHz, so other
+            values round to a neighbouring 80/n (the log prints the requested value).
 
     # Not user-editable: the name always follows the board choice.
     config MAO_BOARD_NAME

@@ -1,7 +1,7 @@
 /*
  * MAO_MAIN A0 display: a 1.28" round GC9A01 panel (240x240) with the 18-pin
  * plug-in tail (Winstar WF0128BTYAA4DNN0) in the J301 FPC connector, on SPI2,
- * 80 MHz, write-only: SCLK and MOSI on SPI2's IO_MUX pads, CS through the GPIO
+ * CONFIG_MAO_A0_LCD_PCLK_MHZ (80 MHz; 40 if the 70 mm tail needs it), write-only: SCLK and MOSI on SPI2's IO_MUX pads, CS through the GPIO
  * matrix (the module pins follow the connector's pin order), DC a plain GPIO.
  * TE (tearing effect) is wired to MAO_PIN_LCD_TE as an input; the flush does
  * not wait for it yet (VERIFY AT BRING-UP). The panel logic sits behind a load
