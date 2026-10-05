@@ -25,7 +25,7 @@
 #define MAO_PIN_CHG_STAT1          33   /* charger STAT1 (open-drain) */
 #define MAO_PIN_CHG_STAT2          34   /* charger STAT2 (open-drain) */
 #define MAO_PIN_LCD_TE             35   /* display tearing-effect output: frame sync */
-#define MAO_PIN_IMU_INT2           36   /* IMU INT2: orientation, tap */
+#define MAO_PIN_IR_RX              36   /* IR receiver output (RMT) */
 #define MAO_PIN_HALL_B             37   /* ring dial channel B */
 #define MAO_PIN_TOF_INT_N          38   /* proximity GPIO1: threshold interrupt */
 #define MAO_PIN_VBUS_SENSE         39   /* USB VBUS present (100k/150k divider) */

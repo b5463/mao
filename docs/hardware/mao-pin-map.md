@@ -35,7 +35,7 @@ channel, ADC1 = ADC usable with Wi-Fi on.
 | 33 | `CHG_STAT1` | od | charger STAT1 (open-drain) |  | 10k pull-up; both STAT pins high-Z on battery: 0 uA |
 | 34 | `CHG_STAT2` | od | charger STAT2 (open-drain) |  | 10k pull-up |
 | 35 | `LCD_TE` | in | display tearing-effect output: frame sync |  | driven by the panel; isolated while the panel is off |
-| 36 | `IMU_INT2` | od | IMU INT2: orientation, tap |  | 100k pull-up |
+| 36 | `IR_RX` | in | IR receiver output (RMT) |  | receiver supply switched by AUX_PWR_EN; isolated while it is off. IMU INT2 is not wired on A1: INT1 carries wake-on-motion, the rest is polled |
 | 37 | `HALL_B` | in | ring dial channel B |  | push-pull from the Hall latch |
 | 38 | `TOF_INT_N` | od | proximity GPIO1: threshold interrupt |  | 10k pull-up (ST application circuit) |
 | 39 | `VBUS_SENSE` | in | USB VBUS present (100k/150k divider) |  | 0 uA on battery; the stay-awake rule uses USB-Serial-JTAG SOF, this tells charge-only power |
