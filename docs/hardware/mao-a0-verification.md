@@ -23,7 +23,7 @@ Every finding was verified before it was acted on. Values changed by this pass a
 | Firmware | 5 configurations (S3 dev / factory / release, C3 dev / release): 0 errors, 0 warnings |
 | Host tests | 160 checks, 0 failures |
 | Simulation (S1–S15) | all pass after three value changes (below) |
-| Visual review | both faces rendered and reviewed; no defects |
+| Visual review | both faces rendered; the review missed silk over vias and ambiguous labels (see Audits) |
 | ODD JOBS audit | see [Audits](#audits) |
 | Electrical audit | see [Audits](#audits) |
 
@@ -99,10 +99,22 @@ Both faces were rendered from the release board (`renders/`) and reviewed as a p
 - the antenna keep-out;
 - black solder mask with ENIG.
 
-No defects were found. The designator policy holds: silk references for ICs, connectors, semiconductors,
+The ODD JOBS audit later measured what this review missed: 33 silk/via overlaps and labels nearer another part than their own (see Audits). The designator policy holds: silk references for ICs, connectors, semiconductors,
 electrodes, and every R/C named in the bring-up or factory-test docs; all others on Fab and in the assembly
 PDFs.
 
 ## Audits
 
-_Filled in from the two independent audits below._
+**Verdict: not ready to order.** Two independent audits (electrical; ODD JOBS rule by rule) found 3 electrical errors and 18 ODD JOBS failures. The blockers below are each confirmed against the datasheet or the board:
+
+| Blocker | Evidence |
+|---|---|
+| GPIO39 (IR_TX) is MTCK, with a weak pull-up at reset (ESP32-S3 datasheet v2.2, Table 2-1 note 7). Against R504 100 k it turns Q501 on, so the IR LEDs light at every boot and stay on in download mode | datasheet |
+| The Winstar WF0128BTYAA4DNN0 backlight needs VLED+ 3.0 / 3.2 / 3.4 V at 40 mA (spec §4.2). From 3V3 through 10 Ω that gives about 20 mA typical and 6–14 mA on high bins. S3 above used the wrong panel's 2.8–3.2 V | Winstar spec 2022-08-12 |
+| Its FPC tail is 70.10 ± 0.5 mm (spec §8); J301's position needs 10.5–12.5 mm | Winstar spec §8 |
+| U503 (IR receiver) reaches r 24.5 mm; the ring ID is r 24.0 | board |
+| The charger, buck-boost, gauge and RPP FET sit inside the cell outline on B | board |
+| U105 (TPS22917) has no input capacitor; the nearest +3V3 cap is 4.7 mm away | board |
+| Silk labels are ambiguous or over vias. The visual review above wrongly reported none | board |
+
+Audit reports: `AUDIT-ELECTRICAL` and `AUDIT-ODDJOBS` (findings carried into the A0 revision).

@@ -305,7 +305,11 @@ The golden rule:
 
 ### Final status
 
-**READY FOR 5-UNIT A0 PROTOTYPE ORDER — 4 LAYER**
+**NOT READY TO ORDER — A0 REVISION IN PROGRESS (2026-10-05)**
+
+The verification pass (`mao-a0-verification.md`) found blockers that the earlier review missed. The named display panel's 70 mm FPC tail cannot reach J301, and its 3.0–3.4 V backlight cannot be driven from 3V3. GPIO39's reset pull-up turns the IR LEDs on at every boot. The IR receiver overlaps the ring, and the power cluster sits over the cell. Everything below this line describes the board before that pass.
+
+~~READY FOR 5-UNIT A0 PROTOTYPE ORDER — 4 LAYER~~
 
 Every gate of the 4-layer review passes (`mao-rev-a0-review.md` §2.1):
 - DRC/ERC/parity 0 and nothing unconnected;
