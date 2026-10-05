@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "/Users/moravcik/Library/Application Support/Claude/scratch-workspaces/fd95d868-fd9f-42b4-ab0f-1fa3f0ecd399/883b8d98-75ff-4844-b199-4b97bf4e807f/scratch-2026-10-03-a0bc0e/mao/hardware/mao/MAO_MAIN_A0.kicad_sch")
-		(date "2026-10-05T01:06:15")
+		(date "2026-10-05T02:40:31")
 		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
@@ -10250,128 +10250,6 @@
 		)
 		(comp
 			(ref "J501")
-			(value "SPK+")
-			(footprint "MAO:BAT_BW0019BG_SpringContact_3.5x1.5mm")
-			(description "speaker +")
-			(fields
-				(field
-					(name "MPN") "BW0019BG-L3.5W1.5H3.8")
-				(field
-					(name "Manufacturer") "BAT WIRELESS")
-				(field
-					(name "LCSC") "C2826516")
-				(field
-					(name "Footprint") "MAO:BAT_BW0019BG_SpringContact_3.5x1.5mm")
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "speaker +")
-			)
-			(libsource
-				(lib "MAO")
-				(part "Spring")
-				(description "SMD spring contact to an enclosure part")
-			)
-			(property
-				(name "MPN")
-				(value "BW0019BG-L3.5W1.5H3.8")
-			)
-			(property
-				(name "Manufacturer")
-				(value "BAT WIRELESS")
-			)
-			(property
-				(name "LCSC")
-				(value "C2826516")
-			)
-			(property
-				(name "Sheetname")
-				(value "Feedback")
-			)
-			(property
-				(name "Sheetfile")
-				(value "feedback.kicad_sch")
-			)
-			(sheetpath
-				(names "/Feedback/")
-				(tstamps "/517ca77e-174d-5040-a551-49bc87eb4be4/")
-			)
-			(tstamps "9932c14e-7e5e-5f82-bf0a-40313384ca45")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "J502")
-			(value "SPK-")
-			(footprint "MAO:BAT_BW0019BG_SpringContact_3.5x1.5mm")
-			(description "speaker -")
-			(fields
-				(field
-					(name "MPN") "BW0019BG-L3.5W1.5H3.8")
-				(field
-					(name "Manufacturer") "BAT WIRELESS")
-				(field
-					(name "LCSC") "C2826516")
-				(field
-					(name "Footprint") "MAO:BAT_BW0019BG_SpringContact_3.5x1.5mm")
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "speaker -")
-			)
-			(libsource
-				(lib "MAO")
-				(part "Spring")
-				(description "SMD spring contact to an enclosure part")
-			)
-			(property
-				(name "MPN")
-				(value "BW0019BG-L3.5W1.5H3.8")
-			)
-			(property
-				(name "Manufacturer")
-				(value "BAT WIRELESS")
-			)
-			(property
-				(name "LCSC")
-				(value "C2826516")
-			)
-			(property
-				(name "Sheetname")
-				(value "Feedback")
-			)
-			(property
-				(name "Sheetfile")
-				(value "feedback.kicad_sch")
-			)
-			(sheetpath
-				(names "/Feedback/")
-				(tstamps "/517ca77e-174d-5040-a551-49bc87eb4be4/")
-			)
-			(tstamps "b7fa1ed9-6bb7-56cc-908d-509b2ea3c339")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "J503")
 			(value "LRA")
 			(footprint "MAO:WirePads_1x02_P2.5mm_1.0x1.8mm")
 			(description "LRA lead pads")
@@ -10438,7 +10316,85 @@
 				(names "/Feedback/")
 				(tstamps "/517ca77e-174d-5040-a551-49bc87eb4be4/")
 			)
-			(tstamps "92b378f0-703c-5d8e-b6d5-42cfd63d2a64")
+			(tstamps "9932c14e-7e5e-5f82-bf0a-40313384ca45")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "LS501")
+			(value "CMS-150803-088S-X8")
+			(footprint "MAO:SameSky_CMS-150803_SpringPads")
+			(description "15 x 8 x 3 mm speaker, bought separately: its spring contacts press on these pads")
+			(fields
+				(field
+					(name "MPN") "CMS-150803-088S-X8")
+				(field
+					(name "Manufacturer") "Same Sky")
+				(field
+					(name "LCSC")
+				)
+				(field
+					(name "Exclude from BOM") "yes")
+				(field
+					(name "Footprint") "MAO:SameSky_CMS-150803_SpringPads")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "15 x 8 x 3 mm speaker, bought separately: its spring contacts press on these pads")
+			)
+			(libsource
+				(lib "Device")
+				(part "Speaker")
+				(description "Speaker")
+			)
+			(property
+				(name "MPN")
+				(value "CMS-150803-088S-X8")
+			)
+			(property
+				(name "Manufacturer")
+				(value "Same Sky")
+			)
+			(property
+				(name "LCSC")
+				(value "")
+			)
+			(property
+				(name "Exclude from BOM")
+				(value "yes")
+			)
+			(property
+				(name "Sheetname")
+				(value "Feedback")
+			)
+			(property
+				(name "Sheetfile")
+				(value "feedback.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "speaker sound")
+			)
+			(sheetpath
+				(names "/Feedback/")
+				(tstamps "/517ca77e-174d-5040-a551-49bc87eb4be4/")
+			)
+			(tstamps "52fd1919-3c1d-5f21-a86f-17956a69106e")
 			(units
 				(unit
 					(name "A")
@@ -11805,6 +11761,37 @@
 					(num "2")
 					(name "")
 					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Device")
+			(part "Speaker")
+			(description "Speaker")
+			(fields
+				(field
+					(name "Reference") "LS")
+				(field
+					(name "Value") "Speaker")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Speaker")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "input")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "input")
 				)
 			)
 		)
@@ -15328,7 +15315,7 @@
 			(name "LRA_N")
 			(class "Actuator")
 			(node
-				(ref "J503")
+				(ref "J501")
 				(pin "2")
 				(pinfunction "Pin_2_2")
 				(pintype "passive")
@@ -15345,7 +15332,7 @@
 			(name "LRA_P")
 			(class "Actuator")
 			(node
-				(ref "J503")
+				(ref "J501")
 				(pin "1")
 				(pinfunction "Pin_1_1")
 				(pintype "passive")
@@ -15542,10 +15529,10 @@
 			(name "SPK_N")
 			(class "Speaker")
 			(node
-				(ref "J502")
-				(pin "1")
-				(pinfunction "C_1")
-				(pintype "passive")
+				(ref "LS501")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "input")
 			)
 			(node
 				(ref "U501")
@@ -15559,10 +15546,10 @@
 			(name "SPK_P")
 			(class "Speaker")
 			(node
-				(ref "J501")
+				(ref "LS501")
 				(pin "1")
-				(pinfunction "C_1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "input")
 			)
 			(node
 				(ref "U501")

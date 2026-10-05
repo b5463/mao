@@ -32,8 +32,8 @@ console, or automatically two seconds after boot in the factory build
 | Quiet enclosure (< 45 dBA) | microphone level and the speaker -> mic acoustic loopback |
 | Operator | looks (LCD, backlight), turns the ring, presses the face, touches the four zones, holds a hand over the window |
 
-The board is tested complete with display, LRA, speaker, springs and ring
-magnet (in the printed carrier or a fixture carrier), because several steps
+The board is tested complete with display, LRA, speaker, springs and the
+ring's pole strip (in the printed carrier or a fixture carrier), because several steps
 are functional, not electrical.
 
 ## 3. Self-test steps and limits
@@ -268,7 +268,7 @@ With a dev build instead of the factory build, step 4 is
 | `tof_ranging` | XSHUT, GPIO1 interrupt line (GPIO48, 10 k pull-up), window crosstalk |
 | `gauge_voltage` | VBAT path (Q101, R108 link), cell connector polarity |
 | `charger` | PGOOD pull-up (100 k on GPIO3), USB-C CC resistors |
-| `haptic_cal` | LRA leads on J503, LRA not free (glue), DRV2605L supply |
+| `haptic_cal` | LRA leads on J501, LRA not free (glue), DRV2605L supply |
 | `expander_reset` CONFIG not 0xFF | EXP_RST_N open / stuck high (GPIO38, R205, TP11), expander RESET pin solder |
 | `expander_reset` not restored | expander or bus after reset (see `i2c_bus`), a rail enable shorted |
 | `rail_lcd` | TPS22917 (U105), LCD_PWR_EN |
@@ -277,7 +277,7 @@ With a dev build instead of the factory build, step 4 is
 | `pad_irv` | R505 100 R open, C506 short, expander P5 |
 | `rail_mic`, `mic_level` | GPIO35 supply RC (100 R / 1 µF), mic port hole, PDM CLK/DATA |
 | `rail_ir_rx` | P5 supply RC (100 R / 4.7 µF), receiver U503, output pull-up R506 (output not low while off, or not high when powered) |
-| `speaker` | speaker springs (J501/J502), MAX98357A SD_MODE (P2), I2S lines |
+| `speaker` | speaker contacts on LS501 (cradle pressure), MAX98357A SD_MODE (P2), I2S lines |
 | `ir_loopback` | IR LEDs D501/D502 orientation, Q501, the receiver; no reflector |
 | `touch_baseline` | spring contacts (TOP J302, REAR J303), rim electrodes, 510 R series parts |
 | `dial` direction | `A0_DIAL_REVERSE` (firmware) or a swapped Hall pair |

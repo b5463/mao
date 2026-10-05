@@ -208,6 +208,12 @@ every output pin.
   Calls are non-blocking and a new touch interrupts the current one. EN goes
   low 1.5 s after the last touch, and whenever haptics are disabled, drowsy or
   asleep.
+- Input feel (`mao_app.c`): every dial step plays `tick` with the sound tick
+  (`dial_tick`, thinned to one per 90 ms when spun fast, none when very fast):
+  the ring's ferrite pole strip has no mechanical detent, so this is its
+  click. Every face press plays `confirm`: the face rocks on its lip, so rim
+  presses travel further and lighter than centre presses, and the click makes
+  them feel the same (`docs/hardware/mao-mechanical.md` §3, §4).
 
 - Added in stage 2: `mao_haptics_identify()` (STATUS[7:5] read in the
   haptics task with EN raised as needed), `mao_haptics_get_cal_info()` (runs,
@@ -244,7 +250,7 @@ every output pin.
 | IMU | LSM6DSOX 0x6A (WHO_AM_I 0x6C; LSM6DS3TR-C 0x6A accepted) | CTRL3_C 0x64 (BDU, H_LACTIVE, IF_INC, push-pull), XL 104 Hz normal mode ±4 g, gyro off (`mao_sense_imu_gyro`). INT1 = wake-up (125 mg) + tap + double tap; INT2 = 6D (60°) + free-fall (312 mg, 58 ms). LIR latched. DSOX: TAP_CFG0/1/2 0x56–0x58, I3C off; DS3TR-C: TAP_CFG 0x58 | accel g, gyro dps, event flags, 6D orientation |
 | ToF | VL53L4CD 0x29, ST ULD 2.2.2 (vendored, `vl53l4cd/README.md`) | XSHUT = P4; autonomous 20 ms budget every 200 ms (ACTIVE) / 500 ms (IDLE); DROWSY: interrupt only below 150 mm; off in deep sleep | distance, range status, signal, sigma, threshold flag |
 | ALS | OPT3004 0x44 (0x7E = 0x5449, 0x7F = 0x3001) | CONFIG 0xCE11: auto range, 800 ms, continuous, latched window ±25 % (min ±2 lx) re-centred each read; reading CONFIG clears the latch; off when drowsy / asleep | lux |
-| Touch | S3 touch v2, 4 zones | default sample config (500 charges, 0.5–2.2 V), threshold = 2 % of benchmark, hardware filter, active/inactive callbacks; TOP = deep-sleep wake channel | raw, baseline, delta 0..1 (1 = 2 × threshold), touched, changed mask |
+| Touch | S3 touch v2, 4 zones | default sample config (500 charges, 0.5–2.2 V), threshold = 2 % of benchmark, hardware filter, active/inactive callbacks; TOP = deep-sleep wake channel. LEFT holds its last reading while the speaker amplifier is on and 150 ms after: the speaker lies partly over that electrode and the class-D outputs switch at ~330 kHz | raw, baseline, delta 0..1 (1 = 2 × threshold), touched, changed mask |
 | Mic | SPH0641 via I2S0 PDM | 32 ms blocks, DC removed | RMS / peak dBFS, onset (+10 dB over a tracked floor, > −75 dBFS, 250 ms refractory) |
 
 The sense task wakes on the IMU and ToF interrupt lines, on touch callbacks,

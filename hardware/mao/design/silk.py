@@ -276,13 +276,12 @@ def main():
     _, y0_, _, _ = tbox(t)
     t.SetPosition(at(x2, 0.0 + (-0.39 + 0.25) - y0_))       # top of the block 0.25 mm below the plug's body
     placed['B'].append(tbox(t))
-    for ref, s_ in (('J502', 'SPK-'), ('J501', 'SPK+')):    # beside each spring, level with it
-        x, y = centre(ref)
-        label(s_, [(x + 3.3, y), (x + 2.7, y), (x + 3.0, y - 0.3), (x + 3.0, y + 0.3)], 'B')
-    lx, ly = centre('J503')
+    sx, sy = centre('LS501')                # speaker: its name just past the 6 o'clock end of its outline
+    label('SPK', [(sx - 0.5, sy + 8.9), (sx - 1.0, sy + 8.9), (sx, sy + 9.2)], 'B')
+    lx, ly = centre('J501')
     label('LRA', [(lx - 2.05, ly + 2.3), (lx - 2.5, ly - 2.4), (lx + 1.25, ly + 3.5)], 'B')
     rx, ry = centre('J303')
-    label('REAR', [(rx, ry - 2.0), (rx, ry + 2.0), (rx + 3.6, ry), (rx, ry - 2.4)], 'B')
+    label('REAR', [(rx, ry - 3.8), (rx - 0.6, ry - 3.8), (rx, ry - 4.2), (rx + 3.6, ry)], 'B')
     gx, gy = centre('J201')                # Tag-Connect: name along its module-side column
     label('SERVICE', [(gx - 2.6, gy, 270), (gx - 0.3, gy + 3.65, 0), (gx + 2.5, gy, 270)], 'B')
     kx, ky = centre('R108')

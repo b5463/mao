@@ -10,7 +10,7 @@
  *   tremor        a light shiver
  *   annoyed_buzz  two short buzzes
  *   wake_pulse    a smooth swell: waking up
- *   confirm       one strong click: done / selected
+ *   confirm       one strong click: done / selected, and every face press
  *
  * Every call is non-blocking and safe from any task; a new touch interrupts
  * the one playing. Strength 0..100 % picks one of three amplitude variants

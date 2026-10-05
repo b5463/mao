@@ -41,20 +41,33 @@ Total ≈ 17.3 mm. With 0.6 mm top lip and 0.4 mm foot it comes to an 18.3 mm pu
 | Item | Value |
 |---|---|
 | Ring | ID 48 / OD 64 mm, printed, rides on the top shell's track. Grease (PTFE) or a 0.5 mm PTFE washer under it |
-| Magnets | **30 disc magnets Ø3 × 2 mm N52**, alternating N/S, axial, pressed into pockets on the ring's lower lip at r 26.3 mm (pitch 12°, 5.5 mm) |
+| Pole strip | **Flexible ferrite multipole strip**, about 1.5 mm thick and 3 mm wide, 165 mm long, magnetised with 30 alternating poles across its face (pitch 12°, 5.5 mm), glued into a groove in the ring's lower lip at r 26.3 mm. Ferrite in rubber does not conduct, so nothing metal sweeps over the antenna at 6 o'clock as the ring turns (sintered NdFeB magnets would, about 4–5 mm above it; ODD JOBS 2, 3) |
 | Sensors | U301/U302 DRV5012 on F.Cu at r 26.3 mm, 120° and 126° (6° = a quarter of one N/S pair = quadrature) |
-| Gap | magnet face to sensor top 1.5 mm through the ring lip; DRV5012 switches at ±2–3.5 mT, a Ø3 × 2 N52 gives ~40 mT at 1.5 mm |
-| Detent | **magnetic**: one Ø2 × 4 mm steel dowel pin pressed vertically into the top shell under the magnet track, at a position between the sensors' angles. Soft steel attracts both poles, so the ring settles at each of the 30 magnet positions. That gives 30 clicks per turn, the same as the LCDkit EC11, with nothing that wears out. Detent force is set by the pin–magnet gap (start at 1.0 mm and tune in the print) |
+| Gap | strip face to sensor top 1.5 mm through the ring lip. DRV5012 switches at ±3.3 mT at most (SLIS158); order the strip to give ≥ 8 mT peak at 1.5 mm (2.4× margin) and confirm with the dial test at bring-up |
+| Detent | **haptic**: the ring turns smoothly on its PTFE washer, and every one of the 30 steps per turn is a short tick from the LRA (DRV2605L "sharp tick") plus a soft sound tick, both from firmware (`dial_tick`), thinned when the ring is spun fast. It feels like the Surface Dial: a crisp tick in the fingers, nothing that wears, nothing to tune in the print |
 | Firmware | 30 detents / 15 quadrature cycles per turn, rest state 00/11 (identical to the EC11, `mao_input` unchanged) |
 
-Alternative if a sharper click is wanted: a printed leaf spring with a 0.6 mm bump riding 30 notches on
-the ring's inner wall. That costs some wear and a little noise.
+Alternative if a mechanical click is wanted: a printed leaf spring with a 0.6 mm bump riding 30 notches on
+the ring's inner wall (audible, some wear). The earlier steel-pin magnetic detent needs strong sintered
+magnets, which must not pass over the antenna.
 
 ## 4. Face press
 
-- The window, display and carrier form one floating assembly, guided by the top shell's bore with 0.1 mm clearance.
-- A boss on the carrier's underside (Ø2, at (0, −2.5), reaching down through the 2.7 mm standoff to the stem) rests on the SKQG stem: 2.55 N, 0.25 mm travel.
-- Two printed flexure tabs (or 4 small foam pads) preload the assembly up against the lip so it does not rattle.
+The face (window, display and printed carrier) is one rocking plate on flexures. FDM cannot hold the 0.1 mm
+sliding fit a guided plunger would need, so nothing slides:
+
+- **Suspension:** three S-shaped flexure arms printed in one piece with the carrier (PETG, 0.8 mm thick, 1.2 mm
+  wide, about 18 mm long along the sensor band) at 60°, 180° and 300°, clear of the sensor apertures and the TOP
+  spring. Their outer ends are pinned to bosses in the top shell. They centre the face, stop it turning with the
+  ring, and preload it up against the shell's 0.6 mm lip by about 0.5 mm of deflection (≈ 0.3 N).
+- **Hinge:** the lip all round is the fulcrum. A press anywhere tips the face about the lip opposite the finger
+  and drives the Ø2 boss under the carrier (at (0, −2.5), reaching down through the 2.7 mm standoff) onto the
+  SKQG stem. At the centre that is about 2.6 N and 0.25 mm; at the rim about 1.3 N and 0.5 mm.
+- **Stop:** the switch bottoming out is the hard stop; at full travel nothing under the panel comes closer than
+  0.5 mm (J301, the tallest part there). Flexure stress at full travel is about 11 MPa, a fifth of PETG's yield.
+- **Feel:** a short, firm, quiet tick from the switch's dome as the face dips a fraction of a millimetre, and one
+  firm LRA click on every press (firmware) so centre and rim presses feel alike.
+- **Look:** a flat clear window 0.6 mm below a thin rim, so laying MAO face-down never presses it.
 - The FPC needs a 2 mm service loop to survive the travel. J301's front (FPC entry) is at x −14.85, 2.95 mm inside the panel outline; with the fold at the panel edge the tail needs 10.5–12.5 mm from the glass edge to the end of its contacts. VERIFY against the panel drawing before ordering panels (any 18-pin tail of that length plugs in).
 - Holding the face while plugging USB enters the ROM bootloader (GPIO0), as with the LCDkit knob.
 
@@ -73,7 +86,7 @@ the ring's inner wall. That costs some wear and a little noise.
 | Zone | Implementation |
 |---|---|
 | LEFT / RIGHT | Copper arcs at the board rim (E301/E302, 50° each, F+B). They sense through the 2 mm wall and the ring; nothing to build. No ground plane under them |
-| TOP | Spring J302 (BW0019BG, free 3.8 mm, working 3.0 mm, limit 2.5 mm) presses on a boss that hangs from the carrier under the window border with its face 3.0 mm above F.Cu (1.9 mm below the window). The electrode is copper tape on the window's underside wrapped down over the boss, or the boss printed in conductive filament if material B is conductive. Pressing the face takes the spring to 2.75 mm, inside its range |
+| TOP | Spring J302 (BW0019BG, free 3.8 mm, working 3.0 mm, limit 2.5 mm) presses on a boss that hangs from the carrier under the window border with its face 3.1 mm above F.Cu (1.8 mm below the window). The electrode is copper tape on the window's underside wrapped down over the boss, or the boss printed in conductive filament if material B is conductive. The hardest case, a rim press right beside it, takes the spring to about 2.6 mm, inside its 2.5 mm limit |
 | REAR | Spring J303 presses on an electrode on the base's inner surface: copper tape or conductive filament |
 
 ## 7. Battery
@@ -87,8 +100,11 @@ the ring's inner wall. That costs some wear and a little noise.
 
 ## 8. Speaker and haptics
 
-- **Speaker:** Ø15 mm, in the base's left crescent at 9 o'clock. Its pads press on springs J501 (SPK+, lower) at (−23.6, 3.2) and J502 (SPK−, upper) at (−23.6, −3.2) on B.Cu. A sealed back volume printed into the base improves bass. Sound exits through a slot grille in the wall at 9 o'clock.
-- **LRA:** LD0832AA (Ø8 coin), glued with 3M VHB to the base under 7–8 o'clock, leads soldered to J503. Firmly coupling it to the shell makes the haptics felt in the hand.
+- **Speaker:** Same Sky CMS-150803-088S-X8, 15 × 8 × 3 mm, 8 Ω, 0.8 W, 93 dB, with its own spring contacts (a round Ø15 part does not fit: the crescent beside the 35.5 mm cell is 12.2 mm wide). It lies under the board at 9 o'clock, long side along the rim, centred at (−23.74, 0.6): 1.8 mm from the cell and at least 0.8 mm from the wall at its corners.
+  - Its spring contacts press up on the two pads of LS501 on B.Cu: SPK+ at (−20.65, 7.55), SPK− at (−20.65, −6.35). Its back sits about 0.25 mm under the board (the footprint's courtyard keeps every other B part out from under it); its membrane faces down.
+  - A printed cradle in the base holds it and compresses its contacts to about 0.2 mm. A foam ring round its front frame seals a small printed front chamber that ducts to the slot grille in the wall at 9 o'clock; the rest of the puck's interior is its back volume.
+  - Its outer edge lies over part of the LEFT touch arc; firmware holds the LEFT zone while the amplifier runs (its outputs switch at ~330 kHz).
+- **LRA:** LD0832AA (Ø8 coin), glued with 3M VHB to the base under 7–8 o'clock, leads soldered to J501. Firmly coupling it to the shell makes the haptics felt in the hand.
 
 ## 9. USB-C
 
@@ -104,12 +120,12 @@ the ring's inner wall. That costs some wear and a little noise.
 | Electrodes printed | Matte PETG | Conductive PLA | B as the TOP and REAR electrodes, printed in the shell and contacted by the springs. Expect 1–3 kΩ/cm: fine for capacitive sensing |
 
 - The window is a separate clear part in both options (§1).
-- Print the ring flat, lip down, with the magnet pockets as a pause-and-insert layer.
+- Print the ring flat, lip down, with the groove for the pole strip in the lip.
 - Print the top shell face-down so the window bore is accurate.
 
 ## 11. Assembly order
 
-1. Press magnets into the ring (check alternation with a reference magnet) and the dowel into the top shell.
-2. Bond the window to the display carrier, fit the display onto the carrier, fit the ToF and mic gaskets under the window border, and route the FPC. Drop the assembly into the top shell's bore.
+1. Glue the pole strip into the ring's groove (check the 30 poles with magnetic viewing film or the dial test).
+2. Bond the window to the display carrier, fit the display onto the carrier, fit the ToF and mic gaskets under the window border, and route the FPC. Pin the carrier's three flexure arms to the top shell's bosses.
 3. Open J301's back-flip actuator, insert the FPC tail (contacts either way up: the connector contacts both faces), close the actuator. Place the board into the top shell on the peg and inserts. The display can be lifted out and replaced the same way.
-4. Insulator, cell (plug J102), speaker onto springs, LRA. Close the base with 2 × M2.
+4. Insulator, cell (plug J102), speaker in its cradle (contacts up, under LS501), LRA. Close the base with 2 × M2.

@@ -183,17 +183,21 @@ P['C201'] = (-13.4, 20.15, 180, 'B')        # 3V3 bulk at the end of the 3V3 row
 
 P['R202'] = (10.4, 3.25, 270, 'B')         # GPIO0 pull-up beside pin 27, PRESS_N end towards the pin
 
-# ==== audio: amplifier at its springs, 9 o'clock (B) ===================================================
+# ==== audio: amplifier beside the speaker, 9 o'clock (B) ===============================================
 P['U501'] = (-17.0, 4.0, 90, 'B')           # I2S pins face the module's left column in its pin order
-P['J501'] = (-23.6, 3.2, 0, 'B')            # SPK+ (lower)
-P['J502'] = (-23.6, -3.2, 0, 'B')           # SPK- (upper)
-P['C502'] = (-19.7, 4.6, 90, 'B')           # amp HF at the VSYS pins, below the speaker lines
-P['C501'] = (-21.2, 5.4, 90, 'B')           # amp bulk beside it, VSYS via below
+# Speaker CMS-150803 (15 x 8 x 3) under the board, long side along the rim, between the cell (x -17.75) and
+# the wall (r 30), clear of the REAR spring and the LRA pads; contacts on its inner edge (the outer edge
+# would land on the LEFT touch arc). Its back is ~0.25 mm under B.Cu, so its courtyard keeps B parts out.
+P['LS501'] = (m.SPEAKER_CENTRE[0], m.SPEAKER_CENTRE[1], 0, 'B')
+# The amplifier's supply capacitors sit on F above the 0.9 mm gap between its VDD pins and the speaker,
+# fed by one via there that drops into the L3 VSYS band (route_power.py).
+P['C502'] = (-19.6, 1.7, 90, 'F')           # 100 nF, VSYS end (pad 1) towards the via
+P['C501'] = (-21.0, 1.2, 90, 'F')           # 10 uF beside it
 pin('R208', 90, 'B', '1', 'U501', '4', 0.0, 1.35)    # SD_MODE pull-down at its pin
 
 # ==== haptic: driver at the LRA, 7-8 o'clock (B) =======================================================
 P['U502'] = (-15.6, 12.4, 180, 'B')         # SCL/SDA level with the module's I2C pins, LRA side to the pads
-P['J503'] = rim(23.6, 242.0, 'B')
+P['J501'] = rim(23.6, 242.0, 'B')            # LRA lead pads
 P['C503'] = (-17.0, 10.0, 0, 'B')          # VDD above pin 10, GND end towards the body
 P['C504'] = (-14.4, 9.4, 90, 'B')          # REG, above the driver: the I2C and I2S lanes stay open
 P['R209'] = (-12.4, 14.85, 270, 'B')       # EN pull-down below pin 5, clear of the SDA lane
@@ -227,10 +231,10 @@ _rmid = (m.TOUCH_ARC_R[0] + m.TOUCH_ARC_R[1]) / 2
 P['E301'] = rim(_rmid, m.TOUCH_LEFT_ANGLE, 'F')
 P['E302'] = rim(_rmid, m.TOUCH_RIGHT_ANGLE, 'F')
 P['J302'] = rim(m.SENSOR_R, 250.0, 'F', extra=90)      # TOP spring under the window border
-P['J303'] = (-22.4, -8.8, 0, 'B')                     # REAR spring to the base electrode, 10 o'clock beside the speaker springs
+P['J303'] = (-22.4, -8.8, 0, 'B')                     # REAR spring to the base electrode, 10 o'clock beside the speaker
 pin('D301', 90, 'F', '1', 'E301', '1', 1.4, 0.0)
 pin('D302', 270, 'F', '1', 'E302', '1', -1.4, 0.0)
-pin('D303', 0, 'F', '1', 'J302', '1', 0.0, -2.1)
+P['D303'] = (-20.67, 3.55, 0, 'F')          # TOP spring ESD, beside the amplifier's F-side capacitors
 pin('D304', 0, 'B', '1', 'J303', '1', 2.0, 0.0)
 
 # ==== Tag-Connect at the module's UART pins (B) ========================================================

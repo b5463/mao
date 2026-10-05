@@ -19,8 +19,8 @@ MAO_MAIN A0, 4-layer release, 2026-10-05.
 
 - **Form:** a Ø58 mm round board inside a ~Ø64 × 18.3 mm FDM puck.
   - The face is a plug-in 1.28" round GC9A01 panel behind a clear window.
-  - A 30-pole magnet ring dial is read by two Hall latches.
-  - Pressing the face is the button.
+  - A ring dial with a 30-pole ferrite strip is read by two Hall latches; every step is a haptic tick.
+  - Pressing the face is the button: it rocks on its lip on three printed flexures onto one switch.
   - Four hidden touch zones.
 - **Processor:** ESP32-S3 module, with an I2C expander for the slow control lines.
 - **Power:** single-cell LiPo.
@@ -104,14 +104,14 @@ Physical feedback: a DRV2605L haptic driver with an LRA.
 | IR receiver / LEDs | IRM-H638T, IR12-21C × 2 | C91447, C53672 |
 | Face switch | SKQGADE010 | C116647 |
 | Battery connector | JST SH 3-pin (SM03B-SRSS-TB compatible) | C7430445 |
-| Spring contacts (touch top/rear, speaker) | BW0019BG × 4 | C2826516 |
+| Spring contacts (touch top/rear) | BW0019BG × 2 | C2826516 |
 
 Bought separately (not on the BOM):
 - Winstar WF0128BTYAA4DNN0 panel, or any 1.28" round GC9A01 panel with the 18-pin 0.5 mm tail;
 - LP503035 cell with PCM and 10 k NTC;
 - LD0832AA LRA;
-- Ø15 mm speaker;
-- Ø3 × 2 N52 magnets × 30;
+- Same Sky CMS-150803-088S-X8 speaker (15 × 8 × 3 mm, 8 Ω, 0.8 W, own spring contacts);
+- 30-pole flexible ferrite strip, 165 mm long, ≥ 8 mT at 1.5 mm;
 - Tag-Connect TC2030-NL cable.
 
 ### Power system
@@ -179,6 +179,7 @@ Committed as `daf0407`; pins updated with this board.
   - feeds `mao_events`;
   - the app reacts by context, never sensor-to-animation.
   - The IMU axis default matches the layout: +Z out of the face, per ST AN5192.
+- **Input feel:** a haptic tick at every dial step and a firm click on every face press; the LEFT touch zone holds while the speaker amplifier runs.
 - **Power policy:** ACTIVE / IDLE / DROWSY / deep sleep.
 - **Boot and test:**
   - boot experience;
@@ -193,12 +194,12 @@ Committed as `daf0407`; pins updated with this board.
 | Item | Value |
 |---|---|
 | Stackup | JLC04161H-1080, 1.6 mm. F / 0.0764 prepreg / In1 GND / 1.265 core / In2 power / 0.0764 prepreg / B. 1 oz outer, 0.5 oz inner |
-| Planes | L2 GND one piece, 2099 mm², no tracks. L3: +3V3 1504 mm², VSYS 361 mm², VBUS 33 mm², each one piece |
-| Vias | **191** (135 × 0.3/0.6, 56 × 0.2/0.5), vs 230 on the 6-layer board. 24 × 0.2 mm thermal vias in exposed pads. No via touches an SMD pad |
-| Copper | F 714 mm, B 692 mm, L3 135 mm (slow lines only). All 827 segments at 0/45/90° |
+| Planes | L2 GND one piece, 2098 mm², no tracks. L3: +3V3 1501 mm², VSYS 360 mm², VBUS 33 mm², each one piece |
+| Vias | **194** (137 × 0.3/0.6, 57 × 0.2/0.5), vs 230 on the 6-layer board. 24 × 0.2 mm thermal vias in exposed pads. No via touches an SMD pad |
+| Copper | F 730 mm, B 674 mm, L3 137 mm (slow lines only). All 820 segments at 0/45/90° |
 | USB | D± on F over L2, 29.5 mm, through-paths within about 3 mm; full speed |
 | Fast lanes | Display SPI, I2S and PDM on B over their own uncrossed L3 cores; I2S and PDM have no vias |
-| Silkscreen | 71 texts, checker 0 findings. Mark, MAO / MAIN A0 / 2026-10 and an S/N box on the face; identity on the back; every test pad named |
+| Silkscreen | 66 texts, checker 0 findings. Mark, MAO / MAIN A0 / 2026-10 and an S/N box on the face; identity on the back; every test pad named |
 
 ### Manufacturing
 
@@ -212,7 +213,7 @@ Committed as `daf0407`; pins updated with this board.
 - Order single boards. Panel tabs, if needed, only at 2 and 8 o'clock (FAB-NOTES).
 
 **Assembly:**
-- JLC PCBA, both sides: **114 parts, 48 BOM lines**, every line with an LCSC number.
+- JLC PCBA, both sides: **112 parts, 48 BOM lines**, every line with an LCSC number.
 - J301, the display connector, is fitted by JLC; the panel plugs in after assembly.
 - USB-C shell legs: THT assembly or hand-solder.
 - Fitted by JLC: the springs.
@@ -241,7 +242,7 @@ Committed as `daf0407`; pins updated with this board.
 2. **Panel tail.** J301 takes any 18-pin 0.5 mm round-panel tail, either way up. Check that the bought panel follows the Winstar pin definition and that its tail is 10.5–12.5 mm from the glass edge to the contacts' end.
 3. **Antenna detuning** by the cell, the panel (its edge is 4.9 mm from the antenna boundary in plane) and the enclosure. The module has no matching network; measure RSSI against the LCDkit.
 4. **Touch sensitivity** through the 2 mm wall and the ring. Thresholds are tuned at bring-up; the fallback is conductive filament or copper tape.
-5. **Ring dial** magnet-gap tolerance in FDM.
+5. **Ring dial.** The ferrite strip must give ≥ 8 mT at the sensors (they switch at ±3.3 mT); with the FDM gap tolerance, check that every one of the 30 steps registers.
 6. **ToF window crosstalk.** It needs the light-blocking gasket specified in `mao-mechanical.md` §5 and factory calibration.
 7. **Buck-boost ripple** with 0603 output capacitors at 3.3 V bias. Measure it; the A1 fallback is 47 µF 0805.
 8. **Charger temperature** at a low cell (0.85 W worst case). The fallback is a resistor swap to 200 mA.
@@ -249,8 +250,11 @@ Committed as `daf0407`; pins updated with this board.
 10. **Exposed-pad thermal vias** are unplugged unless POFV is chosen. Watch for voids under U102, U202 and U501 (X-ray if offered).
 11. **Enclosure first fit.** The puck is printed from the specification. Check on the first print:
     - the IR receiver's 0.35 mm worst-case clearance under the pressed window;
+    - the face flexures: preload (about 0.3 N) and an even click across the face;
+    - the speaker cradle: contact pressure on LS501 and the front-chamber seal;
     - the TOP spring boss;
     - the ToF and mic gaskets.
+12. **LEFT touch near the speaker.** The speaker lies partly over the LEFT electrode; firmware holds that zone while the amplifier runs. Check LEFT sensitivity with the speaker fitted.
 
 ### DNP / optional components
 
@@ -259,7 +263,8 @@ Committed as `daf0407`; pins updated with this board.
   - test pads TP1–TP11, TP13–TP16;
   - Tag-Connect J201;
   - touch electrodes E301/E302 (copper);
-  - LRA pads J503;
+  - LRA pads J501;
+  - speaker contact pads LS501 (the speaker presses on them);
   - fiducials FID1–FID6;
   - mounting holes H1–H3.
 - **J301 is fitted:** it is a real connector now, not a land.

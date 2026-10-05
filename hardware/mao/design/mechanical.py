@@ -33,8 +33,12 @@ RING_ID = 48.0              # 6 mm sensor band between panel and ring (IR receiv
 RING_OD = PUCK_OD
 RING_POLE_PAIRS = 15        # 30 poles: 30 detents / 15 quadrature cycles per rev, as the LCDkit EC11
 RING_MAGNET_R = 26.3        # mean radius of the pole track above the PCB
+# The poles are a flexible ferrite multipole strip in the ring's lower lip, not sintered NdFeB discs: the ring
+# passes over the antenna at 6 o'clock, and ferrite in rubber does not conduct (ODD JOBS 2, 3). DRV5012 operates
+# at <= +-3.3 mT; the strip is specified for >= 8 mT peak at HALL_GAP. No mechanical detent: firmware ticks the
+# LRA at every step.
 HALL_R = 26.3               # Hall sensors sit under the pole track
-HALL_GAP = 1.5              # magnet face to sensor top (through the ring's lower lip)
+HALL_GAP = 1.5              # pole-strip face to sensor top (through the ring's lower lip)
 # Quadrature: pole pitch 12 deg, electrical period 24 deg; half a pole pitch (6 deg = 2.76 mm at
 # r 26.3) is 90 deg electrical. Both packages fit side by side at that spacing.
 HALL_ANGLES = (120.0, 126.0)    # degrees, clockwise from 12 o'clock: between the right touch arc and the antenna band
@@ -84,8 +88,11 @@ BATTERY_ENVELOPE = (35.5, 30.0, 5.1)     # w, d, h: PKCELL LP503035 class, 500 m
 # opening towards 6 o'clock): ~25 mm of lead, re-terminated to 1 BAT- / 2 NTC / 3 BAT+.
 BATTERY_CENTRE = (0.0, -5.0)
 ZONE_B_MAX_H = 3.2
-SPEAKER_D = 15.0
-SPEAKER_ANGLE = 270.0        # 9 o'clock in the base, left crescent beside the cell
+# Speaker: Same Sky CMS-150803-088S-X8 (15 x 8 x 3 mm, own spring contacts) under the board at 9 o'clock, long
+# side along the rim: 1.8 mm from the cell, >= 0.8 mm from the wall at its corners. A round 15 mm part does not
+# fit: the crescent beside the 35.5 mm cell is 12.2 mm wide. Its contacts land on pads LS501 (B.Cu).
+SPEAKER_SIZE = (8.0, 15.0, 3.0)          # x (radial), y (along the rim), height
+SPEAKER_CENTRE = (-23.74, 0.6)
 LRA_ANGLE = 232.0            # on the PCB underside, 7-8 o'clock: far from IMU, Hall sensors and mic
 
 # Mounting to the top-unit chassis: two M2 screws on the back half (no metal near the antenna,

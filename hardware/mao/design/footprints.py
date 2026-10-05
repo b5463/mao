@@ -218,6 +218,41 @@ def bw0019_spring():
     save(fp)
 
 
+def samesky_cms150803_pads():
+    """Same Sky CMS-150803-088S-X8 micro speaker, 15 x 8 x 3 mm, 8 ohm 0.8 W, with its own spring
+    contacts (datasheet 09/11/2024 p.2, 'Recommended PCB Layout'): two 2.0 x 2.0 mm pads 3.09 mm off
+    the long axis and 6.95 mm either side of the centre. The speaker is bought separately and held by
+    the base with its contacts pressed on these pads, its back about 0.25 mm under the board, so the
+    courtyard (body + 0.2 mm tolerance + 0.25 mm) keeps every other part out from under it. Pad 1 is
+    SPK+, pad 2 SPK-; with one speaker the polarity only sets the phase."""
+    fp = new('SameSky_CMS-150803_SpringPads', 'Same Sky CMS-150803-088S-X8 15x8 mm speaker contact pads',
+             'speaker spring contact pads')
+    fp.SetAttributes(pcb.FP_SMD | pcb.FP_EXCLUDE_FROM_BOM | pcb.FP_EXCLUDE_FROM_POS_FILES)
+    smd_pad(fp, 1, 3.09, -6.95, 2.0, 2.0, rr=0.2)
+    smd_pad(fp, 2, 3.09, 6.95, 2.0, 2.0, rr=0.2)
+    rect(fp, pcb.F_Fab, -4.0, -7.5, 4.0, 7.5, 0.1)
+    rect(fp, pcb.F_Fab, -2.6, -5.0, 2.6, 5.0, 0.08)                   # membrane opening, faces away
+    rect(fp, pcb.F_CrtYd, -4.45, -7.95, 4.45, 7.95, 0.05)
+    # silk: the body outline, so the speaker's place reads on the bare board, open round the two pads;
+    # '+' beside pad 1
+    line(fp, pcb.F_SilkS, (-4.35, -7.85), (-4.35, 7.85), 0.12)
+    line(fp, pcb.F_SilkS, (-4.35, -7.85), (1.75, -7.85), 0.12)
+    line(fp, pcb.F_SilkS, (-4.35, 7.85), (1.75, 7.85), 0.12)
+    line(fp, pcb.F_SilkS, (4.35, -5.55), (4.35, 5.55), 0.12)
+    line(fp, pcb.F_SilkS, (0.9, -6.95), (1.7, -6.95), 0.12)
+    line(fp, pcb.F_SilkS, (1.3, -7.35), (1.3, -6.55), 0.12)
+    text(fp, pcb.F_Fab, '+', 3.09, -4.9, 0.6)
+    fp.Reference().SetPosition(vec(0, 0))
+    fp.Value().SetPosition(vec(0, 1.2))
+    model(fp, 'SameSky_CMS-150803', [
+        (-4.0, -7.5, 0.25, 4.0, 7.5, 3.25, (0.16, 0.16, 0.17)),         # body, back towards the board
+        (-2.6, -5.0, 3.25, 2.6, 5.0, 3.3, (0.55, 0.47, 0.30)),          # membrane (PEEK)
+        (2.5, -7.55, 0.0, 3.7, -6.35, 0.25, (0.85, 0.68, 0.30)),       # spring contacts
+        (2.5, 6.35, 0.0, 3.7, 7.55, 0.25, (0.85, 0.68, 0.30)),
+    ])
+    save(fp)
+
+
 def wire_pads_2():
     """Two 1.0 x 1.8 mm SMD lands at 2.5 mm pitch for the LRA's AWG32 leads (hand soldered).
     Pad 1 is the positive lead; a silk '+' sits beside it."""
@@ -235,7 +270,7 @@ def wire_pads_2():
 def touch_arc():
     """Rim touch electrode for the LEFT / RIGHT body zones: an annular sector at the board edge,
     copper on F.Cu and B.Cu stitched by three plated holes, sensing a finger on the ring through
-    the plastic. Geometry from mechanical.py. Origin at the arc mid-point; the board centre is at
+    the plastic, stitched by two plated holes near its ends. Geometry from mechanical.py. Origin at the arc mid-point; the board centre is at
     (0, +r_mid) in footprint coordinates, so the placer rotates it about its own origin."""
     import math
     import mechanical as m
@@ -272,7 +307,7 @@ def touch_arc():
         poly.AddOutline(chain)
         p.AddPrimitivePoly(layer, poly, 0, True)
         fp.Add(p)
-    for deg in (-span / 3, 0, span / 3):
+    for deg in (-span / 2 + 3, span / 2 - 3):      # stitch F and B near the ends: the speaker sits under the middle
         x, y = local(rmid, deg)
         p = pcb.PAD(fp)
         p.SetNumber('1')
@@ -354,7 +389,7 @@ def wrl_box_model(path, boxes):
         f.write('\n'.join(out) + '\n')
 
 
-ALL = [ti_dla0010a, ti_dnp0006a, everlight_ir12, hdgc_fpc18, bw0019_spring, wire_pads_2, touch_arc]
+ALL = [ti_dla0010a, ti_dnp0006a, everlight_ir12, hdgc_fpc18, bw0019_spring, samesky_cms150803_pads, wire_pads_2, touch_arc]
 
 if __name__ == '__main__':
     for f in ALL:

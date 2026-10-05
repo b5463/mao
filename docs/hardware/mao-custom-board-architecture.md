@@ -26,8 +26,8 @@ A round puck, ~Ø64 × 18.3 mm, FDM-printed in up to two materials (Bambu X2D, 2
 | Element | Decision | Why |
 |---|---|---|
 | Face | Plug-in 1.28" round GC9A01 panel (Winstar WF0128BTYAA4DNN0, 240 × 240 IPS) on an 18-pin 0.5 mm FPC tail in the J301 back-flip connector, centred on the puck axis | Swappable without solder; same controller and resolution as the LCDkit's panel, so the character's colours and timings carry over (orientation constants verified at bring-up) |
-| Dial | Ring around the face, 30-pole magnet ring + 2 × DRV5012 Hall latches | Same electrical behaviour as the LCDkit EC11 (30 detents, 15 quadrature cycles, rest at 00/11), so `mao_input`'s decoder is unchanged. Contactless, thin, no gear backlash |
-| Press | The face (window + panel on a printed carrier) floats 0.25 mm on an ALPS SKQG switch at the PCB centre | Pressing MAO's face is the button. It stays on GPIO0, so holding it while plugging USB enters the ROM bootloader, as with the LCDkit knob |
+| Dial | Ring around the face, 30-pole flexible ferrite strip + 2 × DRV5012 Hall latches; each step is an LRA tick | Same electrical behaviour as the LCDkit EC11 (30 detents, 15 quadrature cycles, rest at 00/11), so `mao_input`'s decoder is unchanged. Contactless, thin, no gear backlash, and no metal sweeping over the antenna (the ring passes over it at 6 o'clock) |
+| Press | The face (window + panel on a printed carrier) hangs on three printed flexures and rocks on its lip onto an ALPS SKQG switch at the PCB centre (0.25 mm at the centre, 0.5 mm at the rim), with an LRA click on every press | Pressing MAO's face is the button; no sliding fit, which FDM cannot hold. It stays on GPIO0, so holding it while plugging USB enters the ROM bootloader, as with the LCDkit knob |
 | Body touch | LEFT/RIGHT: copper arcs at the board rim sensing through the ring; TOP: spring to a window-border electrode; REAR: spring to a base electrode | Hidden sensing (brief §8); printed electrodes possible with conductive filament as the second material |
 | Sensor window | 6 mm band of the cover window around the panel, masked except over the sensors | Proximity at 11, light at 1, IR receive at 3 o'clock look out through it |
 | Antenna | Module at 6 o'clock, antenna over a notch in the board edge | Espressif placement; opposite the power section and USB (ODD JOBS 2–6) |
@@ -106,7 +106,7 @@ The character never reads hardware; a sensor never maps straight to an animation
 
 | Output | Part | Notes |
 |---|---|---|
-| Speaker | MAX98357A I2S class-D from VSYS, 9 dB | replaces the always-on NS4150: 0.6 µA shutdown, no PDM RC filter, same synthesised vocabulary |
+| Speaker | MAX98357A I2S class-D from VSYS, 9 dB, into a Same Sky CMS-150803-088S-X8 (15 × 8 × 3 mm, 8 Ω) whose own spring contacts press on pads LS501 | replaces the always-on NS4150: 0.6 µA shutdown, no PDM RC filter, same synthesised vocabulary; the 15 × 8 mm speaker is what fits beside the cell |
 | Haptics | DRV2605L + LD0832AA LRA (235 Hz) | closed-loop, auto-resonance; vocabulary tick/heartbeat/annoyed/… |
 | IR | 2 × IR12-21C side-emitting at the back edge | 42–66 mA pulses, NMOS low side |
 | Status LED | **removed** | the WS2812 only flashed tiny pulses; the face and haptics carry that now (no gratuitous RGB, brief §45/46) |
@@ -138,7 +138,7 @@ The character never reads hardware; a sensor never maps straight to an animation
 | External RTC | no | the S3 RTC (RC slow clock, ±5 %) keeps "how long was I asleep" to minutes over hours; timers survive deep sleep |
 | FRAM | no | 8 MB flash with a 24 KB+ NVS partition holds character memory; writes are infrequent and wear-levelled. No DNP footprint: nothing on this board earns a speculative site |
 | Second protector IC | no | see Power |
-| Magnetometer | no | magnets in the ring, speaker and LRA make it useless |
+| Magnetometer | no | the ring's pole strip, the speaker and the LRA make it useless |
 | Extra buttons, RGB LEDs, headers | no | brief §46, ODD JOBS minimalism |
 | Ring encoder IC (TMAG5110) | no | 6 mA continuous; two DRV5012 give the same quadrature at 1.6 µA asleep |
 | 32 kHz crystal | no | not needed for behavioural time gaps; frees GPIO15/16 |

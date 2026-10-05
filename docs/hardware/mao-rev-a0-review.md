@@ -28,7 +28,7 @@ Copper plots of all four layers are in `plots/`; renders are in `renders/`.
 
 ERC: 0 violations (2026-10-05).
 
-KiCad 10 leaves four checks off by default. Run once in a scratch copy with all of them on, they give only 6 footprint-filter notes, all deliberate: generic connector and LED symbols on custom footprints (J102, J503, D501, D502), the VL53L0X symbol on the pin-identical VL53L4CD package (U402), and an MSOP footprint for the DRV2605L DGS package (U502).
+KiCad 10 leaves four checks off by default. Run once in a scratch copy with all of them on, they give only 6 footprint-filter notes, all deliberate: generic connector and LED symbols on custom footprints (J102, J501, D501, D502), the VL53L0X symbol on the pin-identical VL53L4CD package (U402), and an MSOP footprint for the DRV2605L DGS package (U502).
 
 BOM: every fitted part has an LCSC number, checked against LCSC on 2026-10-04 and asserted by `fab.py`.
 
@@ -63,8 +63,8 @@ BOM: every fitted part has an LCSC number, checked against LCSC on 2026-10-04 an
 | Block | Check | Result |
 |---|---|---|
 | Display | **J301: HDGC 0.5K-HX-18PWB**, 18-pin 0.5 mm back-flip FPC connector with contacts top and bottom (LCSC C2919497). The panel plugs in and can be swapped without solder. Pinout follows the 18-pin round-panel standard (Winstar WF0128BTYAA4DNN0): 7 VLED+, 8 VLED−, 9 GND, 10 CS, 11 SCL, 12 SDA, 13 RS, 14 TE, 15 RESET, 16 VCI, 18 GND. Pins 1–6 are the touch controller of touch variants: TP_GND to GND, the rest NC. TE goes to GPIO9 for tear-free frames. 22 Ω series on SCLK/MOSI at the module. 100 nF + 4.7 µF at the connector. Backlight: 2 parallel LEDs, 10 Ω from 3V3_LCD → ≈ 30 mA, AO3400A low side, gate 100 k pull-down | ✓ |
-| Ring dial | 2 × DRV5012, 6° apart, under 30 poles (12° per pole): 90° electrical, 2 transitions per detent, 30 detents. HALL_FAST (GPIO2) pulled down → 20 Hz sampling asleep (1.6 µA) | ✓ |
-| Face press | SKQG on GPIO0 | ✓ |
+| Ring dial | 2 × DRV5012, 6° apart, under 30 poles (12° per pole): 90° electrical, 2 transitions per detent, 30 detents. HALL_FAST (GPIO2) pulled down → 20 Hz sampling asleep (1.6 µA). The poles are a flexible ferrite strip in the ring (no metal sweeps over the antenna); DRV5012 operates at ≤ ±3.3 mT, the strip is specified for ≥ 8 mT at the 1.5 mm gap. Detents are haptic ticks from the LRA | ✓ |
+| Face press | SKQG on GPIO0. The face rocks on its lip on three printed flexures (mechanical §4): centre ≈ 2.6 N / 0.25 mm, rim ≈ 1.3 N / 0.5 mm; an LRA click on every press | ✓ |
 | Touch | 510 Ω series within ≈ 1 mm of the module pins (on F, under the pins), 0.42 pF ESD at each electrode, no plane under the rim arcs | ✓ |
 | IMU LSM6DSOX | SA0 = GND → 0x6A, CS = VDDIO → I2C. INT1 → GPIO14 (deep-sleep wake), INT2 → GPIO47. On F at 0°: +X = board +x, +Y = towards 12 o'clock, +Z out of the face (ST AN5192 fig. 1); axis glyph on the silkscreen | ✓ DS12814 |
 | ToF VL53L4CD | XSHUT from the expander (off by default); GPIO1 has a 10 k pull-up (ST) and goes to GPIO48; 100 nF + 4.7 µF | ✓ |
@@ -75,7 +75,7 @@ BOM: every fitted part has an LCSC number, checked against LCSC on 2026-10-04 an
 
 | Block | Check | Result |
 |---|---|---|
-| Amp MAX98357A | VDD = VSYS (≤ 4.4 V < 5.5 V). SD_MODE from the expander: low → shutdown, 0.6 µA; 3.3 V (> 1.4 V) → left channel. GAIN_SLOT open → 9 dB. 10 µF + 100 nF at VDD, the datasheet's decoupling. EP to GND with thermal vias. I2S on GPIO16/17/18 | ✓ |
+| Amp MAX98357A | VDD = VSYS (≤ 4.4 V < 5.5 V). SD_MODE from the expander: low → shutdown, 0.6 µA; 3.3 V (> 1.4 V) → left channel. GAIN_SLOT open → 9 dB. 10 µF + 100 nF at VDD, the datasheet's decoupling. EP to GND with thermal vias. I2S on GPIO16/17/18. Speaker LS501: Same Sky CMS-150803-088S-X8 (8 Ω, 0.8 W nominal, 1.2 W max), its spring contacts on two pads; the A0 audio gain (0.58 at 100 % volume) keeps it under about 0.4 W | ✓ |
 | Haptic DRV2605L | VDD (pin 10) = VSYS (2–5.2 V). Pin 6 VDD/NC left open: the datasheet allows tying it to VDD or leaving it floating. REG 1 µF (required). IN/TRIG = GND. EN from the expander (4 µA off) | ✓ SLOS854D |
 | IR TX | 47 Ω 0603 per LED from VSYS: 36–68 mA peaks at 33 % duty (average ≤ 23 mA, well under 65 mA). AO3400A low side on GPIO39, gate 100 k pull-down | ✓ |
 | IR RX IRM-H638T | Supply from expander P5 through 100 Ω / 4.7 µF. R506 10 k pull-up to the switched supply: a defined level, and an unpowered receiver is never back-powered. Output on GPIO40 | ✓ |
@@ -95,7 +95,7 @@ Rows 1–14 come from the first (6-layer) review and still hold. Rows 15–29 ar
 | 7 | All passives given verified LCSC numbers | BOM completeness |
 | 8 | Left column: I2C on GPIO7/15; I2S DIN/BCLK/LRCLK on GPIO16/17/18; IMU_INT2 GPIO47, TOF_INT_N GPIO48, EXP_INT_N GPIO21 (an RTC pad, so deep-sleep wake is kept) | the I2S group runs as three nested lanes to the amplifier without crossing |
 | 9 | DRV2605L pin 6 (VDD/NC) left open | the second supply pin sat between the LRA outputs; the datasheet allows it to float |
-| 10 | Amplifier and haptic driver rotated 180°; speaker springs swapped (SPK+ lower) | outputs face their contacts: no crossing, short power loops |
+| 10 | Amplifier and haptic driver rotated 180° | outputs face their contacts: no crossing, short power loops |
 | 11 | Tag-Connect pinout 1 GND, 2 EN, 3 TXD0, 4 3V3, 5 RXD0, 6 GPIO0 | TXD0 and RXD0 run straight from module pins into the top row |
 | 12 | Probe pads grouped: rails (SYS, BAT, 3V3) with grounds in one service field; VBUS at the TVS; LCD, MIC and IRV at their sources | each rail probed where it is made, with a ground beside it (ODD JOBS 39) |
 | 13 | Second 10 µF at the amplifier removed; capacitors renumbered | the MAX98357A datasheet asks for 10 µF + 0.1 µF |
@@ -105,16 +105,23 @@ Rows 1–14 come from the first (6-layer) review and still hold. Rows 15–29 ar
 | 17 | Placement re-done for 4 layers: IMU U401 on F at (3.2, 7.0); touch series resistors on F under the module pins; expander U202 on B at (−9.0, −13.1); J201 at (15.2, 17.6), turned 90°; service field on a 2.8 × 3.0 mm grid | each fan-out gets its own escape on the layer it needs; no route wraps around a part |
 | 18 | **Plug-in display**: the Limito 12-pin solder land became J301, the HDGC 18-pin back-flip connector, for the Winstar WF0128BTYAA4DNN0 panel standard. The TE line was added (GPIO9) | the panel can be swapped without solder; tear-free frames |
 | 19 | 4-layer pin map: display group GPIO9–13 in the connector's own pin order; IMU_INT1 GPIO14; BOARD_ID GPIO8 (ADC1); USB_PRESENT_N GPIO3; HALL_FAST GPIO2; mic group GPIO35–37 (power, data, clock); EXP_RST_N GPIO38; backlight GPIO45 (strap held low by its gate pull-down); GPIO46 NC; spare TP12 (IO35) removed | each group leaves the module towards its part without crossing another |
-| 20 | Via policy: plane vias shared within 1.6 mm, pour classes for small pads, twins merged, designed links. **191 vias** (6-layer board: 230) | fewer drills; every pad still has a short ground |
+| 20 | Via policy: plane vias shared within 1.6 mm, pour classes for small pads, twins merged, designed links. **194 vias** (6-layer board: 230) | fewer drills; every pad still has a short ground |
 | 21 | `via_off_pad.py`: no via may touch an SMD pad, guaranteed after routing | ODD JOBS 82 |
 | 22 | `plane_check.py` in the pipeline: every In1/In2 zone must fill as one piece | a split plane fails the build, not the review |
-| 23 | `snap45.py`: the last 18 oblique pad-to-via stubs became 45° doglegs; all 827 segments are now 0/45/90° | ODD JOBS 87/88 |
+| 23 | `snap45.py`: the last 18 oblique pad-to-via stubs became 45° doglegs; every segment is now 0/45/90° | ODD JOBS 87/88 |
 | 24 | Datasheet-height 3D bodies for the 18 parts without an installed model (`models3d.py`, `footprints.py`) | ODD JOBS 74/194: the 3D and enclosure review needs every part |
 | 25 | That 3D check found the IR receiver (4.0 ± 0.3 mm) under the window border. Display standoff 2.2 → 2.7 mm (window 4.9 mm above F.Cu), ToF light-blocking gasket (ST AN5231), mic gasket tube and TOP-spring boss specified (`mao-mechanical.md`) | ODD JOBS 135/198: worst-case 0.35 mm clearance with the face pressed |
 | 26 | GPIO numbers in schematic notes generated from `pinmap.py` (6 stale notes fixed: TE, backlight, strap, mic supply, IR output, expander reset) | rule 189: notes that cannot drift |
 | 27 | FAB-NOTES panel tabs moved to 2 and 8 o'clock (were 3 and 9, on the touch electrodes) | ODD JOBS 142/143 |
 | 28 | Pin-map I2C table names the OPT3004 (was OPT3001) | documentation matched the part |
 | 29 | Layer plots at 1644 px, independent Gerber sheet (`plots/mao-main-a0-gerbers.png`) | ODD JOBS 195; the mandate's per-layer plots |
+| 30 | **Speaker:** the specified Ø15 mm part did not fit (the crescent beside the cell is 12.2 mm wide). Now a Same Sky CMS-150803-088S-X8, 15 × 8 × 3 mm, under the board at 9 o'clock; springs J501/J502 replaced by its contact pads LS501, whose courtyard keeps B parts out from under it. LRA pads renamed J501 (capture order) | found by the assembled 3D model; ODD JOBS 46, 52, 198 |
+| 31 | Amplifier supply capacitors C501/C502 moved to F above the 0.9 mm gap beside the VDD pins, fed by one 0.2/0.5 via into the L3 VSYS band; speaker lines on B as two nested L's (9.2 / 11.9 mm, no vias); REAR touch lead dropped below the speaker's contact; D303 fixed at its place | room for the speaker; decoupling stays within 2 mm of the pins |
+| 32 | Touch-arc stitching holes moved to the arc ends (2 per arc, was 3) | none under the speaker; the arc is still one electrode on F and B |
+| 33 | Ring poles: flexible ferrite multipole strip instead of 30 NdFeB discs; detents are LRA ticks in firmware | sintered magnets are metal and would sweep over the antenna (ODD JOBS 2, 3) |
+| 34 | Face on three printed flexures, rocking on its lip, instead of a 0.1 mm sliding fit; LRA click on every press | FDM cannot hold the sliding fit; one switch works for presses anywhere |
+| 35 | Firmware: LEFT touch zone holds its reading while the amplifier runs (+150 ms) | the speaker lies partly over that electrode and the class-D outputs switch at ~330 kHz |
+| 36 | Pipeline: footprint-geometry cache rebuilt in the `place` step; placement imported lazily by `build_pcb.py` | a new footprint can no longer break placement |
 
 ## 2. PCB review
 
@@ -126,15 +133,15 @@ capture → place → designed power and fan-out copper → plane vias → grid 
 | Gate | Result |
 |---|---|
 | DRC / ERC / parity, nothing unconnected | **DRC 0 violations at all severities, 0 unconnected, 0 parity; ERC 0.** Checks KiCad leaves off were run once in a scratch copy: only deliberate footprint-filter and library-copy notes (§1, compliance rule 1) |
-| L2 continuous | In1 GND is **one piece, 2099 mm²**, with no tracks on L2. Its only shaping is the antenna keep-out and the cuts under the two rim touch arcs |
-| Power robust | L3: +3V3 one piece 1504 mm² (25 vias), VSYS one piece 361 mm² (10 vias), VBUS one piece 33 mm² (2 vias). Battery path 0.6–0.8 mm; VSYS branches 0.4–0.8 mm on B plus the L3 band; TPS63802 loop per TI's layout |
+| L2 continuous | In1 GND is **one piece, 2098 mm²**, with no tracks on L2. Its only shaping is the antenna keep-out and the cuts under the two rim touch arcs |
+| Power robust | L3: +3V3 one piece 1501 mm² (25 vias), VSYS one piece 360 mm² (10 vias), VBUS one piece 33 mm² (2 vias). Battery path 0.6–0.8 mm; VSYS branches 0.3–0.8 mm on B plus the L3 band; TPS63802 loop per TI's layout |
 | USB reference uninterrupted | D+/D− run 29.5 mm on F directly over L2 (0.076 mm prepreg), 0.2 mm tracks with 0.6 mm gap, through-paths within about 3 mm. Vias only at the receptacle row join and the module pins. Nearest ground transition 2.2–4.3 mm. Full speed only, so impedance is not controlled (≈ 74 Ω differential estimated; 0.2 ns flight time vs ≥ 4 ns edges) |
 | SPI reference uninterrupted | LCD_SCLK / MOSI / DC / CS / TE: 10–16 mm on B over the L3 "display lanes" +3V3 core, which no L3 signal crosses. One via each at J301, with GND vias 2.0–2.9 mm away |
 | I2S / PDM clean | AMP_BCLK 8.2 / DIN 9.5 / LRCLK 8.1 mm and MIC_CLK 14.5 / DATA 11.1 mm: on B only, **no vias**, each over its own L3 core with no crossing (checked by script) |
-| L3 only slow signals | 135 mm of L3 track: BOARD_ID, EXP_RST_N, HAPTIC_EN, I2C (400 kHz), IR_RX_PWR, SENSE_ALRT_N, USB_PRESENT_N. All static or slow, and none under a B-side fast lane |
+| L3 only slow signals | 137 mm of L3 track: EXP_RST_N, HAPTIC_EN, I2C (400 kHz), IR_RX_PWR, SENSE_ALRT_N, USB_PRESENT_N. All static or slow, and none under a B-side fast lane |
 | Touch keep-outs | Rim arcs E301/E302 with L2 and L3 cut beneath (rule areas "TOUCH PLANE CUT"); 510 Ω at the module, 0.42 pF ESD at each electrode |
 | Antenna keep-out | Module antenna over a 24 × 6.3 mm notch; rule area 30.0 × 7.9 mm on all four layers (no track, via or pour); no metal fastener within 15 mm |
-| Fewer vias than 6 layers | **191** (135 × 0.3/0.6, 56 × 0.2/0.5) vs 230; plus 24 × 0.2 mm thermal vias inside exposed pads. No via touches an SMD pad |
+| Fewer vias than 6 layers | **194** (137 × 0.3/0.6, 57 × 0.2/0.5) vs 230; plus 24 × 0.2 mm thermal vias inside exposed pads. No via touches an SMD pad |
 | No functionality removed | All functions of the 6-layer A0 are present, plus the display TE line and a plug-in display (§4) |
 | Service access | Service field on B (rails + 3 grounds, RST, BOOT, XRST, SDA, SCL), VBUS/LCD/MIC/IRV pads at their sources, Tag-Connect, BAT LINK |
 | Visual standard | §3, the renders, and [`mao-odd-jobs-compliance.md`](mao-odd-jobs-compliance.md) |
@@ -144,15 +151,15 @@ capture → place → designed power and fan-out copper → plane vias → grid 
 | Check | Result |
 |---|---|
 | Stackup | 4 layers, 1.6 mm, JLC04161H-1080 written into the board: F / 1080 prepreg 0.0764 / In1 GND / core 1.265 / In2 power / 1080 prepreg 0.0764 / B. 1 oz outer, 0.5 oz inner, ENIG, black mask, white legend |
-| Copper | F 714 mm, B 692 mm, In2 135 mm, In1 none. 827 segments, all at 0/45/90° |
+| Copper | F 730 mm, B 674 mm, In2 137 mm, In1 none. 820 segments, all at 0/45/90° |
 | Widths | 0.2 mm signals. 0.15 mm only at fine-pitch escapes (module rows, QFN, LGA, 0.5 mm FPC): 114 mm. Power 0.3–0.8 mm plus L3 regions |
 | Outer GND pours | Every fragment tied to the plane; fragments over 20 mm² have two ties (`gnd_stitch.py`). Island removal on, no floating copper |
 | Switching loop | TPS63802 per TI's layout: CIN at VIN, inductor over the switch pins, COUT at VOUT, PGND strip with a via under the IC; L3 beneath is a router core |
 | RF | Nearest metal: screws on the back half (≥ 39 mm). Cell edge 12.7 mm from the antenna boundary; speaker in the left crescent (≥ 18 mm); panel edge 4.9 mm in plane (the round format's limit, see risks) |
 | Fiducials | 3 per side: 1 mm copper in a 2 mm mask opening, with a copper-free keep-out |
 | Mounting | 2 × M2 screw holes Ø2.2 at ±48° on r 25 mm with a 4.6 mm keep-out on all layers; Ø2.0 NPTH peg at 225° |
-| Silkscreen | `check_silk_text.py`: 71 texts, **0 findings** (no text on pads, vias, bodies, edges or other text; 0.8 mm minimum, 0.15 mm stroke) |
-| Gerbers | Reviewed outside KiCad with pygerber: all 11 layers rendered (`plots/mao-main-a0-gerbers.png`), extents checked (outer copper r ≤ 28.6 mm). The drill file reconciles exactly with the board: 141 × 0.3, 80 × 0.2, 4 × 0.6 PTH and 9 NPTH |
+| Silkscreen | `check_silk_text.py`: 66 texts, **0 findings** (no text on pads, vias, bodies, edges or other text; 0.8 mm minimum, 0.15 mm stroke) |
+| Gerbers | Reviewed outside KiCad with pygerber: all 11 layers rendered (`plots/mao-main-a0-gerbers.png`), extents checked (outer copper r ≤ 28.6 mm). The drill file reconciles exactly with the board: 141 × 0.3 (137 vias + 4 electrode joins), 81 × 0.2 (57 vias + 24 exposed-pad vias), 4 × 0.6 PTH and 9 NPTH |
 | 3D | Every footprint has a body; top, bottom and iso renders reviewed after the last change |
 
 ## 3. ODD JOBS review
@@ -165,13 +172,13 @@ Run against `hardware/mao/ODD-JOBS-STANDARD.txt`, ignoring ERC/DRC. Rule-by-rule
 | Does anything look accidental? | No. All tracks are at 45° multiples; buses run as designed lanes; the designator rule is applied everywhere |
 | Anything present without a reason? | No. Every pad and part traces to a function in `circuit.py`; test pads trace to the factory test; fiducials serve two-sided assembly |
 | Anything important missing? | No: rails, reset, boot, I2C, UART (Tag-Connect), USB, battery-current link, switched-rail pads, board ID, expander reset line, display TE |
-| Unnecessary visual noise? | No: 71 silk texts in total. 74 resistor/capacitor references and 7 parts in tight spots are on the assembly drawing; test pads carry function names instead of TP numbers |
+| Unnecessary visual noise? | No: 66 silk texts in total. 74 resistor/capacitor references and 9 parts in tight spots are on the assembly drawing; test pads and the speaker carry function names instead of references |
 | Components scattered? | No. Zones: power and charging (B, 12–2 o'clock); compute (B, 6 o'clock); audio and haptics (B, 8–9 o'clock); service field (B, between charger and module); sensing at the window band (F, 11–3 o'clock); user I/O at the centre (F: face switch, IMU) |
 | Could placement be cleaner? | Only the power cluster is dense, which follows TI's reference layouts and is as tight as its loops should be |
 | Could routing be simpler? | Paths are short and 45°. Long nets are inherent: I2C reaches 6 devices on both faces, and VSYS feeds the amplifier, haptics and IR. L3 carries 135 mm of slow lines without splitting a plane |
-| Is silkscreen inconsistent? | No. Designator rule: a reference is on silk wherever a technician must find the part on the bare board: ICs, connectors, transistors, diodes, the switch, mic, inductor and electrodes, plus each R/C named in the bring-up or factory test. The exceptions are 7 parts with no clear unambiguous spot: the dense power cluster (U102, U103, U104, Q101, Q501, D101) and the first Hall sensor U301 beside its labelled twin U302; the assembly drawing identifies them. Text sizes: identity 0.8–1.3 mm (MAO largest), references 1.0 mm (0.8 mm where space is tight), names 0.8–1.0 mm, each upright as seen from its own face |
+| Is silkscreen inconsistent? | No. Designator rule: a reference is on silk wherever a technician must find the part on the bare board: ICs, connectors, transistors, diodes, the switch, mic, inductor and electrodes, plus each R/C named in the bring-up or factory test. The exceptions are 9 parts with no clear unambiguous spot: the dense power cluster (U102, U103, U104, Q101, Q501, D101), the first Hall sensor U301 beside its labelled twin U302, and the TOP / REAR touch ESD diodes D303 / D304 beside their springs; the assembly drawing identifies them. Text sizes: identity 0.8–1.3 mm (MAO largest), references 1.0 mm (0.8 mm where space is tight), names 0.8–1.0 mm, each upright as seen from its own face |
 | Are labels misaligned? | No: each label sits beside its part, nearer to it than to any other (checker). The service-field labels are solved jointly so none collides |
-| Are connectors awkward? | No. USB-C at 12 o'clock flush with the wall; battery JST SH opening towards the cell; springs for touch electrodes and speaker (no wires); Tag-Connect instead of a header; display plugs in |
+| Are connectors awkward? | No. USB-C at 12 o'clock flush with the wall; battery JST SH opening towards the cell; springs for the touch electrodes and the speaker's own contacts on pads (no wires); Tag-Connect instead of a header; display plugs in |
 | Are test points intentional? | Yes: one service field of 11 pads on a 2.8 × 3.0 mm grid, a ground beside every rail, plus 4 pads at their sources; all named by function |
 | Does the board look like a dev board? | No (`renders/`) |
 | Any obvious engineering shortcut? | None left. Recorded trade-offs: no second battery-protector IC (cell PCM + hardware UVLO); USB-C THT legs; uncontrolled impedance for full-speed USB |
@@ -210,11 +217,11 @@ Reviewed as if looking for reasons not to order.
 | Silkscreen aligned? | Yes (§3, checker 0 findings) |
 | Test points accessible? | All on B, unobstructed by parts; the cell sits under the board with an insulator, so the fixture probes before the cell goes in |
 | Dead board recoverable? | USB ROM loader (hold the face while plugging in, or TP8 BOOT); Tag-Connect UART with EN/GPIO0; RST pad |
-| All parts orderable? | Every BOM line carries an LCSC number checked on 2026-10-04 (asserted by `fab.py`). The panel, cell, LRA, speaker and magnets are bought separately (`mao-bringup.md`) |
+| All parts orderable? | Every BOM line carries an LCSC number checked on 2026-10-04 (asserted by `fab.py`). The panel, cell, LRA, speaker and ferrite pole strip are bought separately (`mao-bringup.md`) |
 | Assembly packages correct? | Footprints from KiCad's libraries, or drawn from datasheets in `lib/MAO.pretty`, matched to the LCSC part's package |
 | Rotation / origin sane? | Gerbers and CPL share KiCad's absolute origin; KiCad rotations. JLC's placement preview must be checked at order time (FAB-NOTES lists the polarised parts) |
 | BOM ↔ schematic ↔ PCB? | DRC parity 0. BOM and CPL are written from the board's footprints, whose fields come from the schematic (`sync_fields.py`) |
-| CPL ↔ PCB? | 114 rows = 114 assembled parts (DNP R110, test pads, fiducials, Tag-Connect, electrodes and LRA pads excluded; J301 fitted) |
+| CPL ↔ PCB? | 112 rows = 112 assembled parts (DNP R110, test pads, fiducials, Tag-Connect, electrodes, speaker pads and LRA pads excluded; J301 fitted) |
 | Fab files from the latest design? | Yes: regenerated from the final board after the last change; Gerbers re-reviewed |
 | Does it physically fit? | Yes, against the enclosure specification, with every part bodied. The IR-receiver clearance found in this review is fixed in the stack |
 | Anything to hesitate over? | Only the items in the final report's risk list, none of which is a design defect |

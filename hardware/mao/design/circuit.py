@@ -310,7 +310,7 @@ b.R('R304', '100R', 'LCD_BL_PWM', 'LCD_BL_G', note='gate resistor')
 b.R('R305', '100k', 'LCD_BL_G', 'GND', note='backlight off by default; also holds the VDD_SPI strap GPIO%d low' % G['LCD_BL_PWM'])
 
 b.at('interface', 'RING DIAL',
-     'Two DRV5012 Hall latches under the 30-pole magnet ring, 6 deg apart (half a pole = 90 deg electrical): '
+     'Two DRV5012 Hall latches under the ring\'s 30-pole ferrite strip, 6 deg apart (half a pole = 90 deg electrical): '
      'A/B quadrature identical to the LCDkit EC11 (2 transitions per detent, 30 detents). '
      'HALL_FAST low = 20 Hz sampling, 1.6 uA (sleep); high = 2.5 kHz (awake).')
 b.part('U301', 'MAO:DRV5012', 'Package_SON:Texas_X2SON-4-1EP_1.1x1.4mm_P0.5mm_EP0.8x0.6mm', 'DRV5012AEDMRR',
@@ -391,7 +391,8 @@ b.R('R403', '100k', 'MIC_PWR', 'GND', note='mic off at reset')
 # --------------------------------------------------------------------------------------------
 b.at('feedback', 'SPEAKER AMP',
      'MAX98357A I2S class-D from VSYS. SD_MODE from the expander: low = 0.6 uA shutdown, 3.3 V = left channel. '
-     'GAIN_SLOT open = 9 dB (datasheet state, deliberate). Speaker in the base on two gold springs.')
+     'GAIN_SLOT open = 9 dB (datasheet state, deliberate). Speaker: Same Sky CMS-150803-088S-X8 (15 x 8 x 3 mm, '
+     '8 ohm, 0.8 W) in the base at 9 o\'clock; its own spring contacts press on two pads on B.Cu (LS501).')
 b.part('U501', 'MAO:MAX98357A', 'Package_DFN_QFN:TQFN-16-1EP_3x3mm_P0.5mm_EP1.23x1.23mm_ThermalVias', 'MAX98357AETE+T',
        {'1': 'AMP_DIN', '2': NC, '3': 'GND', '4': 'AMP_SD_N', '5': NC, '6': NC, '7': 'VSYS', '8': 'VSYS',
         '9': 'SPK_P', '10': 'SPK_N', '11': 'GND', '12': NC, '13': NC, '14': 'AMP_LRCLK', '15': 'GND',
@@ -399,20 +400,22 @@ b.part('U501', 'MAO:MAX98357A', 'Package_DFN_QFN:TQFN-16-1EP_3x3mm_P0.5mm_EP1.23
        lcsc='C910544', mpn='MAX98357AETE+T', mfr='Analog Devices', note='3.2 W mono I2S class-D')
 b.C('C501', '10u', 'VSYS', pkg='0603', note='amp bulk (ODD JOBS 15); with C503 the datasheet 10 uF + 0.1 uF')
 b.C('C503', '100n', 'VSYS', note='amp HF')
-b.part('J501', 'MAO:Spring', SPRING_FP, 'SPK+', {'1': 'SPK_P'}, note='speaker +', **SPRING)
-b.part('J502', 'MAO:Spring', SPRING_FP, 'SPK-', {'1': 'SPK_N'}, note='speaker -', **SPRING)
+b.part('LS501', 'Device:Speaker', 'MAO:SameSky_CMS-150803_SpringPads', 'CMS-150803-088S-X8',
+       {'1': 'SPK_P', '2': 'SPK_N'}, mpn='CMS-150803-088S-X8', mfr='Same Sky',
+       note='15 x 8 x 3 mm speaker, bought separately: its spring contacts press on these pads',
+       **{'Exclude from BOM': 'yes'})
 
 b.at('feedback', 'HAPTIC',
      'DRV2605L closed-loop LRA driver from VSYS, I2C 0x5A, EN from the expander (4 uA off). IN/TRIG low: '
      'playback by I2C. Pin 6 VDD/NC left open (SLOS854D: optional supply, tie to VDD or float). '
-     'LRA LD0832AA (235 Hz, 1.8 Vrms) glued to the base, leads to J503.')
+     'LRA LD0832AA (235 Hz, 1.8 Vrms) glued to the base, leads to J501.')
 b.part('U502', 'Driver:DRV2605LDGS', 'Package_SO:MSOP-10_3x3mm_P0.5mm', 'DRV2605LDGSR',
        {'1': 'HAP_REG', '2': 'I2C_SCL', '3': 'I2C_SDA', '4': 'GND', '5': 'HAPTIC_EN', '6': NC,
         '7': 'LRA_P', '8': 'GND', '9': 'LRA_N', '10': 'VSYS'},
        lcsc='C527464', mpn='DRV2605LDGSR', mfr='TI', note='haptic driver, auto-resonance')
 b.C('C504', '1u', 'VSYS', note='haptic VDD')
 b.C('C505', '1u', 'HAP_REG', note='DRV2605L internal regulator (required)')
-b.part('J503', 'Connector_Generic:Conn_01x02', 'MAO:WirePads_1x02_P2.5mm_1.0x1.8mm', 'LRA',
+b.part('J501', 'Connector_Generic:Conn_01x02', 'MAO:WirePads_1x02_P2.5mm_1.0x1.8mm', 'LRA',
        {'1': 'LRA_P', '2': 'LRA_N'}, mpn='PCB feature: LD0832AA-0099F leads', note='LRA lead pads',
        **{'Exclude from BOM': 'yes'})
 

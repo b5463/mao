@@ -3142,23 +3142,23 @@
 		)
 		(uuid "df83a1bf-9a4c-51b4-b1ba-e604eee4e5af")
 	)
-	(text "Two DRV5012 Hall latches under the 30-pole magnet ring, 6 deg apart (half a pole = 90 deg electrical): A/B quadrature identical to the LCDkit"
+	(text "Two DRV5012 Hall latches under the ring's 30-pole ferrite strip, 6 deg apart (half a pole = 90 deg electrical): A/B quadrature identical to"
 		(exclude_from_sim no)
 		(at 15.24 180.34 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "4effbdc9-9327-5ded-a031-424e3636916b")
+		(uuid "f446fb20-b0e5-57ea-b894-2e6466935427")
 	)
-	(text "EC11 (2 transitions per detent, 30 detents). HALL_FAST low = 20 Hz sampling, 1.6 uA (sleep); high = 2.5 kHz (awake)."
+	(text "the LCDkit EC11 (2 transitions per detent, 30 detents). HALL_FAST low = 20 Hz sampling, 1.6 uA (sleep); high = 2.5 kHz (awake)."
 		(exclude_from_sim no)
 		(at 15.24 182.88 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "a94435b2-a4d8-577b-9ae2-3f6b54679027")
+		(uuid "88aa7e3f-c0f5-5a7a-99ef-f68f7f08526e")
 	)
 	(symbol
 		(lib_id "MAO:DRV5012")

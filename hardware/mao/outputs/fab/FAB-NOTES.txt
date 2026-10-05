@@ -9,8 +9,8 @@ BOARD
 - Copper 1 oz outer, 0.5 oz inner (default). No impedance control ordered: USB 2.0 full speed only.
 - ENIG. Black solder mask, white silkscreen (visible product board, ODD JOBS 172). Green is acceptable
   for the 5-unit EVT build if black costs schedule: inspection is easier on green (ODD JOBS 173).
-- Through vias only (no blind/buried): 135 x 0.3 mm drill / 0.6 mm pad (plane and power vias) and
-  56 x 0.2 / 0.5 mm (designed fan-out beside fine-pitch parts and the module pin rows), all tented both
+- Through vias only (no blind/buried): 137 x 0.3 mm drill / 0.6 mm pad (plane and power vias) and
+  57 x 0.2 / 0.5 mm (designed fan-out beside fine-pitch parts and the module pin rows), all tented both
   sides. 24 x 0.2 mm thermal vias inside the U102 / U202 / U501 exposed pads and the module ground pad.
   Via-in-pad: choose epoxy-filled and capped (POFV) if JLC offers it for this order; otherwise
   tented / unplugged is acceptable for A0. Min track 0.15 mm, min clearance 0.15 mm: JLC standard
@@ -25,9 +25,10 @@ ASSEMBLY (JLC PCBA, both sides)
 - Top (F.Cu) first: display support, IMU, face switch, window sensors, Hall sensors, ESD. Then bottom
   (B.Cu): module, power, audio, haptics, USB-C, battery connector.
 - USB-C J101 has 4 through-hole shell legs: hand-solder or select THT assembly.
-- Footprints without a part: test pads TP1-TP16, Tag-Connect J201 (cable footprint), touch electrodes
-  E301/E302 (copper arcs). Springs J302, J303, J501, J502 (BW0019BG, SMT) ARE fitted. LRA (J503) is wired
-  by hand after assembly. Display connector J301 (HDGC 0.5K-HX-18PWB, 18-pin 0.5 mm back-flip FPC, LCSC
+- Footprints without a part: test pads TP1-TP11 and TP13-TP16, Tag-Connect J201 (cable footprint), touch
+  electrodes E301/E302 (copper arcs), speaker contact pads LS501 (the Same Sky CMS-150803-088S-X8 speaker is
+  bought separately; the enclosure presses its spring contacts on them). Springs J302, J303 (BW0019BG, SMT) ARE
+  fitted. LRA (J501) is wired by hand after assembly. Display connector J301 (HDGC 0.5K-HX-18PWB, 18-pin 0.5 mm back-flip FPC, LCSC
   C2919497) IS fitted; the panel plugs into it after assembly (no soldering), contacts either way up.
 - DNP: R110 (battery NTC substitute, fit only for a 2-wire cell).
 - Fiducials: FID1-3 front, FID4-6 back (1 mm copper, 2 mm mask opening).

@@ -69,7 +69,8 @@ def starved_pads():
 STEPS = {
     'capture': lambda: run(sys.executable, 'build_sch.py'),
     'footprints': lambda: run(KIPY, 'footprints.py'),
-    'place': lambda: (run(KIPY, 'build_pcb.py'), run(KIPY, 'stackup.py'), run(KIPY, 'models3d.py'), snapshot('placed')),
+    'place': lambda: (run(KIPY, 'fp_cache.py'), run(KIPY, 'build_pcb.py'), run(KIPY, 'stackup.py'), run(KIPY, 'models3d.py'),
+                      snapshot('placed')),
     'power': lambda: (run(KIPY, 'route_power.py', 'add'), run(KIPY, 'route_local.py', 'add'),
                       run(sys.executable, 'project.py'), snapshot('power')),
     'planevias': lambda: (run(KIPY, 'gnd_pad_vias.py', *EP_LINKS, log='gnd-links.log'),

@@ -1,6 +1,6 @@
 {
  "board": "MAO_MAIN_A0.kicad_pcb",
- "silk_texts": 71,
+ "silk_texts": 66,
  "findings": 0,
  "by_kind": {},
  "references_on_fab_only": [
@@ -34,6 +34,8 @@
   "C504",
   "C505",
   "D101",
+  "D303",
+  "D304",
   "FID1",
   "FID2",
   "FID3",
@@ -43,6 +45,7 @@
   "H1",
   "H2",
   "H3",
+  "LS501",
   "Q101",
   "Q501",
   "R101",

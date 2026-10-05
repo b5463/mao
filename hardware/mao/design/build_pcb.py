@@ -16,7 +16,6 @@ import pcbnew as pcb
 import mechanical as m
 from board import ORIGIN, ROOT, LOCAL_FP, STOCK_FP, TARGET, at, pt
 from netrules import NAME, OUTPUTS
-from placement import AUTO, KEEP_F, PLACE
 from sexp import find, findall, parse
 
 MM = pcb.FromMM
@@ -228,6 +227,8 @@ def stackup(board):
 
 
 def build():
+    from placement import AUTO, KEEP_F, PLACE    # here, not at import: fp_cache.py needs netlist() before
+                                                 # placement.py can resolve a new footprint's geometry
     comps = netlist()
     missing = sorted(set(comps) - set(PLACE))
     extra = sorted(set(PLACE) - set(comps))

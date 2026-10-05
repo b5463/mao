@@ -9,7 +9,7 @@ Writes hardware/mao/outputs/fab/:
   CPL-MAO_MAIN_A0.csv     KiCad placement, both sides, mm, DNP and board-only items left out
   CPL-MAO_MAIN_A0-JLC.csv the same rows under JLC's column names (Designator, Mid X, Mid Y, Layer, Rotation)
   BOM-MAO_MAIN_A0-JLC.csv one line per (LCSC, footprint): Comment (the value, or the MPN where one part serves
-                          several functions, e.g. the four springs), Designator, Footprint, LCSC Part #,
+                          several functions, e.g. the two touch springs), Designator, Footprint, LCSC Part #,
                           Manufacturer Part, Manufacturer; DNP and excluded-from-BOM parts left out
   ASSEMBLY-MAO_MAIN_A0-top.pdf / -bottom.pdf
                           assembly drawing at 2.5:1: Fab outlines, sketched pads, every reference (mao_labels.py puts
@@ -61,9 +61,10 @@ ASSEMBLY (JLC PCBA, both sides)
 - Top (F.Cu) first: display support, IMU, face switch, window sensors, Hall sensors, ESD. Then bottom
   (B.Cu): module, power, audio, haptics, USB-C, battery connector.
 - USB-C J101 has 4 through-hole shell legs: hand-solder or select THT assembly.
-- Footprints without a part: test pads TP1-TP16, Tag-Connect J201 (cable footprint), touch electrodes
-  E301/E302 (copper arcs). Springs J302, J303, J501, J502 (BW0019BG, SMT) ARE fitted. LRA (J503) is wired
-  by hand after assembly. Display connector J301 (HDGC 0.5K-HX-18PWB, 18-pin 0.5 mm back-flip FPC, LCSC
+- Footprints without a part: test pads TP1-TP11 and TP13-TP16, Tag-Connect J201 (cable footprint), touch
+  electrodes E301/E302 (copper arcs), speaker contact pads LS501 (the Same Sky CMS-150803-088S-X8 speaker is
+  bought separately; the enclosure presses its spring contacts on them). Springs J302, J303 (BW0019BG, SMT) ARE
+  fitted. LRA (J501) is wired by hand after assembly. Display connector J301 (HDGC 0.5K-HX-18PWB, 18-pin 0.5 mm back-flip FPC, LCSC
   C2919497) IS fitted; the panel plugs into it after assembly (no soldering), contacts either way up.
 - DNP: R110 (battery NTC substitute, fit only for a 2-wire cell).
 - Fiducials: FID1-3 front, FID4-6 back (1 mm copper, 2 mm mask opening).

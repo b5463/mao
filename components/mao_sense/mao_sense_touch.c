@@ -10,6 +10,11 @@
  *
  * The board's wake zone (top) is also the deep-sleep wake channel; every
  * zone can wake the chip from light sleep.
+ *
+ * The speaker sits under the board partly over the LEFT rim electrode, and
+ * the filterless class-D amplifier switches at ~330 kHz whenever it is
+ * enabled: the LEFT zone holds its last reading while the amplifier runs and
+ * for AMP_SETTLE_US after (the hardware benchmark keeps tracking).
  */
 #include "mao_sense_priv.h"
 
@@ -20,6 +25,7 @@
 #include "driver/touch_sens.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "mao_board.h"
 
 static const char *TAG = "MAO_SENSE";
@@ -31,6 +37,7 @@ static const char *TAG = "MAO_SENSE";
 #define FULL_SCALE_THRESHOLDS   2.0f
 #define INIT_SCANS              3
 #define SCAN_TIMEOUT_MS         2000
+#define AMP_SETTLE_US           (150 * 1000)
 
 static touch_sensor_handle_t s_sens;
 static touch_channel_handle_t s_chan[MAO_TOUCH_ZONE_COUNT];
@@ -38,6 +45,8 @@ static int s_chan_id[MAO_TOUCH_ZONE_COUNT];
 static uint32_t s_thresh[MAO_TOUCH_ZONE_COUNT];
 static volatile uint32_t s_active_mask;      /* by channel id, from the driver callbacks */
 static uint8_t s_prev_touched;               /* by zone */
+static mao_obs_touch_zone_t s_left_held;     /* LEFT while the speaker amplifier runs */
+static int64_t s_amp_quiet_at_us;
 
 static bool on_change(touch_sensor_handle_t sens, const touch_base_event_data_t *event, void *ctx)
 {
@@ -62,8 +71,18 @@ esp_err_t sense_touch_read(mao_obs_touch_t *out)
     ESP_RETURN_ON_FALSE(s_sens && out, ESP_ERR_INVALID_STATE, TAG, "touch not ready");
     *out = (mao_obs_touch_t) { 0 };
     uint8_t touched = 0;
+    const int64_t now = esp_timer_get_time();
+    if (mao_board_rail_is_on(MAO_RAIL_AMP)) {
+        s_amp_quiet_at_us = now + AMP_SETTLE_US;
+    }
+    const bool hold_left = now < s_amp_quiet_at_us;
     for (int z = 0; z < MAO_TOUCH_ZONE_COUNT; z++) {
         if (!s_chan[z]) {
+            continue;
+        }
+        if (z == MAO_TOUCH_LEFT && hold_left) {
+            out->zone[z] = s_left_held;
+            touched |= s_left_held.touched ? (uint8_t)(1u << z) : 0;
             continue;
         }
         uint32_t smooth = 0, bench = 0;
@@ -82,6 +101,9 @@ esp_err_t sense_touch_read(mao_obs_touch_t *out)
             .touched = is_touched,
         };
         touched |= is_touched ? (uint8_t)(1u << z) : 0;
+        if (z == MAO_TOUCH_LEFT) {
+            s_left_held = out->zone[z];
+        }
     }
     out->changed = touched ^ s_prev_touched;
     s_prev_touched = touched;

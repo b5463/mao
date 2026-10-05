@@ -73,6 +73,9 @@ def main():
     bx, by = m.BATTERY_CENTRE
     e.append(rect(bx - bw / 2, by - bd / 2, bx + bw / 2, by + bd / 2, '#777', 'none', 1.0, '2,3'))
     e.append(text(bx - 2.0, by + bd / 2 - 1.0, 'cell envelope %g x %g x %g (below the PCB)' % (bw, bd, bh), 10, 'middle', '#777'))
+    sw, sl, sh = m.SPEAKER_SIZE                       # speaker beside it, also below the PCB
+    sx, sy = m.SPEAKER_CENTRE
+    e.append(rect(sx - sw / 2, sy - sl / 2, sx + sw / 2, sy + sl / 2, '#c80', 'none', 1.0))
     # fasteners
     for a in m.SCREW_ANGLES:
         x, y = m.polar(m.MOUNT_R, a)
@@ -88,8 +91,7 @@ def main():
              ('U402', 'ToF window', '#0a5'), ('U403', 'light window', '#0a5'), ('U503', 'IR receive window', '#0a5'),
              ('MK401', 'mic port (Ø0.5 hole)', '#0a5'), ('SW301', 'face-press stem', '#111'),
              ('J302', 'TOP spring', '#c80'), ('J303', 'REAR spring (B)', '#c80'),
-             ('J501', 'SPK+ spring (B)', '#c80'), ('J502', 'SPK- spring (B)', '#c80'),
-             ('J503', 'LRA leads (B)', '#c80'), ('U301', 'Hall A', '#36c'), ('U302', 'Hall B', '#36c'),
+             ('LS501', 'speaker below the PCB, outline; contacts on B', '#c80'), ('J501', 'LRA leads (B)', '#c80'), ('U301', 'Hall A', '#36c'), ('U302', 'Hall B', '#36c'),
              ('J201', 'Tag-Connect (B)', '#111'), ('J102', 'battery plug (B), opening to 6 o\'clock', '#c00')]
     legend = []
     for i, (ref, label, color) in enumerate(marks, 1):
@@ -111,7 +113,7 @@ def main():
     rows = [('Board', 'Ø%.1f mm disc, 1.6 mm, 4 layers' % (2 * m.PCB_R)),
             ('Origin', 'puck axis = display centre; +y towards 6 o\'clock'),
             ('Enclosure', 'Ø%.0f mm, wall %.1f mm, board-to-wall %.1f mm' % (m.PUCK_OD, m.WALL, m.PUCK_OD / 2 - m.WALL - m.PCB_R)),
-            ('Ring', 'ID %.0f / OD %.0f mm, 30 poles at r %.1f mm, gap to sensors %.1f mm' % (m.RING_ID, m.RING_OD, m.RING_MAGNET_R, m.HALL_GAP)),
+            ('Ring', 'ID %.0f / OD %.0f mm, 30-pole ferrite strip at r %.1f mm, gap %.1f mm' % (m.RING_ID, m.RING_OD, m.RING_MAGNET_R, m.HALL_GAP)),
             ('Notch', '%.1f x %.1f mm, inner edge y %.2f (antenna boundary)' % (m.NOTCH_W, m.PCB_R - m.NOTCH_Y, m.NOTCH_Y)),
             ('Display', 'active Ø%.1f, outline Ø%.1f, panel %.1f / window %.1f mm above PCB' % (
                 m.DISPLAY_ACTIVE_D, 2 * m.DISPLAY_OUTLINE_R, m.DISPLAY_STANDOFF, m.WINDOW_Z)),

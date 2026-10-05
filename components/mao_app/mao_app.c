@@ -13,6 +13,7 @@
 #include "odd_bus.h"
 #include "mao_display.h"
 #include "mao_events.h"
+#include "mao_haptics.h"
 #include "mao_input.h"
 #include "mao_led.h"
 #include "mao_perception.h"
@@ -27,7 +28,7 @@ static const char *TAG = "MAO_APP";
 #define SLEEPY_TIMEOUT_MS     (CONFIG_MAO_SLEEPY_TIMEOUT_S * 1000)
 #define SLEEPY_BRIGHTNESS_PCT 35          /* of the preferred brightness */
 #define DIAL_SETTLE_US        (700 * 1000)
-#define FAST_TICK_GAP_US      (90 * 1000) /* audio thinning at FAST speed */
+#define FAST_TICK_GAP_US      (90 * 1000) /* tick thinning at FAST speed (sound and haptics) */
 #define MENU_BUMP_GAP_US      (250 * 1000)
 #define DARK_ROOM_BRIGHTNESS  60          /* % of the preferred brightness in a dark room */
 
@@ -217,6 +218,9 @@ static mao_dial_motion_t dial_motion(int32_t detents, int64_t now)
     return m;
 }
 
+/* One detent = one tick, heard and felt. The ring's magnetic detents are
+ * silent; the LRA tick is what makes them read as a click (A0; a no-op on
+ * boards without haptics). */
 static void dial_tick(mao_dial_speed_t speed, int64_t now)
 {
     switch (speed) {
@@ -224,11 +228,13 @@ static void dial_tick(mao_dial_speed_t speed, int64_t now)
     case MAO_DIAL_SLOW:
     case MAO_DIAL_NORMAL:
         mao_audio_tick();
+        mao_haptics_tick();
         s_last_tick_us = now;
         break;
     case MAO_DIAL_FAST:
         if (now - s_last_tick_us >= FAST_TICK_GAP_US) {
             mao_audio_tick();
+            mao_haptics_tick();
             s_last_tick_us = now;
         }
         break;
@@ -555,6 +561,12 @@ static void on_event(const mao_event_t *ev, void *ctx)
         }
         mao_app_note_activity(now);
         wake();
+        if (ev->type == MAO_EVENT_INPUT_PRESS) {
+            /* The face pivots on its lip, so a press near the rim travels
+             * further and lighter than one at the centre; one firm LRA click
+             * on every press makes them all feel the same. */
+            mao_haptics_confirm();
+        }
         switch (mao_state()->view) {
         case MAO_VIEW_INTRO:       on_intro(ev); break;
         case MAO_VIEW_HOME:        on_home(ev, now); break;

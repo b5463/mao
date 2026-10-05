@@ -98,11 +98,11 @@ Then raise the limit to 500 mA.
 | IMU | `mao sense` (accelerometer) | +1 g on z face-up (else set `MAO_PERCEPT_IMU_Z_DOWN`) |
 | ToF | `mao sense` (distance), window fitted | 50–1300 mm on a hand. Run crosstalk calibration with the window in place |
 | Light | `mao sense` (lux) | covered < 3 lux, office 200–800 lux. The Ø2 window aperture narrows the view to about ±17°: record the lux scale factor against a meter |
-| Touch | `mao sense` (touch) | each zone ≥ 2 % change through the enclosure wall |
-| Ring | turn the ring | 30 steps per turn, direction correct (else swap in firmware) |
+| Touch | `mao sense` (touch) | each zone ≥ 2 % change through the enclosure wall; LEFT with the speaker fitted, and steady while a sound plays |
+| Ring | turn the ring | 30 steps per turn, each with a haptic tick; direction correct (else swap in firmware) |
 | IR | `mao ir rx on`, `mao ir send <addr> <cmd>` under the fixture lid | RX sees TX through the lid reflection; a TV remote is received |
 | Radio | ODD BUS self-test / flood tool (M2) against LAMP at 1 m / 5 m, board in the enclosure | RSSI within 6 dB of the LCDkit at the same distances |
-| Enclosure fit | assemble with the printed shell, window, ToF gasket and mic tube (`mao-mechanical.md` §1, §5) | press the face fully: it travels 0.25 mm without touching the IR receiver dome; the TOP spring presses its boss; the ToF gasket seats on the sensor cap |
+| Enclosure fit | assemble with the printed shell, the flexure-hung face (window, panel, carrier), ToF gasket, mic tube and the speaker in its cradle (`mao-mechanical.md` §1, §4, §5, §8) | press the face at the centre and at the rim all round: one clean click everywhere, never touching the IR receiver dome; the TOP spring presses its boss; the ToF gasket seats on the sensor cap; the speaker's contacts press on LS501 (speaker test passes) |
 
 ## 6. Power measurements (fill in `mao-power-budget.md`)
 
@@ -125,6 +125,6 @@ A deep-sleep figure above 150 µA means a rail or pull-up is leaking. Find it by
 | Charger heat | 0.85 W worst case at 3.0 V cell | U102 > 70 °C | ISET to 4.3 k (200 mA) by a resistor swap |
 | Antenna | battery and enclosure detuning | RSSI more than 6 dB below the LCDkit | none on the board (no matching network on the module); move the cell or reduce plastic thickness near 6 o'clock |
 | Touch | 2 mm wall + ring between arc and finger | change < 1 % | conductive filament as material B, or copper tape on the wall |
-| Ring | magnet gap tolerance in FDM | missed steps | reduce the gap or use Ø4 magnets |
+| Ring | ferrite pole strip field at the sensors (≥ 8 mT specified; they switch at ±3.3 mT) and FDM gap tolerance | missed steps | reduce the gap, or a thicker / stronger strip |
 | ToF | window crosstalk | false "near" | thinner window, black mask gap around the aperture, crosstalk calibration |
 | Footprints not yet proven on a board | JST SH clone (J102), DFE201612E land (L101), HDGC 0.5K-HX-18PWB FPC connector (J301), BW0019BG springs | poor solder joints | check the first boards under the microscope; footprints come from the datasheets in `hardware/mao/lib` |
