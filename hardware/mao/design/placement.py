@@ -135,14 +135,16 @@ at('R110', UX + 17.75, UY + 3.25, 0, 'B')
 # Turned 180: SYS (pin 1) and BAT (pin 2) face the battery chain to the east, IN (10) and the programming pins
 # (ISET, ILIM, TS) face the board centre. VBAT and VSYS change faces through vias beside the part.
 at('U102', 9.41, -11.775, 180, 'F')
-at('C103', 12.45, -11.38, 0, 'F')                          # BAT 1 uF at pin 2
-at('C102', 10.8, -8.7, 270, 'F')                           # SYS 10 uF 25 V below pin 1, VSYS end up
-pin('C101', 180, 'F', '1', 'U102', '10', -1.1, 0.4)       # IN 1 uF at pin 10, VBUS end towards it
-pin('R103', 180, 'F', '1', 'U102', '8', -1.0, 0.0)        # ISET 1.43k at pin 8
-pin('R104', 180, 'F', '1', 'U102', '7', -1.0, -0.6)       # ILIM 18k at pin 7
-pin('R117', 0, 'F', '1', 'U102', '4', 1.3, -0.45)         # /CE pull-down at pin 4
-pin('R119', 90, 'F', '2', 'U102', '3', 2.2, -0.9)         # STAT2 pull-up
-pin('R118', 0, 'F', '2', 'U102', '9', -1.4, 0.45)         # STAT1 pull-up
+# The 0.4 mm-pitch pins fan out on designed copper (route_power.py): SYS and IN straight south into their caps,
+# BAT east then south-east to its cap and two vias, STAT2 and /CE east, ISET / ILIM / STAT1 west, NTC north.
+at('C103', 13.2, -10.5, 270, 'F')                          # BAT 1 uF, VBAT end north
+at('C102', 10.51, -8.75, 270, 'F')                         # SYS 10 uF 25 V straight below pin 1
+at('C101', 8.31, -9.3, 270, 'F')                           # IN 1 uF straight below pin 10
+at('R103', 6.55, -11.775, 180, 'F')                        # ISET 1.43k level with pin 8
+at('R104', 6.55, -12.975, 180, 'F')                        # ILIM 18k
+at('R117', 11.9, -13.6, 90, 'F')                           # /CE pull-down north-east of pin 4
+at('R119', 14.9, -11.775, 180, 'F')                        # STAT2 pull-up level with pin 3
+at('R118', 6.3, -9.6, 0, 'F')                              # STAT1 pull-up
 
 # ==== 3.2 V buck (B, below the charger), TI SLVSEC6D 11.2: VIN/GND pair with CIN, SW to the inductor, COUT ===
 # Turned 180: VIN/EN (REG_IN) east towards LINK_REG and the charger's SYS, SW and VOS west to L101 and COUT.

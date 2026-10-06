@@ -5,49 +5,13 @@
   "layer": "In1.Cu",
   "pieces": [
    {
-    "area_mm2": 2001.6,
-    "vias": 73,
+    "area_mm2": 2239.8,
+    "vias": 90,
     "bbox": [
-     -25.4,
      -28.5,
-     25.4,
-     21.45
-    ]
-   }
-  ],
-  "neck_0.5_mm": "ok"
- },
- {
-  "zone": "VBUS L3",
-  "net": "VBUS",
-  "layer": "In2.Cu",
-  "pieces": [
-   {
-    "area_mm2": 32.7,
-    "vias": 2,
-    "bbox": [
-     -3.3,
-     -21.0,
-     5.2,
-     -16.9
-    ]
-   }
-  ],
-  "neck_0.5_mm": "ok"
- },
- {
-  "zone": "VSYS L3",
-  "net": "VSYS",
-  "layer": "In2.Cu",
-  "pieces": [
-   {
-    "area_mm2": 331.6,
-    "vias": 9,
-    "bbox": [
-     -25.0,
-     -26.0,
-     12.6,
-     12.6
+     -28.5,
+     28.5,
+     23.1
     ]
    }
   ],
@@ -59,16 +23,52 @@
   "layer": "In2.Cu",
   "pieces": [
    {
-    "area_mm2": 1348.2,
-    "vias": 27,
+    "area_mm2": 1819.3,
+    "vias": 24,
     "bbox": [
-     -25.12,
+     -28.5,
      -25.39,
-     25.4,
-     21.45
+     28.5,
+     23.1
     ]
    }
   ],
-  "neck_0.5_mm": "mesh, 5 pieces"
+  "neck_0.5_mm": "ok"
+ },
+ {
+  "zone": "VSYS L3",
+  "net": "VSYS",
+  "layer": "In2.Cu",
+  "pieces": [
+   {
+    "area_mm2": 204.6,
+    "vias": 7,
+    "bbox": [
+     -25.0,
+     -26.0,
+     12.6,
+     -0.8
+    ]
+   }
+  ],
+  "neck_0.5_mm": "NECKED"
+ },
+ {
+  "zone": "VBUS L3",
+  "net": "VBUS",
+  "layer": "In2.Cu",
+  "pieces": [
+   {
+    "area_mm2": 32.2,
+    "vias": 2,
+    "bbox": [
+     -3.3,
+     -21.0,
+     5.2,
+     -16.9
+    ]
+   }
+  ],
+  "neck_0.5_mm": "ok"
  }
 ]

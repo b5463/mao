@@ -11,14 +11,14 @@ Short local rails (VBUS beyond its strip, VBAT, REG_IN, 3V3_LCD, AUX_3V3, IR_RX_
 next to their parts. Filled in from the placement (placement.py); plane_check.py proves each region is one piece.
 """
 
-# VSYS (A1): from the charger's SYS vias (x 11.8, under the charger on F, beside LINK_REG on B) one strip runs north
+# VSYS (A1): from the charger's SYS vias (x 11.6, under the charger on F, beside LINK_REG on B) one strip runs north
 # to the 12 o'clock edge (IR LED anodes and their reservoir), along the edge and down the 10-11 o'clock rim to the
 # amplifier's VDD via, under both speaker lines (class-D outputs referenced to the amplifier's own supply), and a
 # 2.2 mm bar runs south under J301 to its VLED+ via (pad 12). The haptic driver is on +3V3 in A1, so the A0 band's
 # run down the 9 o'clock rim is gone. Vias: route_power.py.
-VSYS_BAND = [(11.2, -8.2), (12.6, -8.2), (12.6, -26.0), (-25.0, -26.0), (-25.0, -10.4), (-13.7, -10.4),
+VSYS_BAND = [(10.6, -8.2), (11.95, -8.2), (11.95, -18.8), (12.6, -18.8), (12.6, -26.0), (-25.0, -26.0), (-25.0, -10.4), (-13.7, -10.4),
              (-13.7, -0.8), (-11.5, -0.8), (-11.5, -12.75), (-18.0, -12.75), (-18.0, -19.6), (-16.0, -21.6),
-             (11.2, -21.6)]
+             (10.6, -21.6)]
 # VBUS: joins the receptacle's two VBUS contact pairs (A4/B9 over A9/B4) under the USB pair's escape.
 VBUS_STRIP = [(-3.3, -21.0), (5.2, -21.0), (5.2, -16.9), (-3.3, -16.9)]
 
