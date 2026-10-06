@@ -361,6 +361,14 @@ void mao_ui_wake_boot(void)
     }
 }
 
+void mao_ui_fault(const char *code)
+{
+    if (mao_display_lock(0)) {
+        mao_home_fault(code);
+        mao_display_unlock();
+    }
+}
+
 void mao_ui_debug_replay_boot(void)
 {
     if (mao_display_lock(0)) {

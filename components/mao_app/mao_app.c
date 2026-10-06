@@ -16,8 +16,11 @@
 #include "odd_bus.h"
 #include "mao_display.h"
 #include "mao_events.h"
+#include "mao_haptics.h"
 #include "mao_input.h"
 #include "mao_led.h"
+#include "mao_perception.h"
+#include "mao_selftest.h"
 #include "mao_settings.h"
 #include "mao_system.h"
 #include "mao_ui.h"
@@ -38,6 +41,7 @@ static const char *TAG = "MAO_APP";
 /* Longer rest - the sleeping screen, light sleep, the night - is
  * mao_app_power.c (the ladder: mao_power.h). */
 #define TICK_FULL_DPS         60.0f       /* dial speed at which ticks are softest */
+#define HAPTIC_TICK_GAP_US    (90 * 1000) /* LRA ticks thinned at FAST speed, none at VERY_FAST (A0) */
 
 /* DEVICE page control focus: 0 = the value (LEVEL), 1 = POWER, 2 = ACTION.
  * Editing means the dial changes the LEVEL; otherwise it moves the focus. */
@@ -68,6 +72,8 @@ static void on_ui_settle(void);
 static mao_dial_speed_t s_logged_speed = MAO_DIAL_STILL;
 static bool s_logged_reversing;
 static int64_t s_last_dial_us;
+static int64_t s_last_haptic_tick_us;
+static bool s_fault;                  /* the boot check found a fatal hardware fault */
 static int64_t s_last_bump_us;
 
 /* ---------------------------------------------------------------------- */
@@ -509,6 +515,17 @@ void mao_app_dial_tick(const mao_dial_motion_t *m)
     float i = m->detents_per_s / TICK_FULL_DPS;
     i = i > 1.0f ? 1.0f : i;
     mao_audio_tick((uint8_t)(i * 255.0f));
+    /* One detent = one tick, heard and felt: the A1's Hall ring has no
+     * mechanical detent, so the LRA tick is its click (a no-op without
+     * haptics, e.g. on the LCDkit). Thinned when spun fast, none when very
+     * fast: a texture, never a buzz. */
+    const int64_t now = esp_timer_get_time();
+    if (m->speed == MAO_DIAL_VERY_FAST ||
+        (m->speed == MAO_DIAL_FAST && now - s_last_haptic_tick_us < HAPTIC_TICK_GAP_US)) {
+        return;
+    }
+    mao_haptics_tick();
+    s_last_haptic_tick_us = now;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1189,6 +1206,16 @@ static void on_event(const mao_event_t *ev, void *ctx)
     const int64_t now = esp_timer_get_time();
 
     if (is_input(ev->type)) {
+        if (s_fault) {
+            return;   /* the service screen stays: MAO cannot run as itself */
+        }
+        if (ev->type == MAO_EVENT_INPUT_PRESS) {
+            /* The face rocks on its lip, so a press near the rim travels
+             * further and lighter than one at the centre; one firm LRA
+             * click on every press makes them feel the same (A0). Also the
+             * press that only wakes MAO: it is still a press of the face. */
+            mao_haptics_confirm();
+        }
         const bool dimmed = !mao_state()->awake;
         mao_state_note_input(now);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
@@ -1218,7 +1245,9 @@ static void on_event(const mao_event_t *ev, void *ctx)
         mao_led_set_state(MAO_LED_STATE_OFF);   /* the LED is off at rest */
         mao_state_note_input(now);
         mao_system_idle_kick(SLEEPY_TIMEOUT_MS);
-        if (mao_state()->view == MAO_VIEW_HOME && mao_app_power_from_deep()) {
+        if (s_fault) {
+            mao_ui_fault(mao_selftest_boot_check()->code);   /* no character: the service code */
+        } else if (mao_state()->view == MAO_VIEW_HOME && mao_app_power_from_deep()) {
             mao_ui_wake_boot();                   /* MAO's own deep sleep ended: the short wake */
             mao_app_apply_brightness(false);
             mao_ui_home_hint(mao_app_home_hint_allowed());
@@ -1272,6 +1301,16 @@ static void on_event(const mao_event_t *ev, void *ctx)
         break;
     case MAO_EVENT_POWER_DEEP:
         mao_app_power_deep((uint32_t)ev->value);
+        break;
+    case MAO_EVENT_PERCEPT: {
+        mao_percept_msg_t m;
+        if (!s_fault && mao_percept_from_event(ev, &m)) {
+            mao_app_on_percept(&m, now);
+        }
+        break;
+    }
+    case MAO_EVENT_BATTERY_CRITICAL:
+        mao_app_power_critical();
         break;
     default:
         break;
@@ -1533,7 +1572,10 @@ static void dev_quirk(char *arg)
 esp_err_t mao_app_init(void)
 {
     const mao_settings_t *cfg = mao_settings_get();
-    const mao_view_t first_view = cfg->first_boot_done ? MAO_VIEW_HOME : MAO_VIEW_INTRO;
+    /* A fatal hardware fault (boards with a boot check: no display or no
+     * input) shows the service code on HOME instead of the character. */
+    s_fault = mao_selftest_boot_check()->fatal;
+    const mao_view_t first_view = cfg->first_boot_done || s_fault ? MAO_VIEW_HOME : MAO_VIEW_INTRO;
     mao_state_init(first_view);
     if (first_view == MAO_VIEW_INTRO) {
         ESP_LOGI(TAG, "first boot: showing the first encounter");
@@ -1545,6 +1587,7 @@ esp_err_t mao_app_init(void)
     ESP_RETURN_ON_ERROR(mao_ui_init(first_view), TAG, "ui");
     mao_rel_init_dev();
     mao_quirks_reset(&s_quirks);
+    mao_app_percept_init();
     const bool from_deep = mao_app_power_init();
     mao_app_power_register();
 #if CONFIG_MAO_DEV_CONSOLE

@@ -384,6 +384,11 @@ static void bring_up(const char *name, bool fitted, esp_err_t (*init)(void), mao
 
 esp_err_t mao_sense_init(void)
 {
+#if CONFIG_MAO_BOARD_LCDKIT
+    /* Nothing of this on the LCDkit, and none of its code or RAM in the
+     * image (the rest of this function is dead there and dropped). */
+    return ESP_ERR_NOT_SUPPORTED;
+#endif
     mao_board_caps_t caps;
     mao_board_get_caps(&caps);
     if (!caps.imu && !caps.tof) {

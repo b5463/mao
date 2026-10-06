@@ -2,6 +2,7 @@
 #include "mao_ir_priv.h"
 
 #include "esp_log.h"
+#include "sdkconfig.h"
 #include "mao_board.h"
 #include "mao_system.h"
 
@@ -22,7 +23,11 @@ esp_err_t mao_ir_init(void)
         mao_system_report_disabled("IR", "disabled");
         return ESP_OK;
     }
+#if CONFIG_MAO_BOARD_LCDKIT
+    const esp_err_t err = mao_system_report("IR", ESP_ERR_NOT_SUPPORTED);   /* not reached: the kit's line is shared */
+#else
     const esp_err_t err = mao_system_report("IR", mao_ir_nec_start(&s_ir));
+#endif
     if (err == ESP_OK) {
         s_mode = MAO_IR_MODE_TX_RX;
     }

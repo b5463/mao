@@ -9,7 +9,18 @@
  *   NIGHT          (a timer wake inside light sleep) the backlight off and
  *                  the panel asleep; the knob still wakes it
  *   deep sleep     DEV only ("deepsleep <s>"): a timer wakes it, or reset.
- *                  The knob cannot wake the C3 from deep sleep on this board.
+ *                  The knob cannot wake the C3 from deep sleep on the LCDkit;
+ *                  on the A1 the press, the dial and IMU motion can.
+ *   critical       (boards with a battery) MAO_EVENT_BATTERY_CRITICAL: the
+ *                  sleeping frame, then deep sleep that only the press or a
+ *                  recheck timer ends; a recheck that still finds the cell
+ *                  critical goes straight back to sleep, dark.
+ *
+ * Boards with more than the LCDkit's knob (A1): while the chip rests the
+ * sensors drop to their rest level, haptics and the IR receiver are off,
+ * and on USB the light sleep wakes at least every 10 s so the charge
+ * temperature limit (mao_battery_poll) keeps running; a USB plug / unplug
+ * also ends one sleep of the loop (housekeeping, not a wake of MAO).
  *
  * The ladder (s_pwr) belongs to the app task while MAO is up, and to the
  * power task while the chip is resting (s_resting): the hand-over is the
@@ -25,22 +36,30 @@
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "esp_timer.h"
+#include "esp_rtc_time.h"
 #include "driver/usb_serial_jtag.h"
 #include "esp_system.h"
 #include "hal/wdt_hal.h"
 #include "hal/rwdt_ll.h"
 #include "soc/rtc.h"
+#include "sdkconfig.h"
 #include "mao_app_priv.h"
 #include "mao_audio.h"
+#include "mao_battery.h"
 #include "mao_board.h"
 #include "mao_character.h"
 #include "mao_devices.h"
 #include "mao_display.h"
 #include "mao_events.h"
+#include "mao_haptics.h"
 #include "mao_input.h"
+#include "mao_ir.h"
 #include "mao_link.h"
+#include "mao_perception.h"
 #include "mao_power.h"
 #include "mao_radio.h"
+#include "mao_selftest.h"
+#include "mao_sense.h"
 #include "mao_system.h"
 #include "mao_ui.h"
 
@@ -59,9 +78,17 @@ static const char *TAG = "MAO_POWER";
 
 #define NOTIFY_REST  (1u << 0)
 #define NOTIFY_DEEP  (1u << 1)
+#define NOTIFY_CRITICAL (1u << 2)
+
+#define USB_LOOK_MS       10000u    /* on USB: the longest light sleep (the charge limit's period) */
+#define CRITICAL_MAGIC    0x43524954u   /* "CRIT": the last deep sleep was the critical-battery one */
 
 /* The marker in RTC memory: survives deep sleep (not a power cycle). */
 static RTC_NOINIT_ATTR uint32_t s_rtc_marker;
+/* With the marker (folded in from A0's continuity record): when the deep
+ * sleep began (RTC clock) and whether it was the critical-battery one. */
+static RTC_NOINIT_ATTR uint64_t s_rtc_sleep_at_us;
+static RTC_NOINIT_ATTR uint32_t s_rtc_critical;
 /* How far the last light sleep got (read at the next boot): a sleep that
  * never ends is reset by the RTC watchdog, and this says where it stopped. */
 #define CRUMB_MAGIC   0xC0DE0000u
@@ -127,6 +154,9 @@ static uint32_t now_ms(void)
 static void busy_now(mao_pwr_busy_t *b)
 {
     memset(b, 0, sizeof(*b));
+    /* a factory self-test waits for its operator: like an action awaiting
+     * its result, it keeps MAO awake (never true on the LCDkit) */
+    b->action_pending = mao_selftest_running();
     mao_link_pair_status_t ps;
     mao_link_pair_status(&ps);
     b->pairing = ps.st != ODL_C_IDLE || mao_rel_sheet_open();
@@ -165,6 +195,33 @@ static void rest_later(uint32_t ms)
 /* The power task: the chip's rest                                        */
 /* ---------------------------------------------------------------------- */
 
+/* Everything besides the display and the audio that rests with the chip
+ * (all no-ops on the LCDkit). */
+static void peripherals_rest(bool rest)
+{
+    if (rest) {
+        mao_haptics_suspend(true);
+        mao_ir_suspend(true);
+        mao_sense_set_level(MAO_SENSE_REST);
+        mao_perception_rest(true);
+    } else {
+        mao_sense_set_level(MAO_SENSE_AWAKE);
+        mao_ir_suspend(false);
+        mao_haptics_suspend(false);
+        mao_perception_rest(false);
+    }
+}
+
+/* Deep sleep next: the sensors' deep level (motion = IMU wake armed). */
+static void peripherals_deep(mao_sense_level_t level)
+{
+    mao_haptics_suspend(true);
+    mao_ir_suspend(true);
+    mao_sense_set_level(level);
+    mao_perception_deep_sleep();
+    s_rtc_sleep_at_us = esp_rtc_get_time_us();
+}
+
 static void light_rest(void)
 {
     const uint32_t idle0 = mao_state_idle_ms(esp_timer_get_time());
@@ -172,6 +229,7 @@ static void light_rest(void)
         mao_event_post(MAO_EVENT_POWER_WAKE, 2);   /* touched meanwhile (or the screen is busy): not now */
         return;
     }
+    peripherals_rest(true);
     vTaskDelay(pdMS_TO_TICKS(40));                 /* the last flush's DMA has finished */
     mao_audio_suspend();                           /* the PDM line goes quiet on a floor, then stops */
     mao_board_audio_hold(true);                    /* ... and is held low: the pad's sleep switch must not reach the amp */
@@ -183,6 +241,9 @@ static void light_rest(void)
     for (;;) {
         mao_input_sleep(true);
         mao_board_knob_wake_arm(true);
+        /* besides the knob: USB comes or goes (A1; the LCDkit has no line) */
+        const mao_board_wake_t also = { .usb = true };
+        mao_board_light_sleep_prepare(&also, NULL);
         esp_sleep_enable_gpio_wakeup();
         const uint32_t idle = idle_ms(esp_timer_get_time());
         uint64_t until_us = 0;
@@ -198,6 +259,9 @@ static void light_rest(void)
         if (until_us == 0 || until_us > (uint64_t)HEARTBEAT_MS * 1000u) {
             until_us = (uint64_t)HEARTBEAT_MS * 1000u;       /* the night too: a look every few minutes */
         }
+        if (mao_battery_usb_present() && until_us > (uint64_t)USB_LOOK_MS * 1000u) {
+            until_us = (uint64_t)USB_LOOK_MS * 1000u;        /* the charge limit keeps its 10 s */
+        }
         esp_sleep_enable_timer_wakeup(until_us);
         ESP_LOGI(TAG, "chip sleeps (timer %" PRIu64 " ms)", until_us / 1000);
         const int64_t t0 = esp_timer_get_time();
@@ -211,12 +275,20 @@ static void light_rest(void)
         const uint32_t causes = esp_sleep_get_wakeup_causes();
         ESP_LOGI(TAG, "chip woke: %s, causes 0x%" PRIx32 ", slept %" PRId64 " ms", esp_err_to_name(se), causes,
                  (esp_timer_get_time() - t0) / 1000);
+        mao_board_wake_t why;
+        mao_board_wake_decode(&why);                 /* before the pads are given back */
+        mao_board_light_sleep_done();
         mao_board_knob_wake_arm(false);
         wakes++;
         if (causes & (1u << ESP_SLEEP_WAKEUP_GPIO)) {
+            if (why.usb && !why.dial && !why.press) {
+                mao_battery_poll();                  /* USB came or went: housekeeping, not a wake */
+                continue;
+            }
             break;
         }
         if (causes & (1u << ESP_SLEEP_WAKEUP_TIMER)) {
+            mao_battery_poll();                      /* the gauge and the charge limit (no-op on the LCDkit) */
             if (s_dev_wake_s && s_slept_us >= (int64_t)s_dev_wake_s * 1000000 - 20000) {
                 break;                             /* DEV: the timer stands in for the knob */
             }
@@ -243,6 +315,7 @@ static void light_rest(void)
     mao_input_sleep(false);
     mao_board_audio_hold(false);
     mao_audio_resume();                            /* the line rises behind the wake (the first touch is silent anyway) */
+    peripherals_rest(false);
 }
 
 static void deep_rest(uint32_t seconds)
@@ -256,12 +329,49 @@ static void deep_rest(uint32_t seconds)
         mao_display_panel_sleep(true);             /* the panel keeps its picture, stops scanning */
     }
     mao_radio_sleep(true);
+    peripherals_deep(MAO_SENSE_DEEP);
     s_rtc_marker = MAO_PWR_RTC_MAGIC;
-    mao_board_deep_sleep_hold(true);               /* backlight and PDM held low through the sleep */
+    s_rtc_critical = 0;
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+    mao_board_deep_sleep_hold(true);               /* LCDkit: backlight and PDM held low; A1: rails off, knob / motion wake */
     esp_sleep_enable_timer_wakeup((uint64_t)seconds * 1000000u);
-    ESP_LOGI(TAG, "deep sleep now for %" PRIu32 " s (timer or reset wakes it; the knob cannot)", seconds);
+    mao_board_caps_t caps;
+    mao_board_get_caps(&caps);
+    ESP_LOGI(TAG, "deep sleep now for %" PRIu32 " s (%s)", seconds,
+             caps.deep_wake_knob ? "timer, reset, the press, the dial or motion wakes it"
+                                 : "timer or reset wakes it; the knob cannot");
     vTaskDelay(pdMS_TO_TICKS(20));                 /* the log line leaves */
+    esp_deep_sleep_start();
+}
+
+/* Critical battery: nothing but the press (and a recheck timer: USB cannot
+ * wake the A1 from deep sleep) ends this sleep. No IMU wake, no dial wake:
+ * the cell must not be drained by bumps. dark = straight away, without the
+ * sleeping frame (a recheck that found the cell still critical). */
+static void critical_rest(bool dark)
+{
+    if (!dark) {
+        vTaskDelay(pdMS_TO_TICKS(DEEP_HOLD_MS));   /* the sleeping eyes + the mark: the last frame */
+        mao_display_fade_brightness(0, DEEP_FADE_MS);
+        vTaskDelay(pdMS_TO_TICKS(DEEP_FADE_MS + 100));
+        mao_audio_suspend();
+        if (mao_display_lock(500)) {
+            vTaskDelay(pdMS_TO_TICKS(40));
+            mao_display_panel_sleep(true);
+        }
+        mao_radio_sleep(true);
+    }
+    peripherals_deep(MAO_SENSE_OFF);
+    s_rtc_marker = MAO_PWR_RTC_MAGIC;
+    s_rtc_critical = CRITICAL_MAGIC;
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+    const mao_board_wake_t want = { .press = true };
+    mao_board_deep_sleep_prepare(&want, NULL);
+#if CONFIG_MAO_BATTERY_CRITICAL_SLEEP
+    esp_sleep_enable_timer_wakeup((uint64_t)CONFIG_MAO_BATTERY_CRITICAL_RECHECK_MIN * 60u * 1000000u);
+#endif
+    ESP_LOGW(TAG, "critical battery: deep sleep (the press wakes it; recheck timer)");
+    vTaskDelay(pdMS_TO_TICKS(20));
     esp_deep_sleep_start();
 }
 
@@ -271,7 +381,9 @@ static void power_task(void *arg)
     for (;;) {
         uint32_t bits = 0;
         xTaskNotifyWait(0, UINT32_MAX, &bits, portMAX_DELAY);
-        if (bits & NOTIFY_DEEP) {
+        if (bits & NOTIFY_CRITICAL) {
+            critical_rest(false);
+        } else if (bits & NOTIFY_DEEP) {
             deep_rest(s_deep_s);
         } else if (bits & NOTIFY_REST) {
             light_rest();
@@ -297,6 +409,26 @@ bool mao_app_power_init(void)
     s_rtc_crumb = 0;
     mao_power_init(&s_pwr);
     mao_wake_eat_reset(&s_eat);
+    const bool from_critical = s_from_deep && s_rtc_critical == CRITICAL_MAGIC;
+    s_rtc_critical = 0;
+    if (s_from_deep) {
+        /* the folded continuity: how long MAO slept (RTC clock; the RC
+         * slow clock's accuracy is VERIFY AT BRING-UP) */
+        const uint64_t now = esp_rtc_get_time_us();
+        const uint64_t slept_ms = now > s_rtc_sleep_at_us ? (now - s_rtc_sleep_at_us) / 1000u : 0;
+        mao_perception_woke(slept_ms);
+        ESP_LOGI(TAG, "slept %" PRIu64 " s%s", slept_ms / 1000u, from_critical ? " (critical battery)" : "");
+    }
+    if (from_critical && (causes & (1u << ESP_SLEEP_WAKEUP_TIMER))) {
+        /* The recheck timer: still critical on battery? Then back to sleep
+         * before the screen lights (the display is up, backlight 0). */
+        mao_battery_status_t st;
+        mao_battery_get_status(&st);
+        if (st.gauge && !st.usb_present && st.voltage_mv < CONFIG_MAO_BATTERY_CRITICAL_MV) {
+            ESP_LOGW(TAG, "recheck: still critical (%u mV), back to sleep", st.voltage_mv);
+            critical_rest(true);
+        }
+    }
     const esp_timer_create_args_t args = { .callback = rest_timer_cb, .name = "mao_rest" };
     esp_timer_create(&args, &s_rest_timer);
     xTaskCreate(power_task, "mao_power", 3072, NULL, 4, &s_task);
@@ -446,6 +578,36 @@ bool mao_app_power_eat(mao_event_type_t t, bool dimmed)
         ESP_LOGI(TAG, "%s woke MAO (not acted on)", t == MAO_EVENT_INPUT_PRESS ? "press" : "turn");
     }
     return eat;
+}
+
+/* MAO_EVENT_BATTERY_CRITICAL: the critical-battery sleep. Not on USB (the
+ * cell is being charged), and a FORGET being committed or a pairing is
+ * given up to 30 s to finish. */
+void mao_app_power_critical(void)
+{
+    static int64_t s_first_us;
+#if CONFIG_MAO_BATTERY_CRITICAL_SLEEP
+    if (mao_battery_usb_present() || s_resting) {
+        return;
+    }
+    const int64_t now = esp_timer_get_time();
+    s_first_us = s_first_us ? s_first_us : now;
+    mao_pwr_busy_t b;
+    busy_now(&b);
+    if (mao_power_busy(&b) && now - s_first_us < 30LL * 1000000) {
+        log_busy("critical battery sleep", &b);
+        return;                                    /* the battery monitor reports it again */
+    }
+    esp_timer_stop(s_rest_timer);
+    ESP_LOGW(TAG, "critical battery: MAO falls asleep");
+    mao_app_doze();
+    mao_ui_sleep_mark(true);
+    mao_display_fade_brightness(MAO_PWR_SLEEP_PCT, 800);
+    s_resting = true;
+    xTaskNotify(s_task, NOTIFY_CRITICAL, eSetBits);
+#else
+    (void)s_first_us;
+#endif
 }
 
 /* DEV: "deepsleep <s>" (MAO_EVENT_POWER_DEEP). Never while busy. */

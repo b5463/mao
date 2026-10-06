@@ -70,3 +70,22 @@ bool mao_home_tick(float dt, uint32_t now_ms)
     }
     return !s_eyes_opened && s_boot_at != 0;
 }
+
+/* Fatal hardware fault: the name stays, with a quiet service code under it
+ * instead of the character (which never appears: no boot runs). No debug
+ * text in normal operation; the console explains. */
+void mao_home_fault(const char *code)
+{
+    static lv_obj_t *s_code;
+    static mao_text_cache_t s_code_cache;
+    mao_ui_text_cache_reset(&s_cache);
+    mao_ui_text_place(s_word, 0.0f, -14.0f, 255.0f, &s_cache);
+    if (!s_code) {
+        s_code = mao_ui_make_text(lv_obj_get_parent(s_word), MAO_FONT_SMALL, MAO_COL_DIM, 3, NULL);
+        mao_ui_text_cache_reset(&s_code_cache);
+    }
+    lv_label_set_text(s_code, code ? code : "SERVICE");
+    mao_ui_text_place(s_code, 0.0f, 26.0f, 255.0f, &s_code_cache);
+    s_boot_at = 0;
+    s_eyes_opened = true;            /* nothing to open */
+}

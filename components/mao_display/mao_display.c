@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "sdkconfig.h"
 #include "esp_check.h"
 #include "esp_lcd_panel_ops.h"
@@ -12,11 +13,22 @@
 #include "esp_timer.h"
 #include "mao_board.h"
 #include "mao_lvgl.h"
+#include "mao_settings.h"
 #include "mao_system.h"
 
 static const char *TAG = "MAO_DISPLAY";
 
+#define API_LOCK_MS         1000
+
 static mao_lvgl_t s_lvgl;
+static uint8_t s_brightness;        /* the last level asked for (restored after a rail cycle) */
+static uint16_t s_rotation;
+static bool s_rail_off;             /* switched off on request (self-test): rendering paused */
+
+/* Test layer (factory self-test): a full-screen plate above every view. */
+static lv_obj_t *s_test_plate;
+static lv_obj_t *s_test_big;
+static lv_obj_t *s_test_small;
 
 /* ------------------------------------------------------------------------ */
 /* Frame performance probe (development builds)                             */
@@ -274,6 +286,169 @@ esp_err_t mao_display_snapshot_dump(void)
 #endif
 
 /* ------------------------------------------------------------------------ */
+/* Rotation                                                                 */
+/* ------------------------------------------------------------------------ */
+
+static bool rotation_valid(int deg)
+{
+    return deg == 0 || deg == 90 || deg == 180 || deg == 270;
+}
+
+/* LVGL lock held. LVGL swaps its logical axes and esp_lvgl_port turns the
+ * rotation into the panel's MADCTL (hardware rotation, no extra buffer). */
+static void apply_rotation(uint16_t deg)
+{
+    static const lv_display_rotation_t kRot[] = {
+        LV_DISPLAY_ROTATION_0, LV_DISPLAY_ROTATION_90, LV_DISPLAY_ROTATION_180, LV_DISPLAY_ROTATION_270,
+    };
+    lv_display_set_rotation(s_lvgl.disp, kRot[(deg / 90) & 3]);
+    lv_obj_invalidate(lv_screen_active());
+    lv_obj_invalidate(lv_layer_top());
+    s_rotation = deg;
+}
+
+esp_err_t mao_display_set_rotation(uint16_t degrees)
+{
+    ESP_RETURN_ON_FALSE(rotation_valid(degrees), ESP_ERR_INVALID_ARG, TAG, "rotation must be 0/90/180/270");
+    ESP_RETURN_ON_FALSE(s_lvgl.disp, ESP_ERR_INVALID_STATE, TAG, "display not initialised");
+    ESP_RETURN_ON_FALSE(lvgl_port_lock(API_LOCK_MS), ESP_ERR_TIMEOUT, TAG, "lvgl lock");
+    apply_rotation(degrees);
+    lvgl_port_unlock();
+    ESP_LOGI(TAG, "rotation %u deg", degrees);
+    return ESP_OK;
+}
+
+uint16_t mao_display_get_rotation(void)
+{
+    return s_rotation;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Factory test helpers                                                     */
+/* ------------------------------------------------------------------------ */
+
+static void test_plate_create(void)
+{
+    s_test_plate = lv_obj_create(lv_layer_top());
+    lv_obj_remove_style_all(s_test_plate);
+    lv_obj_set_size(s_test_plate, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_opa(s_test_plate, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(s_test_plate, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    s_test_big = lv_label_create(s_test_plate);
+    lv_obj_set_style_text_font(s_test_big, &lv_font_montserrat_48, 0);
+    lv_obj_align(s_test_big, LV_ALIGN_CENTER, 0, -12);
+    s_test_small = lv_label_create(s_test_plate);
+    lv_obj_set_style_text_font(s_test_small, &lv_font_montserrat_20, 0);
+    lv_obj_align(s_test_small, LV_ALIGN_CENTER, 0, 34);
+}
+
+esp_err_t mao_display_test_show(uint32_t bg_rgb, uint32_t fg_rgb, const char *big, const char *small)
+{
+    ESP_RETURN_ON_FALSE(s_lvgl.disp, ESP_ERR_INVALID_STATE, TAG, "display not initialised");
+    ESP_RETURN_ON_FALSE(lvgl_port_lock(API_LOCK_MS), ESP_ERR_TIMEOUT, TAG, "lvgl lock");
+    if (!s_test_plate) {
+        test_plate_create();
+    }
+    lv_obj_set_style_bg_color(s_test_plate, lv_color_hex(bg_rgb), 0);
+    lv_obj_set_style_text_color(s_test_big, lv_color_hex(fg_rgb), 0);
+    lv_obj_set_style_text_color(s_test_small, lv_color_hex(fg_rgb), 0);
+    lv_label_set_text(s_test_big, big ? big : "");
+    lv_label_set_text(s_test_small, small ? small : "");
+    lv_obj_align(s_test_big, LV_ALIGN_CENTER, 0, small && small[0] ? -12 : 0);
+    lv_obj_remove_flag(s_test_plate, LV_OBJ_FLAG_HIDDEN);
+    lvgl_port_unlock();
+    return ESP_OK;
+}
+
+void mao_display_test_clear(void)
+{
+    if (s_lvgl.disp && s_test_plate && lvgl_port_lock(API_LOCK_MS)) {
+        lv_obj_add_flag(s_test_plate, LV_OBJ_FLAG_HIDDEN);
+        lvgl_port_unlock();
+    }
+}
+
+esp_err_t mao_display_rail(bool on)
+{
+    ESP_RETURN_ON_FALSE(s_lvgl.disp, ESP_ERR_INVALID_STATE, TAG, "display not initialised");
+    ESP_RETURN_ON_FALSE(lvgl_port_lock(API_LOCK_MS), ESP_ERR_TIMEOUT, TAG, "lvgl lock");
+    esp_err_t err = ESP_OK;
+    if (!on && !s_rail_off) {
+        /* Rendering pauses first: with the rail off nothing may be flushed,
+         * or DC and the bus would back-power the unpowered panel. The lock
+         * stays free, so the UI keeps working (it just is not drawn). */
+        lvgl_port_stop();
+        err = mao_board_rail_set(MAO_RAIL_DISPLAY, false);
+        if (err == ESP_OK) {
+            s_rail_off = true;
+        } else {
+            lvgl_port_resume();
+        }
+    } else if (on && s_rail_off) {
+        err = mao_board_rail_set(MAO_RAIL_DISPLAY, true);   /* re-initialises the panel */
+        if (err == ESP_OK) {
+            esp_lcd_panel_disp_on_off(s_lvgl.panel, true);
+            lv_obj_invalidate(lv_screen_active());
+            lv_obj_invalidate(lv_layer_top());
+            mao_board_backlight_set(s_brightness);
+        }
+        s_rail_off = false;
+        lvgl_port_resume();
+    }
+    lvgl_port_unlock();
+    return err;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Development console                                                      */
+/* ------------------------------------------------------------------------ */
+
+#if CONFIG_MAO_DEV_CONSOLE
+
+/* rotate [0|90|180|270|save|default]  (display rotation, bring-up) */
+static void devcmd_rotate(char *arg)
+{
+    const char *args = arg ? arg : "";
+    const int16_t saved = mao_settings_get()->display_rotation;
+    if (args[0] == '\0') {
+        ESP_LOGI(TAG, "rotation %u deg (board default %u, saved override %s%d)", s_rotation,
+                 s_lvgl.board_rotation, saved < 0 ? "none " : "", saved < 0 ? 0 : saved);
+        return;
+    }
+    if (strcmp(args, "save") == 0) {
+        const esp_err_t err = mao_settings_set_display_rotation((int16_t)s_rotation);
+        ESP_LOGI(TAG, "dev: rotation %u deg saved: %s", s_rotation, esp_err_to_name(err));
+        return;
+    }
+    if (strcmp(args, "default") == 0) {
+        mao_settings_set_display_rotation(MAO_SETTINGS_ROTATION_DEFAULT);
+        mao_display_set_rotation(s_lvgl.board_rotation);
+        ESP_LOGI(TAG, "dev: rotation back to the board default %u deg (override cleared)", s_lvgl.board_rotation);
+        return;
+    }
+    const int deg = atoi(args);
+    if (!rotation_valid(deg) || (deg == 0 && args[0] != '0')) {
+        ESP_LOGW(TAG, "dev: rotate [0|90|180|270|save|default]");
+        return;
+    }
+    mao_display_set_rotation((uint16_t)deg);
+    ESP_LOGI(TAG, "dev: rotation %d deg (live; 'mao rotate save' keeps it)", deg);
+}
+
+static void register_devcmds(void)
+{
+    mao_devcmd_register("rotate", devcmd_rotate);
+}
+
+#else
+
+static void register_devcmds(void)
+{
+}
+
+#endif
+
+/* ------------------------------------------------------------------------ */
 
 esp_err_t mao_display_init(void)
 {
@@ -290,7 +465,18 @@ esp_err_t mao_display_init(void)
 #if CONFIG_MAO_DEV_CONSOLE
     snap_attach(s_lvgl.disp);
 #endif
+    /* Mounting rotation: the board's, unless a bring-up override was saved.
+     * Rotation 0 (the LCDkit's mounting) is the panel's own state: nothing
+     * to apply. */
+    const int16_t override = mao_settings_get()->display_rotation;
+    const uint16_t rotation = rotation_valid(override) ? (uint16_t)override : s_lvgl.board_rotation;
+    if (rotation != 0) {
+        apply_rotation(rotation);
+        ESP_LOGI(TAG, "display rotation %u deg (%s)", rotation,
+                 rotation_valid(override) ? "saved override" : "board default");
+    }
     lvgl_port_unlock();
+    register_devcmds();
 
     mao_system_log_heap(TAG, "after display init");
     return ESP_OK;
@@ -298,6 +484,7 @@ esp_err_t mao_display_init(void)
 
 esp_err_t mao_display_start(uint8_t brightness_percent)
 {
+    ESP_RETURN_ON_FALSE(s_lvgl.disp, ESP_ERR_INVALID_STATE, TAG, "display not initialised");
     /* Draw the first real frame while the panel is still dark, so nothing
      * uninitialised is ever visible, then light it up. */
     ESP_RETURN_ON_FALSE(lvgl_port_lock(0), ESP_ERR_TIMEOUT, TAG, "lvgl lock");
@@ -313,23 +500,34 @@ esp_err_t mao_display_start(uint8_t brightness_percent)
     return mao_display_set_brightness(brightness_percent);
 }
 
+/* A display that failed to initialise has no LVGL port: refusing the lock
+ * lets the UI skip its work instead of asserting, so the boot continues. */
+bool mao_display_ok(void)
+{
+    return s_lvgl.disp != NULL;
+}
+
 bool mao_display_lock(uint32_t timeout_ms)
 {
-    return lvgl_port_lock(timeout_ms);
+    return s_lvgl.disp && lvgl_port_lock(timeout_ms);
 }
 
 void mao_display_unlock(void)
 {
-    lvgl_port_unlock();
+    if (s_lvgl.disp) {
+        lvgl_port_unlock();
+    }
 }
 
 esp_err_t mao_display_set_brightness(uint8_t percent)
 {
+    s_brightness = percent;
     return mao_board_backlight_set(percent);
 }
 
 esp_err_t mao_display_fade_brightness(uint8_t percent, uint32_t fade_ms)
 {
+    s_brightness = percent;
     return mao_board_backlight_fade(percent, fade_ms);
 }
 

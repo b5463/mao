@@ -116,6 +116,7 @@ void mao_ui_sleep_mark_now(bool on);
 void mao_home_sleep_mark_set(bool on);   /* eased */
 bool mao_home_rest_mark_layout(float dt);   /* mao_ui_rest_mark.c: true while it moves */
 void mao_home_wake_boot(uint32_t now_ms);
+void mao_home_fault(const char *code);
 
 /* HOME's dots (mao_ui_home_dots.c): drawn inside the dot layer's frame,
  * which mao_ui_devices.c owns. Layout returns true while anything moves. */

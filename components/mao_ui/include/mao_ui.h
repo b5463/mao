@@ -188,6 +188,10 @@ void mao_ui_boot(void);
 /* The short wake after MAO's own (DEV) deep sleep: the resting mark, then
  * the eyes open from the centre - no brand boot. */
 void mao_ui_wake_boot(void);
+/* Fatal hardware fault (no input, no display that works well enough): the
+ * name with a quiet service code under it ("SERVICE 02"), no character, no
+ * boot. Instead of mao_ui_boot(). */
+void mao_ui_fault(const char *code);
 /* Asleep (M4.1 power): true - the eyes gather into the centre and go, the
  * ODD JOBS symbol rests there, dim; false - it gives way and the eyes open
  * from the centre. */

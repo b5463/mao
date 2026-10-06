@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "mao_events.h"
+#include "mao_percept.h"
 #include "mao_ui.h"
 #include "mao_world.h"
 
@@ -164,8 +165,14 @@ void mao_app_power_woken(int32_t value, int64_t now);
 void mao_app_power_input(void);
 bool mao_app_power_eat(mao_event_type_t t, bool dimmed);
 void mao_app_power_deep(uint32_t seconds);
+void mao_app_power_critical(void);            /* MAO_EVENT_BATTERY_CRITICAL */
 void mao_app_power_dev_rest(bool night, bool force, uint32_t wake_s);   /* DEV */
 void mao_app_power_dev_status(void);                                     /* DEV */
 bool mao_app_rel_forgetting(void);            /* a FORGET is being committed */
 void mao_app_doze(void);                      /* HOME, the sleepy state (as after the idle timeout) */
 void mao_app_wake_now(int64_t now);           /* awake, as after an input */
+
+/* Percepts (mao_app_percept.c, boards with sensors): what MAO does about
+ * what it noticed. */
+void mao_app_percept_init(void);
+void mao_app_on_percept(const mao_percept_msg_t *m, int64_t now_us);

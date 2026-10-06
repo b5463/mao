@@ -33,6 +33,25 @@ esp_err_t mao_display_fade_brightness(uint8_t percent, uint32_t fade_ms);
 /* The panel's sleep mode (picture kept, scanning stopped); display lock held. */
 esp_err_t mao_display_panel_sleep(bool sleep);
 
+/* The panel came up (false: the UI runs headless, nothing is drawn). */
+bool mao_display_ok(void);
+
+/* Image rotation on the panel, clockwise degrees (0/90/180/270). Starts at
+ * the board's mounting rotation (A1: 90, the tail at 9 o'clock) or the
+ * override saved with "mao rotate save"; changing it is live and costs
+ * nothing per frame (MADCTL). */
+esp_err_t mao_display_set_rotation(uint16_t degrees);
+uint16_t mao_display_get_rotation(void);
+
+/* Factory self-test helpers. A full-screen plate above every view with an
+ * optional big / small text line (rgb as 0xRRGGBB); clear hides it. */
+esp_err_t mao_display_test_show(uint32_t bg_rgb, uint32_t fg_rgb, const char *big, const char *small);
+void mao_display_test_clear(void);
+/* Self-test: switch the panel rail off (rendering pauses, the UI keeps
+ * running undrawn) or on again (panel re-initialised and redrawn).
+ * ESP_ERR_NOT_SUPPORTED where the rail is not switchable. */
+esp_err_t mao_display_rail(bool on);
+
 /* Development: stream the current screen as base64 RGB565 over the console
  * (tools/mao_snap.py). Needs ~115 KB of free heap for a moment. */
 esp_err_t mao_display_snapshot_dump(void);

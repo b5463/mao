@@ -413,6 +413,11 @@ static void register_devcmds(void)
 
 esp_err_t mao_battery_init(void)
 {
+#if CONFIG_MAO_BOARD_LCDKIT
+    /* Nothing of this on the LCDkit, and none of its code or RAM in the
+     * image (the rest of this function is dead there and dropped). */
+    return ESP_ERR_NOT_SUPPORTED;
+#endif
     mao_board_get_caps(&s_caps);
     if (!s_caps.power_status) {
         return ESP_ERR_NOT_SUPPORTED;
