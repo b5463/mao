@@ -1,5 +1,9 @@
 """MAO_MAIN board pipeline: one command from circuit.py to a routed board (plain Python 3 driver).
 
+Environment (A1 was built on Windows with KiCad 10.0.6): KICAD_PY = KiCad's python.exe, KICAD_CLI = kicad-cli.exe,
+KICAD_SHARE = <KiCad>/share/kicad, ROUTER_PY = a Python with numpy/scipy/numba/Pillow (and PyMuPDF for review.py
+plots, PYMUPDF_PY).
+
     python3 pipeline.py all          # capture -> placement -> plane vias -> route -> check
     python3 pipeline.py route        # from the placed board: plane vias, grid router, apply, check
     python3 pipeline.py <step> ...   # any single step below
@@ -15,7 +19,7 @@ import sys
 from netrules import CACHE, NAME, OUTPUTS, ROOT, ROUTE_ORDER
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-KIPY = os.environ.get('KICAD_PY', os.path.expanduser(
+KIPY = os.environ.get('KICAD_PY', os.path.expanduser(        # Windows: C:/Program Files/KiCad/10.0/bin/python.exe
     '~/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3'))
 VENV = os.environ.get('ROUTER_PY', '')          # Python with numpy/scipy/numba/Pillow for grid_router
 BOARD = ROOT / (NAME + '.kicad_pcb')
@@ -43,13 +47,12 @@ def restore(name):
 
 
 # ground pins beside an exposed pad join it on the part's own layer (ODD JOBS 16: shortest return)
-EP_LINKS = ['U501.3>U501.17', 'U501.11>U501.17', 'U501.15>U501.17', 'U202.6>U202.17', 'U202.16>U202.17',
-            'U103.6>U103.9']
+EP_LINKS = ['U501.3>U501.17', 'U501.11>U501.17', 'U501.15>U501.17', 'U102.5>U102.11', 'U103.6>U103.9']
 
 # 4 layers: neighbouring plane pins share one via to In1 / In2 (brief: fewer vias than the 6-layer A0)
 SHARE = ['--share', '1.6']
 # pour-joined resistors whose GND pad the routing boxes in (DRC: starved thermal / island): own via up front
-POUR_BOXED = ['R105.2', 'R114.2', 'R116.2', 'R207.2', 'R211.2', 'R403.2', 'R504.2', 'SW301.2', 'TP2.1']
+POUR_BOXED = ['R504.2', 'SW301.2', 'TP2.1']
 
 def starved_pads():
     """GND pads DRC reports as starved thermals (pour-joined resistors boxed in by routing): each gets its own via."""

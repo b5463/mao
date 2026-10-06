@@ -1,4 +1,4 @@
-"""Write MAO_MAIN_A0.kicad_pro: JLCPCB-safe design rules and net classes (ODD JOBS 84-86, 180).
+"""Write MAO_MAIN_A1.kicad_pro: JLCPCB-safe design rules and net classes (ODD JOBS 84-86, 180).
 
 Base settings come from project_base.json (the KINO D4 carrier project, stripped of its own net
 classes), so every KiCad 10 key exists; MAO-specific rules are applied on top.
@@ -18,18 +18,16 @@ BASE = Path(__file__).with_name('project_base.json')
 
 CLASSES = [
     # name, track, clearance, via dia, via drill, nets
-    ('Battery', 0.4, 0.15, 0.6, 0.3, ['VBAT', 'BAT_RAW', 'BAT_IN', 'VSYS']),
+    ('Battery', 0.4, 0.15, 0.6, 0.3, ['VBAT', 'BAT_RAW', 'BAT_IN', 'VSYS', 'REG_IN']),
     ('USBPower', 0.4, 0.15, 0.6, 0.3, ['VBUS']),
     ('Rail3V3', 0.4, 0.15, 0.6, 0.3, ['+3V3']),
-    ('Switched', 0.3, 0.15, 0.6, 0.3, ['3V3_LCD', 'LCD_BL_K', 'LCD_BL_D', 'MIC_VDD', 'IR_RX_VCC']),
+    ('Switched', 0.3, 0.15, 0.6, 0.3, ['3V3_LCD', 'AUX_3V3', 'IR_RX_VCC', 'LCD_BL_K', 'BL_SENSE']),
     ('Speaker', 0.4, 0.15, 0.6, 0.3, ['SPK_P', 'SPK_N']),
     ('Actuator', 0.3, 0.15, 0.6, 0.3, ['LRA_P', 'LRA_N', 'IR_LED_K', 'IR_LED_A1', 'IR_LED_A2']),
-    ('Switch', 0.4, 0.15, 0.6, 0.3, ['BB_L1', 'BB_L2']),
-    ('USB', 0.25, 0.15, 0.6, 0.3, ['USB_DP', 'USB_DN']),
+    ('Switch', 0.4, 0.15, 0.6, 0.3, ['REG_SW']),
+    ('USB', 0.25, 0.15, 0.6, 0.3, ['USB_DP', 'USB_DN', 'USB_C_DP', 'USB_C_DN']),
     # fine-pitch IC pads sit 0.15 mm apart, so every class keeps the 0.15 mm rule at the pads;
-    # wider spacing for power, switch and touch nets is enforced by the router (netrules / grid_router)
-    ('Touch', 0.15, 0.15, 0.6, 0.3, ['TOUCH_LEFT_E', 'TOUCH_RIGHT_E', 'TOUCH_TOP_E', 'TOUCH_REAR_E',
-                                    'TOUCH_LEFT', 'TOUCH_RIGHT', 'TOUCH_TOP', 'TOUCH_REAR']),
+    # wider spacing for power and switch nets is enforced by the router (netrules / grid_router)
 ]
 
 

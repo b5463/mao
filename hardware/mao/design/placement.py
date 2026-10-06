@@ -23,7 +23,7 @@ import mechanical as m
 
 P = {}
 # F.Cu part keep-out: the display tail drops past the slot at 9 o'clock.
-KEEP_F = [m.TAIL_F_CLEAR]
+KEEP_F = [m.TAIL_F_CLEAR, m.TAIL_WELL]
 # B.Cu part keep-outs: the tail corridor between the slot and J301 (no part at all).
 KEEP_B = [m.TAIL_CORRIDOR]
 BUS_PARTS = ()
@@ -149,9 +149,9 @@ pin('R118', 0, 'F', '2', 'U102', '9', -1.4, 0.45)         # STAT1 pull-up
 at('U104', 5.5, -11.0, 180, 'B')
 pin('C105', 90, 'B', '1', 'U104', '2', 1.3, 0.25)         # CIN 4.7 uF across VIN and GND (pins 2, 1)
 pin('L101', 180, 'B', '1', 'U104', '7', -1.5, 0.0)        # SW -> inductor
-pin('C106', 0, 'B', '1', 'U104', '8', -2.3, -1.3)         # COUT 10 uF from the inductor's +3V3 end
-pin('R111', 0, 'B', '1', 'U104', '5', -1.4, -0.4)         # VSET 102k (no capacitance on VSET)
-pin('R122', 90, 'B', '2', 'C105', '1', 1.6, -0.2)         # LINK_REG: VSYS -> REG_IN beside CIN
+at('C106', 1.9, -14.05, 90, 'B')                          # COUT 10 uF straight below the inductor's +3V3 end
+at('R111', 3.15, -9.4, 180, 'B')                          # VSET 102k (no capacitance on VSET)
+at('R122', 9.45, -10.2, 90, 'B')                          # LINK_REG: VSYS (south) -> REG_IN (north) beside CIN
 
 # ==== IR transmit: 12 o'clock edge (B, A0 places) =====================================================
 P['D501'] = rim(27.7, m.IR_TX_ANGLES[0], 'B', extra=180)
@@ -168,7 +168,7 @@ at('J301', round(m.TAIL_ENTRY_X + 2.85, 3), 0.0, 90, 'B')
 pin('R301', 0, 'B', '1', 'U201', '16', 0.0, -1.9)         # 22R on SCLK and MOSI at the module pins
 pin('R302', 90, 'B', '1', 'U201', '15', -1.6, 0.0)
 at('U105', -9.0, 4.2, 0, 'F')                              # TPS22916C: VOUT drops to J301 pad 3 (VCI)
-at('C109', -11.5, 4.0, 180, 'F')                           # VOUT 1 uF, its 3V3_LCD end towards the switch
+at('C109', -11.5, 4.75, 180, 'F')                          # VOUT 1 uF, its 3V3_LCD end towards the switch
 at('C110', -6.45, 3.85, 0, 'F')                              # VIN 1 uF
 at('R116', -6.45, 5.15, 0, 'F')                             # ON pull-down
 at('C301', -11.3, 2.0, 0, 'F')                             # panel VCI HF beside the VCI via
@@ -193,10 +193,10 @@ pin('C201', 270, 'B', '1', 'U201', '3', -3.1, 0.0)         # 3V3 bulk beside it
 pin('R202', 0, 'B', '2', 'U201', '4', -1.6, -0.6)          # BOOT pull-up at pin 4
 pin('R201', 90, 'B', '2', 'U201', '45', 1.6, 0.0)          # EN pull-up at pin 45
 pin('C203', 90, 'B', '1', 'U201', '45', 2.9, 0.0)          # EN delay
-pin('R216', 90, 'B', '2', 'U201', '23', -0.4, -1.9)        # USB 22R at pins 23 (D-) and 24 (D+)
-pin('R215', 90, 'B', '2', 'U201', '24', 0.6, -1.9)
-pin('C207', 90, 'B', '1', 'R216', '2', -1.1, 0.0)          # DNP 10 pF on the module side
-pin('C206', 90, 'B', '1', 'R215', '2', 1.1, 0.0)
+at('R216', -0.5, 6.0, 270, 'B')                           # USB 22R at pins 23 (D-) and 24 (D+), module end south
+at('R215', 1.6, 6.0, 270, 'B')
+at('C207', -1.75, 6.0, 90, 'B')                          # DNP 10 pF on the module side
+at('C206', 2.9, 6.0, 90, 'B')
 
 # ==== audio: amplifier beside the speaker, 9 o'clock (B, A0 places) =====================================
 at('U501', -14.4, -8.7, 0, 'B')
@@ -217,8 +217,8 @@ at('R209', -12.4, round(14.85 + DYM, 3), 270, 'B')        # EN pull-down below p
 at('U401', 3.2, 7.0, 0, 'F')
 at('C402', 2.2, 9.25, 0, 'F')              # VDDIO 10 nF under pin 5
 at('C401', 4.843, 9.25, 180, 'F')          # VDD 100 nF under pin 8
-pin('C408', 90, 'F', '1', 'U401', '8', 1.6, 0.4)           # VDD 2.2 uF
-pin('R404', 90, 'F', '2', 'U401', '4', -1.3, 0.0)          # INT1 pull-up
+at('C408', 6.7, 7.0, 0, 'F')                                # VDD 2.2 uF X7R
+at('R404', 0.3, 7.75, 0, 'F')                              # INT1 pull-up level with pin 4
 
 # ==== Tag-Connect at the module's UART pins (B) ========================================================
 at('J201', 14.4, 16.6, 90, 'B')

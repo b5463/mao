@@ -327,11 +327,11 @@
         "line_style": 0,
         "microvia_diameter": 0.3,
         "microvia_drill": 0.1,
-        "name": "Actuator",
+        "name": "Battery",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 5,
+        "priority": 0,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.3,
+        "track_width": 0.4,
         "tuning_profile": "",
         "via_diameter": 0.6,
         "via_drill": 0.3,
@@ -346,9 +346,9 @@
         "line_style": 0,
         "microvia_diameter": 0.3,
         "microvia_drill": 0.1,
-        "name": "Battery",
+        "name": "USBPower",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 0,
+        "priority": 1,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.4,
         "tuning_profile": "",
@@ -384,11 +384,49 @@
         "line_style": 0,
         "microvia_diameter": 0.3,
         "microvia_drill": 0.1,
+        "name": "Switched",
+        "pcb_color": "rgba(0, 0, 0, 0.000)",
+        "priority": 3,
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.3,
+        "tuning_profile": "",
+        "via_diameter": 0.6,
+        "via_drill": 0.3,
+        "wire_width": 6
+      },
+      {
+        "bus_width": 12,
+        "clearance": 0.15,
+        "diff_pair_gap": 0.15,
+        "diff_pair_via_gap": 0.25,
+        "diff_pair_width": 0.25,
+        "line_style": 0,
+        "microvia_diameter": 0.3,
+        "microvia_drill": 0.1,
         "name": "Speaker",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "priority": 4,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.4,
+        "tuning_profile": "",
+        "via_diameter": 0.6,
+        "via_drill": 0.3,
+        "wire_width": 6
+      },
+      {
+        "bus_width": 12,
+        "clearance": 0.15,
+        "diff_pair_gap": 0.15,
+        "diff_pair_via_gap": 0.25,
+        "diff_pair_width": 0.25,
+        "line_style": 0,
+        "microvia_diameter": 0.3,
+        "microvia_drill": 0.1,
+        "name": "Actuator",
+        "pcb_color": "rgba(0, 0, 0, 0.000)",
+        "priority": 5,
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.3,
         "tuning_profile": "",
         "via_diameter": 0.6,
         "via_drill": 0.3,
@@ -422,68 +460,11 @@
         "line_style": 0,
         "microvia_diameter": 0.3,
         "microvia_drill": 0.1,
-        "name": "Switched",
-        "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 3,
-        "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.3,
-        "tuning_profile": "",
-        "via_diameter": 0.6,
-        "via_drill": 0.3,
-        "wire_width": 6
-      },
-      {
-        "bus_width": 12,
-        "clearance": 0.15,
-        "diff_pair_gap": 0.15,
-        "diff_pair_via_gap": 0.25,
-        "diff_pair_width": 0.25,
-        "line_style": 0,
-        "microvia_diameter": 0.3,
-        "microvia_drill": 0.1,
-        "name": "Touch",
-        "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 8,
-        "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.15,
-        "tuning_profile": "",
-        "via_diameter": 0.6,
-        "via_drill": 0.3,
-        "wire_width": 6
-      },
-      {
-        "bus_width": 12,
-        "clearance": 0.15,
-        "diff_pair_gap": 0.15,
-        "diff_pair_via_gap": 0.25,
-        "diff_pair_width": 0.25,
-        "line_style": 0,
-        "microvia_diameter": 0.3,
-        "microvia_drill": 0.1,
         "name": "USB",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "priority": 7,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.25,
-        "tuning_profile": "",
-        "via_diameter": 0.6,
-        "via_drill": 0.3,
-        "wire_width": 6
-      },
-      {
-        "bus_width": 12,
-        "clearance": 0.15,
-        "diff_pair_gap": 0.15,
-        "diff_pair_via_gap": 0.25,
-        "diff_pair_width": 0.25,
-        "line_style": 0,
-        "microvia_diameter": 0.3,
-        "microvia_drill": 0.1,
-        "name": "USBPower",
-        "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 1,
-        "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.4,
         "tuning_profile": "",
         "via_diameter": 0.6,
         "via_drill": 0.3,
@@ -513,6 +494,10 @@
         "pattern": "VSYS"
       },
       {
+        "netclass": "Battery",
+        "pattern": "REG_IN"
+      },
+      {
         "netclass": "USBPower",
         "pattern": "VBUS"
       },
@@ -526,19 +511,19 @@
       },
       {
         "netclass": "Switched",
-        "pattern": "LCD_BL_K"
-      },
-      {
-        "netclass": "Switched",
-        "pattern": "LCD_BL_D"
-      },
-      {
-        "netclass": "Switched",
-        "pattern": "MIC_VDD"
+        "pattern": "AUX_3V3"
       },
       {
         "netclass": "Switched",
         "pattern": "IR_RX_VCC"
+      },
+      {
+        "netclass": "Switched",
+        "pattern": "LCD_BL_K"
+      },
+      {
+        "netclass": "Switched",
+        "pattern": "BL_SENSE"
       },
       {
         "netclass": "Speaker",
@@ -570,11 +555,7 @@
       },
       {
         "netclass": "Switch",
-        "pattern": "BB_L1"
-      },
-      {
-        "netclass": "Switch",
-        "pattern": "BB_L2"
+        "pattern": "REG_SW"
       },
       {
         "netclass": "USB",
@@ -585,36 +566,12 @@
         "pattern": "USB_DN"
       },
       {
-        "netclass": "Touch",
-        "pattern": "TOUCH_LEFT_E"
+        "netclass": "USB",
+        "pattern": "USB_C_DP"
       },
       {
-        "netclass": "Touch",
-        "pattern": "TOUCH_RIGHT_E"
-      },
-      {
-        "netclass": "Touch",
-        "pattern": "TOUCH_TOP_E"
-      },
-      {
-        "netclass": "Touch",
-        "pattern": "TOUCH_REAR_E"
-      },
-      {
-        "netclass": "Touch",
-        "pattern": "TOUCH_LEFT"
-      },
-      {
-        "netclass": "Touch",
-        "pattern": "TOUCH_RIGHT"
-      },
-      {
-        "netclass": "Touch",
-        "pattern": "TOUCH_TOP"
-      },
-      {
-        "netclass": "Touch",
-        "pattern": "TOUCH_REAR"
+        "netclass": "USB",
+        "pattern": "USB_C_DN"
       }
     ]
   },
@@ -635,8 +592,8 @@
     "legacy_lib_list": [],
     "top_level_sheets": [
       {
-        "filename": "MAO_MAIN_A1.kicad_sch",
-        "name": "MAO_MAIN_A1",
+        "filename": "KINO_D4_Carrier_A0.kicad_sch",
+        "name": "KINO_D4_Carrier_A0",
         "uuid": "00000000-0000-0000-0000-000000000000"
       }
     ]
