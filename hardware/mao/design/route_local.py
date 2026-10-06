@@ -4,8 +4,11 @@ Drawn from the real pad coordinates (geo.py) of placement.py and locked, so the 
 Only what decides the board's topology is designed here; the router joins everything else.
 
 USB (ODD JOBS 23): at the receptacle the interleaved contacts are untangled at its pads (D+ joins on F over
-two vias, D- joins on B under them) and the ESD array U101 sits in the pair, exactly as A0. From the ESD array
-the router takes the pair (USB first in its order) to the 22R series resistors at module pins 23/24.
+two vias, D- joins on B under them) and the ESD array U101 sits in the pair, exactly as A0. Since the design review
+(2026-10-06) the pair is designed all the way to the 22R series resistors at module pins 23/24 (USB_PAIR): both lines
+on F over the solid L2 ground at w 0.15 / gap 0.25 (~90 ohm, project.py), through the ESD channels in line, round the
+face switch's east side and in from the north-west to R216/R215; the router no longer takes it (A1's router had
+sent D- down B across the L3 VBUS / +3V3 split).
 Everything A1 kept from A0 at the same place keeps A0's local copper: the face switch's leg joins, J301's VCI
 and ground drops, the amplifier's SD_MODE and ground stubs, the ToF sensor's escape vias, the fuel gauge's I2C
 vias, the Hall pair's vias, the IR receiver's supply and output, the haptic driver, the service-field I2C
@@ -21,6 +24,21 @@ def M(*pts):
     """A0 copper drawn at the WROOM's pre-audit position (parts that did not move: haptic driver)."""
     return [(x, round(y + _m.MODULE_SHIFT, 3)) for x, y in pts]
 
+
+# USB pair (design review 2026-10-06, finding 3): D+ (east member) and D- at its 0.4 mm offset (w 0.15 / gap 0.25).
+# D+ from its F join down the east side of U101 and in line through U101.5; D- up west of the join through one via and
+# in line through U101.3; then together down x -0.7 / -1.1, south-east between the I2C clock (SW) and data (NE), down
+# x 4.65 / 4.25 between the face switch and the I2C clock, west along y 1.8 / 1.4 below the switch and south into the
+# 22R: D- (outer) straight into R216.1, D+ (inner) round into R215.1.
+USB_PAIR = [
+    ('USB_C_DN', 'B', 0.2, [(-0.75, -19.9), (-0.85, -19.8)]), ('USB_C_DN', V, 0.5, [(-0.85, -19.8)]),
+    ('USB_C_DP', 'F', 0.15, [(0.75, -20.75), (0.75, -20.05), (1.0, -19.8), (1.0, -17.788), (0.5, -17.288),
+                             (0.5, -16.4), (-0.7, -15.2), (-0.7, -10.916), (4.65, -5.566), (4.65, 1.32), (4.15, 1.82),
+                             (0.1, 1.82), (-0.2, 2.12), (-0.2, 4.33), (0.0, 4.53), (0.65, 4.53)]),
+    ('USB_C_DN', 'F', 0.15, [(-0.85, -19.8), (-0.85, -19.062), (-0.5, -18.712), (-1.1, -18.112), (-1.1, -10.7503),
+                             (4.25, -5.4003), (4.25, 1.1543), (3.9843, 1.42), (-0.0657, 1.42), (-0.6, 1.9543),
+                             (-0.6, 4.93)]),
+]
 
 # USB presence (design review 2026-10-06, finding 1): the 2N7002 Q102 on F east of the module's right escape
 # column takes VBUS_SENSE on its gate (west pad); its drain (north pad) meets the 100k pull-up R123 and drops through
@@ -39,7 +57,7 @@ USB_PRESENT = [
     ('USB_PRESENT_N', 'B', 0.15, [(-9.3, 17.2), (-9.3, 17.0)]),
 ]
 
-ADD = USB_PRESENT + [
+ADD = USB_PAIR + USB_PRESENT + [
     # ---- USB at the receptacle (B pads, y -21.905), A0 -------------------------------------------------
     ('USB_C_DP', 'B', 0.2, [(-0.25, -21.3), (-0.25, -20.75)]),                        # A6
     ('USB_C_DP', 'B', 0.2, [(0.75, -21.3), (0.75, -20.75)]),                          # B6
@@ -48,10 +66,7 @@ ADD = USB_PRESENT + [
     ('USB_C_DP', 'F', 0.2, [(-0.25, -20.75), (0.75, -20.75)]),                        # D+ joins on F
     ('USB_C_DN', 'B', 0.15, [(0.25, -21.3), (0.25, -19.9)]),                          # A7, between the D+ vias
     ('USB_C_DN', 'B', 0.2, [(-0.75, -21.3), (-0.75, -19.9)]),                         # B7
-    ('USB_C_DN', 'B', 0.2, [(-0.75, -19.9), (0.25, -19.9), (0.75, -19.4), (1.2, -19.4)]),   # D- joins on B
-    ('USB_C_DN', V, 0.5, [(1.2, -19.4)]),
-    ('USB_C_DP', 'F', 0.2, [(-0.25, -20.75), (-0.5, -20.5), (-0.5, -18.712)]),        # U101.3
-    ('USB_C_DN', 'F', 0.2, [(1.2, -19.4), (1.2, -17.7), (0.79, -17.29), (0.5, -17.29)]),    # U101.5
+    ('USB_C_DN', 'B', 0.2, [(-0.75, -19.9), (0.25, -19.9)]),                           # D- joins on B
     ('GND', 'F', 0.2, [(-0.5, -17.29), (-0.5, -16.6)]),                               # ESD ground, between the pair
     ('GND', V, 0.5, [(-0.5, -16.6)]),
     # ---- face switch: each pair of legs is one contact inside the part; join them under the body -------

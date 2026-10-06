@@ -119,8 +119,9 @@ b.R('R2', '5.1k', 'USB_CC2', 'GND', note='Rd')
 b.part('D1', 'Device:D_Zener', 'Diode_SMD:D_SMF', 'SMF15A', {'1': 'VBUS', '2': 'GND'}, lcsc='C123802', mpn='SMF15A',
        mfr='MDD', note='VBUS TVS: 15 V standoff, under the charger 18.5 V OVP trip in normal use, clamps surges')
 b.part('U1', 'Power_Protection:TPD2E2U06DRL', 'Package_TO_SOT_SMD:SOT-553', 'TPD2E2U06',
-       {'3': 'USB_C_DP', '5': 'USB_C_DN', '4': 'GND', '1': NC, '2': NC}, lcsc='C1972959', mpn='TPD2E2U06DRLR', mfr='TI',
-       note='2-ch ESD, 1.5 pF, IEC 61000-4-2 level 4')
+       {'3': 'USB_C_DN', '5': 'USB_C_DP', '4': 'GND', '1': NC, '2': NC}, lcsc='C1972959', mpn='TPD2E2U06DRLR', mfr='TI',
+       note='2-ch ESD, 1.5 pF, IEC 61000-4-2 level 4; the two identical channels take D- (pin 3) and D+ (pin 5) so the '
+       'pair passes through them in the order the module wants (design review 2026-10-06)')
 
 b.at('power', 'CHARGER',
      'BQ25185 linear charger with power path: runs MAO from USB while charging, SYS 4.5 V on USB. '

@@ -44,7 +44,8 @@ PLANE_NETS = ('GND', '+3V3')     # GND: L2 plane; +3V3: the L3 +3V3 region. Ever
 POWER = re.compile(r'(VBUS|VSYS|VBAT|BAT_RAW|BAT_IN|REG_IN|\+3V3|3V3_\w+|AUX_3V3|IR_RX_VCC|SPK_[PN]|LRA_[PN]|IR_LED_\w+|LCD_BL_K|BL_SENSE)$')
 SWITCH = re.compile(r'(REG_SW)$')
 DIFF_PAIRS = {('USB_DP', 'USB_DN'): 'USB 2.0 FS, 90 ohm target (ODD JOBS 23)',
-              ('USB_C_DP', 'USB_C_DN'): 'USB 2.0 FS, connector side of the 22R'}
+              ('USB_C_DP', 'USB_C_DN'): 'USB 2.0 FS, connector side of the 22R: designed in route_local.USB_PAIR, '
+                                        'w 0.15 / gap 0.25 on F over L2 (~90 ohm, project.py)'}
 
 
 def width_for(net, ends=()):

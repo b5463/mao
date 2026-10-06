@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "C:\\Users\\AlexanderMoravcik\\Desktop\\ODD JOBS\\MAO 01\\mao-a1\\hardware\\mao\\MAO_MAIN_A1.kicad_sch")
-		(date "2026-10-06T17:57:45")
+		(date "2026-10-06T18:08:36")
 		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
@@ -2515,7 +2515,7 @@
 			(ref "U101")
 			(value "TPD2E2U06")
 			(footprint "Package_TO_SOT_SMD:SOT-553")
-			(description "2-ch ESD, 1.5 pF, IEC 61000-4-2 level 4")
+			(description "2-ch ESD, 1.5 pF, IEC 61000-4-2 level 4; the two identical channels take D- (pin 3) and D+ (pin 5) so the pair passes through them in the order the module wants (design review 2026-10-06)")
 			(fields
 				(field
 					(name "MPN") "TPD2E2U06DRLR")
@@ -2529,7 +2529,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "2-ch ESD, 1.5 pF, IEC 61000-4-2 level 4")
+					(name "Description") "2-ch ESD, 1.5 pF, IEC 61000-4-2 level 4; the two identical channels take D- (pin 3) and D+ (pin 5) so the pair passes through them in the order the module wants (design review 2026-10-06)")
 			)
 			(libsource
 				(lib "Power_Protection")
@@ -15472,7 +15472,7 @@
 			)
 			(node
 				(ref "U101")
-				(pin "5")
+				(pin "3")
 				(pintype "passive")
 			)
 		)
@@ -15499,7 +15499,7 @@
 			)
 			(node
 				(ref "U101")
-				(pin "3")
+				(pin "5")
 				(pintype "passive")
 			)
 		)
