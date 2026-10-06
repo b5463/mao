@@ -76,8 +76,9 @@ OFFBOARD = [
      'JLC stock 14 (very low); no alternative found on LCSC'),
     ('LiPo cell LP503035 class, 500 mAh, with PCM and 10k NTC', 'UNKNOWN', '', '', 1,
      'not found on LCSC - owner decision (buy outside LCSC)'),
-    ('Battery housing, JST SH 1.0 mm 3-pin', 'C268100', 'SHR-03V-S-B', 'JST', 1, 'stock 5,786'),
+    ('Battery housing, JST SH 1.0 mm 3-pin', 'C268100', 'SHR-03V-S-B', 'JST', 1,
+     'stock 5,786; mates the SH-compatible header C7430445 on the board (fit of genuine JST to the clone: check)'),
     ('Battery crimp contacts, SH', 'C189897', 'SSHL-002T-P0.2', 'JST', 3, 'stock 841,495; or pre-crimped cable '
      'C54529088 SH1.0-3P-1-100(3)-28A (HanElectricity, 865; wiring UNKNOWN)'),
-    ('LRA / speaker leads', 'UNKNOWN', '', '', 0, 'soldered to pads (J501 wire pads, LS501 springs); none needed'),
+    ('LRA / speaker leads', 'none needed', '', '', 0, 'the LRA wires solder to the J501 pads, the speaker springs press on the LS501 pads'),
 ]
