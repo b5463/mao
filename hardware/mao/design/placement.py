@@ -173,7 +173,7 @@ at('U105', -9.0, 4.2, 0, 'F')                              # TPS22916C: VOUT dro
 at('C109', -11.5, 4.75, 180, 'F')                          # VOUT 1 uF, its 3V3_LCD end towards the switch
 at('C110', -6.45, 3.85, 0, 'F')                              # VIN 1 uF
 at('R116', -6.45, 5.15, 0, 'F')                             # ON pull-down
-at('C301', -11.3, 2.0, 0, 'F')                             # panel VCI HF beside the VCI via
+at('C301', -11.9, 2.0, 0, 'F')                             # panel VCI HF under the VCI via (clear of the DC via)
 # Backlight sink on B at J301's VLED- (pad 11) and VLED+ (pad 12), in the AW9364's place
 at('Q302', -8.2, -1.7, 180, 'B')                          # drain west to VLED- (J301 pad 11)
 at('R317', -4.4, -0.7, 0, 'B')                             # Rs 3.3R: BL_SENSE west, GND east
@@ -192,7 +192,8 @@ at('TP13', -3.0, -10.3, 0, 'B')                             # LCD rail probe
 # ==== module support (B) ===============================================================================
 pin('C202', 270, 'B', '1', 'U201', '3', -1.6, 0.0)         # 3V3 HF at pad 3, GND end at pin 2
 pin('C201', 270, 'B', '1', 'U201', '3', -3.1, 0.0)         # 3V3 bulk beside it
-pin('R202', 0, 'B', '2', 'U201', '4', -1.6, -0.6)          # BOOT pull-up at pin 4
+at('R202', -9.4, 18.7, 0, 'F')                             # BOOT pull-up on F over pin 4's escape via (on B it
+                                                           # would sit in PRESS_N's escape row)
 pin('R201', 90, 'B', '2', 'U201', '45', 1.6, 0.0)          # EN pull-up at pin 45
 pin('C203', 90, 'B', '1', 'U201', '45', 2.9, 0.0)          # EN delay
 at('R216', -0.5, 6.0, 270, 'B')                           # USB 22R at pins 23 (D-) and 24 (D+), module end south
@@ -248,14 +249,22 @@ pin('R318', 90, 'F', '2', 'SW301', '1', 0.0, -1.6)         # PRESS_N pull-up abo
 pin('C308', 90, 'F', '1', 'SW301', '1', -1.1, -1.6)        # DNP RC
 
 # ==== pull-downs at the parts they hold off =============================================================
-pin('R207', 0, 'B', '1', 'J301', '4', 1.6, 0.9, reach=4.0)   # display reset, at J301's RESET pad
+at('R207', -9.15, 12.75, 180, 'B')                         # display reset pull-down level with module pin 11
 
 # ==== service field (B): A0's block below the power section, the Gate C fixture block below it ==========
 _field = {'TP2': (6.0, -6.1), 'TP3': (8.8, -6.1), 'TP4': (11.6, -6.1), 'TP5': (14.3, -6.1),
           'TP10': (6.0, -3.3), 'TP1': (11.6, -3.3), 'TP16': (14.3, -3.3),
           'TP9': (6.0, -0.5), 'TP8': (11.6, -0.5), 'TP7': (14.3, -0.5),
-          'TP17': (3.2, 2.3), 'TP18': (6.0, 2.3), 'TP19': (8.8, 2.3), 'TP20': (11.6, 2.3), 'TP21': (14.3, 2.3),
-          'TP22': (6.0, 5.1), 'TP23': (8.8, 5.1), 'TP24': (11.6, 5.1), 'TP25': (14.3, 5.1)}
+          # Gate C fixture pads (A1), each on its net's own path, so none walls off the module's top-row fan-out
+          'TP17': (-3.0, -12.9),     # BL: beside the backlight reference divider
+          'TP18': (-15.0, -14.3),    # AMP: beside the amplifier's SD_MODE pull-down
+          'TP19': (9.7, 7.4),        # TE: at the module's TE escape (pin 31)
+          'TP20': (-2.4, 2.4),       # PRS: under the face switch
+          'TP21': (19.4, 10.6),      # HLA: under the Hall pair
+          'TP22': (14.3, 2.3),       # TSMR: on the NTC line between the charger and the battery plug
+          'TP23': (9.4, -14.3),      # CE: beside the charger's /CE pull-down
+          'TP24': (1.4, 3.8),        # IO21: north of module pin 25
+          'TP25': (4.2, 3.8)}        # IO26: north of module pin 26
 for _ref, (_x, _y) in _field.items():
     at(_ref, _x, _y, 0, 'B')
 at('R214', 8.2, -3.3, 270, 'B')           # I2C pull-ups in the field's free position

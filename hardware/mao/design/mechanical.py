@@ -152,11 +152,9 @@ TAB_ARC, TAB_CLEAR = 4.0, 1.5
 FIELD_NAMES = {'TP2': ('GND', 'right'), 'TP3': ('3V3', 'right'), 'TP4': ('SYS', 'right'), 'TP5': ('BAT', 'right'),
                'TP10': ('SCL', 'right'), 'TP1': ('GND', 'right'), 'TP16': ('GND', 'right'),
                'TP9': ('SDA', 'right'), 'TP8': ('BOOT', 'right'), 'TP7': ('RST', 'right'),
-               # A1 fixture rows (Gate C pads): wake inputs, backlight reference, amplifier enable, frame sync,
-               # charger factory mode and /CE, the spares
-               'TP17': ('BL', 'right'), 'TP18': ('AMP', 'right'), 'TP19': ('TE', 'right'), 'TP20': ('PRS', 'right'),
-               'TP21': ('HLA', 'right'), 'TP22': ('TSMR', 'right'), 'TP23': ('CE', 'right'), 'TP24': ('IO21', 'right'),
-               'TP25': ('IO26', 'right')}
+               'TP22': ('TSMR', 'right')}
+# The other A1 fixture pads (TP17-TP21, TP23-TP25) sit on their nets away from the field; silk.py names them beside
+# the pad wherever it finds room.
 FIELD_TEXT = 0.8                   # the names' height: the rows are 2.8 mm apart
 # The back's maker mark and identity (silk.py): a reserved via-free spot, so routing changes cannot take it. Over the
 # cell (seen with the base off, at bring-up and service).

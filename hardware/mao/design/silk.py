@@ -27,8 +27,7 @@ from board import ROOT, TARGET, at, courtyard_boxes
 import mechanical as m
 
 DATE = '2026-10'
-FIELD = {'TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP8', 'TP9', 'TP10', 'TP16',
-         'TP17', 'TP18', 'TP19', 'TP20', 'TP21', 'TP22', 'TP23', 'TP24', 'TP25'}
+FIELD = {'TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP8', 'TP9', 'TP10', 'TP16', 'TP22'}
 GROUPS = ('MAO silk F', 'MAO silk B', 'ODD JOBS maker mark', 'MAO easter eggs')
 IDENT, CONN, DEBUG = 1.5, 1.2, m.FIELD_TEXT  # type scale: identity, connectors, test pads (references 0.8)
 STROKE = 0.15

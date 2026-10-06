@@ -28,12 +28,11 @@ REGIONS = [
 ]
 
 # +3V3 default fill: cores where the +3V3 copper must stay whole: the buck output (L101 / COUT and their plane
-# vias), the module's supply pin with its 22 uF + 100 nF, and the reference under the display lanes on B (module
-# top-left corner to J301). The rest of the layer may carry slow signals.
+# vias) and the module's supply pin with its 22 uF + 100 nF. The rest of the layer may carry slow signals (A1: the
+# display lanes' core of A0 is gone: J301's DC/TE/RST vias sit where it was; stackup_check.py measures what crosses).
 V33_CORES = [
     [(-0.6, -15.2), (4.6, -15.2), (4.6, -10.0), (-0.6, -10.0)],
     [(-11.6, 18.4), (-6.4, 18.4), (-6.4, 21.6), (-11.6, 21.6)],
-    [(-11.0, -0.2), (-4.4, -0.2), (-4.4, 10.8), (-11.0, 10.8)],                     # display lanes
 ]
 
 
