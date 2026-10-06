@@ -49,6 +49,7 @@ JLC = {
     'C53672': ('Extended', 12341, ''),                      # IR12-21C/TR8
     'C25196': ('Preferred Extended', 1070000, 'no Basic 56R 0603'),
     'C20917': ('Basic', 953963, ''),                        # AO3400A
+    'C8545': ('Basic', 1576966, ''),                        # 2N7002 (USB presence inverter, review 2026-10-06)
     'C25076': ('Basic', 4000000, 'LCSC shop stock 0 on 2026-10-06; JLC assembly stock fine'),
     'C91447': ('Extended', 177048, ''),                     # IRM-H638T/TR2
     'C25755': ('Preferred Extended', 270669, 'no Basic 150k 0402'),

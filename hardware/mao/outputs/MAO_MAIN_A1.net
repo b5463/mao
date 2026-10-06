@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "C:\\Users\\AlexanderMoravcik\\Desktop\\ODD JOBS\\MAO 01\\mao-a1\\hardware\\mao\\MAO_MAIN_A1.kicad_sch")
-		(date "2026-10-06T17:55:11")
+		(date "2026-10-06T17:57:45")
 		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
@@ -1282,6 +1282,81 @@
 			)
 		)
 		(comp
+			(ref "Q102")
+			(value "2N7002")
+			(footprint "Package_TO_SOT_SMD:SOT-23")
+			(description "USB presence inverter: gate from the VBUS divider, drain = USB_PRESENT_N (active low, RTC wake pad)")
+			(fields
+				(field
+					(name "MPN") "2N7002")
+				(field
+					(name "Manufacturer") "CJ")
+				(field
+					(name "LCSC") "C8545")
+				(field
+					(name "Footprint") "Package_TO_SOT_SMD:SOT-23")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "USB presence inverter: gate from the VBUS divider, drain = USB_PRESENT_N (active low, RTC wake pad)")
+			)
+			(libsource
+				(lib "Transistor_FET")
+				(part "2N7002")
+				(description "0.115A Id, 60V Vds, N-Channel MOSFET, SOT-23")
+			)
+			(property
+				(name "MPN")
+				(value "2N7002")
+			)
+			(property
+				(name "Manufacturer")
+				(value "CJ")
+			)
+			(property
+				(name "LCSC")
+				(value "C8545")
+			)
+			(property
+				(name "Sheetname")
+				(value "Power")
+			)
+			(property
+				(name "Sheetfile")
+				(value "power.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "N-Channel Switching MOSFET")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "SOT?23*")
+			)
+			(sheetpath
+				(names "/Power/")
+				(tstamps "/ff1b9c5b-27d0-5173-840d-042428314c30/")
+			)
+			(tstamps "53368507-9593-50c8-94a9-9e0e417ce581")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
 			(ref "R101")
 			(value "5.1k")
 			(footprint "Resistor_SMD:R_0402_1005Metric")
@@ -2224,7 +2299,7 @@
 			(ref "R121")
 			(value "150k")
 			(footprint "Resistor_SMD:R_0402_1005Metric")
-			(description "divider bottom: 5.5 V -> 3.30 V, 5.0 V -> 3.0 V")
+			(description "divider bottom: 5.0 V -> 3.0 V at the inverter gate; holds it off without USB")
 			(fields
 				(field
 					(name "MPN") "0402WGF1503TCE")
@@ -2238,7 +2313,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "divider bottom: 5.5 V -> 3.30 V, 5.0 V -> 3.0 V")
+					(name "Description") "divider bottom: 5.0 V -> 3.0 V at the inverter gate; holds it off without USB")
 			)
 			(libsource
 				(lib "Device")
@@ -2350,6 +2425,78 @@
 				(tstamps "/ff1b9c5b-27d0-5173-840d-042428314c30/")
 			)
 			(tstamps "2e55a6dc-2935-5803-b8b9-c2b6898bdac1")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R123")
+			(value "100k")
+			(footprint "Resistor_SMD:R_0402_1005Metric")
+			(description "USB_PRESENT_N pull-up: 33 uA only while USB is present")
+			(fields
+				(field
+					(name "MPN") "0402WGF1003TCE")
+				(field
+					(name "Manufacturer") "UNI-ROYAL")
+				(field
+					(name "LCSC") "C25741")
+				(field
+					(name "Footprint") "Resistor_SMD:R_0402_1005Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "USB_PRESENT_N pull-up: 33 uA only while USB is present")
+			)
+			(libsource
+				(lib "Device")
+				(part "R")
+				(description "Resistor")
+			)
+			(property
+				(name "MPN")
+				(value "0402WGF1003TCE")
+			)
+			(property
+				(name "Manufacturer")
+				(value "UNI-ROYAL")
+			)
+			(property
+				(name "LCSC")
+				(value "C25741")
+			)
+			(property
+				(name "Sheetname")
+				(value "Power")
+			)
+			(property
+				(name "Sheetfile")
+				(value "power.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "R res resistor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "R_*")
+			)
+			(sheetpath
+				(names "/Power/")
+				(tstamps "/ff1b9c5b-27d0-5173-840d-042428314c30/")
+			)
+			(tstamps "db6ebc18-fb39-536b-b487-9b7a6189fa85")
 			(units
 				(unit
 					(name "A")
@@ -6312,9 +6459,9 @@
 		)
 		(comp
 			(ref "TP24")
-			(value "IO2")
+			(value "USB")
 			(footprint "TestPoint:TestPoint_Pad_D1.0mm")
-			(description "test pad IO2")
+			(description "test pad USB")
 			(fields
 				(field
 					(name "MPN") "PCB feature, no part")
@@ -6332,7 +6479,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "test pad IO2")
+					(name "Description") "test pad USB")
 			)
 			(libsource
 				(lib "Connector")
@@ -6459,6 +6606,86 @@
 				(tstamps "/5c1663d1-fabd-5843-8636-9724c729cba6/")
 			)
 			(tstamps "cfa9dafd-b7ee-5771-9bc2-4bda361c70f0")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "TP26")
+			(value "IO39")
+			(footprint "TestPoint:TestPoint_Pad_D1.0mm")
+			(description "test pad IO39")
+			(fields
+				(field
+					(name "MPN") "PCB feature, no part")
+				(field
+					(name "Manufacturer")
+				)
+				(field
+					(name "LCSC")
+				)
+				(field
+					(name "Exclude from BOM") "yes")
+				(field
+					(name "Footprint") "TestPoint:TestPoint_Pad_D1.0mm")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "test pad IO39")
+			)
+			(libsource
+				(lib "Connector")
+				(part "TestPoint")
+				(description "test point")
+			)
+			(property
+				(name "MPN")
+				(value "PCB feature, no part")
+			)
+			(property
+				(name "Manufacturer")
+				(value "")
+			)
+			(property
+				(name "LCSC")
+				(value "")
+			)
+			(property
+				(name "Exclude from BOM")
+				(value "yes")
+			)
+			(property
+				(name "Sheetname")
+				(value "Compute")
+			)
+			(property
+				(name "Sheetfile")
+				(value "compute.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "test point tp")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Pin* Test*")
+			)
+			(sheetpath
+				(names "/Compute/")
+				(tstamps "/5c1663d1-fabd-5843-8636-9724c729cba6/")
+			)
+			(tstamps "c8b24eb7-7c9c-5dc9-9d89-85cfc3a8b42b")
 			(units
 				(unit
 					(name "A")
@@ -12706,6 +12933,44 @@
 		)
 		(libpart
 			(lib "Transistor_FET")
+			(part "2N7002")
+			(description "0.115A Id, 60V Vds, N-Channel MOSFET, SOT-23")
+			(docs "https://www.onsemi.com/pub/Collateral/NDS7002A-D.PDF")
+			(footprints
+				(fp "SOT?23*")
+			)
+			(fields
+				(field
+					(name "Reference") "Q")
+				(field
+					(name "Value") "2N7002")
+				(field
+					(name "Footprint") "Package_TO_SOT_SMD:SOT-23")
+				(field
+					(name "Datasheet") "https://www.onsemi.com/pub/Collateral/NDS7002A-D.PDF")
+				(field
+					(name "Description") "0.115A Id, 60V Vds, N-Channel MOSFET, SOT-23")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "G")
+					(type "input")
+				)
+				(pin
+					(num "2")
+					(name "S")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "D")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Transistor_FET")
 			(part "AO3400A")
 			(description "30V Vds, 5.7A Id, N-Channel MOSFET, SOT-23")
 			(docs "http://www.aosmd.com/pdfs/datasheet/AO3400A.pdf")
@@ -12961,6 +13226,11 @@
 			)
 			(node
 				(ref "R119")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "R123")
 				(pin "1")
 				(pintype "passive")
 			)
@@ -13787,6 +14057,12 @@
 				(pintype "passive")
 			)
 			(node
+				(ref "Q102")
+				(pin "2")
+				(pinfunction "S_2")
+				(pintype "passive")
+			)
+			(node
 				(ref "Q501")
 				(pin "2")
 				(pinfunction "S_2")
@@ -14265,23 +14541,6 @@
 		)
 		(net
 			(code "25")
-			(name "GPIO2")
-			(class "Default")
-			(node
-				(ref "TP24")
-				(pin "1")
-				(pinfunction "1_1")
-				(pintype "passive")
-			)
-			(node
-				(ref "U201")
-				(pin "6")
-				(pinfunction "IO2_6")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "26")
 			(name "GPIO26")
 			(class "Default")
 			(node
@@ -14294,6 +14553,23 @@
 				(ref "U201")
 				(pin "26")
 				(pinfunction "IO26_26")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "26")
+			(name "GPIO39")
+			(class "Default")
+			(node
+				(ref "TP26")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U201")
+				(pin "35")
+				(pinfunction "IO39_35")
 				(pintype "bidirectional")
 			)
 		)
@@ -15271,6 +15547,34 @@
 		)
 		(net
 			(code "72")
+			(name "USB_PRESENT_N")
+			(class "Default")
+			(node
+				(ref "Q102")
+				(pin "3")
+				(pinfunction "D_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "R123")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "TP24")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U201")
+				(pin "6")
+				(pinfunction "IO2_6")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "73")
 			(name "VBAT")
 			(class "Battery")
 			(node
@@ -15315,7 +15619,7 @@
 			)
 		)
 		(net
-			(code "73")
+			(code "74")
 			(name "VBUS")
 			(class "USBPower")
 			(node
@@ -15372,9 +15676,15 @@
 			)
 		)
 		(net
-			(code "74")
+			(code "75")
 			(name "VBUS_SENSE")
 			(class "Default")
+			(node
+				(ref "Q102")
+				(pin "1")
+				(pinfunction "G_1")
+				(pintype "input")
+			)
 			(node
 				(ref "R120")
 				(pin "2")
@@ -15385,15 +15695,9 @@
 				(pin "1")
 				(pintype "passive")
 			)
-			(node
-				(ref "U201")
-				(pin "35")
-				(pinfunction "IO39_35")
-				(pintype "bidirectional")
-			)
 		)
 		(net
-			(code "75")
+			(code "76")
 			(name "VSYS")
 			(class "Battery")
 			(node
@@ -15468,7 +15772,7 @@
 			)
 		)
 		(net
-			(code "76")
+			(code "77")
 			(name "unconnected-(J101-SBU1-PadA8)")
 			(class "Default")
 			(node
@@ -15479,7 +15783,7 @@
 			)
 		)
 		(net
-			(code "77")
+			(code "78")
 			(name "unconnected-(J101-SBU2-PadB8)")
 			(class "Default")
 			(node
@@ -15490,7 +15794,7 @@
 			)
 		)
 		(net
-			(code "78")
+			(code "79")
 			(name "unconnected-(J301-NC{slash}P17-Pad2)")
 			(class "Default")
 			(node
@@ -15501,7 +15805,7 @@
 			)
 		)
 		(net
-			(code "79")
+			(code "80")
 			(name "unconnected-(J301-TP_INT{slash}P1-Pad18)")
 			(class "Default")
 			(node
@@ -15512,7 +15816,7 @@
 			)
 		)
 		(net
-			(code "80")
+			(code "81")
 			(name "unconnected-(J301-TP_RST{slash}P4-Pad15)")
 			(class "Default")
 			(node
@@ -15523,7 +15827,7 @@
 			)
 		)
 		(net
-			(code "81")
+			(code "82")
 			(name "unconnected-(J301-TP_SCL{slash}P3-Pad16)")
 			(class "Default")
 			(node
@@ -15534,7 +15838,7 @@
 			)
 		)
 		(net
-			(code "82")
+			(code "83")
 			(name "unconnected-(J301-TP_SDA{slash}P2-Pad17)")
 			(class "Default")
 			(node
@@ -15545,7 +15849,7 @@
 			)
 		)
 		(net
-			(code "83")
+			(code "84")
 			(name "unconnected-(J301-TP_VDD{slash}P6-Pad13)")
 			(class "Default")
 			(node
@@ -15556,7 +15860,7 @@
 			)
 		)
 		(net
-			(code "84")
+			(code "85")
 			(name "unconnected-(U101-NC-Pad1)")
 			(class "Default")
 			(node
@@ -15567,7 +15871,7 @@
 			)
 		)
 		(net
-			(code "85")
+			(code "86")
 			(name "unconnected-(U101-NC-Pad2)")
 			(class "Default")
 			(node
@@ -15578,7 +15882,7 @@
 			)
 		)
 		(net
-			(code "86")
+			(code "87")
 			(name "unconnected-(U103-~{ALRT}-Pad5)")
 			(class "Default")
 			(node
@@ -15589,7 +15893,7 @@
 			)
 		)
 		(net
-			(code "87")
+			(code "88")
 			(name "unconnected-(U201-IO3-Pad7)")
 			(class "Default")
 			(node
@@ -15600,7 +15904,7 @@
 			)
 		)
 		(net
-			(code "88")
+			(code "89")
 			(name "unconnected-(U201-IO45-Pad41)")
 			(class "Default")
 			(node
@@ -15611,7 +15915,7 @@
 			)
 		)
 		(net
-			(code "89")
+			(code "90")
 			(name "unconnected-(U201-IO46-Pad44)")
 			(class "Default")
 			(node
@@ -15622,7 +15926,7 @@
 			)
 		)
 		(net
-			(code "90")
+			(code "91")
 			(name "unconnected-(U401-INT2-Pad9)")
 			(class "Default")
 			(node
@@ -15633,7 +15937,7 @@
 			)
 		)
 		(net
-			(code "91")
+			(code "92")
 			(name "unconnected-(U401-RESV-Pad2)")
 			(class "Default")
 			(node
@@ -15644,7 +15948,7 @@
 			)
 		)
 		(net
-			(code "92")
+			(code "93")
 			(name "unconnected-(U401-RESV-Pad3)")
 			(class "Default")
 			(node
@@ -15655,7 +15959,7 @@
 			)
 		)
 		(net
-			(code "93")
+			(code "94")
 			(name "unconnected-(U401-RESV-Pad10)")
 			(class "Default")
 			(node
@@ -15666,7 +15970,7 @@
 			)
 		)
 		(net
-			(code "94")
+			(code "95")
 			(name "unconnected-(U401-RESV-Pad11)")
 			(class "Default")
 			(node
@@ -15677,7 +15981,7 @@
 			)
 		)
 		(net
-			(code "95")
+			(code "96")
 			(name "unconnected-(U402-DNC-Pad8)")
 			(class "Default")
 			(node
@@ -15688,7 +15992,7 @@
 			)
 		)
 		(net
-			(code "96")
+			(code "97")
 			(name "unconnected-(U501-GAIN_SLOT-Pad2)")
 			(class "Default")
 			(node
@@ -15699,7 +16003,7 @@
 			)
 		)
 		(net
-			(code "97")
+			(code "98")
 			(name "unconnected-(U501-NC-Pad5)")
 			(class "Default")
 			(node
@@ -15710,7 +16014,7 @@
 			)
 		)
 		(net
-			(code "98")
+			(code "99")
 			(name "unconnected-(U501-NC-Pad6)")
 			(class "Default")
 			(node
@@ -15721,7 +16025,7 @@
 			)
 		)
 		(net
-			(code "99")
+			(code "100")
 			(name "unconnected-(U501-NC-Pad12)")
 			(class "Default")
 			(node
@@ -15732,7 +16036,7 @@
 			)
 		)
 		(net
-			(code "100")
+			(code "101")
 			(name "unconnected-(U501-NC-Pad13)")
 			(class "Default")
 			(node

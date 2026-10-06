@@ -22,7 +22,24 @@ def M(*pts):
     return [(x, round(y + _m.MODULE_SHIFT, 3)) for x, y in pts]
 
 
-ADD = [
+# USB presence (design review 2026-10-06, finding 1): the 2N7002 Q102 on F east of the module's right escape
+# column takes VBUS_SENSE on its gate (west pad); its drain (north pad) meets the 100k pull-up R123 and drops through
+# one via to an L3 run under the module, south of the AMP_LRCLK run (y 16.6), to GPIO2's stub at the west column and
+# its fixture pad TP24. Source (south-east pad) to its own GND via, R123's +3V3 end to its own plane via. GPIO39
+# (pin 35), the old VBUS_SENSE pin, keeps a stub to its spare pad TP26.
+USB_PRESENT = [
+    ('USB_PRESENT_N', 'B', 0.15, [(-7.0, 17.0), (-10.2, 17.0)]),                        # GPIO2 -> TP24
+    ('GPIO39', 'B', 0.15, [(7.0, 12.75), (9.6, 12.75), (10.3, 13.45)]),                 # spare -> TP26
+    ('GND', 'F', 0.25, [(11.95, 14.237), (11.95, 13.0)]), ('GND', V, None, [(11.95, 13.0)]),
+    ('USB_PRESENT_N', 'F', 0.2, [(11.0, 12.362), (11.0, 11.24), (11.39, 10.85)]),       # drain -> R123.2
+    ('+3V3', 'F', 0.25, [(12.41, 10.85), (12.41, 11.44), (12.2, 11.65)]), ('+3V3', V, None, [(12.2, 11.65)]),
+    ('USB_PRESENT_N', 'F', 0.2, [(11.0, 12.0), (10.0, 12.0)]), ('USB_PRESENT_N', V, 0.5, [(10.0, 12.0)]),
+    ('USB_PRESENT_N', 'I2', 0.15, [(10.0, 12.0), (10.0, 16.4), (9.2, 17.2), (-9.3, 17.2)]),
+    ('USB_PRESENT_N', V, 0.5, [(-9.3, 17.2)]),
+    ('USB_PRESENT_N', 'B', 0.15, [(-9.3, 17.2), (-9.3, 17.0)]),
+]
+
+ADD = USB_PRESENT + [
     # ---- USB at the receptacle (B pads, y -21.905), A0 -------------------------------------------------
     ('USB_C_DP', 'B', 0.2, [(-0.25, -21.3), (-0.25, -20.75)]),                        # A6
     ('USB_C_DP', 'B', 0.2, [(0.75, -21.3), (0.75, -20.75)]),                          # B6
@@ -72,7 +89,7 @@ ADD = [
     ('TOF_INT_N', 'B', 0.15, [(-2.55, 8.3), (-2.55, 7.25)]), ('TOF_INT_N', V, 0.5, [(-2.55, 7.25)]),
     ('CHG_CE_N', 'B', 0.15, [(-0.85, 8.3), (-0.85, 7.25)]), ('CHG_CE_N', V, 0.5, [(-0.85, 7.25)]),
     ('CHG_STAT2', 'B', 0.15, [(5.1, 8.3), (5.1, 7.25)]), ('CHG_STAT2', V, 0.5, [(5.1, 7.25)]),
-    ('VBUS_SENSE', 'B', 0.15, [(7.0, 12.75), (8.2, 12.75)]), ('VBUS_SENSE', V, 0.5, [(8.2, 12.75)]),
+    # (pin 35, GPIO39, is a spare since the design review: its stub to TP26 is in USB_PRESENT below)
     ('AUX_PWR_EN', 'B', 0.15, [(7.0, 11.9), (9.0, 11.9)]), ('AUX_PWR_EN', V, 0.5, [(9.0, 11.9)]),
     # module EN: pin 45 -> C203, R201 below the line; R201's +3V3 end to its own plane via
     ('MCU_EN', 'B', 0.2, [(7.0, 21.25), (9.82, 21.25)]),
@@ -104,7 +121,7 @@ ADD = [
     ('BOOT', 'B', 0.2, [(13.765, 17.87), (12.3, 17.87), (11.77, 18.4), (11.2, 18.4)]),        # Tag-Connect 6, TP8
     ('LCD_PWR_EN', 'B', 0.15, [(-7.0, 13.6), (-8.2, 13.6)]), ('LCD_PWR_EN', V, 0.5, [(-8.2, 13.6)]),
     ('HAPTIC_EN', 'B', 0.15, [(-7.0, 17.85), (-8.2, 17.85)]), ('HAPTIC_EN', V, 0.5, [(-8.2, 17.85)]),
-    ('GPIO2', 'B', 0.15, [(-7.0, 17.0), (-10.2, 17.0)]),                                # spare -> TP24
+    # (pin 6, GPIO2 = USB_PRESENT_N since the design review: its stub to TP24 is in USB_PRESENT below)
     ('IMU_INT1', 'B', 0.15, [(-7.0, 15.3), (-9.0, 15.3)]), ('IMU_INT1', V, 0.5, [(-9.0, 15.3)]),
     ('LCD_BL', 'B', 0.15, [(-7.0, 11.9), (-9.0, 11.9)]), ('LCD_BL', V, 0.5, [(-9.0, 11.9)]),
     ('AMP_SD', 'B', 0.15, [(-7.0, 11.05), (-8.2, 11.05)]), ('AMP_SD', V, 0.5, [(-8.2, 11.05)]),

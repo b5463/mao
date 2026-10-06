@@ -153,7 +153,7 @@ FIELD_NAMES = {'TP2': ('GND', 'right'), 'TP3': ('3V3', 'right'), 'TP4': ('SYS', 
                'TP10': ('SCL', 'right'), 'TP1': ('GND', 'right'), 'TP16': ('GND', 'right'),
                'TP9': ('SDA', 'right'), 'TP7': ('RST', 'right'),
                'TP22': ('TSMR', 'right')}
-# The other A1 fixture pads (TP17-TP21, TP23-TP25) sit on their nets away from the field; silk.py names them beside
+# The other A1 fixture pads (TP17-TP21, TP23-TP26) sit on their nets away from the field; silk.py names them beside
 # the pad wherever it finds room.
 FIELD_TEXT = 0.8                   # the names' height: the rows are 2.8 mm apart
 # The back's maker mark and identity (silk.py): a reserved via-free spot, so routing changes cannot take it. Over the

@@ -3,22 +3,25 @@
  * and pad does while it sleeps.
  *
  * Deep sleep (RTC pads only):
- *   - ext1 ANY_LOW: face press PRESS_N (GPIO14, 100 k pull-up) and IMU INT1 (GPIO4)
- *     (open drain, active low, latched, 100 k pull-up);
+ *   - ext1 ANY_LOW: face press PRESS_N (GPIO14, 100 k pull-up), IMU INT1 (GPIO4)
+ *     (open drain, active low, latched, 100 k pull-up) and USB_PRESENT_N
+ *     (GPIO2: the VBUS divider drives a 2N7002 whose drain has a 100 k
+ *     pull-up, so the line idles high without USB and goes low when USB is
+ *     plugged in; design review 2026-10-06, finding 1);
  *   - ext0: dial channel A HALL_A (GPIO21), armed at the level it is NOT at now, so
  *     any turn of the ring wakes MAO (the Hall latch keeps sampling in its
  *     low-power mode, HALL_FAST low);
- *   - VBUS_SENSE (GPIO39) is not an RTC pad: USB cannot wake MAO from deep
- *     sleep (a caller that needs it uses a timer).
  *   A line that is already asserted would wake the chip at once, so it is
- *   left out (the caller sees that in `armed`).
+ *   left out (the caller sees that in `armed`): USB_PRESENT_N is armed only
+ *   while it idles high, i.e. on battery (with USB present the application
+ *   never deep-sleeps anyway: mao_app_power.c).
  * Every enable goes low and is held there (each also has a pull-down), the
  * display bus is driven low and held, the backlight PWM stops and its pin is
  * held low, /CE is held low (charging enabled: nothing watches the
  * temperature while the chip sleeps; the charger's own TS input still does).
  *
  * Light sleep: the knob (mao_board_knob_wake_arm) plus, on request, USB
- * plug / unplug (VBUS_SENSE at the level it is not at) and the proximity
+ * plug / unplug (USB_PRESENT_N at the level it is not at) and the proximity
  * threshold, all through the GPIO wake source. The levels before the sleep
  * are noted so mao_board_wake_decode() can tell which line moved. Every
  * enable and the panel's lines are held as they are for the sleep (the
@@ -48,7 +51,7 @@ static const int kHeldPads[] = {
     MAO_PIN_AUX_PWR_EN, MAO_PIN_IR_TX, MAO_PIN_CHG_CE_N,
 };
 /* Pads ext0 / ext1 route to the RTC IO mux. */
-static const int kWakePads[] = { MAO_PIN_PRESS_N, MAO_PIN_HALL_A, MAO_PIN_IMU_INT1 };
+static const int kWakePads[] = { MAO_PIN_PRESS_N, MAO_PIN_HALL_A, MAO_PIN_IMU_INT1, MAO_PIN_USB_PRESENT_N };
 
 /* Light sleep: what was armed besides the knob, and the levels before. */
 static bool s_light_usb;
@@ -99,6 +102,10 @@ esp_err_t mao_board_deep_sleep_prepare(const mao_board_wake_t *want, mao_board_w
         mask |= 1ULL << MAO_PIN_IMU_INT1;
         a.motion = true;
     }
+    if (want->usb && line_idle_high(MAO_PIN_USB_PRESENT_N)) {
+        mask |= 1ULL << MAO_PIN_USB_PRESENT_N;           /* goes low when USB is plugged in */
+        a.usb = true;
+    }
     if (mask) {
         ESP_RETURN_ON_ERROR(esp_sleep_enable_ext1_wakeup_io(mask, ESP_EXT1_WAKEUP_ANY_LOW), TAG, "ext1");
     }
@@ -122,7 +129,7 @@ void mao_board_deep_sleep_hold(bool hold)
         a1_sleep_release_pads();
         return;
     }
-    const mao_board_wake_t want = { .press = true, .dial = true, .motion = true };
+    const mao_board_wake_t want = { .press = true, .dial = true, .motion = true, .usb = true };
     mao_board_deep_sleep_prepare(&want, NULL);
 }
 
@@ -149,7 +156,7 @@ esp_err_t mao_board_light_sleep_prepare(const mao_board_wake_t *want, mao_board_
     s_lv_a = gpio_get_level((gpio_num_t)MAO_PIN_HALL_A);
     s_lv_b = gpio_get_level((gpio_num_t)MAO_PIN_HALL_B);
     s_lv_press = gpio_get_level((gpio_num_t)MAO_PIN_PRESS_N);
-    s_lv_usb = gpio_get_level((gpio_num_t)MAO_PIN_VBUS_SENSE);
+    s_lv_usb = gpio_get_level((gpio_num_t)MAO_PIN_USB_PRESENT_N);
     s_light_noted = true;
     s_light_usb = false;
     s_light_prox = false;
@@ -158,8 +165,8 @@ esp_err_t mao_board_light_sleep_prepare(const mao_board_wake_t *want, mao_board_
      * sources (the wake itself does not need them) and restored by
      * mao_board_light_sleep_done() with the owners' edge types. */
     if (want->usb) {
-        gpio_intr_disable((gpio_num_t)MAO_PIN_VBUS_SENSE);
-        ESP_RETURN_ON_ERROR(gpio_wakeup_enable((gpio_num_t)MAO_PIN_VBUS_SENSE,
+        gpio_intr_disable((gpio_num_t)MAO_PIN_USB_PRESENT_N);
+        ESP_RETURN_ON_ERROR(gpio_wakeup_enable((gpio_num_t)MAO_PIN_USB_PRESENT_N,
                                                s_lv_usb ? GPIO_INTR_LOW_LEVEL : GPIO_INTR_HIGH_LEVEL), TAG, "usb wake");
         s_light_usb = true;
         a.usb = true;
@@ -180,9 +187,9 @@ void mao_board_light_sleep_done(void)
 {
     light_hold(false);
     if (s_light_usb) {
-        gpio_wakeup_disable((gpio_num_t)MAO_PIN_VBUS_SENSE);
-        gpio_set_intr_type((gpio_num_t)MAO_PIN_VBUS_SENSE, GPIO_INTR_ANYEDGE);   /* mao_battery: both edges */
-        gpio_intr_enable((gpio_num_t)MAO_PIN_VBUS_SENSE);
+        gpio_wakeup_disable((gpio_num_t)MAO_PIN_USB_PRESENT_N);
+        gpio_set_intr_type((gpio_num_t)MAO_PIN_USB_PRESENT_N, GPIO_INTR_ANYEDGE);   /* mao_battery: both edges */
+        gpio_intr_enable((gpio_num_t)MAO_PIN_USB_PRESENT_N);
         s_light_usb = false;
     }
     if (s_light_prox) {
@@ -204,6 +211,7 @@ void mao_board_wake_decode(mao_board_wake_t *out)
         const uint64_t pins = esp_sleep_get_ext1_wakeup_status();
         out->press = (pins & (1ULL << MAO_PIN_PRESS_N)) != 0;
         out->motion = (pins & (1ULL << MAO_PIN_IMU_INT1)) != 0;
+        out->usb = (pins & (1ULL << MAO_PIN_USB_PRESENT_N)) != 0;
     }
     if (causes & BIT(ESP_SLEEP_WAKEUP_EXT0)) {
         out->dial = true;
@@ -212,7 +220,7 @@ void mao_board_wake_decode(mao_board_wake_t *out)
         out->dial = gpio_get_level((gpio_num_t)MAO_PIN_HALL_A) != s_lv_a ||
                     gpio_get_level((gpio_num_t)MAO_PIN_HALL_B) != s_lv_b;
         out->press = gpio_get_level((gpio_num_t)MAO_PIN_PRESS_N) == 0 || s_lv_press == 0;
-        out->usb = gpio_get_level((gpio_num_t)MAO_PIN_VBUS_SENSE) != s_lv_usb;
+        out->usb = gpio_get_level((gpio_num_t)MAO_PIN_USB_PRESENT_N) != s_lv_usb;
         out->proximity = gpio_get_level((gpio_num_t)MAO_PIN_TOF_INT_N) == 0;
     }
 }

@@ -241,7 +241,7 @@ const char *mao_board_rail_name(mao_board_rail_t rail);
 esp_err_t mao_board_rail_readback(mao_board_rail_t rail, bool *on);
 
 typedef enum {
-    MAO_LINE_USB_PRESENT = 0, /* USB power valid (A1: VBUS_SENSE divider, high = present) */
+    MAO_LINE_USB_PRESENT = 0, /* USB power valid (A1: USB_PRESENT_N on GPIO2, low = present) */
     MAO_LINE_CHARGING,        /* the charger says it is charging (A1: STAT1/STAT2 = H/L) */
     MAO_LINE_COUNT,
 } mao_board_line_t;
@@ -270,7 +270,7 @@ esp_err_t mao_board_charge_enable(bool enable);
 typedef enum {
     MAO_IRQ_IMU_INT1 = 0,     /* wake-on-motion / data (A1: INT2 is not wired) */
     MAO_IRQ_TOF,              /* proximity threshold */
-    MAO_IRQ_USB_PRESENT,      /* USB power came or went (A1: active HIGH) */
+    MAO_IRQ_USB_PRESENT,      /* USB power came or went (A1: USB_PRESENT_N, active LOW) */
     MAO_IRQ_COUNT,
 } mao_board_irq_t;
 
@@ -291,7 +291,7 @@ typedef struct {
     bool press;               /* face press / knob button */
     bool dial;                /* the dial moved (deep sleep: channel A only) */
     bool motion;              /* IMU INT1 (wake-on-motion) */
-    bool usb;                 /* USB plugged or unplugged (light sleep only on the A1) */
+    bool usb;                 /* USB plugged or unplugged (A1 deep sleep: plugged in only) */
     bool proximity;           /* proximity threshold (light sleep only) */
 } mao_board_wake_t;
 

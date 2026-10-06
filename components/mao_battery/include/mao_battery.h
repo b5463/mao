@@ -5,7 +5,7 @@
  * state machine, see mao_power.h.)
  *
  *   MAX17048 gauge (polled; ALRT not wired) + BQ25185 charger (STAT1 / STAT2,
- *   /CE) + VBUS_SENSE  ->  mao_battery task  ->  MAO events:
+ *   /CE) + USB_PRESENT_N  ->  mao_battery task  ->  MAO events:
  *       USB_CONNECTED / USB_DISCONNECTED, CHARGING_STARTED / CHARGING_DONE,
  *       BATTERY_LOW (value = SOC %), BATTERY_CRITICAL (value = SOC %)
  *

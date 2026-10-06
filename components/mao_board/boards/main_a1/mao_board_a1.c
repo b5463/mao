@@ -100,11 +100,13 @@ static esp_err_t config_inputs(void)
 {
     /* No internal pulls anywhere: IMU INT1 has a 100 k pull-up (open drain,
      * active low, latched), the ToF interrupt 10 k, the charger STAT lines
-     * 10 k each; VBUS_SENSE is a 100 k / 150 k divider (GPIO39's reset
-     * pull-up is removed here). The display TE line is driven by the panel. */
+     * 10 k each; USB_PRESENT_N has its 100 k pull-up at the 2N7002's
+     * drain (active low: the VBUS divider drives the FET's gate). The display
+     * TE line is driven by the panel. */
     const gpio_config_t cfg = {
-        .pin_bit_mask = (1ULL << MAO_PIN_IMU_INT1) | (1ULL << MAO_PIN_TOF_INT_N) | (1ULL << MAO_PIN_VBUS_SENSE) |
-                        (1ULL << MAO_PIN_CHG_STAT1) | (1ULL << MAO_PIN_CHG_STAT2) | (1ULL << MAO_PIN_LCD_TE),
+        .pin_bit_mask = (1ULL << MAO_PIN_IMU_INT1) | (1ULL << MAO_PIN_TOF_INT_N) |
+                        (1ULL << MAO_PIN_USB_PRESENT_N) | (1ULL << MAO_PIN_CHG_STAT1) |
+                        (1ULL << MAO_PIN_CHG_STAT2) | (1ULL << MAO_PIN_LCD_TE),
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -271,7 +273,7 @@ esp_err_t mao_board_irq_get(mao_board_irq_t irq, mao_board_irq_desc_t *out)
         *out = (mao_board_irq_desc_t) { .gpio = MAO_PIN_TOF_INT_N, .active_low = true };
         break;
     default:
-        *out = (mao_board_irq_desc_t) { .gpio = MAO_PIN_VBUS_SENSE, .active_low = false };
+        *out = (mao_board_irq_desc_t) { .gpio = MAO_PIN_USB_PRESENT_N, .active_low = true };
         break;
     }
     return ESP_OK;
@@ -332,7 +334,7 @@ esp_err_t mao_board_line_get(mao_board_line_t line, bool *active)
     ESP_RETURN_ON_FALSE(active, ESP_ERR_INVALID_ARG, TAG, "bad args");
     switch (line) {
     case MAO_LINE_USB_PRESENT:
-        *active = gpio_get_level((gpio_num_t)MAO_PIN_VBUS_SENSE) != 0;   /* divider: high = VBUS */
+        *active = gpio_get_level((gpio_num_t)MAO_PIN_USB_PRESENT_N) == 0;   /* inverter: low = VBUS */
         return ESP_OK;
     case MAO_LINE_CHARGING: {
         mao_charger_status_t s;

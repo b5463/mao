@@ -243,6 +243,46 @@ def stackup(board):
     ds.SetCopperLayerCount(4)
 
 
+def add_footprint(board, ref, c, place):
+    """One part from the netlist (c = netlist()[ref]) onto the board at place = (x, y, rotation, side): library
+    footprint, reference, value, symbol path (schematic parity), fields, BOM/DNP attributes and pad nets. Also used
+    by sync_fields.py --add to put a part added to circuit.py on the routed board."""
+    fp = load_fp(c['footprint'])
+    fp.SetReference(ref)
+    fp.SetValue(c['value'])
+    fp.SetPath(pcb.KIID_PATH(c['sheet_tstamps'] + c['tstamp']))
+    for k, v in c['fields'].items():
+        if k in ('Footprint', 'Reference', 'Value'):
+            continue
+        fp.SetField(k, v)
+        for f in fp.GetFields():
+            if f.GetName() == k:
+                f.SetVisible(False)
+                f.SetLayer(pcb.F_Fab)
+    attrs = fp.GetAttributes()
+    if c['fields'].get('Exclude from BOM') == 'yes' or 'Exclude from BOM' in c['props']:
+        attrs |= pcb.FP_EXCLUDE_FROM_BOM | pcb.FP_EXCLUDE_FROM_POS_FILES
+    if 'dnp' in c['props'] or c['fields'].get('DNP') == 'yes':
+        attrs |= pcb.FP_DNP
+    fp.SetAttributes(attrs)
+    if 'dnp' in c['props']:
+        fp.SetDNP(True)
+    board.Add(fp)
+    x, y, rot, side = place
+    if side == 'B':
+        fp.Flip(fp.GetPosition(), pcb.FLIP_DIRECTION_LEFT_RIGHT)
+    fp.SetPosition(at(x, y))
+    fp.SetOrientationDegrees(rot)
+    for p in fp.Pads():
+        net = c['pins'].get(p.GetNumber())
+        if net:
+            p.SetNet(board.FindNet(net))
+    # references to Fab until silk.py places the ones that earn a silk position (ODD JOBS 177)
+    fp.Reference().SetLayer(pcb.B_Fab if side == 'B' else pcb.F_Fab)
+    fp.Value().SetVisible(False)
+    return fp
+
+
 def build():
     from placement import AUTO, KEEP_F, PLACE    # here, not at import: fp_cache.py needs netlist() before
                                                  # placement.py can resolve a new footprint's geometry
@@ -255,41 +295,8 @@ def build():
     stackup(board)
     for name in sorted({n for c in comps.values() for n in c['pins'].values()}):
         board.Add(pcb.NETINFO_ITEM(board, name))
-    flip = pcb.FLIP_DIRECTION_LEFT_RIGHT
     for ref, c in sorted(comps.items()):
-        fp = load_fp(c['footprint'])
-        fp.SetReference(ref)
-        fp.SetValue(c['value'])
-        fp.SetPath(pcb.KIID_PATH(c['sheet_tstamps'] + c['tstamp']))
-        for k, v in c['fields'].items():
-            if k in ('Footprint', 'Reference', 'Value'):
-                continue
-            fp.SetField(k, v)
-            for f in fp.GetFields():
-                if f.GetName() == k:
-                    f.SetVisible(False)
-                    f.SetLayer(pcb.F_Fab)
-        attrs = fp.GetAttributes()
-        if c['fields'].get('Exclude from BOM') == 'yes' or 'Exclude from BOM' in c['props']:
-            attrs |= pcb.FP_EXCLUDE_FROM_BOM | pcb.FP_EXCLUDE_FROM_POS_FILES
-        if 'dnp' in c['props'] or c['fields'].get('DNP') == 'yes':
-            attrs |= pcb.FP_DNP
-        fp.SetAttributes(attrs)
-        if 'dnp' in c['props']:
-            fp.SetDNP(True)
-        board.Add(fp)
-        x, y, rot, side = PLACE[ref]
-        if side == 'B':
-            fp.Flip(fp.GetPosition(), flip)
-        fp.SetPosition(at(x, y))
-        fp.SetOrientationDegrees(rot)
-        for p in fp.Pads():
-            net = c['pins'].get(p.GetNumber())
-            if net:
-                p.SetNet(board.FindNet(net))
-        # references to Fab until silk.py places the ones that earn a silk position (ODD JOBS 177)
-        fp.Reference().SetLayer(pcb.B_Fab if side == 'B' else pcb.F_Fab)
-        fp.Value().SetVisible(False)
+        add_footprint(board, ref, c, PLACE[ref])
     draw_outline(board)
 
     # support parts: closest free spot to the pads they serve (place_auto.py)

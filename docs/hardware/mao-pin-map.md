@@ -11,7 +11,7 @@ channel, ADC1 = ADC usable with Wi-Fi on.
 |---:|---|---|---|---|---|
 | 0 | — | nc | BOOT strap (pad only) | strap, RTC | S R; 10k pull-up, TP BOOT: the fixture holds it low for download. Nothing else on it |
 | 1 | `HAPTIC_EN` | out | haptic driver enable | RTC, ADC1 | R; 100k pull-down (+ the DRV2605L's internal 2M): off |
-| 2 | — | nc | spare | RTC, ADC1 | R; test pad |
+| 2 | `USB_PRESENT_N` | od | USB present, active low (VBUS divider -> 2N7002 inverter) | RTC, ADC1 | R; 100k pull-up at the FET drain (33 uA only while USB is present, 0 uA on battery); deep-sleep wake (ext1, any-low; armed only while it idles high) |
 | 3 | — | nc | JTAG-source strap | strap, RTC, ADC1 | S; NC (inert unless EFUSE_STRAP_JTAG_SEL is burnt, never on MAO) |
 | 4 | `IMU_INT1` | od | IMU INT1: wake-on-motion (ICM-42670-P, open-drain, active low, latched) | RTC, ADC1 | R; 100k pull-up; deep-sleep wake (ext1, any-low) |
 | 5 | `HALL_FAST` | out | Hall sensors: high = fast sampling, low = low-power | RTC, ADC1 | R; 100k pull-down: low-power from reset and in deep sleep |
@@ -38,7 +38,7 @@ channel, ADC1 = ADC usable with Wi-Fi on.
 | 36 | `IR_RX` | in | IR receiver output (RMT) |  | receiver supply switched by AUX_PWR_EN; isolated while it is off. IMU INT2 is not wired on A1: INT1 carries wake-on-motion, the rest is polled |
 | 37 | `HALL_B` | in | ring dial channel B |  | push-pull from the Hall latch |
 | 38 | `AUX_PWR_EN` | out | IR receiver supply switch (TPS22916C on +3V3) |  | no reset pull; switch's smart pull-down + 100k: off |
-| 39 | `VBUS_SENSE` | in | USB VBUS present (100k/150k divider) |  | 0 uA on battery; the stay-awake rule uses USB-Serial-JTAG SOF, this tells charge-only power |
+| 39 | — | nc | spare |  | test pad (TP26); JTAG MTCK pad with a reset pull-up |
 | 40 | `AMP_BCLK` | out | I2S bit clock to the amplifier |  |  |
 | 41 | `AMP_LRCLK` | out | I2S word select |  |  |
 | 42 | `AMP_DIN` | out | I2S data |  |  |
@@ -49,7 +49,7 @@ channel, ADC1 = ADC usable with Wi-Fi on.
 | 47 | `I2C_SDA` | io | I2C data (IMU, ToF, gauge, haptic) |  | 4.7k pull-up to +3V3; VDD_SPI/VDD3P3_CPU domain = 3.3 V on the N8 |
 | 48 | `I2C_SCL` | out | I2C clock |  | 4.7k pull-up to +3V3 |
 
-33 of 39 module signal pins used; spare: GPIO 0, 2, 3, 26, 45, 46.
+33 of 39 module signal pins used; spare: GPIO 0, 3, 26, 39, 45, 46.
 
 
 ## I2C address map (one bus, 4.7 kΩ pull-ups, 400 kHz)

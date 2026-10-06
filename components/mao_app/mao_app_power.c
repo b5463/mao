@@ -198,7 +198,7 @@ static void rest_later(uint32_t ms)
 static void critical_rest(bool dark);
 static void light_rest(void);
 
-/* USB power present (A1: VBUS_SENSE; the LCDkit has no line, so false). With
+/* USB power present (A1: USB_PRESENT_N; the LCDkit has no line, so false). With
  * USB present MAO never deep-sleeps: the charger's own NTC window ends near
  * 60 C while the cell is rated to 45 C, and only the awake firmware applies the
  * 43 / 40 C charge pause (design review 2026-10-06, finding 1). It rests in
@@ -377,16 +377,16 @@ static void deep_rest(uint32_t seconds)
     mao_board_caps_t caps;
     mao_board_get_caps(&caps);
     ESP_LOGI(TAG, "deep sleep now for %" PRIu32 " s (%s)", seconds,
-             caps.deep_wake_knob ? "timer, reset, the press, the dial or motion wakes it"
+             caps.deep_wake_knob ? "timer, reset, the press, the dial, motion or USB wakes it"
                                  : "timer or reset wakes it; the knob cannot");
     vTaskDelay(pdMS_TO_TICKS(20));                 /* the log line leaves */
     esp_deep_sleep_start();
 }
 
-/* Critical battery: nothing but the press (and a recheck timer: USB cannot
- * wake the A1 from deep sleep) ends this sleep. No IMU wake, no dial wake:
- * the cell must not be drained by bumps. dark = straight away, without the
- * sleeping frame (a recheck that found the cell still critical). */
+/* Critical battery: nothing but the press, plugging USB in (A1:
+ * USB_PRESENT_N, ext1) and a recheck timer ends this sleep. No IMU wake, no
+ * dial wake: the cell must not be drained by bumps. dark = straight away,
+ * without the sleeping frame (a recheck that found the cell still critical). */
 static void critical_rest(bool dark)
 {
     if (usb_power_present()) {
@@ -408,12 +408,12 @@ static void critical_rest(bool dark)
     s_rtc_marker = MAO_PWR_RTC_MAGIC;
     s_rtc_critical = CRITICAL_MAGIC;
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-    const mao_board_wake_t want = { .press = true };
+    const mao_board_wake_t want = { .press = true, .usb = true };   /* USB: armed while it is absent */
     mao_board_deep_sleep_prepare(&want, NULL);
 #if CONFIG_MAO_BATTERY_CRITICAL_SLEEP
     esp_sleep_enable_timer_wakeup((uint64_t)CONFIG_MAO_BATTERY_CRITICAL_RECHECK_MIN * 60u * 1000000u);
 #endif
-    ESP_LOGW(TAG, "critical battery: deep sleep (the press wakes it; recheck timer)");
+    ESP_LOGW(TAG, "critical battery: deep sleep (the press or USB wakes it; recheck timer)");
     vTaskDelay(pdMS_TO_TICKS(20));
     esp_deep_sleep_start();
 }

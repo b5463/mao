@@ -17,7 +17,7 @@ Rules this table keeps (Gate A/B.1/C):
     v2.2 Table 2-1); GPIO39-42 (JTAG pads) and GPIO33/34 have reset pull-ups and carry only
     inputs or I2S lines whose consumer is held off;
   * nothing may pull GPIO45 high at reset (VDD_SPI = 1.8 V would stop the 3.3 V flash);
-  * >= 4 spare pins: GPIO2, GPIO26, GPIO43/44 (UART0 service pads).
+  * >= 4 spare pins: GPIO26, GPIO39, GPIO43/44 (UART0 service pads).
 
 Routing swaps (2026-10-06, A1 layout): the first A1 layout could not route the board with the pin map as
 committed: the face press (GPIO1) sat at the module's far corner from the switch, the dial's wake line (GPIO2)
@@ -25,6 +25,11 @@ on the side away from the Hall pair, the IR receiver's enable (GPIO16) away from
 interrupt (GPIO38) away from the sensor. Swapped, every rule above kept: PRESS_N GPIO1 -> GPIO14 (RTC, not a
 strap), HAPTIC_EN GPIO14 -> GPIO1 (reset-quiet enable pin), HALL_A GPIO2 -> GPIO21 (RTC: ext0 wake), the spare
 GPIO21 -> GPIO2, AUX_PWR_EN GPIO16 -> GPIO38 (reset-quiet), TOF_INT_N GPIO38 -> GPIO16.
+
+USB wake (design review 2026-10-06, finding 1): VBUS_SENSE on GPIO39 could not wake A1 from deep sleep (GPIO39 is
+not an RTC pad). The VBUS divider now drives the gate of a 2N7002 whose drain, USB_PRESENT_N (100k pull-up to +3V3,
+33 uA only while USB is present), is the spare RTC pad GPIO2: an ext1 any-low wake source. GPIO39 becomes a spare
+with its own test pad.
 
 Module pin numbers are ESP32-S3-MINI-1 pads (datasheet v1.7 Table 3-1).
 """
@@ -35,7 +40,7 @@ Module pin numbers are ESP32-S3-MINI-1 pads (datasheet v1.7 Table 3-1).
 NATIVE = [
     (0,  None,          'nc',  'BOOT strap (pad only)', 'S R; 10k pull-up, TP BOOT: the fixture holds it low for download. Nothing else on it'),
     (1,  'HAPTIC_EN',   'out', 'haptic driver enable', 'R; 100k pull-down (+ the DRV2605L\'s internal 2M): off'),
-    (2,  None,          'nc',  'spare', 'R; test pad'),
+    (2,  'USB_PRESENT_N', 'od', 'USB present, active low (VBUS divider -> 2N7002 inverter)', 'R; 100k pull-up at the FET drain (33 uA only while USB is present, 0 uA on battery); deep-sleep wake (ext1, any-low; armed only while it idles high)'),
     (3,  None,          'nc',  'JTAG-source strap', 'S; NC (inert unless EFUSE_STRAP_JTAG_SEL is burnt, never on MAO)'),
     (4,  'IMU_INT1',    'od',  'IMU INT1: wake-on-motion (ICM-42670-P, open-drain, active low, latched)', 'R; 100k pull-up; deep-sleep wake (ext1, any-low)'),
     (5,  'HALL_FAST',   'out', 'Hall sensors: high = fast sampling, low = low-power', 'R; 100k pull-down: low-power from reset and in deep sleep'),
@@ -62,7 +67,7 @@ NATIVE = [
     (36, 'IR_RX',       'in',  'IR receiver output (RMT)', 'receiver supply switched by AUX_PWR_EN; isolated while it is off. IMU INT2 is not wired on A1: INT1 carries wake-on-motion, the rest is polled'),
     (37, 'HALL_B',      'in',  'ring dial channel B', 'push-pull from the Hall latch'),
     (38, 'AUX_PWR_EN',  'out', 'IR receiver supply switch (TPS22916C on +3V3)', 'no reset pull; switch\'s smart pull-down + 100k: off'),
-    (39, 'VBUS_SENSE',  'in',  'USB VBUS present (100k/150k divider)', '0 uA on battery; the stay-awake rule uses USB-Serial-JTAG SOF, this tells charge-only power'),
+    (39, None,          'nc',  'spare', 'test pad (TP26); JTAG MTCK pad with a reset pull-up'),
     (40, 'AMP_BCLK',    'out', 'I2S bit clock to the amplifier', ''),
     (41, 'AMP_LRCLK',   'out', 'I2S word select', ''),
     (42, 'AMP_DIN',     'out', 'I2S data', ''),
@@ -103,7 +108,7 @@ def _self_check():
     nets = [n for _, n, *_ in NATIVE if n]
     assert len(nets) == len(set(nets)), 'a net on two pins'
     assert native_by_net().get('PRESS_N') not in (0, 3, 45, 46), 'press on a strap'
-    for net in ('PRESS_N', 'HALL_A', 'IMU_INT1'):
+    for net in ('PRESS_N', 'HALL_A', 'IMU_INT1', 'USB_PRESENT_N'):
         assert native_by_net()[net] <= 21, net + ' must be an RTC GPIO (wake)'
     enables = ('HALL_FAST', 'LCD_PWR_EN', 'LCD_RST_N', 'LCD_BL', 'AMP_SD', 'HAPTIC_EN', 'TOF_XSHUT',
                'AUX_PWR_EN', 'IR_TX', 'CHG_CE_N')

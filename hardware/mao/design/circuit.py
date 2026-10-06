@@ -104,7 +104,11 @@ c.custom_symbols['MAO:ICM-42670-P'] = kicadlib.make_ic_symbol('MAO:ICM-42670-P',
 b.at('power', 'USB-C ENTRY',
      'Sink only: 5.1k Rd on CC1/CC2 (ODD JOBS 25): Default USB power, 500 mA. ESD at the connector (119): TPD2E2U06 '
      'on D+/D-, SMF15A on VBUS. Shell to GND (plastic enclosure, 26). The 22R series resistors sit at the module '
-     '(compute sheet). VBUS_SENSE 100k/150k: 5.5 V -> 3.3 V at GPIO%d, 0 uA without USB.' % G['VBUS_SENSE'])
+     '(compute sheet). VBUS_SENSE 100k/150k (5.0 V -> 3.0 V, 0 uA without USB) drives the gate of {Q2}: its drain is '
+     'USB_PRESENT_N, active low, with a 100k pull-up to +3V3 ({R97}, 33 uA only while USB is present), on the RTC pad '
+     'GPIO%d, so plugging USB wakes A1 from deep sleep (ext1 any-low; design review 2026-10-06). 2N7002: VGS(th) 2.5 V '
+     'max at 250 uA against >= 2.85 V of gate at the USB minimum 4.75 V; VGS 20 V max, so a faulty source up to 33 V '
+     'leaves the gate intact.' % G['USB_PRESENT_N'])
 b.part('J1', 'Connector:USB_C_Receptacle_USB2.0_16P', 'Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12',
        'USB-C', {'A1': 'GND', 'A12': 'GND', 'B1': 'GND', 'B12': 'GND', 'A4': 'VBUS', 'A9': 'VBUS', 'B4': 'VBUS',
                  'B9': 'VBUS', 'A5': 'USB_CC1', 'B5': 'USB_CC2', 'A6': 'USB_C_DP', 'B6': 'USB_C_DP',
@@ -192,10 +196,10 @@ b.R('R17', '100k', 'LCD_PWR_EN', 'GND', note='default off')
 b.at('compute', 'MCU',
      'ESP32-S3-MINI-1-N8 (8 MB quad flash, no PSRAM, 85 C) on B.Cu at 6 o\'clock, antenna over the board-edge notch '
      '(no copper beneath, Espressif keep-out). 22 uF + 100 nF at 3V3 pad 3. EN: 10k/1 uF RC. GPIO0 = BOOT pad only. '
-     'GPIO3/45/46 NC. Spares GPIO2/26 on test pads, GPIO43/44 on the Tag-Connect.')
+     'GPIO3/45/46 NC. Spares GPIO26/39 on test pads, GPIO43/44 on the Tag-Connect.')
 mod = {'GND': 'GND', '3V3': '+3V3', 'EN': 'MCU_EN'}
 names = {0: 'IO0', 43: 'TXD0', 44: 'RXD0', 19: 'USB_D-', 20: 'USB_D+'}
-special = {0: 'BOOT', 2: 'GPIO2', 26: 'GPIO26'}      # pads without a firmware signal: named for their test pads
+special = {0: 'BOOT', 26: 'GPIO26', 39: 'GPIO39'}    # pads without a firmware signal: named for their test pads
 for gpio, net, d, fn, note in pinmap.NATIVE:
     name = names.get(gpio, 'IO%d' % gpio)
     mod[name] = net if net else special.get(gpio, NC)
@@ -235,10 +239,11 @@ TEST_PADS = [('TP1', 'GND', 'GND'), ('TP2', 'GND', 'GND'), ('TP3', '+3V3', '3V3'
              ('TP10', 'I2C_SCL', 'SCL'), ('TP13', '3V3_LCD', 'LCDV'),
              ('TP15', 'IR_RX_VCC', 'IRV'), ('TP16', 'GND', 'GND'),
              # A1 (Gate C fixture pads): backlight reference, amplifier enable, frame sync, both wake inputs,
-             # charger factory mode and /CE, the two spare GPIOs
+             # charger factory mode and /CE, USB presence (the third wake input), the two spare GPIOs
              ('TP17', 'LCD_BL', 'BL'), ('TP18', 'AMP_SD', 'AMP'), ('TP19', 'LCD_TE', 'TE'),
              ('TP20', 'PRESS_N', 'PRS'), ('TP21', 'HALL_A', 'HLA'), ('TP22', 'BAT_NTC', 'TSMR'),
-             ('TP23', 'CHG_CE_N', 'CE'), ('TP24', 'GPIO2', 'IO2'), ('TP25', 'GPIO26', 'IO26')]
+             ('TP23', 'CHG_CE_N', 'CE'), ('TP24', 'USB_PRESENT_N', 'USB'), ('TP25', 'GPIO26', 'IO26'),
+             ('TP26', 'GPIO39', 'IO39')]
 for ref, net, label in TEST_PADS:
     # switched rails (TP13, TP15): the fixture proves each one really switches; signal pads 1.0 mm, rails and
     # supplies 1.2 mm (ODD JOBS 37: 1-1.5 mm)
@@ -442,7 +447,7 @@ b.R('R91', '10k', '+3V3', 'CHG_STAT1', note='STAT1 pull-up (SLUSF65B: 1-20k); of
 b.R('R92', '10k', '+3V3', 'CHG_STAT2', note='STAT2 pull-up')
 b.at('power', 'USB-C ENTRY')
 b.R('R93', '100k', 'VBUS', 'VBUS_SENSE', note='VBUS_SENSE divider top')
-b.R('R94', '150k', 'VBUS_SENSE', 'GND', note='divider bottom: 5.5 V -> 3.30 V, 5.0 V -> 3.0 V')
+b.R('R94', '150k', 'VBUS_SENSE', 'GND', note='divider bottom: 5.0 V -> 3.0 V at the inverter gate; holds it off without USB')
 b.at('power', 'CORE 3V3 BUCK')
 b.R('R40', '0R', 'VSYS', 'REG_IN', pkg='0603', note='LINK_REG: remove to measure the regulator and all of +3V3')
 
@@ -482,6 +487,13 @@ b.part('U504', 'MAO:TPS22916C', 'Package_BGA:Texas_PicoStar_BGA-4_0.758x0.758mm_
        {'A2': '+3V3', 'B1': 'GND', 'B2': 'AUX_PWR_EN', 'A1': 'AUX_3V3'},
        lcsc='C2680319', mpn='TPS22916CYFPR', mfr='TI', note='IR receiver supply switch')
 b.C('C508', '1u', '+3V3', note='TPS22916C VIN')
+
+# Design review 2026-10-06 (finding 1): USB presence on an RTC pad, so USB wakes A1 from deep sleep
+b.at('power', 'USB-C ENTRY')
+b.part('Q2', 'Transistor_FET:2N7002', 'Package_TO_SOT_SMD:SOT-23', '2N7002',
+       {'1': 'VBUS_SENSE', '2': 'GND', '3': 'USB_PRESENT_N'}, lcsc='C8545', mpn='2N7002', mfr='CJ',
+       note='USB presence inverter: gate from the VBUS divider, drain = USB_PRESENT_N (active low, RTC wake pad)')
+b.R('R97', '100k', '+3V3', 'USB_PRESENT_N', note='USB_PRESENT_N pull-up: 33 uA only while USB is present')
 
 # Parts removed: their numbers stay retired so later references do not move (A0 removals included).
 RETIRED = {'Q301', 'R303', 'R304', 'R305', 'R107', 'C108',

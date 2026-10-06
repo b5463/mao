@@ -120,6 +120,10 @@ at('U101', 0.0, -18.0, 270, 'F')          # TPD2E2U06 on the D+/D- vias: the pai
 at('TP6', 5.5, -16.95, 0, 'B')            # VBUS probe at the TVS
 at('R120', 7.4, -16.6, 90, 'B')           # VBUS_SENSE divider beside the probe: VBUS end north
 at('R121', 8.8, -16.6, 90, 'B')
+# USB presence inverter (design review 2026-10-06): on F east of the module's right escape column, where the
+# VBUS_SENSE line arrives; its drain line runs on L3 under the module to GPIO2 (west column) and TP24
+at('Q102', 11.0, 13.3, 90, 'F')           # 2N7002: gate west (VBUS_SENSE), drain north, source south-east
+at('R123', 11.9, 10.85, 180, 'F')         # USB_PRESENT_N pull-up north of the drain, +3V3 end east
 
 # ==== battery chain (B, A0 places): J102 -> LINK_BAT R108 -> reverse-polarity Q101 -> VBAT ==============
 UX, UY = 3.0, -11.0
@@ -266,8 +270,9 @@ _field = {'TP2': (6.0, -6.1), 'TP3': (8.8, -6.1), 'TP4': (11.6, -6.1), 'TP5': (1
           'TP21': (1.4, 3.05),       # HLA: north of module pin 25 (GPIO21, the dial's wake line)
           'TP22': (14.3, 2.3),       # TSMR: on the NTC line between the charger and the battery plug
           'TP23': (9.4, -14.3),      # CE: beside the charger's /CE pull-down
-          'TP24': (-10.2, 17.0),     # IO2 (spare): west of module pin 6
-          'TP25': (2.55, 5.9)}       # IO26: north of module pin 26
+          'TP24': (-10.2, 17.0),     # USB (USB_PRESENT_N, GPIO2): west of module pin 6
+          'TP25': (2.55, 5.9),       # IO26: north of module pin 26
+          'TP26': (10.3, 13.45)}     # IO39 (spare): east of module pin 35
 for _ref, (_x, _y) in _field.items():
     at(_ref, _x, _y, 0, 'B')
 at('R214', 8.2, -3.3, 270, 'B')           # I2C pull-ups in the field's free position

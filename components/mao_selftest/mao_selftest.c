@@ -338,11 +338,11 @@ static result_t t_gauge_voltage(char *d)
 
 static result_t t_vbus(char *d)
 {
-    /* The test runs over USB: VBUS_SENSE (100 k / 150 k divider) must read
+    /* The test runs over USB: USB_PRESENT_N (VBUS divider -> 2N7002) must read
      * present. */
     bool usb = false;
     const esp_err_t err = mao_board_line_get(MAO_LINE_USB_PRESENT, &usb);
-    snprintf(d, DETAIL_LEN, "VBUS_SENSE=%d (%s)", usb, esp_err_to_name(err));
+    snprintf(d, DETAIL_LEN, "USB_PRESENT=%d (%s)", usb, esp_err_to_name(err));
     return err == ESP_OK && usb ? R_PASS : R_FAIL;
 }
 
