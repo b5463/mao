@@ -1,7 +1,7 @@
-"""Assembly drawing of MAO_MAIN A0, one A3 sheet per side (plain Python + matplotlib). ODD JOBS 177, 183.
+"""Assembly drawing of MAO_MAIN A1, one A3 sheet per side (plain Python + matplotlib). ODD JOBS 177, 183.
 
     python asm_dump.py            (KiCad python: geometry to .cache/mao-routing/asm-dump.json)
-    python assembly_drawing.py    (writes outputs/fab/ASSEMBLY-MAO_MAIN_A0-top.pdf / -bottom.pdf and PNG previews)
+    python assembly_drawing.py    (writes outputs/fab/ASSEMBLY-MAO_MAIN_A1-top.pdf / -bottom.pdf and PNG previews)
 
 Every part's reference is printed, at 4.5:1 so a 0.42 mm board-scale reference is 1.9 mm on paper. Pads are drawn as
 plain grey shapes (no pad numbers to collide with), part bodies as their Fab outline. A reference sits inside its
@@ -149,14 +149,14 @@ def draw(side, data, path):
             ax.plot([X(sx), X(ex)], [Y(sy), Y(ey)], color='black', lw=0.25)
             ax.plot([X(ex)], [Y(ey)], marker='o', ms=0.9, color='black')
     tx = 300.0
-    lines = [('MAO_MAIN A0', 14, 'bold'), ('Assembly drawing, %s' % ('top (F.Cu, face side)' if side == 'F' else
+    lines = [('MAO_MAIN A1', 14, 'bold'), ('Assembly drawing, %s' % ('top (F.Cu, face side)' if side == 'F' else
                                                                     'bottom (B.Cu), seen from the back'), 10, 'normal'),
              ('', 6, 'normal'),
              ('Scale %.1f : 1 on A3. All %d parts on this side, every reference.' % (SCALE, len(parts)), 7, 'normal'),
              ('Pads grey, bodies as their Fab outline; a reference sits in its part', 7, 'normal'),
              ('or beside it with a leader (dot on the part). DNP parts crossed out.', 7, 'normal'),
              ('Values, MPN and LCSC numbers: BOM-%s-JLC.csv.' % NAME, 7, 'normal'),
-             ('Placement: CPL-%s-JLC.csv. Board rev A0, 2026-10.' % NAME, 7, 'normal'),
+             ('Placement: CPL-%s-JLC.csv. Board rev A1, 2026-10.' % NAME, 7, 'normal'),
              ('', 6, 'normal'), ('ODD JOBS', 9, 'bold'), ('design-as-code: hardware/mao/design', 7, 'normal')]
     y = 270.0
     for s, size, weight in lines:

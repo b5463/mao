@@ -1,5 +1,5 @@
 # Ported from b5463/kino-d4 hardware/pcb/kino-d4-carrier-a0/design/check_silk_text.py @ 68aba75 (ODD JOBS PCB toolchain).
-"""Silkscreen text check for MAO_MAIN A0 (KiCad 10 python). ODD JOBS 91, 94, 95, 177.
+"""Silkscreen text check for MAO_MAIN A1 (KiCad 10 python). ODD JOBS 91, 94, 95, 177.
 
 KiCad's silk_overlap test does not report one footprint's reference text over another's, so
 this checks every visible silkscreen text (component references and board labels) per side:

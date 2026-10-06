@@ -1,4 +1,4 @@
-"""MAO_MAIN A0 mechanical datums (board millimetres, origin = puck axis, +x right, +y towards
+"""MAO_MAIN A1 mechanical datums (A0 puck, MINI-1 module) (board millimetres, origin = puck axis, +x right, +y towards
 6 o'clock, viewed from the face). Every placement script and the mechanical doc read these
 numbers; nothing is eyeballed (ODD JOBS 72/73).
 
@@ -50,9 +50,7 @@ SENSOR_R = 21.2             # centre radius of the window-border sensors
 TOF_R = 20.9                # VL53L4CD: 2.4 mm radial, outer corner r 22.2 (ring lip starts at r 24.0)
 IR_RX_R = 21.0              # IRM-H6xxT turned so its 4.0 mm side is radial: body r 19.0-23.0, corners r 23.1
 TOF_ANGLE = -28.0           # 11 o'clock ("forehead"), clockwise from 12
-ALS_ANGLE = 28.0            # 1 o'clock
 IR_RX_ANGLE = 90.0          # 3 o'clock, top-view receiver under the border (12 o'clock is the USB-C shell)
-MIC_ANGLE = 106.0           # bottom-port mic on B.Cu, port up through the board into the window border, far from speaker and buck-boost
 
 # Display tail. The stock Winstar tail (70.1 mm, spec section 8) leaves the panel at 9 o'clock (image up = 12
 # o'clock: the GC9A01 rotates only in 90 deg steps) and folds back under the panel at its bending area. Its ~45 mm
@@ -71,35 +69,34 @@ TAIL_CORRIDOR = (-18.3, -5.9, -14.4, 5.9)  # B.Cu between slot and J301's courty
 TAIL_F_CLEAR = (-19.4, -6.4, -17.7, 6.4)   # F.Cu on the slot's inboard side: no parts (the tail drops there)
 TAIL_WELL = (6.0, -5.75, 12.0, 5.75)       # F.Cu under the carrier's well where the tail loop turns: no parts
 
-# Antenna: WROOM-1 on B.Cu at 6 o'clock, long axis radial, antenna over a notch in the board edge.
+# Antenna: ESP32-S3-MINI-1 on B.Cu at 6 o'clock, long axis radial, antenna over a notch in the board edge.
+# Footprint RF_Module:ESP32-S2-MINI-1 (the S3-MINI-1 land, Gate C audit): body (F.Fab) x +-7.7, y -9.75 ... 10.25 about
+# the footprint origin, antenna section the 4.5 mm at the -y end; on B.Cu the flip mirrors y, so the antenna end is at
+# origin + 9.75 and the antenna section starts at origin + 5.25. Pads: columns x +-7.0 (1-15, 31-45), the row at the
+# board-centre end 9.55 from the origin (16-30), the row at the antenna end 4.45 from it (46-60, GND), EPAD 61.
 MODULE_ANGLE = 180.0        # 6 o'clock
-MODULE_W, MODULE_L = 18.0, 25.5
-ANTENNA_L = 6.4             # module antenna section length (no copper underneath)
-# The module's antenna-end corners (x +-9) set its position, not its axis: they stay inside the board circle
-# (r 28.89), so the module keeps the board's 1 mm to the wall (ODD JOBS 135, 136). Until rev A0 audit 2 the
-# end sat at r 28.7 on the axis and the corners reached r 30.08, into the wall.
-MODULE_OUTER_R = 27.45                # antenna end (y)
-MODULE_CY = MODULE_OUTER_R - MODULE_L / 2          # module centre (y), 14.70
-MODULE_SHIFT = MODULE_CY - 15.95      # designed copper drawn for the old position moves with the module
-ANTENNA_EDGE_Y = MODULE_CY + 6.75                  # antenna section starts here (footprint F.Fab)
+MODULE_W, MODULE_L = 15.4, 20.0
+ANTENNA_L = 4.5             # module antenna section length (no copper underneath)
+# The module's antenna-end corners (x +-7.7) set its position: they stay inside the board circle (r 28.89 at the
+# corner = 1 mm to the wall, ODD JOBS 135, 136). r = hypot(7.7, 27.6) = 28.65.
+MODULE_OUTER_R = 27.6                 # antenna end (y)
+MODULE_CY = MODULE_OUTER_R - 9.75     # footprint origin (y), 17.85 (the body centre is 0.25 towards the board centre)
+MODULE_SHIFT = 14.70 - 15.95          # A0 copper drawn for the WROOM's pre-audit position (kept for designed copper
+                                      # of parts that did not move with the module: haptic driver, LRA)
+ANTENNA_EDGE_Y = MODULE_CY + 5.25     # antenna section starts here (footprint F.Fab), 23.1
+MODULE_TOP_Y = MODULE_CY - 10.25      # body edge towards the board centre, 7.6
+MODULE_PIN_ROW_Y = MODULE_CY - 9.55   # pins 16-30, 8.3
 NOTCH_W = MODULE_W + 6.0              # board cut-out under the antenna: 3 mm each side
 NOTCH_Y = ANTENNA_EDGE_Y              # notch inner edge = antenna boundary (no copper beneath)
 NOTCH_FILLET = 1.0                    # milled inner corners, drawn deliberately
 ANTENNA_COPPER_SETBACK = 3.0          # the all-layer keep-out reaches this far beyond the notch's sides; towards the
                                       # board it starts 0.6 mm inside the antenna boundary (the module's own pads
-                                      # 1/40 and its GND pins are the only copper there)
+                                      # 46-60 and its GND pins are the only copper there)
 
 # Back edge (12 o'clock): USB-C on B.Cu; the two IR LEDs flank it on B.Cu, firing out of the base wall.
 USB_ANGLE = 0.0
 USB_FRONT_Y = -29.6            # receptacle mating face, 0.6 mm past the board edge
 IR_TX_ANGLES = (-21.0, 21.0)
-
-# Touch electrodes. LEFT/RIGHT are copper arcs at the board rim sensing through the ring;
-# TOP (window border) and REAR (base) are spring contacts to enclosure electrodes.
-TOUCH_ARC_SPAN = 50.0        # degrees per side electrode
-TOUCH_LEFT_ANGLE = -90.0     # 9 o'clock
-TOUCH_RIGHT_ANGLE = 90.0     # 3 o'clock
-TOUCH_ARC_R = (PCB_R - 2.6, PCB_R - 0.4)
 
 # Centre: face-press switch on F.Cu under the display; the face carrier's boss presses its stem.
 PRESS_XY = (0.0, -2.5)
@@ -110,7 +107,9 @@ PRESS_SIDE = 'F'
 # a 0.3 mm insulating pad separates the cell from them (ODD JOBS 48).
 BATTERY_ENVELOPE = (35.5, 30.0, 5.1)     # w, d, h: PKCELL LP503035 class, 500 mAh, PCM, 10k NTC
 # Cell lead: leaves the cell's 3 o'clock end and plugs into J102 (JST SH 3-pin, 2 o'clock on B.Cu,
-# opening towards 6 o'clock): ~25 mm of lead, re-terminated to 1 BAT- / 2 NTC / 3 BAT+.
+# opening towards 6 o'clock): ~25 mm of lead, re-terminated to 1 BAT- / 2 NTC / 3 BAT+. A1 keeps the SH: the Gate C
+# JST PH side-entry housing stands 4.85 mm over B.Cu (KiCad STEP of S3B-PH-K; the SM4-TB uses the same housing),
+# against ZONE_B_MAX_H below, and its mated plug would sit on the cell (owner decision, A1 report).
 BATTERY_CENTRE = (0.0, -5.6)         # cell edges y -20.6 / 9.4: 12.05 mm from the antenna boundary (y 21.45)
 ZONE_B_MAX_H = 3.2
 # Speaker: Same Sky CMS-150803-088S-X8 (15 x 8 x 3 mm, own spring contacts) under the board at 9 o'clock, long
@@ -149,19 +148,20 @@ TAB_ANGLES = (130.0, 328.0)        # 328, not 320: the L3 VSYS band rounds H1's 
 TAB_ARC, TAB_CLEAR = 4.0, 1.5
 # Service-field names (silk.py): each probe pad's name has a via-free spot of its own, so no router, stitching or
 # pad via lands where the name has to go (ODD JOBS 103). ref: (name, side) with side 'right' (upright beside the
-# pad) or 'above' (level, over it). The pad positions come from placement.py.
+# pad) or 'above' (level, over it). The pad positions come from placement.py. Rows 2.8 mm apart.
 FIELD_NAMES = {'TP2': ('GND', 'right'), 'TP3': ('3V3', 'right'), 'TP4': ('SYS', 'right'), 'TP5': ('BAT', 'right'),
                'TP10': ('SCL', 'right'), 'TP1': ('GND', 'right'), 'TP16': ('GND', 'right'),
-               'TP9': ('SDA', 'right', -0.35), 'TP11': ('XRST', 'right'), 'TP8': ('BOOT', 'right'), 'TP7': ('RST', 'right')}
+               'TP9': ('SDA', 'right'), 'TP7': ('RST', 'right'),
+               'TP22': ('TSMR', 'right')}
+# The other A1 fixture pads (TP17-TP21, TP23-TP25) sit on their nets away from the field; silk.py names them beside
+# the pad wherever it finds room.
 FIELD_TEXT = 0.8                   # the names' height: the rows are 2.8 mm apart
 # The back's maker mark and identity (silk.py): a reserved via-free spot, so routing changes cannot take it. Over the
-# cell (seen with the base off, at bring-up and service): the back has no free 5 x 7 mm field outside it.
-B_IDENT_AT = (-2.2, -6.2)          # mark centre; 'MAO A0' and the date below it
-B_IDENT_KEEPOUT = [(-4.65, -8.2, 0.15, -4.2), (-5.5, -4.2, 1.1, -1.0)]   # mark; text lines (vias only)
-# Where the L3 VSYS branch turns down into the backlight bar, a via's antipad necks the only feed of the amplifier,
-# haptic driver and backlight (a C205/U202 ground via left 0.26 mm there, electrical audit 3): no via in that corner
-VSYS_CORNER_KEEPOUT = (-11.2, -11.9, -9.6, -9.9)
-# (TP9's name box sits 0.35 mm up the pad: below it is the module escape via of LCD_BL_CTRL at (6.985, 0.75))
+# cell (seen with the base off, at bring-up and service).
+B_IDENT_AT = (-0.2, -6.2)          # mark centre; 'MAO A1' and the date below it (A1: 2 mm east of A0's, for the
+                                   # backlight sink)
+B_IDENT_KEEPOUT = [(-2.65, -8.2, 2.15, -4.2), (-3.5, -4.2, 3.1, -1.0)]   # mark; text lines (vias only)
+VSYS_CORNER_KEEPOUT = None         # A0 only (the L3 VSYS branch's turn into the AW9364 bar)
 
 
 def field_name_box(x, y, name, side, dy=0.0):

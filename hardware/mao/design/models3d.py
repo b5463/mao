@@ -15,14 +15,13 @@ import pcbnew as pcb
 from board import TARGET
 from footprints import wrl_box_model, LOCAL_FP
 
-K3D = os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/SharedSupport/3dmodels')
+K3D = os.path.join(os.environ.get('KICAD_SHARE', os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/SharedSupport')),
+                   '3dmodels')
 SHAPES = os.path.join(os.path.dirname(LOCAL_FP), 'MAO.3dshapes')
 BLACK, LID, SHELL, DARK = (0.10, 0.10, 0.10), (0.78, 0.78, 0.76), (0.82, 0.82, 0.82), (0.05, 0.05, 0.05)
 
 # footprint -> (model name, boxes (x0, y0, z0, x1, y1, z1, rgb) in footprint mm); heights from the drawings
 BODIES = {
-    # TI DPY0002A (touch ESD): 1.0 x 0.6, 0.4 max
-    'Texas_DPY0002A_0.6x1mm_P0.65mm': ('TI_DPY0002A_X1SON-2', [(-0.5, -0.3, 0, 0.5, 0.3, 0.4, BLACK)]),
     # TI DMR0004A (DRV5012): 1.1 x 1.4, 0.4 max
     'Texas_X2SON-4-1EP_1.1x1.4mm_P0.5mm_EP0.8x0.6mm': ('TI_DMR0004A_X2SON-4', [(-0.55, -0.7, 0, 0.55, 0.7, 0.4, BLACK)]),
     # VL53L4CD: 4.4 x 2.4 x 1.0, emitter and receiver windows
@@ -33,13 +32,14 @@ BODIES = {
                                                     (-1.3, -1.3, 2.5, 1.3, 1.3, 4.0, DARK)]),
     # MAX17048 T822 TDFN: 2 x 2, 0.8 max
     'TDFN-8-1EP_2x2mm_P0.5mm_EP0.8x1.2mm': ('TDFN-8_2x2_0.8', [(-1.0, -1.0, 0, 1.0, 1.0, 0.8, BLACK)]),
-    # TCA6408A / BQ24073 RGT VQFN: 3 x 3, 1.0 max
-    'VQFN-16-1EP_3x3mm_P0.5mm_EP1.45x1.45mm_ThermalVias': ('VQFN-16_3x3_1.0', [(-1.5, -1.5, 0, 1.5, 1.5, 1.0, BLACK)]),
-    'VQFN-16-1EP_3x3mm_P0.5mm_EP1.68x1.68mm_ThermalVias': ('VQFN-16_3x3_1.0', [(-1.5, -1.5, 0, 1.5, 1.5, 1.0, BLACK)]),
     # MAX98357A T1633 TQFN: 3 x 3, 0.8 max
     'TQFN-16-1EP_3x3mm_P0.5mm_EP1.23x1.23mm_ThermalVias': ('TQFN-16_3x3_0.8', [(-1.5, -1.5, 0, 1.5, 1.5, 0.8, BLACK)]),
-    # SPH0641LU4H-1: 3.50 x 2.65 x 0.98, metal lid
-    'Knowles_LGA-5_3.5x2.65mm': ('Knowles_SPH0641', [(-1.325, -1.75, 0, 1.325, 1.75, 0.98, LID)]),
+    # A1: Espressif ESP32-S3-MINI-1 datasheet v1.7 fig 11-1: 15.4 x 20.5 x 2.4 (+-0.1) mm, metal shield over the pads
+    # end, PCB antenna at the -y end (footprint coordinates); KiCad ships no model for the S2-MINI-1 land
+    'ESP32-S2-MINI-1': ('Espressif_ESP32-S3-MINI-1', [(-7.7, -9.75, 0, 7.7, 10.25, 0.8, (0.10, 0.25, 0.12)),
+                                                      (-7.2, -4.9, 0.8, 7.2, 9.75, 2.5, SHELL)]),
+    # A1: TI YFP0004 (TPS22916C) DSBGA-4: 0.78 x 0.78, 0.5 max
+    'Texas_PicoStar_BGA-4_0.758x0.758mm_Layout2x2_P0.4mm': ('TI_YFP0004_DSBGA-4', [(-0.39, -0.39, 0, 0.39, 0.39, 0.5, BLACK)]),
     # HRO TYPE-C-31-M-12: shell 8.94 x 7.3, about 3.2 high, mouth at +y
     'USB_C_Receptacle_HRO_TYPE-C-31-M-12': ('HRO_TYPE-C-31-M-12', [(-4.47, -3.65, 0, 4.47, 3.65, 3.2, SHELL),
                                                                    (-4.1, 3.6, 0.32, 4.1, 3.7, 2.88, DARK)]),

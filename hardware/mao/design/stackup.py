@@ -1,4 +1,4 @@
-"""Write the ordered stackup into MAO_MAIN_A0.kicad_pcb (plain Python 3; idempotent).
+"""Write the ordered stackup into MAO_MAIN_A1.kicad_pcb (plain Python 3; idempotent).
 
 JLCPCB JLC04161H-1080, 4 layers, 1.6 mm, as published on jlcpcb.com/impedance:
   L1 F.Cu 1 oz | 1080 prepreg 0.0764 | L2 In1.Cu 0.5 oz | core 1.265 | L3 In2.Cu 0.5 oz | 1080 prepreg 0.0764

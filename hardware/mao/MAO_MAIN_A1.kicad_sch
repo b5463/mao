@@ -1,0 +1,282 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2")
+	(paper "A3")
+	(title_block
+		(title "MAO_MAIN A1")
+		(date "2026-10-06")
+		(rev "A1")
+		(company "ODD JOBS")
+		(comment 1 "ODD JOBS / MAO main board")
+		(comment 2 "Design-as-code: hardware/mao/gen")
+	)
+	(lib_symbols)
+	(sheet
+		(at 25.4 50.8)
+		(size 101.6 50.8)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0))
+		(uuid "ff1b9c5b-27d0-5173-840d-042428314c30")
+		(property "Sheetname" "Power"
+			(at 25.4 50.1 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "power.kicad_sch"
+			(at 25.4 102.2 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "MAO_MAIN_A1"
+				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2"
+					(page "2")
+				)
+			)
+		)
+	)
+	(text "USB-C entry, charger with power path, battery, fuel gauge, 3.2 V buck, display rail"
+		(exclude_from_sim no)
+		(at 27.94 55.88 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "8dfe4c5d-f5fc-5c7c-bd0b-2060c4a89646")
+	)
+	(sheet
+		(at 152.4 50.8)
+		(size 101.6 50.8)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0))
+		(uuid "5c1663d1-fabd-5843-8636-9724c729cba6")
+		(property "Sheetname" "Compute"
+			(at 152.4 50.1 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "compute.kicad_sch"
+			(at 152.4 102.2 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "MAO_MAIN_A1"
+				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2"
+					(page "3")
+				)
+			)
+		)
+	)
+	(text "ESP32-S3-MINI-1 module, boot/reset, USB, I2C, service and test access"
+		(exclude_from_sim no)
+		(at 154.94 55.88 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "1ffac6a3-ce99-59fe-b888-4dd95ed67905")
+	)
+	(sheet
+		(at 279.4 50.8)
+		(size 101.6 50.8)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0))
+		(uuid "bb8bfd75-01b4-5045-8e72-3398fff8dcf0")
+		(property "Sheetname" "Interface"
+			(at 279.4 50.1 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "interface.kicad_sch"
+			(at 279.4 102.2 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "MAO_MAIN_A1"
+				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2"
+					(page "4")
+				)
+			)
+		)
+	)
+	(text "Round display, backlight current sink, ring dial, face press"
+		(exclude_from_sim no)
+		(at 281.94 55.88 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "ae8e2011-e899-55c6-bc36-952a1a335319")
+	)
+	(sheet
+		(at 25.4 127)
+		(size 101.6 50.8)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0))
+		(uuid "61a5f3de-cea7-5814-b60b-77643f400ce0")
+		(property "Sheetname" "Sense"
+			(at 25.4 126.3 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "sense.kicad_sch"
+			(at 25.4 178.4 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "MAO_MAIN_A1"
+				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2"
+					(page "5")
+				)
+			)
+		)
+	)
+	(text "IMU, proximity"
+		(exclude_from_sim no)
+		(at 27.94 132.08 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "47043e12-b916-5675-bc4b-edd6f7434df5")
+	)
+	(sheet
+		(at 152.4 127)
+		(size 101.6 50.8)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0))
+		(uuid "517ca77e-174d-5040-a551-49bc87eb4be4")
+		(property "Sheetname" "Feedback"
+			(at 152.4 126.3 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "feedback.kicad_sch"
+			(at 152.4 178.4 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "MAO_MAIN_A1"
+				(path "/763ed02e-41b4-5bcb-a75f-6e7b9d82b8a2"
+					(page "6")
+				)
+			)
+		)
+	)
+	(text "Speaker amplifier, haptic driver, IR transmit and receive"
+		(exclude_from_sim no)
+		(at 154.94 132.08 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "00a1b73c-b703-5a42-9f90-da138cfe0dca")
+	)
+	(text "MAO_MAIN A1 - ODD JOBS / MAO round puck main board (A0 moved to the M5 Gate C architecture)"
+		(exclude_from_sim no)
+		(at 25.4 215.9 0)
+		(effects
+			(font (size 1.524 1.524))
+			(justify left bottom)
+		)
+		(uuid "58b860e0-ff2b-59b4-8b9f-adb975edf8ba")
+	)
+	(text "GPIO0 = BOOT strap only: 10k pull-up and test pad TP8 BOOT (Tag-Connect pin 6). Hold TP8 low during a reset (TP7 RST, Tag-Connect pin 2, or USB with no cell) to enter download mode. The face press is GPIO14, not a strap."
+		(exclude_from_sim no)
+		(at 25.4 219.71 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "aa6f9b1c-7ccb-5688-9660-11814bbccf9f")
+	)
+	(text "GPIO45 (VDD_SPI strap) and GPIO46 are NC with their internal pull-downs: nothing may pull GPIO45 high (VDD_SPI 1.8 V would stop the 3.3 V flash). GPIO3 (JTAG-source strap) is NC."
+		(exclude_from_sim no)
+		(at 25.4 223.52 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "7c2fa7d2-64a4-5504-af17-3566a6372637")
+	)
+	(text "Every enable has a hardware pull-down and sits on a pin without a reset pull (pinmap.py rules): all off at reset."
+		(exclude_from_sim no)
+		(at 25.4 227.33 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "787419fb-aa36-5fc2-9a1e-6b9d58af4ba1")
+	)
+	(text "Pin map: hardware/mao/design/pinmap.py (also generates the firmware header and docs/hardware/mao-pin-map.md)."
+		(exclude_from_sim no)
+		(at 25.4 231.14 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "e0f2cb8e-4824-5806-967f-d4b8157195e1")
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

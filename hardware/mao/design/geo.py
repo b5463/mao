@@ -1,6 +1,6 @@
 """Footprint geometry in plain Python: where every pad and courtyard of a placed part lands.
 
-Reads the netlist (outputs/MAO_MAIN_A0.net: which footprint and which nets each part has) and
+Reads the netlist (outputs/MAO_MAIN_A1.net: which footprint and which nets each part has) and
 fp-geometry.json (fp_cache.py: pads and courtyard strips on F and B at rotation 0). Used by
 placement.py to put support parts against the exact pin they serve, and by the placement review
 (place_view.py: overlaps, keep-outs, ratsnest length and crossings). Board millimetres, centre origin, y towards 6 o'clock.

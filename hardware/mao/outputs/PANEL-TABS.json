@@ -7,8 +7,8 @@
  "room": {
   "130": {
    "copper_mm": 1.55,
-   "body_mm": 1.35,
-   "nearest_body": "U201"
+   "body_mm": 1.45,
+   "nearest_body": "U302"
   },
   "328": {
    "copper_mm": 1.55,
@@ -16,5 +16,5 @@
    "nearest_body": "D501"
   }
  },
- "text": "about 4 o'clock (130 deg clockwise from the USB-C; no copper within 1.55 mm of the edge and no part within 1.35 mm, over 4 mm of rim) and about 11 o'clock (328 deg clockwise from the USB-C; no copper within 1.55 mm of the edge and no part within 1.45 mm, over 4 mm of rim)"
+ "text": "about 4 o'clock (130 deg clockwise from the USB-C; no copper within 1.55 mm of the edge and no part within 1.45 mm, over 4 mm of rim) and about 11 o'clock (328 deg clockwise from the USB-C; no copper within 1.55 mm of the edge and no part within 1.45 mm, over 4 mm of rim)"
 }

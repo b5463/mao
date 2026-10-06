@@ -1,83 +1,105 @@
-# MAO_MAIN A0 power budget
+# MAO_MAIN A1 power budget
 
-Estimates from datasheet typicals at 25 °C, before measurement. The bring-up procedure
-(`mao-bringup.md`) measures every row through the 0 Ω battery link R108 (ODD JOBS 110) and
-replaces these numbers.
+Estimates from datasheet values at 25 °C, before measurement. Bring-up measures every row through the two 0 Ω
+links: **LINK_BAT** (R108, the whole board's battery current) and **LINK_REG** (R122, the TPS62840 and everything on
++3V3), ODD JOBS 110. The A0 budget (85 µA deep sleep) is in git history; A1 replaces it.
 
 ## Assumptions
 
-- Cell: 1S LiPo, 500 mAh (PKCELL LP503035 class), 3.7 V nominal, own protection board (PCM
-  quiescent current ≤ 8 µA).
-- +3V3 (3.18 V) from the TPS63802 buck-boost: ~90 % efficient at 10–500 mA, ~80 % below 1 mA.
-  Battery current = I(3V3) × 3.18 / (η × 3.7).
-- Amplifier, haptic driver, IR LEDs and the backlight run from VSYS (= VBAT on battery) and are counted directly.
-- Radio: ESP-NOW receive listening with Wi-Fi power save **off**, as the M2 firmware does today. The
-  "radio PS" column assumes an ESP-NOW wake window (`esp_now_set_wake_window`): a firmware choice,
-  not hardware.
-- Backlight: the panel's 2 parallel white LEDs from VSYS into the AW9364 constant-current sinks (U303): 40 mA
-  at step 1 (100 %), (17 − n)/16 × 40 mA at step n, 33–47 mA over the part's ±17.5 % tolerance. A linear sink, so
-  the battery current is the LED current plus the driver's 330 µA quiescent current (0.1 µA with EN low).
+- Cell: 1S LiPo, 500 mAh (LP503035 class), 3.7 V nominal, own protection PCM (its quiescent current, typically a few
+  µA, is the cell's, not the board's, and is listed separately).
+- +3V3 = 3.2 V from the TPS62840 (VSET 102 kΩ). Efficiency from SLVSEC6D Fig. 19 (VOUT 3.3 V, PFM, read off the
+  graph, ±1 %): about 87 % at 10–100 µA with VIN 3.6 V, 89–91 % at 4.2 V; ~90 % at 10–300 mA. Below VIN ≈ 3.25 V
+  it runs in 100 % mode (battery current = load current). Battery current = I(3V3) × 3.2 / (η × VBAT).
+- Amplifier, IR LEDs and the panel's backlight LEDs run from VSYS (= VBAT − I × RON_BAT on battery). The haptic
+  driver is on +3V3 (Gate C).
+- Radio: ESP-NOW listening with Wi-Fi power save off (today's firmware); the "radio PS" figures assume an ESP-NOW
+  wake window (firmware choice).
+- Backlight: constant-current sink, 28.7 mA at 100 % (94.6 mV / 3.3 Ω), linear in the LEDC duty.
 
-## Per subsystem
+## Deep sleep, per component
 
-| Subsystem | Part | Active | Idle | Drowsy / light sleep | Deep sleep / off |
-|---|---|---:|---:|---:|---:|
-| MCU + radio | ESP32-S3-WROOM-1-N8R2 | 100 mA (RX listening, 240 MHz); 355 mA TX peaks | 95 mA | 0.3–2 mA (light sleep, radio off or windowed) | 8 µA |
-| LCD panel | WF0128BTYAA4DNN0 (GC9A01) | 8.5 mA | 8.5 mA | 15 µA (sleep-in) | 0 (rail switched off) |
-| Backlight | 2 LEDs, AW9364 sinks from VSYS | 30 mA (70 %: step 5) + 0.33 mA | 15 mA (35 %: step 11) + 0.33 mA | 0.1 µA (EN low) | 0.1 µA |
-| Display rail switch | TPS22919 | 8 µA | 8 µA | 8 µA (rail on, panel in sleep-in) | 2 nA (off) |
-| Speaker amp | MAX98357A | 2.4 mA idle; 20–150 mA while a sound plays | 0.6 µA (SD low between sounds) | 0.6 µA | 0.6 µA |
-| Microphone | SPH0641LU4H-1 | 0.62 mA (2.4 MHz) / 0.24 mA (768 kHz LP) | 0.24 mA or off | 0 (GPIO supply off) | 0 |
-| IMU | LSM6DSOX | 0.55 mA (XL+G 104 Hz) | 30 µA (XL 52 Hz LP) | 4.5 µA (wake-up mode) | 4.5 µA (wake-on-motion armed) |
-| Proximity | VL53L4CD | 5 mA (100 ms period, 20 ms budget) | 0.5 mA (1 Hz autonomous) | 5 µA (XSHUT) | 5 µA |
-| Ambient light | OPT3004 | 1.8 µA | 1.8 µA | 0.3 µA (shutdown) | 0.3 µA |
-| Body touch | ESP32-S3 touch, 4 ch | 0.5 mA (continuous scan) | 0.2 mA | 18 µA (1 ch, 1 % duty) | 18 µA (TOP wake channel) |
-| Ring Hall sensors | 2 × DRV5012 | 0.31 mA (2.5 kHz) | 0.31 mA | 3.2 µA (20 Hz) | 3.2 µA |
-| Haptic | DRV2605L + LRA | 0.5 mA enabled; 60–100 mA while playing | 4 µA (EN low) | 4 µA | 4 µA |
-| IR receive | IRM-H638T | 0.4 mA when listening | 0 (unpowered) | 0 | 0 |
-| IR transmit | 2 × IR12-21C | 2 × 26–59 mA pulses, 33 % carrier duty, only while sending | 0 | 0 | 0 |
-| Fuel gauge | MAX17048 (on VBAT) | 23 µA | 23 µA | 3 µA (hibernate) | 3 µA |
-| Charger | BQ24073 (battery drain, no USB) | 4.3 µA | 4.3 µA | 4.3 µA | 4.3 µA |
-| 3V3 regulator | TPS63802 Iq | 11 µA | 11 µA | 11 µA | 11 µA |
-| UVLO divider | 470 k / 240 k on VSYS | 5.9 µA | 5.9 µA | 5.9 µA | 5.9 µA |
-| GPIO expander | TCA6408A | 1 µA | 1 µA | 1 µA | 1 µA |
-| Board-ID divider | 1 M / 1 M on 3V3 | 1.6 µA | 1.6 µA | 1.6 µA | 1.6 µA |
-| Charger EN1 strap | BQ24073 EN1 on +3V3, internal ≈ 285 kΩ pull-down | 11 µA | 11 µA | 11 µA | 11 µA |
-| Default pull-downs | 100 k on enabled lines | ~0.2 mA (6 lines high) | ~0.1 mA | 0 | 0 |
+Wake sources armed: face press (GPIO14, ext1), dial channel A (GPIO21, ext0), IMU wake-on-motion (GPIO4, ext1),
+RTC timer. Panel, backlight, amplifier, haptic driver, IR receiver and ToF off; every enable held off by its
+hardware pull-down, so firmware may leave them Hi-Z.
 
-## Totals and runtime (500 mAh)
+**+3V3 side (µA, at 3.2 V)**
 
-| State | What runs | 3V3 load | Battery current | Runtime |
+| Item | Typ | Max | Worst used | Source |
+|---|---:|---:|---:|---|
+| ESP32-S3 deep sleep, RTC memory + RTC peripherals on (ext0/ext1) | 8.0 | UNKNOWN | 12 | ESP32-S3 datasheet v2.2 Table 5-10 (typ only); allowance |
+| ICM-42670-P accelerometer wake-on-motion (LP, 1.56 Hz) | 4.4 | UNKNOWN | 10 | TDK product page (not in DS-000451 r1.0/r1.2); 9.8 µA at 25 Hz from a TDK listing as the allowance |
+| VL53L4CD, XSHUT low (HW standby) | 5.0 | 7.0 | 7.0 | DS13812 Rev 3 Table 12 (2.8 V) |
+| DRV2605L, EN low | 4.0 | 7.0 | 7.0 | SLOS854D §6.5 (3.6 V) |
+| 2 × DRV5012, SEL low (20 Hz) | 3.2 | 6.6 | 6.6 | SLVSDD5 §6.5, 1.6 / 3.3 µA each at 3.0 V (no 3.3 V row) |
+| MAX17048 SDA/SCL pull-down (IPD) through the 4.7 k pull-ups | 0.4 | 0.8 | 0.8 | Gate C (MAX17048 datasheet) |
+| 2 × TPS22916C off | 0.02 | 0.2 | 0.2 | SLVSDO5F §6.5 ISD 10 / 100 nA |
+| IMU INT1, ToF INT, press, straps, STAT1/2, VBUS divider, enables | 0 | 0.1 | 0.1 | design: no pull is fighting a driven level |
+| TLV9061, panel, IR receiver | 0 | 0 | 0 | unpowered (switched rails) |
+| **Subtotal** | **25.0** | | **43.7** | |
+
+**Battery side (µA)**
+
+| Item | Typ | Max | Worst used | Source |
+|---|---:|---:|---:|---|
+| +3V3 loads converted (typ: 3.7 V, 87 %; worst: 3.6 V, 80 %) | 24.9 | | 48.6 | Fig. 19, with a 7-point allowance on the worst case |
+| TPS62840 IQ (VIN + VOS) | 0.09 | 0.48 | 0.48 | SLVSEC6D §7.5 (−40…85 °C max) |
+| BQ25185, battery only | 4.0 | 5.0 | 5.0 | SLUSF65B §5.5 IQ_BAT |
+| MAX17048 hibernate (reset comparator off) | 3.0 | 5.0 | 5.0 | 19-6171 Rev 7 |
+| MAX98357A shutdown | 0.6 | 2.0 | 2.0 | 19-6779 Rev 7 (specified at 5 V) |
+| Backlight sink FET + LEDs (DMG2302UK IDSS) | 0 | 1.0 | 1.0 | DS38439 (16 V spec; far lower at 4 V) |
+| IR LED switch (AO3400A IDSS) | 0 | 1.0 | 1.0 | AOS Rev 3.1 (30 V spec) |
+| PCB and capacitor leakage | 1.0 | | 3.0 | allowance |
+| **Board total** | **33.6** | | **66.1** | |
+| Cell PCM (not the board) | ~2–4 | ~8 | | cell datasheet, at purchase |
+
+**Reading:** 33.6 µA typical, under the 35 µA target, with little margin (the ToF's 5 µA standby is the
+difference to Gate C's 31.4 µA). The every-maximum stack (66 µA) is over the 50 µA hard limit, as Gate C's was
+(65 µA): two items have no published maximum (S3, IMU wake-on-motion) and carry allowances. **The 50 µA limit is a
+measurement at LINK_BAT on the built board** (bring-up, current meter required). If it fails, the first levers are
+the ToF (its supply could move to AUX_3V3 in A2: −5 µA) and the IMU ODR.
+
+## Active and peak
+
+| State | What runs | 3V3 load | Battery current | Runtime (500 mAh) |
 |---|---|---:|---:|---:|
-| **Active** | face on 70 % (30 mA backlight), 30 fps animation, all perception sensors, radio listening | ~116 mA | **~141 mA** | **~3.5 h** |
-| Active, radio PS | as above with an ESP-NOW wake window | ~57 mA | ~85 mA | ~5.9 h |
-| **Idle** | face dimmed 35 % (15 mA backlight), low frame rate, proximity 1 Hz, mic off | ~107 mA | **~118 mA** | **~4.2 h** (radio PS: ~8.3 h) |
-| **Drowsy** | panel sleep-in, light sleep, motion/touch/press/USB wake, radio windowed | ~1.5 mA | **~1.6 mA** | **~13 days** |
-| **Deep sleep** | everything off except wake sources (press, IMU motion, USB plug, expander INT, TOP touch, RTC timer) | ~66 µA | **~85 µA** (incl. PCM) | **~8 months** |
-| Peak | TX burst + backlight + amp + haptic + IR together | — | ~0.9 A for < 10 ms | — |
+| Active | face 70 % (20 mA LEDs), animation, sensors, radio listening | ~112 mA | ~120 mA | ~4.2 h |
+| Active, radio PS | as above, ESP-NOW wake window | ~55 mA | ~70 mA | ~7 h |
+| Drowsy | panel sleep-in, light sleep, motion/press/dial wake, radio windowed | ~1.4 mA | ~1.4 mA | ~15 days |
+| Deep sleep | wake sources only | 25 µA | 33.6 µA typ | ~1.7 years (self-discharge dominates) |
 
-Runtimes use the 500 mAh nameplate. An aged or cold cell gives about 15 % less (simulation S15 in
-`mao-a0-verification.md` uses 85 %: active ~3.0 h, drowsy ~11 days, deep sleep ~7 months).
+**+3V3 worst case against the TPS62840's 750 mA:** S3 Wi-Fi TX 355 mA + LRA 150 mA (allowance) + ToF ranging
+24 mA max (DS13812) + panel 8.5 mA + IMU 0.55 mA + Hall pair fast 0.74 mA max + TLV9061 0.6 mA + IR receiver
+1.2 mA max + pull-ups ~2.5 mA = **≈ 543 mA (207 mA margin)**; with the S3 at Espressif's "supply ≥ 0.5 A" rule
+instead of its TX peak: **≈ 688 mA (62 mA margin, 8 %)**. Never reaches the 1.0 A minimum switch limit.
 
-The A0 revision moved the backlight from the switched 3V3_LCD rail (10 Ω, AO3400A PWM, 18 mA at 70 % with the
-old 80 % cap) to VSYS through the AW9364: full brightness is now the panel's specified 40 mA, so the same 70 %
-setting draws more (30 mA) and looks brighter. For the old brightness, firmware would sit at about 45 %.
+**VSYS worst case:** + amplifier 260 mA (0.77 W into 8 Ω at 3.7 V) + backlight 29 mA + IR 2 × 59 mA ≈ **950 mA**
+from the cell: within the BQ25185 BATFET (3.1 A OCP), LINK_BAT (1206 0 Ω), Q1 (AO3401A, 4 A) and just under the
+JST SH contact rating (1 A per contact): see the A1 report, battery connector.
 
-**Conclusions**
-- The radio dominates. On battery, firmware should use an ESP-NOW wake window and drop to Drowsy quickly:
-  MAO is mostly a desk object and most of its life is on or near USB.
-- Deep sleep at ~85 µA lets MAO sit on a shelf for months and still wake by motion, touch or a press. The
-  charger's EN1 strap (11 µA, the price of starting in USB100 until +3V3 is up) is the largest single item.
-  The PCM is the floor; the UVLO (2.96 V) stops the 3V3 rail before the PCM has to act.
-- Peaks (~0.9 A) are within the JST SH contact rating (1 A), the AO3401A reverse-polarity FET (4 A),
-  the 1206 0 Ω link (2 A class) and the TPS63802 (2 A). The firmware should not start a haptic effect
-  and a loud sound in the same 10 ms window while transmitting IR (the power HAL serialises them).
+## Low-battery floor (TPS62840 in 100 % mode)
+
+CORE (+3V3) must stay ≥ 3.0 V at the load (S3 minimum). In 100 % mode
+`+3V3 = VSYS − I3V3 × (R_HS + DCR + R_LINK_REG)` and `VSYS = VBAT − I_SYS × RON_BAT`; the gauge measures VBAT
+after the reverse-polarity FET Q1, the cell sits before Q1 and LINK_BAT.
+
+| Event | R | I3V3 | I_SYS | VBAT at the gauge, min | cell terminal, min (Q1 + LINK_BAT) |
+|---|---|---:|---:|---:|---:|
+| worst (TX + LRA + ToF + audio + IR + backlight) | max (R_HS 0.60, DCR 0.116, links 0.05, RON_BAT 0.14, Q1 0.085 Ω) | 543 mA | 950 mA | **3.56 V** | 3.69 V |
+| worst | typ (0.43, 0.097, 0.02, 0.115, 0.06 Ω) | 543 mA | 950 mA | 3.42 V | 3.50 V |
+| TX burst, no audio/haptics/IR | max | 390 mA | 420 mA | 3.37 V | 3.43 V |
+
+Q1 (AO3401A, RDS(on) 60/85 mΩ typ/max at VGS −2.5 V, AOS Rev 3.1) drops 57 / 81 mV at the 950 mA worst event and
+~9 mV at a typical 150 mA. It does not move the floor measured at the gauge (Q1 is upstream of it); it costs the
+cell that much extra voltage during the worst peak, i.e. a few percent of the last capacity. **Kept** for ODD JOBS 51
+(the SH lead is re-terminated by hand). Firmware floor: shutdown at 3.55 V (gauge, loaded), warning 3.65 V, and the
+power HAL serialises audio + haptics + IR when VBAT < 3.7 V (Gate C rule); the BQ25185's 3.0 V BATFET cut-off
+(BUVLO) is the hardware floor that replaces A0's UVLO divider.
 
 ## Charging
 
-USB500 input (≤ 500 mA from any USB-C source with Rd only; USB100 until +3V3 is up, EN1 on +3V3), 207 mA charge
-(185–227 mA, ISET 4.3 kΩ: the LP503035 allows 250 mA = 0.5C), DPPM: MAO runs from USB while charging and the
-charge current yields to the system load. Charger dissipation worst case 0.72 W at VBAT 3.0 V (TJ 88 °C at 45 °C
-inside the closed puck, simulation S13); typical 0.42 W at 3.7 V. Firmware pauses charging through /CE at ≥ 43 °C
-board temperature and resumes at ≤ 40 °C (the cell's window is 0–45 °C; the charger's own TS window is 0–50 °C).
-Full charge of a 500 mAh cell ≈ 2.7 h plus the constant-voltage tail.
+BQ25185: VBUS 500 mA input limit (ILIM/VSET 18 k), 4.2 V, 210 mA charge (ISET 1.43 k, 199–220 mA: the LP503035
+allows 250 mA = 0.5C), power path (SYS 4.5 V on USB). Dissipation worst case (VIN 5 V, VBAT 3.0 V, 210 mA charge +
+290 mA system): (5 − 3.0) × 0.21 + (5 − 4.5) × 0.29 ≈ 0.57 W, on F under the panel (same spot as A0's BQ24073,
+0.72 W): the thermal-camera check of A0 bring-up §4 stays. Firmware pauses charging through /CE (GPIO18) outside
+the cell's 0–45 °C; the charger's own TS window is the cell NTC on TS/MR.

@@ -1,4 +1,4 @@
-"""MAO custom footprints (KiCad 10 Python). Writes hardware/mao/lib/MAO.pretty.
+"""MAO custom footprints (KiCad 10 Python). Writes hardware/mao/lib/MAO.pretty (A1).
 
 Only parts with no KiCad library footprint live here. Every land pattern is transcribed from the
 manufacturer drawing named in its docstring; dimensions are in millimetres, origin at the
@@ -117,29 +117,25 @@ def save(fp):
     print('saved', fp.GetValue())
 
 
-def ti_dla0010a():
-    """TPS63802 VSON-HR-10 (DLA0010A). TI SLVSEU9D p.36 'Example board layout' 4223750/D:
-    pads 1-5 0.60 x 0.25 at x -0.90; pads 6,7,9,10 0.90 x 0.25 at x +0.75; pad 8 (GND, HotRod
-    power pad) 1.30 x 0.25 at x +0.55; pitch 0.50, pin 1 top-left, R0.05 corners. Body 2.0 x 3.0.
-    Stencil (p.37) prints pad 8 at ~83 %; modelled as a -8 % paste ratio on pad 8."""
-    fp = new('TI_DLA0010A_VSON-HR-10_2x3mm_P0.5mm', 'TI VSON-HR DLA0010A (TPS63802), land pattern per SLVSEU9D',
-             'VSON HotRod DLA TPS63802')
-    ys = [-1.0, -0.5, 0.0, 0.5, 1.0]
-    for i, y in enumerate(ys):
-        smd_pad(fp, i + 1, -0.90, y, 0.60, 0.25, rr=0.05)
-    for num, y in zip((10, 9, 8, 7, 6), ys):
-        if num == 8:
-            smd_pad(fp, 8, 0.55, y, 1.30, 0.25, rr=0.05, paste_ratio=-0.08)
-        else:
-            smd_pad(fp, num, 0.75, y, 0.90, 0.25, rr=0.05)
-    body(fp, 2.0, 3.0, pads_extent=(-1.2, -1.125, 1.2, 1.125))
-    # silk: short corner marks clear of pads
-    for sx in (-1, 1):
-        line(fp, pcb.F_SilkS, (sx * 0.5, -1.62), (sx * 0.2, -1.62), 0.12)
-        line(fp, pcb.F_SilkS, (sx * 0.5, 1.62), (sx * 0.2, 1.62), 0.12)
-    fp.Reference().SetPosition(vec(0, -2.3))
-    fp.Value().SetPosition(vec(0, 2.3))
-    model(fp, 'TI_DLA0010A_VSON-HR-10', [(-1.0, -1.5, 0.0, 1.0, 1.5, 1.0, (0.10, 0.10, 0.10))])   # 1 mm max height
+def ti_dlc0008b():
+    """TPS62840 VSON-HR-8 (DLC0008B), 1.5 x 2.0 mm, no exposed pad. TI SLVSEC6D drawing 4224310/A, 'Example
+    board layout': 8 pads 0.25 x 0.60 on 0.5 mm pitch, rows (1.3) mm centre to centre; pin 1 top-left, 1-4 down
+    the left side, 5-8 up the right. Same geometry as the Gate C generator
+    (hardware/mao_rev_a/schematic/make_footprints.py dlc0008b), here with MAO's silk, courtyard and body.
+    KiCad's Texas_VSON-HR-8 is the TPS62823 land (0.8 mm pads, 1.45 mm rows): a mismatch (Gate C audit)."""
+    fp = new('TI_DLC0008B_VSON-HR-8_1.5x2mm_P0.5mm', 'TI DLC0008B VSON-HR-8 (TPS62840), land pattern example 4224310/A',
+             'VSON HotRod DLC TPS62840')
+    for i in range(4):
+        y = -0.75 + 0.5 * i
+        smd_pad(fp, i + 1, -0.65, y, 0.60, 0.25, rr=0.0625)
+        smd_pad(fp, 8 - i, 0.65, y, 0.60, 0.25, rr=0.0625)
+    body(fp, 1.5, 2.0, pads_extent=(-0.95, -0.875, 0.95, 0.875))
+    for sx in (-1, 1):                      # silk: short marks above and below the body, clear of the pads
+        line(fp, pcb.F_SilkS, (sx * 0.45, -1.15), (sx * 0.15, -1.15), 0.12)
+        line(fp, pcb.F_SilkS, (sx * 0.45, 1.15), (sx * 0.15, 1.15), 0.12)
+    fp.Reference().SetPosition(vec(0, -1.9))
+    fp.Value().SetPosition(vec(0, 1.9))
+    model(fp, 'TI_DLC0008B_VSON-HR-8', [(-0.75, -1.0, 0.0, 0.75, 1.0, 1.0, (0.10, 0.10, 0.10))])   # 1 mm max height
     save(fp)
 
 
@@ -151,27 +147,6 @@ def text(fp, layer, s, x, y, size=0.4):
     t.SetTextSize(vec(size, size))
     t.SetTextThickness(MM(size * 0.15))
     fp.Add(t)
-
-
-def ti_dnp0006a():
-    """OPT3004/OPT3001 USON-6 2x2 (DNP0006A). TI SBOS681 'Example board layout' 4221434/C:
-    six 0.50 x 0.25 obround pads at x +-0.95, y -0.65/0/+0.65 (1-3 left top->bottom, 4-6 right
-    bottom->top), exposed pad 0.65 x 1.35. TI's optional EP vias are omitted (no via in pad,
-    ODD JOBS 82); the EP connects to GND by copper."""
-    fp = new('TI_DNP0006A_USON-6_2x2mm_P0.65mm_EP0.65x1.35mm', 'TI USON-6 DNP0006A (OPT3004), per SBOS681',
-             'USON DNP OPT3004 OPT3001')
-    for num, (x, y) in {1: (-0.95, -0.65), 2: (-0.95, 0), 3: (-0.95, 0.65),
-                        4: (0.95, 0.65), 5: (0.95, 0), 6: (0.95, -0.65)}.items():
-        smd_pad(fp, num, x, y, 0.50, 0.25, rr=0.125)
-    smd_pad(fp, 7, 0, 0, 0.65, 1.35, rr=0.05, paste_ratio=-0.15)
-    body(fp, 2.0, 2.0, pads_extent=(-1.2, -1.0, 1.2, 1.0))
-    # the optical aperture is the package centre: mark it on Fab so the window is placed over it
-    rect(fp, pcb.F_Fab, -0.3, -0.3, 0.3, 0.3, 0.05)
-    model(fp, 'TI_DNP0006A_USON-6', [                                # 0.65 mm max height
-        (-1.0, -1.0, 0.0, 1.0, 1.0, 0.62, (0.18, 0.16, 0.12)),
-        (-0.3, -0.3, 0.62, 0.3, 0.3, 0.65, (0.55, 0.45, 0.30)),     # optical aperture
-    ])
-    save(fp)
 
 
 def everlight_ir12():
@@ -196,24 +171,6 @@ def everlight_ir12():
     model(fp, 'Everlight_IR12-21C', [                                # body 3.0 x 1.1, 1.0 high; lens 0.88 wide
         (-1.5, -0.5, 0.0, 1.5, 0.6, 1.0, (0.70, 0.78, 0.86)),
         (-0.44, -1.4, 0.06, 0.44, -0.5, 0.94, (0.80, 0.86, 0.92)),
-    ])
-    save(fp)
-
-
-def bw0019_spring():
-    """BAT WIRELESS BW0019BG-L3.5W1.5H3.8 SMD spring contact, gold. Drawing 681-0019B-2: solder pad
-    1.50 x 2.10 (+-0.05), body 3.5 x 1.5, free height 3.8, working height 3.0, limit 2.5. The pad is
-    the copper land; the arm extends 1.4 mm towards +y. The contact point sits over +y."""
-    fp = new('BAT_BW0019BG_SpringContact_3.5x1.5mm', 'SMD gold spring contact, working height 3.0 mm',
-             'spring contact finger')
-    smd_pad(fp, 1, 0, 0, 1.60, 2.20, rr=0.1)
-    rect(fp, pcb.F_Fab, -0.75, -1.05, 0.75, 2.45, 0.08)
-    rect(fp, pcb.F_CrtYd, -1.05, -1.35, 1.05, 2.75, 0.05)
-    fp.Reference().SetPosition(vec(0, -2.0))
-    fp.Value().SetPosition(vec(0, 3.4))
-    model(fp, 'BAT_BW0019BG', [                                      # free height 3.8
-        (-0.75, -1.05, 0.0, 0.75, 1.05, 0.15, (0.85, 0.68, 0.30)),  # solder base
-        (-0.6, 0.6, 0.15, 0.6, 2.45, 3.8, (0.85, 0.68, 0.30)),      # arm and contact
     ])
     save(fp)
 
@@ -265,72 +222,6 @@ def wire_pads_2():
     fp.Reference().SetPosition(vec(0, -1.8))
     fp.Value().SetPosition(vec(0, 1.8))
     save(fp)
-
-
-def touch_arc():
-    """Rim touch electrode for the LEFT / RIGHT body zones: an annular sector at the board edge,
-    copper on F.Cu and B.Cu stitched by three plated holes, sensing a finger on the ring through
-    the plastic, stitched by two plated holes near its ends. Geometry from mechanical.py. Origin at the arc mid-point; the board centre is at
-    (0, +r_mid) in footprint coordinates, so the placer rotates it about its own origin."""
-    import math
-    import mechanical as m
-    r1, r2 = m.TOUCH_ARC_R
-    span = m.TOUCH_ARC_SPAN
-    rmid = (r1 + r2) / 2
-    name = 'TouchArc_R%.1f-%.1f_%ddeg' % (r1, r2, span)
-    fp = new(name, 'MAO rim touch electrode, annular sector, F+B copper', 'capacitive touch electrode')
-    fp.SetAttributes(pcb.FP_THROUGH_HOLE | pcb.FP_EXCLUDE_FROM_BOM | pcb.FP_EXCLUDE_FROM_POS_FILES)
-
-    def local(r, deg):
-        a = math.radians(deg)
-        return (r * math.sin(a), rmid - r * math.cos(a))
-
-    steps = 40
-    pts = [local(r2, -span / 2 + span * i / steps) for i in range(steps + 1)]
-    pts += [local(r1, span / 2 - span * i / steps) for i in range(steps + 1)]
-    for layer, mask in ((pcb.F_Cu, pcb.F_Mask), (pcb.B_Cu, pcb.B_Mask)):
-        p = pcb.PAD(fp)
-        p.SetNumber('1')
-        p.SetAttribute(pcb.PAD_ATTRIB_SMD)
-        ls = pcb.LSET()
-        ls.AddLayer(layer)          # covered by mask: the electrode is never exposed
-        p.SetLayerSet(ls)
-        p.SetPosition(vec(0, 0))
-        p.SetShape(layer, pcb.PAD_SHAPE_CUSTOM)
-        p.SetAnchorPadShape(layer, pcb.PAD_SHAPE_CIRCLE)
-        p.SetSize(layer, vec(0.6, 0.6))
-        chain = pcb.SHAPE_LINE_CHAIN()
-        for x, y in pts:
-            chain.Append(MM(x), MM(y))
-        chain.SetClosed(True)
-        poly = pcb.SHAPE_POLY_SET()
-        poly.AddOutline(chain)
-        p.AddPrimitivePoly(layer, poly, 0, True)
-        fp.Add(p)
-    for deg in (-span / 2 + 3, span / 2 - 3):      # stitch F and B near the ends: the speaker sits under the middle
-        x, y = local(rmid, deg)
-        p = pcb.PAD(fp)
-        p.SetNumber('1')
-        p.SetAttribute(pcb.PAD_ATTRIB_PTH)
-        p.SetLayerSet(pcb.PAD.PTHMask())
-        p.SetPosition(vec(x, y))
-        p.SetDrillSize(vec(0.3, 0.3))
-        p.SetSize(pcb.F_Cu, vec(0.6, 0.6))
-        p.SetShape(pcb.F_Cu, pcb.PAD_SHAPE_CIRCLE)
-        ls = p.GetLayerSet()
-        ls.RemoveLayer(pcb.F_Mask)
-        ls.RemoveLayer(pcb.B_Mask)
-        p.SetLayerSet(ls)            # tented
-        fp.Add(p)
-    # courtyard: the sector inflated by 0.25 mm
-    cp = [local(r2 + 0.25, -span / 2 - 0.5 + (span + 1) * i / steps) for i in range(steps + 1)]
-    cp += [local(r1 - 0.25, span / 2 + 0.5 - (span + 1) * i / steps) for i in range(steps + 1)]
-    for a, b in zip(cp, cp[1:] + cp[:1]):
-        line(fp, pcb.F_CrtYd, a, b, 0.05)
-    fp.Reference().SetPosition(vec(0, 2.0))
-    fp.Value().SetPosition(vec(0, 3.0))
-    save(fp)
-    return name
 
 
 def hdgc_fpc18():
@@ -389,7 +280,7 @@ def wrl_box_model(path, boxes):
         f.write('\n'.join(out) + '\n')
 
 
-ALL = [ti_dla0010a, ti_dnp0006a, everlight_ir12, hdgc_fpc18, bw0019_spring, samesky_cms150803_pads, wire_pads_2, touch_arc]
+ALL = [ti_dlc0008b, everlight_ir12, hdgc_fpc18, samesky_cms150803_pads, wire_pads_2]
 
 if __name__ == '__main__':
     for f in ALL:

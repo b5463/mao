@@ -1,0 +1,8 @@
+Bought separately - LCSC (not assembled on the board),LCSC Part #,Manufacturer Part,Manufacturer,Quantity,Status 2026-10-06
+"Display 1.28in round GC9A01 IPS, 18-pin FPC (J301)",UNKNOWN,WF0128BTYAA4DNN0 (Gate C),Winstar,1,"not on LCSC. Closest LCSC listing C17215183 PG1301HA-ZA0 (Pacific Goal, GC9A01): stock 0, pinout/TE/backlight/FPC UNKNOWN - owner decision"
+"LRA 8 mm coin, wire leads (J501)",C2682305,LD0832AA-0099F,LEADER,1,"JLC stock 1,093; 1.8 V, 80 mA; resonant frequency UNKNOWN (DRV2605L auto-resonance tracks it); alternatives C2942349 LD0832AA-0126F (107), C5632413 LD0825BC-0168F (41)"
+"Speaker 15 x 8 mm, 8 ohm, spring contacts (LS501)",C20181964,CMS-150803-088S-X8,CUI,1,JLC stock 14 (very low); no alternative found on LCSC
+"LiPo cell LP503035 class, 500 mAh, with PCM and 10k NTC",UNKNOWN,,,1,not found on LCSC - owner decision (buy outside LCSC)
+"Battery housing, JST SH 1.0 mm 3-pin",C268100,SHR-03V-S-B,JST,1,"stock 5,786; mates the SH-compatible header C7430445 on the board (fit of genuine JST to the clone: check)"
+"Battery crimp contacts, SH",C189897,SSHL-002T-P0.2,JST,3,"stock 841,495; or pre-crimped cable C54529088 SH1.0-3P-1-100(3)-28A (HanElectricity, 865; wiring UNKNOWN)"
+LRA / speaker leads,none needed,,,0,"the LRA wires solder to the J501 pads, the speaker springs press on the LS501 pads"

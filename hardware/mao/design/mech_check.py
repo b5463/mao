@@ -16,7 +16,7 @@ highest vertex or box, 0.1 inch units), with the footprint's model scale, offset
   wall                      every body inside the board circle (r <= PCB_R: 1 mm to the wall at r 30), except the
                             parts that reach into a wall opening by design (USB-C, the IR LEDs); the speaker's
                             outline (mechanical.py, it has no footprint body) >= 0.8 mm from the wall
-Springs that touch the enclosure by design (J302 TOP, J303 REAR) and the parts with no body (pads, holes,
+The face switch (its stem touches the carrier boss by design) and the parts with no body (pads, holes,
 fiducials, electrodes, test pads) are listed, not tested. Writes outputs/MECH-CHECK.json; exits 1 on a finding.
 """
 import json
@@ -30,12 +30,12 @@ import pcbnew as pcb
 import mechanical as m
 from board import ROOT, TARGET, courtyard_boxes
 
-K3D = os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/SharedSupport/3dmodels')
+K3D = os.path.join(os.environ.get('KICAD_SHARE', os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/SharedSupport')),
+                   '3dmodels')
 PRJ = str(ROOT)
 RING_LIP_MAX = 0.95          # mao-mechanical.md section 1: the ring's lower lip is 1.9 mm above F.Cu at r > 24 mm
 WINDOW_MAX = m.WINDOW_Z - m.PRESS_TRAVEL - 0.3
-DESIGNED_CONTACT = {'J302': 'TOP spring: presses the window-border electrode',
-                    'J303': 'REAR spring: presses the base electrode', 'SW301': 'face switch: its stem meets the carrier boss'}
+DESIGNED_CONTACT = {'SW301': 'face switch: its stem meets the carrier boss'}
 NO_BODY = ('H', 'FID', 'TP', 'E', 'LS', 'J201', 'J501')   # pads, holes, marks, electrodes, Tag-Connect, LRA lead pads
 WALL_R = m.PUCK_OD / 2 - m.WALL
 WALL_OPENING = {'J101': 'USB-C: mating face in the wall opening', 'D501': 'IR LED: fires through the wall',

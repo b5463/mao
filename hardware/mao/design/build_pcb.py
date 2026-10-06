@@ -1,4 +1,4 @@
-"""Build MAO_MAIN_A0.kicad_pcb from the exported netlist and placement.py (KiCad 10 Python).
+"""Build MAO_MAIN_A1.kicad_pcb from the exported netlist and placement.py (KiCad 10 Python).
 
 The netlist written by build_sch.py is the authority for nets, footprints, fields and symbol paths,
 so schematic parity holds by construction. This script rebuilds the board from scratch: outline,
@@ -320,7 +320,7 @@ def build():
             pads=False)
     # Module underside on B.Cu: no tracks between the pin rows, where the module body would hide them
     # and its bottom ground pad sits on them (vias and pour allowed; ODD JOBS 2, 94).
-    mx0, my0 = m.MODULE_W / 2 - 1.6, m.MODULE_CY - m.MODULE_L / 2 + 2.4
+    mx0, my0 = 7.0 - 0.4 - 0.25, m.MODULE_PIN_ROW_Y + 0.4 + 0.25     # inside the MINI-1's pad columns and pin row
     keepout(board, [pcb.B_Cu], [(-mx0, my0), (mx0, my0), (mx0, m.ANTENNA_EDGE_Y), (-mx0, m.ANTENNA_EDGE_Y)],
             'MODULE UNDERSIDE', tracks=True, vias=False, pads=False, pours=False)
     # Fasteners: copper-free rings around the screws and the peg, both faces (ODD JOBS 68, 69), and part-free
@@ -353,9 +353,10 @@ def build():
     for k, (x0, y0, x1, y1) in enumerate(m.B_IDENT_KEEPOUT):
         keepout(board, allcu, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], 'B IDENT %d' % k,
                 tracks=False, vias=True, pads=False, pours=False)
-    x0, y0, x1, y1 = m.VSYS_CORNER_KEEPOUT       # the L3 VSYS branch's turn into the backlight bar: no via antipad
-    keepout(board, allcu, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], 'VSYS CORNER',
-            tracks=False, vias=True, pads=False, pours=False)
+    if m.VSYS_CORNER_KEEPOUT:                    # A0: the L3 VSYS branch's turn into the backlight bar: no via antipad
+        x0, y0, x1, y1 = m.VSYS_CORNER_KEEPOUT
+        keepout(board, allcu, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], 'VSYS CORNER',
+                tracks=False, vias=True, pads=False, pours=False)
     # Display tail: no part between the slot and J301 on B, none on the slot's inboard side on F.
     for layer, (x0, y0, x1, y1), name in ((pcb.B_Cu, m.TAIL_CORRIDOR, 'TAIL CORRIDOR'),
                                          (pcb.F_Cu, m.TAIL_F_CLEAR, 'TAIL CLEAR'),
@@ -377,15 +378,9 @@ def build():
             x, y = pcb.ToMM(c.x) - ORIGIN, pcb.ToMM(c.y) - ORIGIN
             if ref.startswith('FID'):
                 keepout(board, [f.GetLayer()], circle_pts(x, y, 1.15, 16), ref + ' CLEAR', pads=False, pours=False)
-            elif ref in ('J201', 'MK401') and p.GetAttribute() == pcb.PAD_ATTRIB_NPTH:
+            elif ref in ('J201',) and p.GetAttribute() == pcb.PAD_ATTRIB_NPTH:
                 keepout(board, allcu, circle_pts(x, y, pcb.ToMM(p.GetDrillSize().x) / 2 + 0.3, 16),
                         ref + ' HOLE CLEAR', pads=False, pours=False)
-    # Touch electrodes: no plane under the rim arcs (parasitic C kills sensitivity).
-    for a in (m.TOUCH_LEFT_ANGLE, m.TOUCH_RIGHT_ANGLE):
-        h = m.TOUCH_ARC_SPAN / 2 + 3
-        keepout(board, [pcb.In1_Cu, pcb.In2_Cu], sector_pts(m.TOUCH_ARC_R[0] - 1.0, m.PCB_R + 1, a - h, a + h),
-                'TOUCH PLANE CUT %d' % int(a), tracks=True, vias=True, pads=False, pours=True)
-
     # Solid pour connection where thermal spokes make no sense: exposed pads and their thermal vias
     # (heat path), the module ground pads and the USB-C ground pins (return current, ODD JOBS 13).
     for f in board.GetFootprints():

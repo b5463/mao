@@ -1,3 +1,5 @@
+> **Superseded 2026-10-06 (kept as history):** this document describes MAO_MAIN **A0**. The current board is MAO_MAIN **A1** (A0 moved to the M5 Gate C architecture): see [mao-a1-report.md](mao-a1-report.md).
+
 # MAO_MAIN A0: bring-up
 
 First power-on of an unproven board (EVT, 5 units). This procedure is staged: nothing gets more energy

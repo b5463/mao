@@ -5,8 +5,7 @@
 #pragma once
 
 /* ESP32-S3 GPIOs */
-#define MAO_PIN_PRESS_N             1   /* face-press switch (to GND) */
-#define MAO_PIN_HALL_A              2   /* ring dial channel A */
+#define MAO_PIN_HAPTIC_EN           1   /* haptic driver enable */
 #define MAO_PIN_IMU_INT1            4   /* IMU INT1: wake-on-motion (ICM-42670-P, open-drain, active low, latched) */
 #define MAO_PIN_HALL_FAST           5   /* Hall sensors: high = fast sampling, low = low-power */
 #define MAO_PIN_LCD_PWR_EN          6   /* display logic rail switch (TPS22916C) */
@@ -17,17 +16,18 @@
 #define MAO_PIN_LCD_MOSI           11   /* display data (FSPID IO_MUX) */
 #define MAO_PIN_LCD_SCLK           12   /* display clock (FSPICLK IO_MUX) */
 #define MAO_PIN_LCD_DC             13   /* display data/command */
-#define MAO_PIN_HAPTIC_EN          14   /* haptic driver enable */
+#define MAO_PIN_PRESS_N            14   /* face-press switch (to GND) */
 #define MAO_PIN_TOF_XSHUT          15   /* proximity sensor shutdown (low = off) */
-#define MAO_PIN_AUX_PWR_EN         16   /* IR receiver supply switch (TPS22916C on +3V3) */
+#define MAO_PIN_TOF_INT_N          16   /* proximity GPIO1: threshold interrupt */
 #define MAO_PIN_IR_TX              17   /* IR LED driver gate (RMT carrier) */
 #define MAO_PIN_CHG_CE_N           18   /* charger /CE: high pauses charging (firmware thermal limit, cell 0-45 C) */
+#define MAO_PIN_HALL_A             21   /* ring dial channel A */
 #define MAO_PIN_CHG_STAT1          33   /* charger STAT1 (open-drain) */
 #define MAO_PIN_CHG_STAT2          34   /* charger STAT2 (open-drain) */
 #define MAO_PIN_LCD_TE             35   /* display tearing-effect output: frame sync */
 #define MAO_PIN_IR_RX              36   /* IR receiver output (RMT) */
 #define MAO_PIN_HALL_B             37   /* ring dial channel B */
-#define MAO_PIN_TOF_INT_N          38   /* proximity GPIO1: threshold interrupt */
+#define MAO_PIN_AUX_PWR_EN         38   /* IR receiver supply switch (TPS22916C on +3V3) */
 #define MAO_PIN_VBUS_SENSE         39   /* USB VBUS present (100k/150k divider) */
 #define MAO_PIN_AMP_BCLK           40   /* I2S bit clock to the amplifier */
 #define MAO_PIN_AMP_LRCLK          41   /* I2S word select */

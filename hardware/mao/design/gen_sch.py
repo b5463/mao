@@ -21,7 +21,7 @@ from sexp import Q, dumps, find, findall
 GRID = 1.27
 PAGE = {'A3': (420.0, 297.0)}
 POWER_NETS = {}    # net -> power symbol lib_id (filled by setup_power_symbols)
-PROJECT = 'MAO_MAIN_A0'
+PROJECT = 'MAO_MAIN_A1'
 
 
 def snap(v):

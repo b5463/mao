@@ -1,7 +1,7 @@
-"""Dimensioned enclosure-interface drawing of MAO_MAIN A0 (plain Python 3, writes SVG).
+"""Dimensioned enclosure-interface drawing of MAO_MAIN A1 (plain Python 3, writes SVG).
 
 Every number comes from mechanical.py and placement.py, so the drawing can't drift from the board
-(ODD JOBS 72/73). Output: docs/hardware/mao-mechanical-interface.svg (+ PNG when PyMuPDF exists).
+(ODD JOBS 72/73). Output: docs/hardware/mao-a1-mechanical-interface.svg (+ PNG when PyMuPDF exists).
 """
 import math
 import os
@@ -12,7 +12,7 @@ import mechanical as m
 from netrules import ROOT
 from placement import PLACE
 
-OUT = ROOT.parents[1] / 'docs' / 'hardware' / 'mao-mechanical-interface.svg'
+OUT = ROOT.parents[1] / 'docs' / 'hardware' / 'mao-a1-mechanical-interface.svg'   # A0's drawing stays as history
 S = 9.0            # px per mm
 W, H = 1250, 820
 CX, CY = 360, 380   # board origin in px (top view)
@@ -53,7 +53,7 @@ def main():
     r = m.PCB_R
     hw = m.NOTCH_W / 2
     yc = math.sqrt(r * r - hw * hw)
-    e.append(text(0, -m.PUCK_OD / 2 - 1.5, 'MAO_MAIN A0: enclosure interface (top view, from the face)', 16, 'middle', weight='bold'))
+    e.append(text(0, -m.PUCK_OD / 2 - 1.5, 'MAO_MAIN A1: enclosure interface (top view, from the face)', 16, 'middle', weight='bold'))
     path = 'M %.1f %.1f A %.1f %.1f 0 1 0 %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f Z' % (
         X(hw), Y(yc), r * S, r * S, X(-hw), Y(yc), X(-hw), Y(m.NOTCH_Y), X(hw), Y(m.NOTCH_Y), X(hw), Y(yc))
     e.append('<path d="%s" fill="#f4f4f0" stroke="#111" stroke-width="1.6"/>' % path)
@@ -99,9 +99,8 @@ def main():
     # interfaces from the placement
     marks = [('J101', 'USB-C (B), face at y %.1f' % m.USB_FRONT_Y, '#111'),
              ('D501', 'IR out (B)', '#a0a'), ('D502', 'IR out (B)', '#a0a'), ('J301', 'display FPC (B), 70 mm tail through the slot', '#36c'),
-             ('U402', 'ToF window', '#0a5'), ('U403', 'light window', '#0a5'), ('U503', 'IR receive window', '#0a5'),
-             ('MK401', 'mic port (Ø0.5 hole)', '#0a5'), ('SW301', 'face-press stem', '#111'),
-             ('J302', 'TOP spring', '#c80'), ('J303', 'REAR spring (B)', '#c80'),
+             ('U402', 'ToF window', '#0a5'), ('U503', 'IR receive window', '#0a5'),
+             ('SW301', 'face-press stem', '#111'),
              ('LS501', 'speaker below the PCB, outline; contacts on B', '#c80'), ('J501', 'LRA leads (B)', '#c80'), ('U301', 'Hall A', '#36c'), ('U302', 'Hall B', '#36c'),
              ('J201', 'Tag-Connect (B)', '#111'), ('J102', 'battery plug (B), opening to 6 o\'clock', '#c00')]
     legend = []
@@ -110,16 +109,6 @@ def main():
         e.append(circle(x, y, 0.9, color, '#fff', 1.2))
         e.append(text(x, y + 0.45, str(i), 9, 'middle', color, 'bold'))
         legend.append((i, ref, label, x, y, color))
-    # touch arcs
-    for a, name in ((m.TOUCH_LEFT_ANGLE, 'TOUCH LEFT'), (m.TOUCH_RIGHT_ANGLE, 'TOUCH RIGHT')):
-        r1, r2 = m.TOUCH_ARC_R
-        a1, a2 = math.radians(a - m.TOUCH_ARC_SPAN / 2), math.radians(a + m.TOUCH_ARC_SPAN / 2)
-        p = 'M %.1f %.1f A %.1f %.1f 0 0 1 %.1f %.1f' % (X(r2 * math.sin(a1)), Y(-r2 * math.cos(a1)), r2 * S, r2 * S,
-                                                        X(r2 * math.sin(a2)), Y(-r2 * math.cos(a2)))
-        e.append('<path d="%s" stroke="#c80" stroke-width="6" fill="none" opacity="0.6"/>' % p)
-        x, y = m.polar(r1 - 1.4, a)
-        e.append('<text x="%.1f" y="%.1f" font-family="Helvetica, Arial, sans-serif" font-size="11" text-anchor="middle" fill="#c80" '
-                 'transform="rotate(%d %.1f %.1f)">%s</text>' % (X(x), Y(y), -90 if a < 0 else 90, X(x), Y(y), name))
     # key dimensions (right column)
     rows = [('Board', 'Ø%.1f mm disc, 1.6 mm, 4 layers' % (2 * m.PCB_R)),
             ('Origin', 'puck axis = display centre; +y towards 6 o\'clock'),
@@ -131,8 +120,7 @@ def main():
             ('Zone A', 'F.Cu under the panel: parts <= %.1f mm' % m.ZONE_A_MAX_H),
             ('Zone B', 'B.Cu over the cell: parts <= %.1f mm, 0.3 mm insulator' % m.ZONE_B_MAX_H),
             ('Press', 'switch stem at (%.1f, %.1f), 0.25 mm travel, 2.55 N' % m.PRESS_XY),
-            ('Springs', 'BW0019BG: working height 3.0 mm (2.5-3.8)'),
-            ('Window', 'sensor band r %.1f-%.1f mm: IR-clear at 11, 1, 3 o\'clock' % m.WINDOW_ANNULUS),
+            ('Window', 'sensor band r %.1f-%.1f mm: IR-clear at 11 and 3 o\'clock' % m.WINDOW_ANNULUS),
             ('Fixing', '2 x M2 into heat-set inserts, 1 plastic peg'),
             ('Tail', 'stock 70.1 mm FPC, one loop under the panel turning in a 2.4 mm well'),
             ('', 'of the carrier (x %.0f..%.0f), through the slot (x %.1f..%.1f) to J301 on B' % (m.TAIL_WELL[0], m.TAIL_WELL[2], m.TAIL_SLOT[0], m.TAIL_SLOT[2])),
