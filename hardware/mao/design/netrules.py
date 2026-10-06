@@ -33,7 +33,7 @@ SLOW_OK = {
     'LCD_PWR_EN', 'HAPTIC_EN', 'TOF_XSHUT', 'AUX_PWR_EN', 'LCD_RST_N', 'AMP_SD', 'CHG_CE_N',
     'CHG_STAT1', 'CHG_STAT2', 'VBUS_SENSE', 'TOF_INT_N', 'IMU_INT1', 'LCD_TE', 'LCD_BL',
     'HALL_A', 'HALL_B', 'HALL_FAST', 'IR_RX', 'IR_TX', 'UART_TX', 'UART_RX', 'MCU_EN', 'PRESS_N', 'BOOT',
-    'GPIO21', 'GPIO26', 'BAT_NTC', 'CHG_ILIM', 'CHG_ISET', '3V3_LCD',   # (3V3_LCD: ~10 mA panel logic rail)
+    'GPIO2', 'GPIO26', 'BAT_NTC', 'CHG_ILIM', 'CHG_ISET', '3V3_LCD',   # (3V3_LCD: ~10 mA panel logic rail)
     'AMP_BCLK', 'AMP_LRCLK', 'AMP_DIN',      # A1: I2S (3 MHz) may cross on L3: the pin map sends it across the board
 }
 INNER_OK = re.compile(r'(%s)$' % '|'.join(sorted(SLOW_OK)))
@@ -87,5 +87,5 @@ ROUTE_ORDER = [
     'LCD_BL_K', 'BL_SENSE', 'BL_FB', 'BL_DRIVE', 'BL_GATE', 'BL_REF', '3V3_LCD',
     'VBUS', 'VBAT', 'VSYS', 'REG_IN', 'BAT_NTC', 'CHG_ISET', 'CHG_ILIM',
     'SPK_P', 'SPK_N', 'IR_TX_G', 'IR_LED_K', 'AUX_3V3', 'IR_RX_VCC', 'HAP_REG',
-    'UART_TX', 'UART_RX', 'MCU_EN', 'BOOT', 'GPIO21', 'GPIO26',
+    'UART_TX', 'UART_RX', 'MCU_EN', 'BOOT', 'GPIO2', 'GPIO26',
 ]

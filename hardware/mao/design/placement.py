@@ -263,10 +263,10 @@ _field = {'TP2': (6.0, -6.1), 'TP3': (8.8, -6.1), 'TP4': (11.6, -6.1), 'TP5': (1
           'TP18': (-15.0, -14.3),    # AMP: beside the amplifier's SD_MODE pull-down
           'TP19': (9.7, 7.4),        # TE: at the module's TE escape (pin 31)
           'TP20': (-2.4, 2.4),       # PRS: under the face switch
-          'TP21': (19.4, 10.6),      # HLA: under the Hall pair
+          'TP21': (1.4, 3.05),       # HLA: north of module pin 25 (GPIO21, the dial's wake line)
           'TP22': (14.3, 2.3),       # TSMR: on the NTC line between the charger and the battery plug
           'TP23': (9.4, -14.3),      # CE: beside the charger's /CE pull-down
-          'TP24': (1.4, 3.05),        # IO21: north of module pin 25
+          'TP24': (-10.2, 17.0),     # IO2 (spare): west of module pin 6
           'TP25': (2.55, 5.9)}       # IO26: north of module pin 26
 for _ref, (_x, _y) in _field.items():
     at(_ref, _x, _y, 0, 'B')

@@ -237,7 +237,7 @@
 		)
 		(uuid "58b860e0-ff2b-59b4-8b9f-adb975edf8ba")
 	)
-	(text "GPIO0 = BOOT strap only: 10k pull-up and test pad TP8 BOOT (Tag-Connect pin 6). Hold TP8 low during a reset (TP7 RST, Tag-Connect pin 2, or USB with no cell) to enter download mode. The face press is GPIO1, not a strap."
+	(text "GPIO0 = BOOT strap only: 10k pull-up and test pad TP8 BOOT (Tag-Connect pin 6). Hold TP8 low during a reset (TP7 RST, Tag-Connect pin 2, or USB with no cell) to enter download mode. The face press is GPIO14, not a strap."
 		(exclude_from_sim no)
 		(at 25.4 219.71 0)
 		(effects

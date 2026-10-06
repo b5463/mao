@@ -2990,14 +2990,14 @@
 		)
 		(uuid "41cf27e1-fc9e-5046-bb8e-85b1fe8bf29f")
 	)
-	(text "I2C 0x5A, EN from GPIO14 with 100k pull-down (4 uA off). IN/TRIG low: playback by I2C. REG 1 uF, VDD 1 uF. LRA"
+	(text "I2C 0x5A, EN from GPIO1 with 100k pull-down (4 uA off). IN/TRIG low: playback by I2C. REG 1 uF, VDD 1 uF. LRA"
 		(exclude_from_sim no)
 		(at 163.83 77.47 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "9ca22e8d-eba2-5a57-90af-66432fcc90a3")
+		(uuid "754c1649-e294-57b9-8645-f34f9dc174ae")
 	)
 	(text "LD0832AA (235 Hz, 1.8 Vrms) glued to the base, leads to J501."
 		(exclude_from_sim no)
@@ -4854,14 +4854,14 @@
 		)
 		(uuid "4b7e116d-05c1-5c46-9453-39e2b4ec1089")
 	)
-	(text "AUX_PWR_EN (GPIO16), through 100R/4.7 uF only while listening (0.4 mA). OUT pull-up goes to the switched supply, never to +3V3, so an unpowered"
+	(text "AUX_PWR_EN (GPIO38), through 100R/4.7 uF only while listening (0.4 mA). OUT pull-up goes to the switched supply, never to +3V3, so an unpowered"
 		(exclude_from_sim no)
 		(at 154.94 166.37 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "ca10c65d-dab8-5078-a679-d7f531438708")
+		(uuid "c04609bd-8bbf-57c7-b713-e87bf2eee118")
 	)
 	(text "receiver is never back-powered and reads a defined low while it is off."
 		(exclude_from_sim no)

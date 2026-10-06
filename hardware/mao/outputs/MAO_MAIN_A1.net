@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "C:\\Users\\AlexanderMoravcik\\Desktop\\ODD JOBS\\MAO 01\\mao-a1-hw\\hardware\\mao\\MAO_MAIN_A1.kicad_sch")
-		(date "2026-10-06T02:12:04")
+		(date "2026-10-06T15:23:31")
 		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
@@ -4210,7 +4210,7 @@
 			(ref "R209")
 			(value "100k")
 			(footprint "Resistor_SMD:R_0402_1005Metric")
-			(description "haptic driver off (GPIO14; plus its internal 2M)")
+			(description "haptic driver off (GPIO1; plus its internal 2M)")
 			(fields
 				(field
 					(name "MPN") "0402WGF1003TCE")
@@ -4224,7 +4224,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "haptic driver off (GPIO14; plus its internal 2M)")
+					(name "Description") "haptic driver off (GPIO1; plus its internal 2M)")
 			)
 			(libsource
 				(lib "Device")
@@ -4354,7 +4354,7 @@
 			(ref "R211")
 			(value "100k")
 			(footprint "Resistor_SMD:R_0402_1005Metric")
-			(description "IR receiver switch off (GPIO16; plus its 750k smart pull-down)")
+			(description "IR receiver switch off (GPIO38; plus its 750k smart pull-down)")
 			(fields
 				(field
 					(name "MPN") "0402WGF1003TCE")
@@ -4368,7 +4368,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "IR receiver switch off (GPIO16; plus its 750k smart pull-down)")
+					(name "Description") "IR receiver switch off (GPIO38; plus its 750k smart pull-down)")
 			)
 			(libsource
 				(lib "Device")
@@ -6312,9 +6312,9 @@
 		)
 		(comp
 			(ref "TP24")
-			(value "IO21")
+			(value "IO2")
 			(footprint "TestPoint:TestPoint_Pad_D1.0mm")
-			(description "test pad IO21")
+			(description "test pad IO2")
 			(fields
 				(field
 					(name "MPN") "PCB feature, no part")
@@ -6332,7 +6332,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "test pad IO21")
+					(name "Description") "test pad IO2")
 			)
 			(libsource
 				(lib "Connector")
@@ -13210,7 +13210,7 @@
 		(net
 			(code "7")
 			(name "AUX_3V3")
-			(class "Default")
+			(class "Switched")
 			(node
 				(ref "R505")
 				(pin "1")
@@ -13234,8 +13234,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "20")
-				(pinfunction "IO16_20")
+				(pin "34")
+				(pinfunction "IO38_34")
 				(pintype "bidirectional")
 			)
 			(node
@@ -13407,7 +13407,7 @@
 		(net
 			(code "17")
 			(name "BL_SENSE")
-			(class "Default")
+			(class "Switched")
 			(node
 				(ref "Q302")
 				(pin "2")
@@ -14265,7 +14265,7 @@
 		)
 		(net
 			(code "25")
-			(name "GPIO21")
+			(name "GPIO2")
 			(class "Default")
 			(node
 				(ref "TP24")
@@ -14275,8 +14275,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "25")
-				(pinfunction "IO21_25")
+				(pin "6")
+				(pinfunction "IO2_6")
 				(pintype "bidirectional")
 			)
 		)
@@ -14309,8 +14309,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "6")
-				(pinfunction "IO2_6")
+				(pin "25")
+				(pinfunction "IO21_25")
 				(pintype "bidirectional")
 			)
 			(node
@@ -14376,8 +14376,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "18")
-				(pinfunction "IO14_18")
+				(pin "5")
+				(pinfunction "IO1_5")
 				(pintype "bidirectional")
 			)
 			(node
@@ -14966,15 +14966,15 @@
 			)
 			(node
 				(ref "U201")
-				(pin "5")
-				(pinfunction "IO1_5")
+				(pin "18")
+				(pinfunction "IO14_18")
 				(pintype "bidirectional")
 			)
 		)
 		(net
 			(code "57")
 			(name "REG_IN")
-			(class "Default")
+			(class "Battery")
 			(node
 				(ref "C105")
 				(pin "1")
@@ -15001,7 +15001,7 @@
 		(net
 			(code "58")
 			(name "REG_SW")
-			(class "Default")
+			(class "Switch")
 			(node
 				(ref "L101")
 				(pin "1")
@@ -15076,8 +15076,8 @@
 			)
 			(node
 				(ref "U201")
-				(pin "34")
-				(pinfunction "IO38_34")
+				(pin "20")
+				(pinfunction "IO16_20")
 				(pintype "bidirectional")
 			)
 			(node
@@ -15176,7 +15176,7 @@
 		(net
 			(code "68")
 			(name "USB_C_DN")
-			(class "Default")
+			(class "USB")
 			(node
 				(ref "J101")
 				(pin "A7")
@@ -15203,7 +15203,7 @@
 		(net
 			(code "69")
 			(name "USB_C_DP")
-			(class "Default")
+			(class "USB")
 			(node
 				(ref "J101")
 				(pin "A6")

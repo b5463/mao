@@ -1919,14 +1919,14 @@
 		)
 		(uuid "f667a4e7-9feb-519e-8d43-56821cfcb73a")
 	)
-	(text "default); GPIO1 open-drain to GPIO38 with the 10k pull-up ST recommends. AVDD decoupled 4.7 uF + 100 nF per"
+	(text "default); GPIO1 open-drain to GPIO16 with the 10k pull-up ST recommends. AVDD decoupled 4.7 uF + 100 nF per"
 		(exclude_from_sim no)
 		(at 151.13 85.09 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "04088609-15e3-5dcf-84fb-c7040b873a2f")
+		(uuid "a8877d57-5079-53ce-8957-95be49bb7358")
 	)
 	(text "ST."
 		(exclude_from_sim no)

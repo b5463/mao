@@ -192,10 +192,10 @@ b.R('R17', '100k', 'LCD_PWR_EN', 'GND', note='default off')
 b.at('compute', 'MCU',
      'ESP32-S3-MINI-1-N8 (8 MB quad flash, no PSRAM, 85 C) on B.Cu at 6 o\'clock, antenna over the board-edge notch '
      '(no copper beneath, Espressif keep-out). 22 uF + 100 nF at 3V3 pad 3. EN: 10k/1 uF RC. GPIO0 = BOOT pad only. '
-     'GPIO3/45/46 NC. Spares GPIO21/26 on test pads, GPIO43/44 on the Tag-Connect.')
+     'GPIO3/45/46 NC. Spares GPIO2/26 on test pads, GPIO43/44 on the Tag-Connect.')
 mod = {'GND': 'GND', '3V3': '+3V3', 'EN': 'MCU_EN'}
 names = {0: 'IO0', 43: 'TXD0', 44: 'RXD0', 19: 'USB_D-', 20: 'USB_D+'}
-special = {0: 'BOOT', 21: 'GPIO21', 26: 'GPIO26'}      # pads without a firmware signal: named for their test pads
+special = {0: 'BOOT', 2: 'GPIO2', 26: 'GPIO26'}      # pads without a firmware signal: named for their test pads
 for gpio, net, d, fn, note in pinmap.NATIVE:
     name = names.get(gpio, 'IO%d' % gpio)
     mod[name] = net if net else special.get(gpio, NC)
@@ -238,7 +238,7 @@ TEST_PADS = [('TP1', 'GND', 'GND'), ('TP2', 'GND', 'GND'), ('TP3', '+3V3', '3V3'
              # charger factory mode and /CE, the two spare GPIOs
              ('TP17', 'LCD_BL', 'BL'), ('TP18', 'AMP_SD', 'AMP'), ('TP19', 'LCD_TE', 'TE'),
              ('TP20', 'PRESS_N', 'PRS'), ('TP21', 'HALL_A', 'HLA'), ('TP22', 'BAT_NTC', 'TSMR'),
-             ('TP23', 'CHG_CE_N', 'CE'), ('TP24', 'GPIO21', 'IO21'), ('TP25', 'GPIO26', 'IO26')]
+             ('TP23', 'CHG_CE_N', 'CE'), ('TP24', 'GPIO2', 'IO2'), ('TP25', 'GPIO26', 'IO26')]
 for ref, net, label in TEST_PADS:
     # switched rails (TP13, TP15): the fixture proves each one really switches; signal pads 1.0 mm, rails and
     # supplies 1.2 mm (ODD JOBS 37: 1-1.5 mm)
