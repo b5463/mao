@@ -103,6 +103,36 @@
    "smallest_em_opening_mm": 3.6,
    "smallest_em_both_mm": 4.4,
    "pass": true
+  },
+  "cat": {
+   "drawing": "the sleeping cat (Maomao, \"cat cat\")",
+   "size_mm": [
+    9.196,
+    6.791
+   ],
+   "opening_loss_pct": 1.12,
+   "closing_gain_pct": 1.6,
+   "pass": true
+  },
+  "cat_1": {
+   "drawing": "the sleeping cat (Maomao, \"cat cat\")",
+   "size_mm": [
+    6.457,
+    3.802
+   ],
+   "opening_loss_pct": 0.62,
+   "closing_gain_pct": 1.28,
+   "pass": true
+  },
+  "sake_set": {
+   "drawing": "a sake bottle and cup",
+   "size_mm": [
+    6.364,
+    6.549
+   ],
+   "opening_loss_pct": 0.68,
+   "closing_gain_pct": 1.66,
+   "pass": true
   }
  }
 }

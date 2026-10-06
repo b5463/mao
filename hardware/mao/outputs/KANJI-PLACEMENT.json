@@ -55,6 +55,34 @@
   ],
   "text": "酒"
  },
+ "cat": {
+  "side": "F",
+  "centre_mm": [
+   -14.16,
+   9.77
+  ],
+  "em_mm": null,
+  "vertical": false,
+  "size_mm": [
+   9.196,
+   6.791
+  ],
+  "text": ""
+ },
+ "sake_set": {
+  "side": "B",
+  "centre_mm": [
+   17.9,
+   8.57
+  ],
+  "em_mm": null,
+  "vertical": false,
+  "size_mm": [
+   6.364,
+   6.549
+  ],
+  "text": ""
+ },
  "dokumi": {
   "side": "B",
   "centre_mm": [

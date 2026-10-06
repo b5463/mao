@@ -9,6 +9,9 @@ and shapely, skia-pathops (ROUTER_PY), the way the maker mark is traced once int
                                outputs/KANJI-CHECK.json (the stroke / gap check below); exits 1 if a word fails
     python kanji.py --preview out.png   also a black-and-white preview of every word at 100 px/mm
 
+The two brush-ink drawings (ink_eggs.py: the sleeping cat, the sake set) go through the same check and into the same
+file (kind 'drawing'; their strokes are unioned, not nested by depth, so a stroke over another is not a hole).
+
 silk.py reads brand/kanji-eggs.json and places each word (mirrored on B.SilkS so it reads from the back). A word of
 two characters is also traced in the other direction (across / top to bottom), so silk.py can take whichever fits.
 
@@ -25,6 +28,8 @@ import json
 import math
 import sys
 from pathlib import Path
+
+import ink_eggs
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent                                   # hardware/mao
@@ -181,6 +186,23 @@ def smallest(text, vertical=False, lo=2.2, hi=8.0, step=0.2):
     return opening, None
 
 
+def union(strokes):
+    """A drawing's brush strokes (closed outlines that cross and overlap) merged into silk polygons with holes."""
+    from shapely.geometry import Polygon
+    from shapely.ops import unary_union
+    u = unary_union([Polygon(s).buffer(0) for s in strokes]).simplify(SIMPLIFY_MM, preserve_topology=True)
+    return [u] if u.geom_type == 'Polygon' else list(u.geoms)
+
+
+def layout(polys, vertical):
+    xs = [x for p in polys for x, _ in p.exterior.coords]
+    ys = [y for p in polys for _, y in p.exterior.coords]
+    return {'vertical': vertical, 'size_mm': [round(max(xs) - min(xs), 3), round(max(ys) - min(ys), 3)],
+            'polygons': [{'outline': [[round(x, 4), round(y, 4)] for x, y in p.exterior.coords[:-1]],
+                          'holes': [[[round(x, 4), round(y, 4)] for x, y in r.coords[:-1]] for r in p.interiors]}
+                         for p in polys]}
+
+
 def main():
     data, rep, ok = {'font': FONT.name, 'licence': 'SIL Open Font License 1.1 (brand/OFL-YujiSyuku.txt)',
                      'units': 'mm, centred on the em box, +y towards 6 o\'clock (F view)', 'words': {}}, {}, True
@@ -193,13 +215,8 @@ def main():
             polys, loss, gain, img = word(text, em, lay)
             good = loss < MAX_LOSS and gain < MAX_GAIN
             ok &= good
-            xs = [x for p in polys for x, _ in p.exterior.coords]
-            ys = [y for p in polys for _, y in p.exterior.coords]
-            size = [round(max(xs) - min(xs), 3), round(max(ys) - min(ys), 3)]
-            entry['layouts'].append({'vertical': lay, 'size_mm': size,
-                                     'polygons': [{'outline': [[round(x, 4), round(y, 4)] for x, y in p.exterior.coords[:-1]],
-                                                   'holes': [[[round(x, 4), round(y, 4)] for x, y in r.coords[:-1]]
-                                                             for r in p.interiors]} for p in polys]})
+            entry['layouts'].append(layout(polys, lay))
+            size = entry['layouts'][-1]['size_mm']
             key = name + ('_vertical' if lay else '') if len(layouts) > 1 else name
             rep[key] = {'text': text, 'em_mm': em, 'vertical': lay, 'size_mm': size,
                         'opening_loss_pct': round(100 * loss, 2), 'closing_gain_pct': round(100 * gain, 2),
@@ -208,6 +225,23 @@ def main():
                   'opening %s, both %s mm -> %s' % (key, em, *size, 100 * loss, 100 * gain, min_open, min_em,
                                                      'pass' if good else 'FAIL'))
             if lay == vertical:
+                previews.append(img)
+        data['words'][name] = entry
+    for name, (layouts_fn, meaning, where) in ink_eggs.DRAWINGS.items():
+        entry = {'text': '', 'kind': 'drawing', 'em_mm': None, 'meaning': meaning, 'where': where, 'layouts': []}
+        for k, strokes in enumerate(layouts_fn()):
+            polys = union(strokes)
+            loss, gain, img = check(polys)
+            good = loss < MAX_LOSS and gain < MAX_GAIN
+            ok &= good
+            entry['layouts'].append(layout(polys, False))
+            size = entry['layouts'][-1]['size_mm']
+            key = name + ('_%d' % k if k else '')
+            rep[key] = {'drawing': meaning, 'size_mm': size, 'opening_loss_pct': round(100 * loss, 2),
+                        'closing_gain_pct': round(100 * gain, 2), 'pass': good}
+            print('drawing %-15s (%.2f x %.2f mm): opening loses %.2f %%, closing adds %.2f %% -> %s'
+                  % (key, *size, 100 * loss, 100 * gain, 'pass' if good else 'FAIL'))
+            if not k:
                 previews.append(img)
         data['words'][name] = entry
     OUT.write_text(json.dumps(data, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')

@@ -157,7 +157,7 @@ Generated table: [mao-pin-map.md](mao-pin-map.md) (source `pinmap.py`, header
 | Mechanical | `mech_check.py` | 142 parts, **0** findings; tallest on B: LS501 3.30 mm (speaker pads' body model), J101 3.20, J102 2.96, U201 2.50; F: U503 4.00 under the window, SW301–SW303 1.50 (the tripod, by design), Q102 1.2 mm under the panel (limit 1.2); no part under the tail well |
 | Stack-up | `stackup.py`, `stackup_check.py` | JLC04161H-1080, 1.518 mm, purple mask; L3/L4 broadside 16.7 mm (14 pairs, slow lines; new with the tripod: PRESS_N over BL_FB 1.27 mm and over +3V3 1.24 mm); 30 perimeter GND vias, largest gap 69° (the antenna notch); module GND pins 1 / 40 / 41 at 1.0 / 1.97 / 1.31 mm from a via; 3 decoupling GND pads 1.6-2.5 mm from a via (C102, C502, C504; C105 now within 1.6 mm); closest SMD pads to the edge 0.30 mm (IR LEDs D501/D502 at the rim, by design) |
 | Fab | `fab.py` | gerbers 12 files, drill 4, BOM 49 lines / 102 parts (every line with LCSC number and sourcing status), CPL 102 rows, assembly drawings, FAB-NOTES and README (JLC purple mask, white legend, ENIG) |
-| Kanji | `kanji.py` | 5 words pass: a 0.16 mm disc opening loses < 2 % ink, closing adds < 5 % (`outputs/KANJI-CHECK.json`) |
+| Kanji | `kanji.py` | 5 words and 2 drawings pass: a 0.16 mm disc opening loses < 2 % ink, closing adds < 5 % (`outputs/KANJI-CHECK.json`) |
 | Firmware | `tools/idf.ps1` | `s3-dev` and `dev` (C3) build, 0 warnings (after the owner decisions; no firmware change); host 188 checks / 0 failures, character invariants 51 runs, harness 36 runs identical |
 
 Reproducibility: the grid router is not deterministic between runs (process-dependent ordering); the release
@@ -330,7 +330,7 @@ Stack-up F.Mask / B.Mask colour "Purple", silk white, ENIG (`stackup.py`); FAB-N
 were regenerated with `--use-board-stackup-colors` (same views and sizes as before); the layer plots are copper
 only (regenerated for the tripod copper).
 
-### 3. Easter eggs: kanji only
+### 3. Easter eggs: kanji and two ink drawings
 
 The A0 line art (sleeping cat, paws, zzz) and "9 lives" / "meow" are gone (`eggart.py` removed); "boop" stays by a
 face-press switch (SW303) and "MADE FOR BAD IDEAS" under the panel. Brush-calligraphy kanji from **Yuji Syuku**
@@ -345,6 +345,16 @@ checks them; `silk.py` places them (mirrored on B); pipeline step `kanji` before
 | 薬 | medicine | F, by the BQ25185 charger, under the window border / ring lip (21.8, −12.6) | 5.0 | 4.3 × 4.6 | 1.94 % | 4.2 % |
 | 酒 | sake | B, under the cell (11.5, 0.8) | 4.4 | 3.8 × 3.5 | 1.84 % | 1.6 % |
 | 毒見 | poison tasting | B, under the speaker, top to bottom (−24.8, 0.6) | 4.4 | 4.2 × 8.4 | 1.06 % | 4.8 % |
+| (drawing) | the sleeping cat with its z's | F, nearest 猫猫 where it fits whole (−14.2, 9.8) | – | 9.2 × 6.8 | 1.12 % | 1.6 % |
+| (drawing) | a sake bottle and cup | B, beside 酒 (17.9, 8.6) | – | 6.4 × 6.5 | 0.68 % | 1.7 % |
+
+**Drawings (owner decision 2026-10-06, the hairpin dropped):** the ink sleeping cat and the sake set are brush
+strokes with pressure (`design/ink_eggs.py`, never thinner than 0.17 mm). `kanji.py` unions each drawing's strokes,
+runs the same opening / closing check and writes them into `brand/kanji-eggs.json` (kind `drawing`). `silk.py` places
+the whole cat at the clear spot nearest 猫猫 (the version without the z's only if the whole one fits nowhere within
+30 mm), and the sake set beside 酒. The cat's z's reach r ≈ 20–23, past the panel's edge, so in the wheel stone they
+show through the clear window ring at about 8 o'clock. After the silk run: DRC 0, silk text 0 findings, the same 35
+references placed and the same 6 left on Fab as before.
 
 Stroke check: each word rasterised at 100 px/mm; a morphological opening with a 0.16 mm disc must remove < 2 % of
 the ink (strokes ≥ ~0.17 mm against JLC's 0.153 mm silk line). Yuji Syuku's tapering brush ends need **3.6–5.0 mm

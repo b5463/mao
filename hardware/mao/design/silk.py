@@ -12,7 +12,8 @@ Type scale (ODD JOBS 95, 98): identity 1.5 mm > connector names 1.2 > test-pad n
 Easter eggs (owner decision 2026-10-06: kanji only; MAO is Mandarin for cat): 'boop' at a face-press switch (MAO's
 nose), brush-calligraphy kanji as filled silk polygons (Yuji Syuku, OFL; kanji.py traces them into
 brand/kanji-eggs.json): 猫猫 (Maomao) beside the face press, 銀 (silver) beside the BAT LINK 0R, 薬 (medicine)
-beside the charger, 酒 (sake) under the cell, 毒見 (poison tasting) under the speaker, and ODD JOBS' own hidden line
+beside the charger, 酒 (sake) under the cell, 毒見 (poison tasting) under the speaker, two brush-ink drawings
+(ink_eggs.py: a sleeping cat beside 猫猫, a sake bottle and cup beside 酒), and ODD JOBS' own hidden line
 'MADE FOR BAD IDEAS' (standard rule 175) under the panel. All hidden once assembled; each is placed by the same
 clearance test as every label (off pads, vias, bodies and other text) and is skipped, with a note, where nothing clear
 is found.
@@ -642,18 +643,26 @@ def main():
                 return cx_, cy_
         return None
 
-    def place_kanji(name, sd, spots_, inside=(), why_=''):
-        for cx_, cy_ in spots_:
-            for k_, lay_ in enumerate(kanji[name]['layouts']):     # across or top to bottom, whichever fits first
-                polys_ = kanji_polys(name, cx_, cy_, sd, k_)
-                if kanji_clear(polys_, sd, inside):
-                    draw_kanji(name, polys_, sd)
+    def place_kanji(name, sd, spots_, inside=(), why_='', layout_first=False):
+        lays_ = list(enumerate(kanji[name]['layouts']))
+        # words: at each spot (nearest first) across or top to bottom, whichever fits; drawings (layout_first): the
+        # full drawing at the nearest spot it fits, its smaller layout only where the full one fits nowhere
+        tries_ = ([(c_, kl_) for kl_ in lays_ for c_ in spots_] if layout_first else
+                  [(c_, kl_) for c_ in spots_ for kl_ in lays_])
+        for (cx_, cy_), (k_, lay_) in tries_:
+            polys_ = kanji_polys(name, cx_, cy_, sd, k_)
+            if kanji_clear(polys_, sd, inside):
+                draw_kanji(name, polys_, sd)
+                if kanji[name].get('kind') == 'drawing':
+                    print('silk: easter egg drawing %s (%s, layout %d, %.1f x %.1f mm) at (%.1f, %.1f) %s' % (
+                        name, sd, k_, *lay_['size_mm'], cx_, cy_, why_))
+                else:
                     print('silk: easter egg %s %s (%s, %.1f mm em, %s) at (%.1f, %.1f) %s' % (
                         kanji[name]['text'], name, sd, kanji[name]['em_mm'],
                         'top to bottom' if lay_['vertical'] else 'across', cx_, cy_, why_))
-                    eggs_at[name] = {'side': sd, 'centre_mm': [round(cx_, 2), round(cy_, 2)], 'em_mm': kanji[name]['em_mm'],
-                                     'vertical': lay_['vertical'], 'size_mm': lay_['size_mm'], 'text': kanji[name]['text']}
-                    return (cx_, cy_)
+                eggs_at[name] = {'side': sd, 'centre_mm': [round(cx_, 2), round(cy_, 2)], 'em_mm': kanji[name]['em_mm'],
+                                 'vertical': lay_['vertical'], 'size_mm': lay_['size_mm'], 'text': kanji[name]['text']}
+                return (cx_, cy_)
         if os.environ.get('SILK_KANJI_DEBUG'):
             all_ = []
             for cx_, cy_ in spots_[::5]:
@@ -692,6 +701,12 @@ def main():
     in_cell = lambda p_: abs(p_[0] - cx0) < m.BATTERY_ENVELOPE[0] / 2 - 2.5 and abs(p_[1] - cy0) < m.BATTERY_ENVELOPE[1] / 2 - 2.5
     qx, qy = centre('Q101')                # where '9 lives' was: by the reverse-polarity FET, over the cell
     place_kanji('sake', 'B', [p_ for p_ in around(qx, qy, 14.0) if in_cell(p_)], why_='under the cell')
+    # the brush-ink drawings (ink_eggs.py, through kanji.py's check) beside their kanji: the sleeping cat by 猫猫,
+    # the sake set by 酒 (owner decision 2026-10-06)
+    if 'maomao' in eggs_at:
+        place_kanji('cat', 'F', around(*eggs_at['maomao']['centre_mm'], 30.0), why_='nearest 猫猫', layout_first=True)
+    if 'sake' in eggs_at:
+        place_kanji('sake_set', 'B', around(*eggs_at['sake']['centre_mm'], 14.0), why_='beside 酒')
     sx, sy = centre('LS501')               # inside the speaker's outline, between its contact pads
     place_kanji('dokumi', 'B', around(sx, sy, 3.0, 0.1), inside=('LS501',), why_='under the speaker')
     placed['F'] = [q for q in placed['F'] if q not in held['F']]   # ODD JOBS' line may use the references' room too
