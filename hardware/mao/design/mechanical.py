@@ -98,9 +98,19 @@ USB_ANGLE = 0.0
 USB_FRONT_Y = -29.6            # receptacle mating face, 0.6 mm past the board edge
 IR_TX_ANGLES = (-21.0, 21.0)
 
-# Centre: face-press switch on F.Cu under the display; the face carrier's boss presses its stem.
-PRESS_XY = (0.0, -2.5)
+# Face press, tripod (owner decision 2026-10-06): three ALPS SKQGAFE010 (0.98 N, 0.25 mm travel, 1.5 mm with stem)
+# on F.Cu at 120 deg under the display carrier, in parallel on PRESS_N; three bosses on the carrier rest on their
+# stems, so the face sits on three domes and moves almost straight down. ref: (angle clockwise from 12 o'clock,
+# radius, KiCad orientation). The angles are 120 deg apart; the radii are not equal: the 3 o'clock half of the
+# panel area is the tail well (TAIL_WELL), the IR receiver's courtyard and the charger, so the 70 deg switch sits
+# in the only pocket there (between the well, the receiver and the charger's BAT capacitor) at r 17.6, the other
+# two at r 14.5 where the F routing leaves them room. A centre press shares the load 1/r: 29 / 35.5 / 35.5 %.
+PRESS_TRIPOD = {'SW301': (70.0, 17.6, 200.0), 'SW302': (190.0, 14.5, 90.0), 'SW303': (310.0, 14.5, 260.0)}
 PRESS_SIDE = 'F'
+PRESS_FORCE_N = 0.98       # each switch (ALPS SKQGAFE010); three in parallel, a centre press ~2.9 N to the first click
+BOSS_D = 2.0               # carrier boss tip on each stem (A0's single boss was d 2 too)
+SWITCH_H = 1.5             # SKQG with stem, its top above F.Cu: each boss reaches from the panel's rear plane
+                           # (DISPLAY_STANDOFF above F.Cu) down DISPLAY_STANDOFF - SWITCH_H = 1.2 mm onto its stem
 
 # Base: battery under the PCB, shifted towards 12 o'clock so its can sits >= 12 mm (radial) from the
 # antenna and the centre of mass stays near the axis. B.Cu parts may be up to 3.2 mm tall (module);

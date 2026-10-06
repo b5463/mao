@@ -1,6 +1,6 @@
 {
  "board": "MAO_MAIN_A1.kicad_pcb",
- "parts": 140,
+ "parts": 142,
  "findings": [],
  "speaker_wall_clearance_mm": 1.1,
  "max_body_r_mm": [
@@ -1012,10 +1012,30 @@
    "side": "F",
    "height_mm": 1.5,
    "r_mm": [
-    2.65,
-    5.79
+    13.9,
+    21.48
    ],
-   "note": "face switch: its stem meets the carrier boss"
+   "note": "face tripod switch: its stem meets a carrier boss"
+  },
+  {
+   "ref": "SW302",
+   "side": "F",
+   "height_mm": 1.5,
+   "r_mm": [
+    11.63,
+    17.7
+   ],
+   "note": "face tripod switch: its stem meets a carrier boss"
+  },
+  {
+   "ref": "SW303",
+   "side": "F",
+   "height_mm": 1.5,
+   "r_mm": [
+    10.49,
+    18.52
+   ],
+   "note": "face tripod switch: its stem meets a carrier boss"
   },
   {
    "ref": "TP1",

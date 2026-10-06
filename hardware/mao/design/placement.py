@@ -107,7 +107,9 @@ def at(ref, x, y, rot, side):
 # ==== anchors: module, USB-C, mechanics ==============================================================
 at('U201', 0.0, m.MODULE_CY, 0, 'B')
 at('J101', 0.0, m.USB_FRONT_Y + 3.65, 0, 'B')      # B.Cu flip mirrors y: mating face towards 12 o'clock
-at('SW301', m.PRESS_XY[0], m.PRESS_XY[1], 0, 'F')
+for ref, (a, r, rot) in m.PRESS_TRIPOD.items():   # face press tripod: three switches at 120 deg
+    x, y = m.polar(r, a)
+    at(ref, round(x, 3), round(y, 3), rot, m.PRESS_SIDE)
 for ref, a in (('H1', m.SCREW_ANGLES[0]), ('H2', m.SCREW_ANGLES[1]), ('H3', m.PEG_ANGLE)):
     x, y = m.polar(m.MOUNT_R, a)
     at(ref, round(x, 3), round(y, 3), 0, 'F')
@@ -251,8 +253,8 @@ at('R211', 16.05, 4.0, 270, 'F')            # AUX_PWR_EN pull-down west of the s
 P['C303'] = rim(24.0, 117.0, 'F')[:2] + (0, 'F')
 P['C304'] = rim(24.0, 124.0, 'F')[:2] + (0, 'F')
 P['R306'] = rim(24.0, 130.0, 'F')[:2] + (0, 'F')
-pin('R318', 90, 'F', '2', 'SW301', '1', 0.0, -1.6)         # PRESS_N pull-up above the switch
-pin('C308', 90, 'F', '1', 'SW301', '1', -1.1, -1.6)        # DNP RC
+at('R318', -3.1, -6.54, 90, 'F')                           # PRESS_N pull-up (A1's single switch was at (0, -2.5);
+at('C308', -4.4, -6.53, 90, 'F')                           # the tripod kept the pull-up and the DNP RC where they were)
 
 # ==== pull-downs at the parts they hold off =============================================================
 at('R207', -8.4, 4.4, 0, 'B')                              # display reset pull-down on the reset lane

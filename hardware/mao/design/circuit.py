@@ -331,11 +331,14 @@ b.C('C304', '100n', '+3V3', note='U302 VCC')
 b.R('R306', '100k', 'HALL_FAST', 'GND', note='low-power sampling until firmware')
 
 b.at('interface', 'FACE PRESS',
-     'ALPS SKQG on F.Cu at the centre, under the panel: the floating face presses it. PRESS_N on GPIO%d (RTC: '
-     'deep-sleep wake, ext1 any-low), not a strap. 100k pull-up draws only while pressed; DNP 1 nF makes an '
-     'optional 100 us RC.' % G['PRESS_N'])
-b.part('SW301', 'Switch:SW_Push', 'Button_Switch_SMD:SW_SPST_SKQG_WithStem', 'SKQGADE010',
-       {'1': 'PRESS_N', '2': 'GND'}, lcsc='C116647', mpn='SKQGADE010', mfr='ALPS', note='2.55 N, 0.25 mm travel')
+     'Tripod (owner decision 2026-10-06): three ALPS SKQGAFE010 (0.98 N, 0.25 mm) on F.Cu at 120 deg under the '
+     'display carrier, in parallel: the face rests on their three domes and any one closing is a press. PRESS_N on '
+     'GPIO%d (RTC: deep-sleep wake, ext1 any-low), not a strap. 100k pull-up draws only while pressed; DNP 1 nF '
+     'makes an optional 100 us RC.' % G['PRESS_N'])
+for _ref, _where in (('SW301', '70 deg'), ('SW302', '190 deg'), ('SW303', '310 deg')):
+    b.part(_ref, 'Switch:SW_Push', 'Button_Switch_SMD:SW_SPST_SKQG_WithStem', 'SKQGAFE010',
+           {'1': 'PRESS_N', '2': 'GND'}, lcsc='C202424', mpn='SKQGAFE010', mfr='ALPS',
+           note='face tripod %s: 0.98 N, 0.25 mm travel, 1.5 mm with stem' % _where)
 
 b.at('interface', 'BACKLIGHT',
      'Constant-current low-side sink from VSYS (Gate C): LCD_BL (GPIO%d, LEDC ~30 kHz) -> 32.4k / 1.0k -> BL_REF '

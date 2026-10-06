@@ -5,7 +5,7 @@ highest vertex or box, 0.1 inch units), with the footprint's model scale, offset
 (its Fab outline) is tested against the height envelopes and its courtyard against the keep-outs in mechanical.py:
 
   F, under the panel        r < DISPLAY_OUTLINE_R + 0.5, plus the glass ledge under the tail at 9 o'clock:
-                            height <= ZONE_A_MAX_H (SW301 excepted: its stem is what the face presses)
+                            height <= ZONE_A_MAX_H (the three face-tripod switches excepted: their stems are what the face rests on)
   F, under the window       up to the ring: height <= WINDOW_Z - PRESS_TRAVEL - 0.3 (pressed, worst tolerance)
   F, under the ring lip     r >= RING_ID / 2: height <= RING_LIP_MAX
   B, everywhere             height <= ZONE_B_MAX_H (the cell's insulator sits on the tallest part)
@@ -16,7 +16,7 @@ highest vertex or box, 0.1 inch units), with the footprint's model scale, offset
   wall                      every body inside the board circle (r <= PCB_R: 1 mm to the wall at r 30), except the
                             parts that reach into a wall opening by design (USB-C, the IR LEDs); the speaker's
                             outline (mechanical.py, it has no footprint body) >= 0.8 mm from the wall
-The face switch (its stem touches the carrier boss by design) and the parts with no body (pads, holes,
+The face-tripod switches (their stems touch the carrier's bosses by design) and the parts with no body (pads, holes,
 fiducials, electrodes, test pads) are listed, not tested. Writes outputs/MECH-CHECK.json; exits 1 on a finding.
 """
 import json
@@ -35,7 +35,7 @@ K3D = os.path.join(os.environ.get('KICAD_SHARE', os.path.expanduser('~/Applicati
 PRJ = str(ROOT)
 RING_LIP_MAX = 0.95          # mao-mechanical.md section 1: the ring's lower lip is 1.9 mm above F.Cu at r > 24 mm
 WINDOW_MAX = m.WINDOW_Z - m.PRESS_TRAVEL - 0.3
-DESIGNED_CONTACT = {'SW301': 'face switch: its stem meets the carrier boss'}
+DESIGNED_CONTACT = {r: 'face tripod switch: its stem meets a carrier boss' for r in m.PRESS_TRIPOD}
 NO_BODY = ('H', 'FID', 'TP', 'E', 'LS', 'J201', 'J501')   # pads, holes, marks, electrodes, Tag-Connect, LRA lead pads
 WALL_R = m.PUCK_OD / 2 - m.WALL
 WALL_OPENING = {'J101': 'USB-C: mating face in the wall opening', 'D501': 'IR LED: fires through the wall',

@@ -40,7 +40,7 @@ JLC = {
     'C2919497': ('Extended', 16270, 'listed as HDGC 0.5K-HX-18PWB (same part)'),
     'C25092': ('Basic', 4600000, ''),                       # 22R
     'C2655038': ('Extended', 5226, ''),                     # DRV5012AEDMRR
-    'C116647': ('Extended', 66138, ''),                     # SKQGADE010
+    'C202424': ('Extended', 24977, 'face tripod, 3 per board (owner decision 2026-10-06)'),   # SKQGAFE010
     'C3288646': ('Extended', 6692, ''),                     # ICM-42670-P
     'C15195': ('Basic', 3900000, ''),                       # 10n 0402 50 V X7R
     'C3178291': ('Extended', 11527, ''),                    # VL53L4CDV0DH/1

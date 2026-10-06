@@ -44,6 +44,11 @@ def netlist():
     return comps
 
 
+# footprints whose same-numbered pads are one contact inside the part: KiCad treats them as jumpered, so one leg per
+# contact needs board copper (the face tripod's F routing runs between the legs of each switch)
+JUMPERED_LEGS = {'Button_Switch_SMD:SW_SPST_SKQG_WithStem'}
+
+
 def load_fp(fpid):
     lib, name = fpid.split(':', 1)
     path = str(LOCAL_FP) if lib == 'MAO' else os.path.join(STOCK_FP, lib + '.pretty')
@@ -250,6 +255,8 @@ def add_footprint(board, ref, c, place):
     fp = load_fp(c['footprint'])
     fp.SetReference(ref)
     fp.SetValue(c['value'])
+    if c['footprint'] in JUMPERED_LEGS:     # each pair of legs is one contact inside the part (ALPS circuit diagram):
+        fp.SetDuplicatePadNumbersAreJumpers(True)   # one leg per contact carries the net (the face tripod)
     fp.SetPath(pcb.KIID_PATH(c['sheet_tstamps'] + c['tstamp']))
     for k, v in c['fields'].items():
         if k in ('Footprint', 'Reference', 'Value'):

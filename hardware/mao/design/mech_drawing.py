@@ -100,7 +100,8 @@ def main():
     marks = [('J101', 'USB-C (B), face at y %.1f' % m.USB_FRONT_Y, '#111'),
              ('D501', 'IR out (B)', '#a0a'), ('D502', 'IR out (B)', '#a0a'), ('J301', 'display FPC (B), 70 mm tail through the slot', '#36c'),
              ('U402', 'ToF window', '#0a5'), ('U503', 'IR receive window', '#0a5'),
-             ('SW301', 'face-press stem', '#111'),
+             ('SW301', 'face-press stem (tripod)', '#111'), ('SW302', 'face-press stem (tripod)', '#111'),
+             ('SW303', 'face-press stem (tripod)', '#111'),
              ('LS501', 'speaker below the PCB, outline; contacts on B', '#c80'), ('J501', 'LRA leads (B)', '#c80'), ('U301', 'Hall A', '#36c'), ('U302', 'Hall B', '#36c'),
              ('J201', 'Tag-Connect (B)', '#111'), ('J102', 'battery plug (B), opening to 6 o\'clock', '#c00')]
     legend = []
@@ -119,7 +120,9 @@ def main():
                 m.DISPLAY_ACTIVE_D, 2 * m.DISPLAY_OUTLINE_R, m.DISPLAY_STANDOFF, m.WINDOW_Z)),
             ('Zone A', 'F.Cu under the panel: parts <= %.1f mm' % m.ZONE_A_MAX_H),
             ('Zone B', 'B.Cu over the cell: parts <= %.1f mm, 0.3 mm insulator' % m.ZONE_B_MAX_H),
-            ('Press', 'switch stem at (%.1f, %.1f), 0.25 mm travel, 2.55 N' % m.PRESS_XY),
+            ('Press', 'tripod: 3 stems at %s deg, r %s mm; 0.25 mm, %.2f N each' % (
+                '/'.join('%.0f' % v[0] for v in m.PRESS_TRIPOD.values()),
+                '/'.join('%.1f' % v[1] for v in m.PRESS_TRIPOD.values()), m.PRESS_FORCE_N)),
             ('Window', 'sensor band r %.1f-%.1f mm: IR-clear at 11 and 3 o\'clock' % m.WINDOW_ANNULUS),
             ('Fixing', '2 x M2 into heat-set inserts, 1 plastic peg'),
             ('Tail', 'stock 70.1 mm FPC, one loop under the panel turning in a 2.4 mm well'),

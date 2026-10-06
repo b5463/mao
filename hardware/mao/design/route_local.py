@@ -69,9 +69,8 @@ ADD = USB_PAIR + USB_PRESENT + [
     ('USB_C_DN', 'B', 0.2, [(-0.75, -19.9), (0.25, -19.9)]),                           # D- joins on B
     ('GND', 'F', 0.2, [(-0.5, -17.29), (-0.5, -16.6)]),                               # ESD ground, between the pair
     ('GND', V, 0.5, [(-0.5, -16.6)]),
-    # ---- face switch: each pair of legs is one contact inside the part; join them under the body -------
-    ('PRESS_N', 'F', 0.3, [(-3.1, -4.35), (3.1, -4.35)]),
-    ('GND', 'F', 0.3, [(-3.1, -0.65), (3.1, -0.65)]),
+    # (A1's single face switch had its leg joins here; the face tripod's copper is in route_tripod.py: the switches'
+    # legs are jumpered inside the part, build_pcb.JUMPERED_LEGS)
     # ---- J301 (A0 place): VCI (pad 3) through one via under the housing to C301 on F; GND pad 10 to the plane
     ('3V3_LCD', 'B', 0.3, [(-11.15, 3.25), (-12.4, 3.25)]), ('3V3_LCD', V, 0.5, [(-12.4, 3.25)]),
     ('3V3_LCD', 'F', 0.3, [(-12.4, 3.25), (-12.4, 2.0)]),                            # C301 (A1: moved west)
@@ -94,9 +93,9 @@ ADD = USB_PAIR + USB_PRESENT + [
     # top-row pins whose lines leave the module's north side across the board: one via each (y 7.25), staggered
     # 0.85 mm, so the router may take F or L3 at once (the IMU sits over pins 25-28 on F: none there)
     ('PRESS_N', 'B', 0.15, [(-4.25, 8.3), (-4.25, 7.25)]), ('PRESS_N', V, 0.5, [(-4.25, 7.25)]),
-    # ... and on L3 to the face switch (via beside its left leg) with the fixture pad TP20 on the way
+    # ... and on L3 north to the pull-up's via (A1's single face switch sat beside it) with the fixture pad TP20 on
+    # the way; the face tripod's legs hang off this network (route_tripod.py)
     ('PRESS_N', 'I2', 0.15, [(-4.25, 7.25), (-4.25, -4.0), (-4.6, -4.35)]), ('PRESS_N', V, 0.5, [(-4.6, -4.35)]),
-    ('PRESS_N', 'F', 0.2, [(-4.6, -4.35), (-3.1, -4.35)]),
     ('PRESS_N', V, 0.5, [(-4.25, 3.6)]), ('PRESS_N', 'B', 0.15, [(-4.25, 3.6), (-3.0, 3.6)]),
     # STAT1 (pin 28, under the IMU) north on B to its charger-side via
     ('CHG_STAT1', 'B', 0.15, [(4.25, 8.3), (4.25, 6.9), (4.6, 6.55), (4.6, -8.35), (4.95, -8.7), (6.81, -8.7)]),

@@ -298,10 +298,18 @@ def main():
 
     # ---- identity, face side (F): maker's mark over MAO / MAIN A1 / date, the S/N field below ---------------
     w = 4.6
-    h = mark(BRAND_CENTRE, w, 'F')
-    bx, by = BRAND_CENTRE
+    hh_ = (data['pixel_bounds'][3] - 1) * w / (data['pixel_bounds'][2] - 1)
+    ident_lines = (('MAO', 1.45, IDENT, True), ('MAIN A1', 3.4, 1.0, False), (DATE, 4.85, 0.8, False))
+    def brand_boxes(bx_, by_):
+        return [(bx_ - w / 2, by_ - hh_ / 2, bx_ + w / 2, by_ + hh_ / 2)] +                [measure(s_, bx_, by_ + hh_ / 2 + dy, 'F', size) for s_, dy, size, _ in ident_lines]
+    brand = next(((bx_, by_) for bx_, by_ in BRAND_SPOTS if all(clear(q, 'F') for q in brand_boxes(bx_, by_))), None)
+    if brand is None:
+        brand = BRAND_SPOTS[0]
+        print('silk: maker mark (F): no clear spot |', [why(q, 'F') for q in brand_boxes(*brand)])
+    bx, by = brand
+    h = mark(brand, w, 'F')
     placed['F'].append((bx - w / 2, by - h / 2, bx + w / 2, by + h / 2))
-    for s_, dy, size, bold in (('MAO', 1.45, IDENT, True), ('MAIN A1', 3.4, 1.0, False), (DATE, 4.85, 0.8, False)):
+    for s_, dy, size, bold in ident_lines:
         t = text(s_, bx, by + h / 2 + dy, 'F', size, bold=bold, gname='ODD JOBS maker mark')
         placed['F'].append(tbox(t))
     # S/N field (ODD JOBS 101): a 6 x 6 mm box for a DataMatrix sticker or laser mark, its name above it, and
@@ -616,7 +624,7 @@ def main():
     import project
     project.write()
     rec = {'source': data['source'], 'source_sha256': data['source_sha256'], 'colour': 'white',
-           'placements': [{'layer': 'F.SilkS', 'width_mm': w, 'height_mm': round(h, 3), 'centre_mm': list(BRAND_CENTRE)},
+           'placements': [{'layer': 'F.SilkS', 'width_mm': w, 'height_mm': round(h, 3), 'centre_mm': [round(v, 2) for v in brand]},
                           {'layer': 'B.SilkS (mirrored to read from the back)', 'width_mm': bw, 'centre_mm': list(b_mark)}],
            'artwork_licence': data['license']}
     (ROOT / 'outputs' / 'BRAND-PLACEMENT.json').write_text(json.dumps(rec, indent=2) + '\n')
@@ -628,9 +636,18 @@ FIELD_GAP = 0.4                    # between two service-field names: half the 0
                                    # one word); 0.5 has no arrangement in the 2.8 mm grid
 FIELD_SHARED = []                  # (every probe pad carries its own name)
 FIELD_SPOT = {ref: [('side', 1) if spec[1] == 'right' else ('flat', -1)] for ref, spec in m.FIELD_NAMES.items()}
-BRAND_CENTRE = (13.6, -4.4)      # F, 3 o'clock under the panel: A1's module escape vias took A0's spot over the module
-SN_SPOTS = [(x_ / 10, y_ / 10) for y_ in (140, 142, 138, 144, 136, 146) for x_ in (0, 2, -2, 4, -4, 6, -6, 8, -8)]
-                                 # F: centre of the 6 x 6 mm S/N field (the back has no clear 6 x 6 field)
+BRAND_AT = (11.0, 0.0)           # F, 3 o'clock under the panel (A1's module escape vias took A0's spot over the module;
+                                 # the face tripod's 70 deg switch took A1's first spot at (13.6, -4.4)): over the tail
+                                 # well, where no part may sit; the nearest clear spot wins
+BRAND_SPOTS = sorted(((x_ / 5, y_ / 5) for x_ in range(-70, 71) for y_ in range(-70, 71)
+                      if math.hypot(x_ / 5, y_ / 5) < 14.0),
+                     key=lambda p_: math.hypot(p_[0] - BRAND_AT[0], p_[1] - BRAND_AT[1]))
+SN_AT = (0.0, -1.5)              # F: preferred centre of the 6 x 6 mm S/N field (the back has no clear 6 x 6 field): the
+                                 # panel centre the single face switch left (A1 had it at (0, 14), where the tripod's
+                                 # 190 deg switch sits now); the nearest clear spot under the panel wins
+SN_SPOTS = sorted(((x_ / 5, y_ / 5) for x_ in range(-60, 61) for y_ in range(-60, 61)
+                   if math.hypot(x_ / 5, y_ / 5) < 12.0),
+                  key=lambda p_: math.hypot(p_[0] - SN_AT[0], p_[1] - SN_AT[1]))
 B_MARK_W = 4.6                   # B mark width: the artwork's finest strokes (0.07 mm at 2 mm) reach 0.16 mm
 B_MARK_AT = m.B_IDENT_AT          # B: the reserved via-free spot (mechanical.B_IDENT_KEEPOUT); a clear field outside the cell wins
 CAT_AT = (-4.3, -7.7)            # F, under the panel: preferred centre of the sleeping cat
