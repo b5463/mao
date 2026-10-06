@@ -44,11 +44,23 @@ ADD = [
     ('3V3_LCD', 'B', 0.3, [(-11.15, 3.25), (-12.4, 3.25)]), ('3V3_LCD', V, 0.5, [(-12.4, 3.25)]),
     ('3V3_LCD', 'F', 0.3, [(-12.4, 3.25), (-12.4, 2.0)]),                            # C301 (A1: moved west)
     ('GND', 'B', 0.3, [(-11.15, -0.25), (-12.3, -0.25)]), ('GND', V, 0.5, [(-12.3, -0.25)]),
-    # J301 (A1): DC, TE and RST leave their pads east into staggered vias (the four SPI lanes pass north of them);
-    # VLED- (pad 11) runs to the sink FET's drain
-    ('LCD_DC', 'B', 0.15, [(-11.15, 1.75), (-10.2, 1.75)]), ('LCD_DC', V, 0.5, [(-10.2, 1.75)]),
-    ('LCD_TE', 'B', 0.15, [(-11.15, 2.25), (-9.55, 2.25)]), ('LCD_TE', V, 0.5, [(-9.55, 2.25)]),
-    ('LCD_RST_N', 'B', 0.15, [(-11.15, 2.75), (-8.9, 2.75)]), ('LCD_RST_N', V, 0.5, [(-8.9, 2.75)]),
+    # J301 (A1): its pads run CS..RST from north to south while every source lies south, so the three SPI pads
+    # (9, 8, 7) drop into staggered vias and their lanes run on F over the L2 ground; TE drops at its pad; DC and RST
+    # stay on B; VLED- (pad 11) runs to the sink FET's drain
+    ('LCD_CS', 'B', 0.15, [(-11.15, 0.25), (-10.25, 0.25)]), ('LCD_CS', V, 0.5, [(-10.25, 0.25)]),
+    ('LCD_SCLK_P', 'B', 0.15, [(-11.15, 0.75), (-9.65, 0.75)]), ('LCD_SCLK_P', V, 0.5, [(-9.65, 0.75)]),
+    ('LCD_MOSI_P', 'B', 0.15, [(-11.15, 1.25), (-9.05, 1.25)]), ('LCD_MOSI_P', V, 0.5, [(-9.05, 1.25)]),
+    ('LCD_TE', 'B', 0.15, [(-11.15, 2.25), (-10.3, 2.25)]), ('LCD_TE', V, 0.5, [(-10.3, 2.25)]),
+    ('LCD_CS', 'B', 0.15, [(-7.0, 10.2), (-9.0, 10.2)]), ('LCD_CS', V, 0.5, [(-9.0, 10.2)]),   # module pin 14
+    # USB pair: pins 23/24 drop through one via each to the 22R on F; the DNP 10 pF caps sit on the module side
+    ('USB_DN', 'B', 0.2, [(0.0, 8.3), (0.0, 7.25)]), ('USB_DN', V, 0.5, [(0.0, 7.25)]),
+    ('USB_DN', 'F', 0.2, [(0.0, 7.25), (-0.35, 6.9), (-0.55, 6.9), (-0.55, 6.11)]),
+    ('USB_DN', 'F', 0.2, [(-1.75, 5.98), (-1.75, 6.2), (-1.05, 6.9), (-0.55, 6.9)]),    # C207
+    ('USB_DP', 'B', 0.2, [(0.85, 8.3), (0.85, 6.45)]), ('USB_DP', V, 0.5, [(0.85, 6.45)]),
+    ('USB_DP', 'F', 0.2, [(0.85, 6.45), (0.85, 6.2), (0.65, 6.0)]),
+    ('USB_DP', 'B', 0.2, [(0.85, 6.45), (0.85, 5.73)]),                                # C206
+    # IMU INT1 to its pull-up west of the part
+    ('IMU_INT1', 'F', 0.15, [(2.038, 7.75), (1.2, 7.75), (-0.39, 9.34), (-0.39, 9.4)]),
     ('LCD_BL_K', 'B', 0.3, [(-11.15, -0.75), (-10.2, -0.75), (-9.25, -1.7), (-9.14, -1.7)]),
     # ---- module escapes (A1): the pins whose lines cross the board leave through a via beside the pin, staggered
     # 0.8 mm (left column x -8.2 / -9.0, right column x 8.2 / 9.0), so the router can take F or L3 from there
@@ -56,14 +68,12 @@ ADD = [
     ('BOOT', 'F', 0.2, [(-8.1, 18.7), (-8.89, 18.7)]),                                # R202 on F
     ('PRESS_N', 'B', 0.15, [(-7.0, 17.85), (-8.2, 17.85)]), ('PRESS_N', V, 0.5, [(-8.2, 17.85)]),
     ('IMU_INT1', 'B', 0.15, [(-7.0, 15.3), (-9.0, 15.3)]), ('IMU_INT1', V, 0.5, [(-9.0, 15.3)]),
-    ('LCD_RST_N', 'B', 0.15, [(-7.0, 12.75), (-8.64, 12.75)]),                        # R207
     ('LCD_BL', 'B', 0.15, [(-7.0, 11.9), (-9.0, 11.9)]), ('LCD_BL', V, 0.5, [(-9.0, 11.9)]),
     ('AMP_SD', 'B', 0.15, [(-7.0, 11.05), (-8.2, 11.05)]), ('AMP_SD', V, 0.5, [(-8.2, 11.05)]),
     ('LCD_TE', 'B', 0.15, [(7.0, 9.35), (8.2, 9.35)]), ('LCD_TE', V, 0.5, [(8.2, 9.35)]),
     ('AMP_BCLK', 'B', 0.15, [(7.0, 13.6), (9.0, 13.6)]), ('AMP_BCLK', V, 0.5, [(9.0, 13.6)]),
     ('AMP_LRCLK', 'B', 0.15, [(7.0, 14.45), (8.2, 14.45)]), ('AMP_LRCLK', V, 0.5, [(8.2, 14.45)]),
     ('AMP_DIN', 'B', 0.15, [(7.0, 15.3), (9.0, 15.3)]), ('AMP_DIN', V, 0.5, [(9.0, 15.3)]),
-    ('LCD_DC', 'B', 0.15, [(-5.1, 8.3), (-5.1, 7.25)]), ('LCD_DC', V, 0.5, [(-5.1, 7.25)]),
     ('IR_TX', 'B', 0.15, [(-1.7, 8.3), (-1.7, 7.25)]), ('IR_TX', V, 0.5, [(-1.7, 7.25)]),
     # IMU I2C up to two vias north of the part (the trunk runs on L3 / B)
     ('I2C_SDA', 'F', 0.15, [(2.7, 6.088), (2.7, 4.85), (2.45, 4.6)]), ('I2C_SDA', V, 0.5, [(2.45, 4.6)]),

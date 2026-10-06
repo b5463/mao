@@ -196,10 +196,12 @@ at('R202', -9.4, 18.7, 0, 'F')                             # BOOT pull-up on F o
                                                            # would sit in PRESS_N's escape row)
 pin('R201', 90, 'B', '2', 'U201', '45', 1.6, 0.0)          # EN pull-up at pin 45
 pin('C203', 90, 'B', '1', 'U201', '45', 2.9, 0.0)          # EN delay
-at('R216', -0.5, 6.0, 270, 'B')                           # USB 22R at pins 23 (D-) and 24 (D+), module end south
-at('R215', 1.6, 6.0, 270, 'B')
-at('C207', -1.75, 6.0, 90, 'B')                          # DNP 10 pF on the module side
-at('C206', 2.9, 6.0, 90, 'B')
+# USB 22R on F over pins 23 (D-) / 24 (D+): the pair arrives on F from the ESD array and drops beside the pins
+# through one via each, so B north of pins 25/26 stays open for the spare GPIOs' test pads
+at('R216', -0.55, 5.6, 270, 'F')                           # D- 22R, module end south
+at('R215', 0.65, 5.2, 270, 'F')                            # D+ 22R, module end south
+at('C207', -1.75, 5.5, 90, 'F')                             # DNP 10 pF on D- (module side)
+at('C206', 0.85, 5.25, 90, 'B')                            # DNP 10 pF on D+ (module side), under its via
 
 # ==== audio: amplifier beside the speaker, 9 o'clock (B, A0 places) =====================================
 at('U501', -14.4, -8.7, 0, 'B')
@@ -221,7 +223,7 @@ at('U401', 3.2, 7.0, 0, 'F')
 at('C402', 2.2, 9.25, 0, 'F')              # VDDIO 10 nF under pin 5
 at('C401', 4.843, 9.25, 180, 'F')          # VDD 100 nF under pin 8
 at('C408', 6.7, 7.0, 0, 'F')                                # VDD 2.2 uF X7R
-at('R404', 0.3, 7.75, 0, 'F')                              # INT1 pull-up level with pin 4
+at('R404', -0.9, 9.4, 0, 'F')                              # INT1 pull-up west of the IMU, clear of the USB vias
 
 # ==== Tag-Connect at the module's UART pins (B) ========================================================
 at('J201', 14.4, 16.6, 90, 'B')
@@ -249,7 +251,7 @@ pin('R318', 90, 'F', '2', 'SW301', '1', 0.0, -1.6)         # PRESS_N pull-up abo
 pin('C308', 90, 'F', '1', 'SW301', '1', -1.1, -1.6)        # DNP RC
 
 # ==== pull-downs at the parts they hold off =============================================================
-at('R207', -9.15, 12.75, 180, 'B')                         # display reset pull-down level with module pin 11
+at('R207', -8.4, 4.4, 0, 'B')                              # display reset pull-down on the reset lane
 
 # ==== service field (B): A0's block below the power section, the Gate C fixture block below it ==========
 _field = {'TP2': (6.0, -6.1), 'TP3': (8.8, -6.1), 'TP4': (11.6, -6.1), 'TP5': (14.3, -6.1),
@@ -263,8 +265,8 @@ _field = {'TP2': (6.0, -6.1), 'TP3': (8.8, -6.1), 'TP4': (11.6, -6.1), 'TP5': (1
           'TP21': (19.4, 10.6),      # HLA: under the Hall pair
           'TP22': (14.3, 2.3),       # TSMR: on the NTC line between the charger and the battery plug
           'TP23': (9.4, -14.3),      # CE: beside the charger's /CE pull-down
-          'TP24': (1.4, 3.8),        # IO21: north of module pin 25
-          'TP25': (4.2, 3.8)}        # IO26: north of module pin 26
+          'TP24': (1.4, 3.05),        # IO21: north of module pin 25
+          'TP25': (2.55, 5.9)}       # IO26: north of module pin 26
 for _ref, (_x, _y) in _field.items():
     at(_ref, _x, _y, 0, 'B')
 at('R214', 8.2, -3.3, 270, 'B')           # I2C pull-ups in the field's free position
