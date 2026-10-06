@@ -364,13 +364,17 @@ def main():
     for probe in filter(None, os.environ.get('SILK_MARK_PROBE', '').split(';')):   # debugging: why a spot fails
         x_, y_ = map(float, probe.split(','))
         print('silk: back mark probe (%.1f, %.1f):' % (x_, y_), [why(q, 'B') for q in block(x_, y_, 1.3)[1]])
+    jx2_, _ = pad('J102', '2')             # A1: keep the battery plug's pin-cue block (placed below) free
+    bat_cue = (jx2_ - 2.0, -0.5, jx2_ + 2.5, 3.3)
+    hits_cue = lambda qs_: any(not (q[2] < bat_cue[0] or q[0] > bat_cue[2] or q[3] < bat_cue[1] or q[1] > bat_cue[3])
+                               for q in qs_)
     found = None
     for ident in (1.5, 1.3, 1.2):
         for cx_, cy_ in spots:
             if not clear((cx_ - bw / 2, cy_ - bh / 2, cx_ + bw / 2, cy_ + bh / 2), 'B'):
                 continue                   # the mark first: cheap, and most spots fail here
             lines_, boxes_ = block(cx_, cy_, ident)
-            if all(clear(q, 'B') for q in boxes_):
+            if not hits_cue(boxes_) and all(clear(q, 'B') for q in boxes_):
                 found = (cx_, cy_, ident)
                 break
         if found:
@@ -400,7 +404,7 @@ def main():
     _, y0_, _, _ = tbox(t)
     base_y = 0.0 + (-0.39 + 0.25) - y0_                      # top of the block 0.25 mm below the plug's body
     for dy_, dx_ in [(dy_ / 20, dx_ / 20) for dx_ in (0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6)   # a little lower
-                     for dy_ in range(0, 21)]:                                    # (or a hair sideways, still under each
+                     for dy_ in range(0, 41)]:                                    # (or a hair sideways, still under each
         t.SetPosition(at(x2 + dx_, base_y + dy_))                                 # pin) where a via sits there
         if clear(tbox(t), 'B'):
             break
@@ -503,13 +507,16 @@ def main():
     # bring-up (a still board, face up, reads +1 g on Z).
     ix, iy = centre('U401')
     spots = [(ix + dx, iy + dy) for dx in (3.2, 3.6, 4.0, -4.6) for dy in (1.5, 1.1, 0.7, 1.9)]
+    # A1: the module's escape vias ring the IMU: then the nearest clear field within 10 mm, scanned
+    spots += sorted(((ix + i_ * 0.3, iy + j_ * 0.3) for i_ in range(-33, 34) for j_ in range(-33, 34)
+                     if math.hypot(i_ * 0.3, j_ * 0.3) <= 10.0), key=lambda p_: math.hypot(p_[0] - ix, p_[1] - iy))
     for ox, oy in spots:
         glyph = (ox - 0.2, oy - 1.7, ox + 1.75, oy + 0.2)
         if all(clear(q, 'F') for q in (measure('+X', ox + 2.55, oy, 'F'), measure('+Y', ox, oy - 2.45, 'F'), glyph)):
             break
     else:
         ox, oy = spots[0]
-        print('silk: IMU axes: no clear spot')
+        print('silk: IMU axes: no clear spot |', [(sx_, sy_, [why(q, 'F') for q in (measure('+X', sx_ + 2.55, sy_, 'F'), measure('+Y', sx_, sy_ - 2.45, 'F'), (sx_ - 0.2, sy_ - 1.7, sx_ + 1.75, sy_ + 0.2))]) for sx_, sy_ in spots[-4:]])
     tx_ = text('+X', ox + 2.55, oy, 'F', 0.8)
     ty_ = text('+Y', ox, oy - 2.45, 'F', 0.8)
     placed['F'] += [tbox(tx_), tbox(ty_), (ox - 0.2, oy - 1.7, ox + 1.75, oy + 0.2)]
@@ -621,7 +628,7 @@ FIELD_GAP = 0.4                    # between two service-field names: half the 0
                                    # one word); 0.5 has no arrangement in the 2.8 mm grid
 FIELD_SHARED = []                  # (every probe pad carries its own name)
 FIELD_SPOT = {ref: [('side', 1) if spec[1] == 'right' else ('flat', -1)] for ref, spec in m.FIELD_NAMES.items()}
-BRAND_CENTRE = (-6.6, 8.6)       # F, under the module's left half: the calmest free field on the face side
+BRAND_CENTRE = (13.6, -4.4)      # F, 3 o'clock under the panel: A1's module escape vias took A0's spot over the module
 SN_SPOTS = [(x_ / 10, y_ / 10) for y_ in (140, 142, 138, 144, 136, 146) for x_ in (0, 2, -2, 4, -4, 6, -6, 8, -8)]
                                  # F: centre of the 6 x 6 mm S/N field (the back has no clear 6 x 6 field)
 B_MARK_W = 4.6                   # B mark width: the artwork's finest strokes (0.07 mm at 2 mm) reach 0.16 mm
@@ -633,7 +640,7 @@ if __name__ == '__main__':
     if '--build' not in sys.argv:
         clean()
         sys.stdout.flush()
-        os.execv(sys.executable, [sys.executable, __file__, '--build'])
+        os._exit(__import__('subprocess').run([sys.executable, __file__, '--build']).returncode)   # not os.execv: Windows splits the argv of a path with spaces
     main()
     sys.stdout.flush()
     os._exit(0)

@@ -8,15 +8,15 @@
       "width_mm": 4.6,
       "height_mm": 3.751,
       "centre_mm": [
-        -6.6,
-        8.6
+        13.6,
+        -4.4
       ]
     },
     {
       "layer": "B.SilkS (mirrored to read from the back)",
       "width_mm": 4.6,
       "centre_mm": [
-        -2.2,
+        0.2,
         -6.2
       ]
     }

@@ -9,9 +9,10 @@ H3 screw hole, then on F (not L3) across the corridor between H3 and the module'
 the module to its escape via east of it (8.2, 14.45). Checked on the routed board: 0.2 mm and more to every
 other net, the +3V3 L3 fill stays one piece; DRC and plane_check re-check it.
 
-Three resistor GND pads the router boxed in (starved thermal, no via site after routing) get their ground here:
-R313.2 (backlight divider) one via in its pocket, R104.2 (ILIM) a stub to R103.2's ground beside it, and R316.2
-(gate pull-down) is freed by re-drawing the router's BL_GATE loop round it as a direct R315 -> R316 run beneath.
+Four resistor GND pads the router boxed in (starved thermal or a pour island, no via site after routing) get their
+ground here: R313.2 (backlight divider) and R117.2 (/CE pull-down) one via each, R104.2 (ILIM) a stub to R103.2's
+ground beside it, and R316.2 (gate pull-down) is freed by re-drawing the router's BL_GATE loop round it as a
+direct R315 -> R316 run beneath.
 """
 from handroute import run
 
@@ -33,6 +34,7 @@ ADD = [
     # boxed-in GND pads
     ('GND', 'B', 0.25, [(-7.88, -10.11), (-7.88, -10.75)]), ('GND', V, 0.5, [(-7.88, -10.75)]),    # R313.2
     ('GND', 'F', 0.25, [(6.04, -12.98), (6.04, -11.78)]),                                           # R104.2 -> R103.2
+    ('GND', 'F', 0.25, [(11.9, -14.11), (12.25, -14.11), (12.61, -13.75)]), ('GND', V, 0.5, [(12.61, -13.75)]),  # R117.2
     ('BL_GATE', 'B', 0.15, [(-7.8, -5.11), (-7.8, -4.6), (-7.0, -4.6), (-7.0, -4.09)]),            # R315.2 -> R316.1
 ]
 

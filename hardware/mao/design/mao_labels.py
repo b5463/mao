@@ -70,7 +70,7 @@ if '--placed' not in sys.argv:          # this script's leaders from an earlier 
             b.Remove(g_)
         pcb.SaveBoard(str(TARGET), b)
     sys.stdout.flush()
-    os.execv(sys.executable, [sys.executable, __file__, '--placed'])
+    os._exit(__import__('subprocess').run([sys.executable, __file__, '--placed']).returncode)   # not os.execv: Windows splits the argv of a path with spaces
 b = pcb.LoadBoard(str(TARGET)); fs = {f.GetReference(): f for f in b.GetFootprints()}
 MARKS = {r for r in fs if r.startswith(('FID', 'H', 'TP'))}   # fiducials, holes, test pads: obstacles, never labelled here
 SILK_REF = ('U', 'J', 'Q', 'D', 'SW', 'MK', 'L', 'E')

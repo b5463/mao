@@ -1416,7 +1416,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10nF 16V"
+		(property "Value" "10nF 50V"
 			(at 95.25 40.64 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -1444,7 +1444,7 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" "CL05B103KO5NNNC"
+		(property "MPN" "CL05B103KB5NNNC"
 			(at 92.71 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -1458,7 +1458,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C318577"
+		(property "LCSC" "C15195"
 			(at 92.71 39.37 0)
 			(effects
 				(font (size 1.27 1.27))

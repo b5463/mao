@@ -1,5 +1,5 @@
 {
-  "board": "MAO_MAIN_A0.kicad_pcb",
+  "board": "MAO_MAIN_A1.kicad_pcb",
   "text_height_mm": [
     0.8
   ],
@@ -7,7 +7,7 @@
     0.15
   ],
   "reference_layers": "F.SilkS/B.SilkS (plus a Fab copy at the part centre for the assembly drawing)",
-  "reference_count": 45,
+  "reference_count": 32,
   "silk_reference_classes": [
     "U",
     "J",
@@ -19,22 +19,14 @@
     "E"
   ],
   "service_passives": [
-    "C111",
-    "C406",
-    "C407",
     "C506",
     "R103",
     "R104",
-    "R105",
-    "R106",
     "R108",
-    "R115",
     "R116",
     "R117",
-    "R205",
     "R213",
     "R214",
-    "R402",
     "R505",
     "R506"
   ],
@@ -45,77 +37,78 @@
     "C104",
     "C105",
     "C106",
-    "C107",
     "C109",
     "C110",
     "C201",
     "C202",
     "C203",
-    "C204",
-    "C205",
+    "C206",
+    "C207",
     "C301",
-    "C302",
     "C303",
     "C304",
     "C305",
+    "C306",
+    "C307",
+    "C308",
     "C401",
     "C402",
     "C403",
     "C404",
-    "C405",
+    "C408",
     "C501",
     "C502",
     "C503",
     "C504",
     "C505",
+    "C508",
     "LS501",
     "R101",
     "R102",
     "R109",
     "R110",
     "R111",
-    "R112",
-    "R113",
-    "R114",
+    "R118",
+    "R119",
+    "R120",
+    "R121",
+    "R122",
     "R201",
     "R202",
-    "R203",
-    "R204",
-    "R206",
     "R207",
     "R208",
     "R209",
     "R210",
     "R211",
-    "R212",
+    "R215",
+    "R216",
     "R301",
     "R302",
     "R306",
-    "R307",
-    "R308",
-    "R309",
-    "R310",
+    "R311",
+    "R312",
+    "R313",
+    "R314",
+    "R315",
+    "R316",
+    "R317",
+    "R318",
     "R401",
-    "R403",
+    "R404",
     "R501",
     "R502",
     "R503",
-    "R504",
-    "R507"
+    "R504"
   ],
   "at_fallback_height": 0,
   "ambiguous": [],
   "without_silk_spot": [
-    "C111",
-    "C407",
-    "D304",
-    "J303",
+    "Q101",
+    "Q302",
     "R108",
-    "R205",
     "R213",
-    "R214",
-    "U104",
-    "U303"
+    "U102",
+    "U104"
   ],
   "duplicate_centre_references_removed": true,
   "component_outline_margin_mm": 0.32999999999999996,
@@ -123,23 +116,46 @@
   "placement": "beside its own part, clear of bodies, pads, through-holes, fasteners and other silkscreen text",
   "labels": [
     {
-      "reference": "R506",
+      "reference": "U103",
+      "side": "B",
+      "text_xy_mm": [
+        11.282,
+        -11.716
+      ],
+      "offset_mm": [
+        -2.418,
+        2.834
+      ],
+      "angle_deg": 270,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        10.845,
+        -13.2,
+        11.795,
+        -10.27
+      ],
+      "distance_to_own_part_mm": 0.16,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
+      "reference": "R103",
       "side": "F",
       "text_xy_mm": [
-        20.93,
-        4.388
+        3.88,
+        -11.237
       ],
       "offset_mm": [
         -2.67,
-        0.788
+        0.538
       ],
       "angle_deg": 0,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        19.502,
-        3.875,
-        22.395,
-        4.825
+        2.452,
+        -11.75,
+        5.345,
+        -10.8
       ],
       "distance_to_own_part_mm": 0.17,
       "ambiguity_mm": 0.0,
@@ -169,140 +185,48 @@
       "placement": "search"
     },
     {
-      "reference": "U105",
-      "side": "F",
+      "reference": "L101",
+      "side": "B",
       "text_xy_mm": [
-        -10.612,
-        -12.201
+        0.587,
+        -10.231
       ],
       "offset_mm": [
-        0.788,
-        -3.051
+        -2.038,
+        1.019
       ],
-      "angle_deg": 90,
+      "angle_deg": 270,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        -11.125,
-        -13.686,
-        -10.175,
-        -10.755
-      ],
-      "distance_to_own_part_mm": 0.34,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "R106",
-      "side": "F",
-      "text_xy_mm": [
-        6.45,
-        -15.812
-      ],
-      "offset_mm": [
-        -2.71,
-        -0.712
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        5.022,
-        -16.325,
-        7.915,
-        -15.375
-      ],
-      "distance_to_own_part_mm": 0.66,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "R117",
-      "side": "F",
-      "text_xy_mm": [
-        13.158,
-        -14.812
-      ],
-      "offset_mm": [
-        1.258,
-        -0.212
-      ],
-      "angle_deg": 90,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        12.645,
-        -16.315,
-        13.595,
-        -13.385
+        0.15,
+        -11.62,
+        1.1,
+        -8.88
       ],
       "distance_to_own_part_mm": 0.16,
       "ambiguity_mm": 0.0,
       "placement": "search"
     },
     {
-      "reference": "C506",
+      "reference": "U301",
       "side": "F",
       "text_xy_mm": [
-        22.388,
-        -6.62
+        23.814,
+        10.233
       ],
       "offset_mm": [
-        -1.212,
-        -2.72
+        1.038,
+        -2.917
       ],
       "angle_deg": 90,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        21.875,
-        -8.086,
-        22.825,
-        -5.155
+        23.301,
+        8.748,
+        24.251,
+        11.679
       ],
-      "distance_to_own_part_mm": 0.36,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "U103",
-      "side": "B",
-      "text_xy_mm": [
-        11.912,
-        -11.41
-      ],
-      "offset_mm": [
-        -1.788,
-        3.14
-      ],
-      "angle_deg": 270,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        11.475,
-        -12.895,
-        12.425,
-        -9.964
-      ],
-      "distance_to_own_part_mm": 0.33,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "R105",
-      "side": "F",
-      "text_xy_mm": [
-        8.431,
-        -6.332
-      ],
-      "offset_mm": [
-        -1.519,
-        1.968
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        7.004,
-        -6.845,
-        9.896,
-        -5.895
-      ],
-      "distance_to_own_part_mm": 0.36,
+      "distance_to_own_part_mm": 0.55,
       "ambiguity_mm": 0.0,
       "placement": "search"
     },
@@ -310,91 +234,68 @@
       "reference": "U201",
       "side": "B",
       "text_xy_mm": [
-        2.212,
-        -1.221
+        -1.981,
+        6.388
       ],
       "offset_mm": [
-        2.212,
-        -15.921
-      ],
-      "angle_deg": 270,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        1.775,
-        -2.706,
-        2.725,
-        0.225
-      ],
-      "distance_to_own_part_mm": 0.86,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "U502",
-      "side": "B",
-      "text_xy_mm": [
-        -11.788,
-        9.134
-      ],
-      "offset_mm": [
-        3.812,
-        -2.016
-      ],
-      "angle_deg": 270,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        -12.225,
-        7.65,
-        -11.275,
-        10.58
-      ],
-      "distance_to_own_part_mm": 0.17,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "E302",
-      "side": "F",
-      "text_xy_mm": [
-        21.9,
-        -11.712
-      ],
-      "offset_mm": [
-        -5.6,
-        -11.712
+        -1.981,
+        -11.462
       ],
       "angle_deg": 0,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        20.511,
-        -12.225,
-        23.328,
-        -11.275
+        -3.465,
+        5.875,
+        -0.535,
+        6.825
       ],
-      "distance_to_own_part_mm": 0.19,
+      "distance_to_own_part_mm": 0.36,
       "ambiguity_mm": 0.0,
       "placement": "search"
     },
     {
-      "reference": "L101",
+      "reference": "R116",
+      "side": "F",
+      "text_xy_mm": [
+        -5.912,
+        7.61
+      ],
+      "offset_mm": [
+        0.538,
+        2.46
+      ],
+      "angle_deg": 90,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        -6.425,
+        6.145,
+        -5.475,
+        9.038
+      ],
+      "distance_to_own_part_mm": 0.39,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
+      "reference": "U304",
       "side": "B",
       "text_xy_mm": [
-        0.124,
-        -13.552
+        -10.476,
+        -9.467
       ],
       "offset_mm": [
         -2.876,
-        0.038
+        -1.867
       ],
-      "angle_deg": 0,
+      "angle_deg": 270,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        -1.265,
-        -14.065,
-        1.475,
-        -13.115
+        -10.913,
+        -10.99,
+        -9.925,
+        -8.02
       ],
-      "distance_to_own_part_mm": 0.16,
+      "distance_to_own_part_mm": 0.17,
       "ambiguity_mm": 0.0,
       "placement": "search"
     },
@@ -422,46 +323,46 @@
       "placement": "search"
     },
     {
-      "reference": "J302",
+      "reference": "R506",
       "side": "F",
       "text_xy_mm": [
-        -22.012,
-        1.817
+        26.232,
+        4.138
       ],
       "offset_mm": [
-        -0.412,
-        -5.483
+        2.632,
+        0.538
       ],
-      "angle_deg": 90,
+      "angle_deg": 0,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        -22.525,
-        0.446,
-        -21.575,
-        3.225
+        24.805,
+        3.625,
+        27.698,
+        4.575
       ],
-      "distance_to_own_part_mm": 2.86,
+      "distance_to_own_part_mm": 0.17,
       "ambiguity_mm": 0.0,
       "placement": "search"
     },
     {
-      "reference": "U202",
-      "side": "B",
+      "reference": "R117",
+      "side": "F",
       "text_xy_mm": [
-        -8.983,
-        -17.201
+        11.688,
+        -16.482
       ],
       "offset_mm": [
-        0.017,
-        -4.101
+        -0.212,
+        -2.882
       ],
-      "angle_deg": 270,
+      "angle_deg": 90,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        -9.42,
-        -18.686,
-        -8.47,
-        -15.755
+        11.175,
+        -17.986,
+        12.125,
+        -15.055
       ],
       "distance_to_own_part_mm": 0.36,
       "ambiguity_mm": 0.0,
@@ -471,68 +372,22 @@
       "reference": "J301",
       "side": "B",
       "text_xy_mm": [
-        -16.553,
-        -0.019
+        -11.223,
+        7.695
       ],
       "offset_mm": [
-        -5.403,
-        -0.019
+        -0.073,
+        7.695
       ],
       "angle_deg": 270,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        -16.99,
-        -1.389,
-        -16.04,
-        1.389
-      ],
-      "distance_to_own_part_mm": 1.58,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "U402",
-      "side": "F",
-      "text_xy_mm": [
-        -10.081,
-        -21.838
-      ],
-      "offset_mm": [
-        -0.269,
-        -3.384
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        -11.527,
-        -22.389,
-        -8.596,
-        -21.401
+        -11.66,
+        6.325,
+        -10.71,
+        9.104
       ],
       "distance_to_own_part_mm": 0.36,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "R104",
-      "side": "F",
-      "text_xy_mm": [
-        3.591,
-        -9.743
-      ],
-      "offset_mm": [
-        -2.709,
-        0.307
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        2.164,
-        -10.294,
-        5.095,
-        -9.306
-      ],
-      "distance_to_own_part_mm": 0.17,
       "ambiguity_mm": 0.0,
       "placement": "search"
     },
@@ -560,6 +415,29 @@
       "placement": "search"
     },
     {
+      "reference": "U504",
+      "side": "F",
+      "text_xy_mm": [
+        19.457,
+        8.028
+      ],
+      "offset_mm": [
+        0.057,
+        3.428
+      ],
+      "angle_deg": 90,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        18.906,
+        6.505,
+        19.894,
+        9.474
+      ],
+      "distance_to_own_part_mm": 0.36,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
       "reference": "J101",
       "side": "B",
       "text_xy_mm": [
@@ -583,347 +461,48 @@
       "placement": "search"
     },
     {
-      "reference": "R402",
-      "side": "B",
-      "text_xy_mm": [
-        19.094,
-        10.179
-      ],
-      "offset_mm": [
-        -1.296,
-        0.519
-      ],
-      "angle_deg": 270,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        18.657,
-        8.714,
-        19.645,
-        11.606
-      ],
-      "distance_to_own_part_mm": 0.16,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "U501",
-      "side": "B",
-      "text_xy_mm": [
-        -11.588,
-        -8.681
-      ],
-      "offset_mm": [
-        2.812,
-        0.019
-      ],
-      "angle_deg": 270,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        -12.025,
-        -10.165,
-        -11.075,
-        -7.235
-      ],
-      "distance_to_own_part_mm": 0.17,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "J102",
-      "side": "B",
-      "text_xy_mm": [
-        24.305,
-        -3.677
-      ],
-      "offset_mm": [
-        5.045,
-        0.038
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        22.935,
-        -4.19,
-        25.714,
-        -3.24
-      ],
-      "distance_to_own_part_mm": 0.2,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "U403",
+      "reference": "R104",
       "side": "F",
       "text_xy_mm": [
-        9.982,
-        -21.744
+        6.607,
+        -15.647
       ],
       "offset_mm": [
-        0.029,
-        -3.026
+        0.057,
+        -2.672
       ],
       "angle_deg": 90,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        9.431,
-        -23.229,
-        10.42,
-        -20.298
-      ],
-      "distance_to_own_part_mm": 0.17,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "R115",
-      "side": "F",
-      "text_xy_mm": [
-        -6.528,
-        -8.962
-      ],
-      "offset_mm": [
-        2.172,
-        0.038
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        -7.955,
-        -9.475,
-        -5.062,
-        -8.525
-      ],
-      "distance_to_own_part_mm": 0.16,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "D303",
-      "side": "F",
-      "text_xy_mm": [
-        -17.912,
-        8.119
-      ],
-      "offset_mm": [
-        1.438,
-        0.019
-      ],
-      "angle_deg": 90,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        -18.425,
-        6.654,
-        -17.475,
-        9.546
-      ],
-      "distance_to_own_part_mm": 0.17,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "D301",
-      "side": "F",
-      "text_xy_mm": [
-        -20.362,
-        10.874
-      ],
-      "offset_mm": [
-        1.238,
-        0.424
-      ],
-      "angle_deg": 90,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        -20.875,
-        9.409,
-        -19.925,
-        12.301
-      ],
-      "distance_to_own_part_mm": 0.16,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "R116",
-      "side": "F",
-      "text_xy_mm": [
-        -12.2,
-        -4.08
-      ],
-      "offset_mm": [
-        0.038,
-        2.92
-      ],
-      "angle_deg": 90,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        -12.712,
-        -5.545,
-        -11.763,
-        -2.652
-      ],
-      "distance_to_own_part_mm": 0.36,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "R103",
-      "side": "F",
-      "text_xy_mm": [
-        11.788,
-        -5.38
-      ],
-      "offset_mm": [
-        0.538,
-        2.92
-      ],
-      "angle_deg": 90,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        11.275,
-        -6.845,
-        12.225,
-        -3.952
-      ],
-      "distance_to_own_part_mm": 0.36,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "MK401",
-      "side": "B",
-      "text_xy_mm": [
-        18.552,
-        6.178
-      ],
-      "offset_mm": [
-        -2.596,
-        0.114
-      ],
-      "angle_deg": 270,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        18.115,
-        4.255,
-        19.103,
-        8.063
-      ],
-      "distance_to_own_part_mm": 0.37,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "D302",
-      "side": "F",
-      "text_xy_mm": [
-        20.608,
-        -10.069
-      ],
-      "offset_mm": [
-        -2.19,
-        -0.117
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        19.18,
-        -10.582,
-        22.073,
-        -9.632
-      ],
-      "distance_to_own_part_mm": 0.16,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "J201",
-      "side": "B",
-      "text_xy_mm": [
-        14.912,
-        10.667
-      ],
-      "offset_mm": [
-        -0.288,
-        -5.683
-      ],
-      "angle_deg": 270,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        14.475,
-        9.296,
-        15.425,
-        12.075
+        6.056,
+        -17.151,
+        7.044,
+        -14.22
       ],
       "distance_to_own_part_mm": 0.61,
       "ambiguity_mm": 0.0,
       "placement": "search"
     },
     {
-      "reference": "E301",
+      "reference": "U105",
       "side": "F",
       "text_xy_mm": [
-        -23.495,
-        13.208
+        -8.962,
+        7.59
       ],
       "offset_mm": [
-        4.005,
-        13.208
+        0.038,
+        3.39
       ],
-      "angle_deg": 0,
+      "angle_deg": 90,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        -24.885,
-        12.695,
-        -22.068,
-        13.645
+        -9.475,
+        6.105,
+        -8.525,
+        9.036
       ],
-      "distance_to_own_part_mm": 0.54,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "U401",
-      "side": "F",
-      "text_xy_mm": [
-        -0.68,
-        7.307
-      ],
-      "offset_mm": [
-        -3.88,
-        0.307
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        -2.126,
-        6.756,
-        0.805,
-        7.744
-      ],
-      "distance_to_own_part_mm": 0.53,
-      "ambiguity_mm": 0.0,
-      "placement": "search"
-    },
-    {
-      "reference": "U101",
-      "side": "F",
-      "text_xy_mm": [
-        -2.745,
-        -17.962
-      ],
-      "offset_mm": [
-        -2.745,
-        0.038
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        -4.191,
-        -18.475,
-        -1.26,
-        -17.525
-      ],
-      "distance_to_own_part_mm": 0.2,
+      "distance_to_own_part_mm": 0.36,
       "ambiguity_mm": 0.0,
       "placement": "search"
     },
@@ -951,25 +530,186 @@
       "placement": "search"
     },
     {
-      "reference": "U503",
+      "reference": "R505",
       "side": "F",
       "text_xy_mm": [
-        14.84,
-        0.038
+        24.592,
+        6.788
       ],
       "offset_mm": [
-        -6.16,
+        2.632,
         0.038
       ],
       "angle_deg": 0,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        13.394,
-        -0.475,
-        16.325,
-        0.475
+        23.165,
+        6.275,
+        26.058,
+        7.225
+      ],
+      "distance_to_own_part_mm": 0.17,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
+      "reference": "U501",
+      "side": "B",
+      "text_xy_mm": [
+        -14.581,
+        -11.762
+      ],
+      "offset_mm": [
+        -0.181,
+        -3.062
+      ],
+      "angle_deg": 0,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        -16.065,
+        -12.275,
+        -13.135,
+        -11.325
       ],
       "distance_to_own_part_mm": 0.36,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
+      "reference": "U503",
+      "side": "F",
+      "text_xy_mm": [
+        26.188,
+        0.019
+      ],
+      "offset_mm": [
+        5.188,
+        0.019
+      ],
+      "angle_deg": 90,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        25.675,
+        -1.465,
+        26.625,
+        1.465
+      ],
+      "distance_to_own_part_mm": 0.36,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
+      "reference": "U402",
+      "side": "F",
+      "text_xy_mm": [
+        -9.831,
+        -14.939
+      ],
+      "offset_mm": [
+        -0.019,
+        3.515
+      ],
+      "angle_deg": 0,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        -11.277,
+        -15.49,
+        -8.346,
+        -14.502
+      ],
+      "distance_to_own_part_mm": 0.36,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
+      "reference": "J102",
+      "side": "B",
+      "text_xy_mm": [
+        23.372,
+        -3.734
+      ],
+      "offset_mm": [
+        4.112,
+        -0.019
+      ],
+      "angle_deg": 270,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        22.935,
+        -5.104,
+        23.885,
+        -2.326
+      ],
+      "distance_to_own_part_mm": 0.18,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
+      "reference": "J201",
+      "side": "B",
+      "text_xy_mm": [
+        14.381,
+        21.138
+      ],
+      "offset_mm": [
+        -0.019,
+        4.538
+      ],
+      "angle_deg": 0,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        13.011,
+        20.625,
+        15.789,
+        21.575
+      ],
+      "distance_to_own_part_mm": 0.36,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
+      "reference": "C506",
+      "side": "F",
+      "text_xy_mm": [
+        23.6,
+        -5.592
+      ],
+      "offset_mm": [
+        0.0,
+        -1.692
+      ],
+      "angle_deg": 0,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        22.135,
+        -6.105,
+        25.065,
+        -5.155
+      ],
+      "distance_to_own_part_mm": 0.36,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
+      "reference": "U101",
+      "side": "F",
+      "text_xy_mm": [
+        -2.745,
+        -17.962
+      ],
+      "offset_mm": [
+        -2.745,
+        0.038
+      ],
+      "angle_deg": 0,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        -4.191,
+        -18.475,
+        -1.26,
+        -17.525
+      ],
+      "distance_to_own_part_mm": 0.2,
       "ambiguity_mm": 0.0,
       "placement": "search"
     },
@@ -1000,22 +740,22 @@
       "reference": "Q501",
       "side": "B",
       "text_xy_mm": [
-        7.1,
-        -13.982
+        11.35,
+        -17.232
       ],
       "offset_mm": [
-        -2.5,
-        7.218
+        1.75,
+        3.968
       ],
       "angle_deg": 0,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        5.615,
-        -14.495,
-        8.585,
-        -13.469
+        9.865,
+        -17.745,
+        12.835,
+        -16.719
       ],
-      "distance_to_own_part_mm": 4.1,
+      "distance_to_own_part_mm": 1.22,
       "ambiguity_mm": 0.0,
       "placement": "leader"
     },
@@ -1043,117 +783,71 @@
       "placement": "leader"
     },
     {
-      "reference": "U102",
-      "side": "F",
-      "text_xy_mm": [
-        14.151,
-        -8.737
-      ],
-      "offset_mm": [
-        4.741,
-        3.038
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        12.705,
-        -9.25,
-        15.636,
-        -8.3
-      ],
-      "distance_to_own_part_mm": 0.8,
-      "ambiguity_mm": 0.0,
-      "placement": "leader"
-    },
-    {
-      "reference": "Q101",
+      "reference": "R214",
       "side": "B",
       "text_xy_mm": [
-        10.16,
-        -8.825
+        8.738,
+        2.206
       ],
       "offset_mm": [
-        -4.94,
-        2.0
+        0.538,
+        5.506
       ],
       "angle_deg": 0,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        8.676,
-        -9.338,
-        11.645,
-        -8.312
+        7.235,
+        1.655,
+        10.165,
+        2.643
       ],
-      "distance_to_own_part_mm": 1.22,
+      "distance_to_own_part_mm": 3.62,
       "ambiguity_mm": 0.0,
       "placement": "leader"
     },
     {
-      "reference": "R505",
+      "reference": "U401",
       "side": "F",
       "text_xy_mm": [
-        17.54,
-        6.038
+        10.921,
+        5.807
       ],
       "offset_mm": [
-        -4.42,
-        -0.712
+        7.721,
+        -1.193
       ],
       "angle_deg": 0,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        16.112,
-        5.525,
-        19.005,
-        6.475
+        9.475,
+        5.256,
+        12.406,
+        6.244
       ],
-      "distance_to_own_part_mm": 1.62,
+      "distance_to_own_part_mm": 3.91,
       "ambiguity_mm": 0.0,
       "placement": "leader"
     },
     {
-      "reference": "C406",
+      "reference": "U502",
       "side": "B",
       "text_xy_mm": [
-        24.493,
-        5.35
+        -10.288,
+        11.384
       ],
       "offset_mm": [
-        1.193,
-        -3.65
+        5.312,
+        0.234
       ],
       "angle_deg": 270,
       "text_height_mm": 0.8,
       "bounding_box_mm": [
-        24.056,
-        3.884,
-        25.044,
-        6.815
+        -10.725,
+        9.9,
+        -9.775,
+        12.83
       ],
-      "distance_to_own_part_mm": 0.87,
-      "ambiguity_mm": 0.0,
-      "placement": "leader"
-    },
-    {
-      "reference": "U301",
-      "side": "F",
-      "text_xy_mm": [
-        17.076,
-        12.438
-      ],
-      "offset_mm": [
-        -5.7,
-        -0.712
-      ],
-      "angle_deg": 0,
-      "text_height_mm": 0.8,
-      "bounding_box_mm": [
-        15.629,
-        11.925,
-        18.56,
-        12.875
-      ],
-      "distance_to_own_part_mm": 2.59,
+      "distance_to_own_part_mm": 1.47,
       "ambiguity_mm": 0.0,
       "placement": "leader"
     }
