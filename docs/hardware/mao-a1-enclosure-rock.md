@@ -1,5 +1,7 @@
 # MAO_MAIN A1: the rock enclosure
 
+> Superseded on 2026-10-06 by the wheel stone (`mao-a1-enclosure-wheelstone.md`): the owner wanted a more prominent dial. Kept as the earlier study.
+
 Owner decision 2026-10-06: a smooth, slightly irregular, 3D-printable river stone instead of the A0 puck. Concept level: the
 outer form, the shells, the fixings and the fit around the A1 stack are modelled and printable; the face carrier is not (see
 Open).
