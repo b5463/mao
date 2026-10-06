@@ -220,9 +220,8 @@ static void peripherals_rest(bool rest)
         mao_sense_set_level(MAO_SENSE_REST);
         mao_perception_rest(true);
     } else {
-        mao_sense_set_level(MAO_SENSE_AWAKE);
+        mao_sense_set_level(MAO_SENSE_AWAKE);     /* the ToF boots again: the slow part, last */
         mao_ir_suspend(false);
-        mao_haptics_suspend(false);
         mao_perception_rest(false);
     }
 }
@@ -333,6 +332,7 @@ static void light_rest(void)
     }
     mao_display_unlock();
     mao_radio_sleep(false);
+    mao_haptics_suspend(false);                    /* the waking press still clicks */
     mao_event_post(MAO_EVENT_POWER_WAKE, held ? 1 : 0);   /* before the input resumes: it is handled first */
     mao_input_sleep(false);
     mao_board_audio_hold(false);
