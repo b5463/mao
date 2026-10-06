@@ -20,9 +20,12 @@
 
 static const char *TAG = "MAO_BOARD";
 
+/* The full-scale gain, never above A1_AUDIO_GAIN_MAX (0.8 W into the 8 ohm
+ * speaker at VSYS 4.5 V on USB power: mao_board_a1_priv.h). */
 float mao_board_audio_gain(void)
 {
-    return A1_AUDIO_GAIN;
+    const float gain = A1_AUDIO_GAIN;
+    return gain < A1_AUDIO_GAIN_MAX ? gain : A1_AUDIO_GAIN_MAX;
 }
 
 esp_err_t mao_board_audio_init(uint32_t sample_rate_hz, i2s_chan_handle_t *out)

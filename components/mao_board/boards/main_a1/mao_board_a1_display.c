@@ -15,7 +15,9 @@
  *
  * Power-up: rail on, 10 ms, reset low 10 ms, reset high, 120 ms, then the
  * GC9A01 init. With the rail off the bus is driven low (and held for deep
- * sleep): an idle-high CS or MOSI would back-power the unpowered panel.
+ * sleep): an idle-high CS or MOSI would back-power the unpowered panel. The
+ * TE input has its internal pull-down on while the rail is off (nothing
+ * drives it then) and off while the panel is powered (review N3).
  */
 #include "mao_board.h"
 #include "mao_board_a1_priv.h"
@@ -160,10 +162,24 @@ static void unpark(void)
     s_parked = false;
 }
 
+void a1_display_te_pull(bool rail_off, bool hold)
+{
+    gpio_hold_dis((gpio_num_t)MAO_PIN_LCD_TE);
+    if (rail_off) {
+        gpio_pulldown_en((gpio_num_t)MAO_PIN_LCD_TE);
+    } else {
+        gpio_pulldown_dis((gpio_num_t)MAO_PIN_LCD_TE);
+    }
+    if (hold) {
+        gpio_hold_en((gpio_num_t)MAO_PIN_LCD_TE);
+    }
+}
+
 static esp_err_t rail_up(void)
 {
     gpio_set_level((gpio_num_t)MAO_PIN_LCD_RST_N, 0);
     gpio_set_level((gpio_num_t)MAO_PIN_LCD_PWR_EN, 1);
+    a1_display_te_pull(false, false);                  /* the panel drives TE from here */
     vTaskDelay(pdMS_TO_TICKS(A1_LCD_PWR_SETTLE_MS));
     vTaskDelay(pdMS_TO_TICKS(A1_LCD_RESET_LOW_MS));   /* reset held low with the rail up */
     gpio_set_level((gpio_num_t)MAO_PIN_LCD_RST_N, 1);
@@ -198,7 +214,9 @@ esp_err_t a1_display_power(bool on)
         }
         a1_display_park(false);
         gpio_set_level((gpio_num_t)MAO_PIN_LCD_RST_N, 0);
-        return gpio_set_level((gpio_num_t)MAO_PIN_LCD_PWR_EN, 0);
+        const esp_err_t err = gpio_set_level((gpio_num_t)MAO_PIN_LCD_PWR_EN, 0);
+        a1_display_te_pull(true, false);               /* nothing drives TE now */
+        return err;
     }
     if (gpio_get_level((gpio_num_t)MAO_PIN_LCD_PWR_EN)) {
         return ESP_OK;

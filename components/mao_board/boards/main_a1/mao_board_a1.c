@@ -102,7 +102,9 @@ static esp_err_t config_inputs(void)
      * active low, latched), the ToF interrupt 10 k, the charger STAT lines
      * 10 k each; USB_PRESENT_N has its 100 k pull-up at the 2N7002's
      * drain (active low: the VBUS divider drives the FET's gate). The display
-     * TE line is driven by the panel. */
+     * TE line is driven by the panel while its rail is on; the rail is off from
+     * reset, so TE starts with its internal pull-down (review N3; released by
+     * the display's rail-up). */
     const gpio_config_t cfg = {
         .pin_bit_mask = (1ULL << MAO_PIN_IMU_INT1) | (1ULL << MAO_PIN_TOF_INT_N) |
                         (1ULL << MAO_PIN_USB_PRESENT_N) | (1ULL << MAO_PIN_CHG_STAT1) |
@@ -112,7 +114,9 @@ static esp_err_t config_inputs(void)
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE,
     };
-    return gpio_config(&cfg);
+    ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "inputs");
+    a1_display_te_pull(true, false);                   /* LCD_PWR_EN was just latched low */
+    return ESP_OK;
 }
 
 esp_err_t mao_board_init(void)

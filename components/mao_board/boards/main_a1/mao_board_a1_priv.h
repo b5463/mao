@@ -60,6 +60,15 @@
 /* --- Audio: MAX98357A on I2S0 (standard Philips TX), SD_MODE = AMP_SD ------ */
 /* VERIFY AT BRING-UP: started at the LCDkit's NS4150 value; tune by ear. */
 #define A1_AUDIO_GAIN               0.58f
+/* Ceiling on the digital full-scale gain (design review 2026-10-06, N5). The
+ * MAX98357A with GAIN_SLOT open gives 2.1 dBV + 9 dB = 3.59 Vrms for a
+ * full-scale sine; the synthesiser plays sines no louder than gain x full
+ * scale. On USB power VSYS is 4.5 V, enough for ~3.0 Vrms before clipping,
+ * so only the gain limits the speaker there: 0.70 x 3.59 = 2.51 Vrms =
+ * 0.79 W into 8 ohm, under the CMS-150803-088S-X8's 0.8 W rating (0.58:
+ * 2.08 Vrms, 0.54 W). On battery (VSYS = cell <= 4.2 V) the amplifier clips
+ * lower still. */
+#define A1_AUDIO_GAIN_MAX           0.70f
 #define A1_AMP_I2S_PORT             I2S_NUM_0
 
 /* --- IR -------------------------------------------------------------------- */
@@ -85,6 +94,10 @@ esp_err_t a1_display_power(bool on);
 void a1_display_park(bool deep);
 /* Backlight off and its pin held low (deep sleep), or released. */
 void a1_backlight_hold(bool hold);
+/* LCD_TE's internal pull-down: on while the panel rail is off (the input
+ * would float: design review 2026-10-06, N3), off while the panel drives it.
+ * hold = also hold the pad that way through a deep sleep. */
+void a1_display_te_pull(bool rail_off, bool hold);
 
 /* Release pads that a previous deep sleep left held / routed to RTC IO. */
 void a1_sleep_release_pads(void);

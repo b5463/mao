@@ -71,13 +71,13 @@ generates is byte-identical to the M4.1 one.
 | Module | ESP32-S3-MINI-1-N8, no PSRAM; chip checked at `mao_board_init()` |
 | Revision | NVS `mao`/`hw_rev`, written at manufacturing (`mao board rev A1`, dev console); `"A1"` when absent. The boot check's own record moved to `mao`/`chk_rev` |
 | Rails / enables | plain GPIOs, each with a hardware pull-down (off from reset): LCD_PWR_EN 6, LCD_RST_N 7, AMP_SD 9, HAPTIC_EN 1, TOF_XSHUT 15, AUX_PWR_EN 38 (IR receiver), IR_TX 17, CHG_CE_N 18. Latched low as outputs at init (input+output, so the self-test reads them back). Held in light and deep sleep |
-| Display | GC9A01 on SPI2 IO_MUX pads (SCLK 12, MOSI 11, CS 10), DC 13, TE 35 (input, unused yet); rail + reset sequence as on the A0; rotation `CONFIG_MAO_A1_LCD_ROTATION` (default 90), SPI clock `CONFIG_MAO_A1_LCD_PCLK_MHZ` (default 80) |
+| Display | GC9A01 on SPI2 IO_MUX pads (SCLK 12, MOSI 11, CS 10), DC 13, TE 35 (input, unused yet; internal pull-down on while the panel rail is off, released when the rail comes up, held through deep sleep: design review N3); rail + reset sequence as on the A0; rotation `CONFIG_MAO_A1_LCD_ROTATION` (default 90), SPI clock `CONFIG_MAO_A1_LCD_PCLK_MHZ` (default 80) |
 | Backlight | LEDC on GPIO8 into the analogue current sink: the LCDkit's LEDC code (30 kHz, 9 bit, RC_FAST, kept alive in light sleep, hardware fades), so the M4.1 3 % rest level and the fades work unchanged. No AW9364 |
 | Dial / press | Hall A GPIO21 / B GPIO37, rest mask 00\|11, 2 transitions per detent, 30 per revolution; press GPIO14 (off every strap). HALL_FAST GPIO5 high while awake, low (low-power sampling) in sleep (`mao_input_sleep`) |
-| Light-sleep wake | the knob (`mao_board_knob_wake_arm`: Hall A / B at the level they are not at, press low) plus, from the rest loop, VBUS_SENSE at its other level |
-| Deep-sleep wake | ext1 ANY_LOW: press GPIO14, IMU INT1 GPIO4; ext0: Hall A GPIO21 at its other level. USB cannot wake (GPIO39 is not an RTC pad) |
+| Light-sleep wake | the knob (`mao_board_knob_wake_arm`: Hall A / B at the level they are not at, press low) plus, from the rest loop, USB_PRESENT_N at its other level |
+| Deep-sleep wake | ext1 ANY_LOW: press GPIO14, IMU INT1 GPIO4, USB_PRESENT_N GPIO2 (plugging USB in; armed only while it idles high, i.e. on battery); ext0: Hall A GPIO21 at its other level. Design review 2026-10-06, finding 1: the VBUS divider drives a 2N7002 whose drain (100 k pull-up) is the RTC pad GPIO2; GPIO39 is a spare |
 | I2C | I2C0 SDA 47 / SCL 48, 4.7 k, 400 kHz: ICM-42670-P 0x68, VL53L4CD 0x29, MAX17048 0x36, DRV2605L 0x5A; ToF and haptic powered for the boot probe and a scan |
-| Charger | BQ25185: STAT1 33 / STAT2 34 (H/H done or no input, H/L charging, L/H recoverable fault, L/L latched fault: `mao_board_charger_status()`), /CE = CHG_CE_N (high pauses), VBUS_SENSE 39 (divider, high = present) |
+| Charger | BQ25185: STAT1 33 / STAT2 34 (H/H done or no input, H/L charging, L/H recoverable fault, L/L latched fault: `mao_board_charger_status()`), /CE = CHG_CE_N (high pauses), USB_PRESENT_N 2 (VBUS divider -> 2N7002, low = present) |
 | Audio | MAX98357A on I2S0 standard TX (BCLK 40, LRCLK 41, DIN 42), SD_MODE = AMP_SD |
 | IR | TX GPIO17 (RMT, 38 kHz), RX GPIO36 (RMT, active low), receiver supply AUX_PWR_EN (1 ms settle) |
 | IMU | ICM-42670-P; INT1 GPIO4 open drain, active low, latched, 100 k pull-up; **INT2 not wired** (wake-on-motion on INT1, everything else polled) |
@@ -125,18 +125,22 @@ first-touch rules are untouched. Added around it, all no-ops on the LCDkit:
 - **Charge limit in light sleep**: on USB the light sleep wakes at least
   every 10 s and calls `mao_battery_poll()` (USB, STAT lines, charge limit,
   gauge when due), then sleeps on. A USB plug / unplug ends one sleep of the
-  loop as housekeeping only (it does not wake MAO).
+  loop as housekeeping only (it does not wake MAO). With USB present MAO never
+  deep-sleeps (`deep_rest` and the critical sleep fall back to the light rest,
+  where the charge limit runs: the charger's own NTC window ends near 60 C,
+  the cell is rated to 45 C).
 - **Deep sleep** (DEV `deepsleep <s>`): wake sources are cleared first, then
   `mao_board_deep_sleep_hold(true)` arms the board's own (A1: press, dial,
-  motion; LCDkit: none, as before), then the timer. The sensors go to DEEP
+  motion, USB plugged in; LCDkit: none, as before), then the timer. The sensors go to DEEP
   (INT1 released), the time asleep is kept in RTC memory next to the M4.1
   marker and handed to perception at the wake (LONG_ABSENCE spans sleep).
 - **Critical battery**: `mao_battery` posts `MAO_EVENT_BATTERY_CRITICAL`
   after three readings on battery below `CONFIG_MAO_BATTERY_CRITICAL_MV`
   (3550 mV provisional, from Gate C) or at SOC <= 2 %. The app shows the
-  sleeping frame and enters a deep sleep that only the press (or a recheck
-  timer, `CONFIG_MAO_BATTERY_CRITICAL_RECHECK_MIN`, 60 min: USB cannot wake
-  the A1) ends; a recheck that still finds the cell critical on battery goes
+  sleeping frame and enters a deep sleep that only the press, plugging USB
+  in (USB_PRESENT_N, ext1) or a recheck timer
+  (`CONFIG_MAO_BATTERY_CRITICAL_RECHECK_MIN`, 60 min, kept as a fallback)
+  ends; a recheck that still finds the cell critical on battery goes
   back to sleep before the screen lights. Not on USB; a FORGET or pairing
   gets up to 30 s. A cell that turns critical during light sleep is acted on
   from the rest loop.
@@ -194,10 +198,10 @@ caps: audio_pdm_line, deep_wake_knob   (gone: expander, mic, touch, als)
 esp_err_t mao_board_charger_status(mao_charger_status_t *out);
 const char *mao_board_charger_status_name(mao_charger_status_t s);
 esp_err_t mao_board_light_sleep_prepare(const mao_board_wake_t *want, mao_board_wake_t *armed); /* holds pads (A1) */
-void mao_board_wake_decode(mao_board_wake_t *out);   /* light sleep: from the levels noted before */
+void mao_board_wake_decode(mao_board_wake_t *out);   /* deep: ext0/ext1 status; light: the levels noted before */
 mao_board_wake_t: press, dial, motion, usb, proximity   (gone: expander)
 MAO_LINE_USB_PRESENT, MAO_LINE_CHARGING              (gone: MAO_LINE_SENSE_ALERT)
-MAO_IRQ_IMU_INT1, MAO_IRQ_TOF, MAO_IRQ_USB_PRESENT    (gone: IMU_INT2, EXPANDER; USB is active high on the A1)
+MAO_IRQ_IMU_INT1, MAO_IRQ_TOF, MAO_IRQ_USB_PRESENT    (gone: IMU_INT2, EXPANDER; USB is active low on the A1: USB_PRESENT_N)
 MAO_RAIL_DISPLAY/AMP/HAPTIC/TOF/IR_RX                 (gone: MIC)
 gone: mao_board_revision_mv, _display_sleep (M4.1's SLPIN/SLPOUT path is the
       one), _display_reinit, _expander_*, _touch_*, _mic_init
@@ -270,21 +274,29 @@ the sanitizers).
   HALL_FAST low, ext0 dial wake from deep sleep.
 - **Audio**: gain (`A1_AUDIO_GAIN` 0.58, by ear), MAX98357A turn-on (8 ms)
   without a pop, SD_MODE off after 3 s, no click at suspend / resume.
+  `mao_board_audio_gain()` never returns more than `A1_AUDIO_GAIN_MAX`
+  0.70 (design review N5): with GAIN_SLOT open a full-scale sine is
+  2.1 dBV + 9 dB = 3.59 Vrms, and on USB power (VSYS 4.5 V, ~3.0 Vrms before
+  clipping) only the gain limits the speaker: 0.70 x 3.59 = 2.51 Vrms =
+  0.79 W into 8 ohm, under the CMS-150803-088S-X8's 0.8 W (0.58: 2.08 Vrms,
+  0.54 W). Tune by ear below the ceiling; on battery the amplifier clips
+  lower.
 - **IMU**: WHO_AM_I, axis sign at rest (`MAO_PERCEPT_IMU_Z_DOWN`),
   wake-on-motion threshold (98 mg) against desk bumps, INT1 release before
   deep sleep, motion wake from deep sleep, free-fall / 6D thresholds at
   10 Hz, die-temperature offset vs a thermocouple.
 - **Charger**: STAT1 / STAT2 truth table on the fitted BQ25185, /CE pause
   (`mao battery charge off`, `charge_pause` step), 43 / 40 C pause / resume
-  by warming the board, VBUS_SENSE edges (any-edge ISR and the light-sleep
-  wake).
+  by warming the board, USB_PRESENT_N edges (any-edge ISR, the light-sleep
+  wake, and the deep-sleep wake when USB is plugged in on battery: from the
+  DEV `deepsleep` and from the critical sleep).
 - **Battery**: the 3550 mV critical floor against the measured discharge
-  curve under load, the critical sleep's press wake and 60 min recheck,
-  gauge RCOMP for the cell.
+  curve under load, the critical sleep's press and USB wakes and 60 min
+  recheck, gauge RCOMP for the cell.
 - **Sleep**: light-sleep current with every pad held, the panel staying
   powered and showing the rest frame through light sleep, deep-sleep current
-  (rails held off, HALL_FAST low), the RC slow clock's accuracy for "time
-  asleep".
+  (rails held off, HALL_FAST low, LCD_TE pulled down and held, USB_PRESENT_N
+  at 0 uA on battery), the RC slow clock's accuracy for "time asleep".
 - **IR**: receiver off-level with AUX_PWR_EN low, 1 ms settle, loopback.
 - **Self-test**: probe-pad names (TP13 / TP15 kept from the A0 until the A1
   board names them) and limits; `factory_test.py --reset` on the A1.

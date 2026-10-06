@@ -16,7 +16,8 @@
  *   while it idles high, i.e. on battery (with USB present the application
  *   never deep-sleeps anyway: mao_app_power.c).
  * Every enable goes low and is held there (each also has a pull-down), the
- * display bus is driven low and held, the backlight PWM stops and its pin is
+ * display bus is driven low and held, the TE input keeps its pull-down
+ * (held; the panel rail is off), the backlight PWM stops and its pin is
  * held low, /CE is held low (charging enabled: nothing watches the
  * temperature while the chip sleeps; the charger's own TS input still does).
  *
@@ -67,6 +68,7 @@ void a1_sleep_release_pads(void)
     for (size_t i = 0; i < sizeof(kWakePads) / sizeof(kWakePads[0]); i++) {
         rtc_gpio_deinit((gpio_num_t)kWakePads[i]);
     }
+    gpio_hold_dis((gpio_num_t)MAO_PIN_LCD_TE);
 }
 
 static bool line_idle_high(int gpio)
@@ -91,6 +93,7 @@ esp_err_t mao_board_deep_sleep_prepare(const mao_board_wake_t *want, mao_board_w
         gpio_set_level((gpio_num_t)g, 0);               /* HALL_FAST low = the Hall latches' low-power mode */
         gpio_hold_en((gpio_num_t)g);
     }
+    a1_display_te_pull(true, true);                     /* panel rail off: TE pulled down, held */
 
     mao_board_wake_t a = { 0 };
     uint64_t mask = 0;
