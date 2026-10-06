@@ -30,7 +30,8 @@ import pcbnew as pcb
 import mechanical as m
 from board import ROOT, TARGET, courtyard_boxes
 
-K3D = os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/SharedSupport/3dmodels')
+K3D = os.path.join(os.environ.get('KICAD_SHARE', os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/SharedSupport')),
+                   '3dmodels')
 PRJ = str(ROOT)
 RING_LIP_MAX = 0.95          # mao-mechanical.md section 1: the ring's lower lip is 1.9 mm above F.Cu at r > 24 mm
 WINDOW_MAX = m.WINDOW_Z - m.PRESS_TRAVEL - 0.3

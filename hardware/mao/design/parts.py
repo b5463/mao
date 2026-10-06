@@ -1,8 +1,9 @@
-"""Part helpers and the verified part catalogue for MAO_MAIN A0.
+"""Part helpers and the verified part catalogue for MAO_MAIN A1.
 
 Every LCSC number here was checked against JLCPCB/LCSC on 2026-10-03; 470k, 240k and 56R were added
-on 2026-10-05 from the JLCPCB parts search (part number, value, package and stock). fab.py refuses to
-write a BOM line without an LCSC number, so a value missing from this table stops the release.
+on 2026-10-05, the A1 values on 2026-10-06 (JLCPCB parts search: part number, value, package and stock;
+stock warnings in docs/hardware/mao-a1-report.md). fab.py refuses to write a BOM line without an LCSC
+number, so a value missing from this table stops the release.
 """
 from model import Part
 
@@ -34,6 +35,21 @@ PASSIVES = {
     ('22u', '0603'): ('C59461', 'CL10A226MQ8NRNC', 'Samsung'),
     ('4.7u', '0603'): ('C19666', 'CL10A475KO8NNNC', 'Samsung'),
     ('10u', '0805'): ('C15850', 'CL21A106KAYNNNE', 'Samsung'),
+    # A1 (2026-10-06)
+    ('18k', '0402'): ('C25762', '0402WGF1802TCE', 'UNI-ROYAL'),
+    ('1.43k', '0402'): ('C163483', 'RC0402FR-071K43L', 'YAGEO'),        # UNI-ROYAL C11671: 176 in stock
+    ('102k', '0402'): ('C2933066', 'FRC0402F1023TS', 'FOJAN'),          # 1 %, 100 ppm; UNI-ROYAL C26991 had 4
+    ('32.4k', '0402'): ('C26974', '0402WGF3242TCE', 'UNI-ROYAL'),
+    ('1.0k', '0402'): ('C11702', '0402WGF1001TCE', 'UNI-ROYAL'),
+    ('150k', '0402'): ('C25755', '0402WGF1503TCE', 'UNI-ROYAL'),
+    ('3.3R', '0603'): ('C22979', '0603WAF330KT5E', 'UNI-ROYAL'),         # 3.3 ohm 1 %
+    ('0R', '0603'): ('C21189', '0603WAF0000T5E', 'UNI-ROYAL'),           # 1 A jumper
+    ('10n', '0402'): ('C318577', 'CL05B103KO5NNNC', 'Samsung'),          # X7R 16 V
+    ('100p', '0402'): ('C26409', 'CL05C101JB5NNNC', 'Samsung'),          # C0G 50 V
+    ('10p', '0402'): ('C318588', 'CL05C100CB5NNNC', 'Samsung'),          # C0G 50 V
+    ('1n', '0402'): ('C14442', 'CL05B102KB5NNNC', 'Samsung'),            # X7R 50 V
+    ('2.2u', '0603', '10V'): ('C100082', 'CL10B225KP8NNNC', 'Samsung'),  # X7R 10 V
+    ('10u', '0603', '25V'): ('C96446', 'CL10A106MA8NRNC', 'Samsung'),    # X5R 25 V (charger SYS, TI: 25 V)
 }
 
 FP = {
@@ -69,7 +85,7 @@ class Builder:
                                symbol_node=symbol_node))
 
     def _passive(self, kind, ref, value, a, b, pkg, voltage='', note='', dnp=False):
-        lcsc, mpn, mfr = PASSIVES.get((value, pkg), ('', '', ''))
+        lcsc, mpn, mfr = PASSIVES.get((value, pkg, voltage), PASSIVES.get((value, pkg), ('', '', '')))
         symbol = 'Device:R' if kind == 'R' else 'Device:C'
         disp = value + ('' if kind == 'R' else 'F') if value != '0R' else '0R'
         if voltage:
@@ -82,7 +98,8 @@ class Builder:
 
     def C(self, ref, value, a, b='GND', pkg='0402', voltage='', note='', dnp=False):
         if not voltage:
-            voltage = {'0402': '16V' if value == '100n' else '25V' if value == '1u' else '6.3V',
+            voltage = {'0402': '16V' if value in ('100n', '10n') else '25V' if value == '1u' else
+                               '50V' if value in ('100p', '10p', '1n') else '6.3V',
                        '0603': '10V' if value == '10u' else '6.3V' if value == '22u' else '16V',
                        '0805': '25V'}[pkg]
         return self._passive('C', ref, value, a, b, pkg, voltage=voltage, note=note, dnp=dnp)

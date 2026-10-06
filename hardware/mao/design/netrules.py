@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent          # hardware/mao
-NAME = 'MAO_MAIN_A0'
+NAME = 'MAO_MAIN_A1'
 CACHE = ROOT.parents[1] / '.cache' / 'mao-routing'     # repo-root/.cache (git-ignored)
 CACHE.mkdir(parents=True, exist_ok=True)
 OUTPUTS = ROOT / 'outputs'

@@ -15,7 +15,8 @@ import pcbnew as pcb
 from board import TARGET
 from footprints import wrl_box_model, LOCAL_FP
 
-K3D = os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/SharedSupport/3dmodels')
+K3D = os.path.join(os.environ.get('KICAD_SHARE', os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/SharedSupport')),
+                   '3dmodels')
 SHAPES = os.path.join(os.path.dirname(LOCAL_FP), 'MAO.3dshapes')
 BLACK, LID, SHELL, DARK = (0.10, 0.10, 0.10), (0.78, 0.78, 0.76), (0.82, 0.82, 0.82), (0.05, 0.05, 0.05)
 

@@ -14,12 +14,12 @@ from circuit import c
 from netrules import NAME, OUTPUTS, ROOT
 
 KICAD_CLI = os.environ.get('KICAD_CLI', os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli'))
-REV, DATE = 'A0', '2026-10-04'
-RAILS = {'GND': 'down', '+3V3': 'up', 'VBUS': 'up', 'VSYS': 'up', 'VBAT': 'up', '3V3_LCD': 'up',
-         'MIC_VDD': 'up', 'IR_RX_VCC': 'up', 'PWR_FLAG': 'up'}
-# Rails fed through passive parts (connector, RC filters from GPIO/expander pins): ERC cannot see
+REV, DATE = 'A1', '2026-10-06'
+RAILS = {'GND': 'down', '+3V3': 'up', 'VBUS': 'up', 'VSYS': 'up', 'VBAT': 'up', '3V3_LCD': 'up', 'AUX_3V3': 'up', 'REG_IN': 'up',
+         'IR_RX_VCC': 'up', 'PWR_FLAG': 'up'}
+# Rails fed through passive parts (connector, cell via the RPP FET, links, the buck's inductor, RC filters): ERC cannot see
 # their source, so it is declared. Rails with a regulator or switch output need no flag.
-FLAGS = {'GND': 'power', 'VBUS': 'power', 'MIC_VDD': 'sense', 'IR_RX_VCC': 'feedback'}
+FLAGS = {'GND': 'power', 'VBUS': 'power', 'VBAT': 'power', 'REG_IN': 'power', '+3V3': 'power', 'IR_RX_VCC': 'feedback'}
 
 
 def run(*args):

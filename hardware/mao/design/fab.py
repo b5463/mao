@@ -32,7 +32,7 @@ from board import TARGET
 from netrules import OUTPUTS, NAME
 import mechanical as m
 
-CLI = Path(os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli'))
+CLI = Path(os.environ.get('KICAD_CLI', os.path.expanduser('~/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli')))
 OUT = OUTPUTS / 'fab'
 LAYERS = 'F.Cu,In1.Cu,In2.Cu,B.Cu,F.Paste,B.Paste,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts'
 
