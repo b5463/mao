@@ -1,0 +1,150 @@
+/*
+ * ESP32-C3-LCDkit: answers for the board API the kit has no hardware for.
+ *
+ * The kit has a display, the EC11 knob, a PDM speaker, one WS2812 and a
+ * jumpered IR line, and nothing else: no I2C devices, rails, sensors,
+ * battery or charger. Everything here reports "not fitted" and touches no
+ * pin, so the kit behaves exactly as before the A0 / A1 work.
+ */
+#include <string.h>
+#include "mao_board.h"
+#include "mao_board_priv.h"
+
+/* The NS4150 is loud; this is the M0-M4.1 level (see mao_audio). */
+#define LCDKIT_AUDIO_GAIN   0.58f
+
+void mao_board_get_caps(mao_board_caps_t *out)
+{
+    if (out) {
+        memset(out, 0, sizeof(*out));
+        out->rgb_led = true;
+        out->audio_pdm_line = true;
+    }
+}
+
+const char *mao_board_revision(void)
+{
+    return "-";
+}
+
+esp_err_t mao_board_store_revision(const char *rev)
+{
+    (void)rev;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_hall_fast_set(bool fast)
+{
+    (void)fast;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+float mao_board_audio_gain(void)
+{
+    return LCDKIT_AUDIO_GAIN;
+}
+
+esp_err_t mao_board_i2c_bus(i2c_master_bus_handle_t *out)
+{
+    (void)out;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_i2c_device(mao_board_i2c_dev_t dev, mao_board_i2c_info_t *out)
+{
+    (void)dev;
+    (void)out;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_i2c_add(mao_board_i2c_dev_t dev, i2c_master_dev_handle_t *out)
+{
+    (void)dev;
+    (void)out;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_i2c_scan(uint8_t *found, size_t max, size_t *count)
+{
+    (void)found;
+    (void)max;
+    if (count) {
+        *count = 0;
+    }
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_rail_set(mao_board_rail_t rail, bool on)
+{
+    (void)rail;
+    (void)on;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+bool mao_board_rail_is_on(mao_board_rail_t rail)
+{
+    (void)rail;
+    return false;
+}
+
+esp_err_t mao_board_rail_readback(mao_board_rail_t rail, bool *on)
+{
+    (void)rail;
+    (void)on;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_line_get(mao_board_line_t line, bool *active)
+{
+    (void)line;
+    (void)active;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_charger_status(mao_charger_status_t *out)
+{
+    (void)out;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_charge_enable(bool enable)
+{
+    (void)enable;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_irq_get(mao_board_irq_t irq, mao_board_irq_desc_t *out)
+{
+    (void)irq;
+    (void)out;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_deep_sleep_prepare(const mao_board_wake_t *want, mao_board_wake_t *armed)
+{
+    (void)want;
+    if (armed) {
+        memset(armed, 0, sizeof(*armed));
+    }
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t mao_board_light_sleep_prepare(const mao_board_wake_t *want, mao_board_wake_t *armed)
+{
+    (void)want;
+    if (armed) {
+        memset(armed, 0, sizeof(*armed));
+    }
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+void mao_board_light_sleep_done(void)
+{
+}
+
+void mao_board_wake_decode(mao_board_wake_t *out)
+{
+    if (out) {
+        memset(out, 0, sizeof(*out));
+    }
+}

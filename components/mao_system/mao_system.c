@@ -2,6 +2,7 @@
 
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_chip_info.h"
@@ -11,6 +12,7 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_app_desc.h"
+#include "sdkconfig.h"
 #include "mao_settings.h"
 
 static const char *TAG = "MAO_SYSTEM";
@@ -19,6 +21,15 @@ static const char *TAG = "MAO_SYSTEM";
 #define MAO_DISPATCH_TASK_PRIO    4
 #define MAO_HEALTH_PERIOD_US      (60 * 1000 * 1000)
 
+#define MAO_REPORT_MAX            40
+
+typedef struct {
+    const char *name;
+    esp_err_t err;
+} report_t;
+
+static report_t s_reports[MAO_REPORT_MAX];
+static size_t s_report_count;
 static TaskHandle_t s_dispatch_task;
 static esp_timer_handle_t s_health_timer;
 static esp_timer_handle_t s_idle_timer;
@@ -60,6 +71,15 @@ static const char *reset_reason_str(esp_reset_reason_t r)
     }
 }
 
+static const char *chip_name(esp_chip_model_t model)
+{
+    switch (model) {
+    case CHIP_ESP32C3: return "ESP32-C3";
+    case CHIP_ESP32S3: return "ESP32-S3";
+    default:           return CONFIG_IDF_TARGET;
+    }
+}
+
 void mao_system_log_heap(const char *tag, const char *label)
 {
     ESP_LOGI(tag, "heap %-22s free=%" PRIu32 " min=%" PRIu32 " largest=%u dma_free=%u",
@@ -80,8 +100,8 @@ esp_err_t mao_system_init(void)
 
     ESP_LOGI(TAG, "MAO");
     ESP_LOGI(TAG, "firmware: %s (%s, IDF %s)", MAO_FIRMWARE_STAGE, app->version, app->idf_ver);
-    ESP_LOGI(TAG, "chip: ESP32-C3 rev v%d.%d, %d core(s)",
-             chip.revision / 100, chip.revision % 100, chip.cores);
+    ESP_LOGI(TAG, "chip: %s rev v%d.%d, %d core(s)",
+             chip_name(chip.model), chip.revision / 100, chip.revision % 100, chip.cores);
     ESP_LOGI(TAG, "flash: %" PRIu32 " MB", flash_size / (1024 * 1024));
     ESP_LOGI(TAG, "reset reason: %s", reset_reason_str(esp_reset_reason()));
     mao_system_log_heap(TAG, "at boot");
@@ -99,8 +119,34 @@ esp_err_t mao_system_init(void)
     return err;
 }
 
+/* Reports happen during bring-up, in app_main and the init functions it
+ * calls (one task), so the table needs no lock. */
+static void record(const char *name, esp_err_t err)
+{
+    for (size_t i = 0; i < s_report_count; i++) {
+        if (strcmp(s_reports[i].name, name) == 0) {
+            s_reports[i].err = err;
+            return;
+        }
+    }
+    if (s_report_count < MAO_REPORT_MAX) {
+        s_reports[s_report_count++] = (report_t) { .name = name, .err = err };
+    }
+}
+
+esp_err_t mao_system_report_status(const char *name)
+{
+    for (size_t i = 0; name && i < s_report_count; i++) {
+        if (strcmp(s_reports[i].name, name) == 0) {
+            return s_reports[i].err;
+        }
+    }
+    return ESP_ERR_NOT_FOUND;
+}
+
 esp_err_t mao_system_report(const char *name, esp_err_t err)
 {
+    record(name, err);
     if (err == ESP_OK) {
         ESP_LOGI(TAG, "[OK] %s", name);
     } else {
@@ -112,7 +158,17 @@ esp_err_t mao_system_report(const char *name, esp_err_t err)
 
 void mao_system_report_disabled(const char *name, const char *reason)
 {
+    record(name, ESP_ERR_NOT_SUPPORTED);
     ESP_LOGI(TAG, "[--] %s %s", name, reason);
+}
+
+esp_err_t mao_system_report_optional(const char *name, esp_err_t err)
+{
+    if (err == ESP_ERR_NOT_SUPPORTED) {
+        mao_system_report_disabled(name, "not fitted");
+        return ESP_OK;
+    }
+    return mao_system_report(name, err);
 }
 
 static void dispatch_task(void *arg)
@@ -128,18 +184,29 @@ static const char *const kWatchedTasks[] = {
     "mao_dispatch", "mao_input", "mao_audio", "taskLVGL", "esp_timer", "mao_devcmd",
     "mao_devices", "wifi", "sys_evt", "mao_link",
 };
+/* Tasks only some boards run (A1): listed only when they exist. */
+static const char *const kWatchedOptional[] = {
+    "mao_battery", "mao_haptics", "mao_sense", "mao_ir", "mao_percept", "mao_selftest",
+};
 
 static void health_cb(void *arg)
 {
     (void)arg;
     mao_system_log_heap(TAG, "health");
 
-    char line[240];
+    char line[400];
     int n = 0;
     for (size_t i = 0; i < sizeof(kWatchedTasks) / sizeof(kWatchedTasks[0]) && n < (int)sizeof(line); i++) {
         TaskHandle_t h = xTaskGetHandle(kWatchedTasks[i]);
         n += snprintf(line + n, sizeof(line) - n, " %s=%u", kWatchedTasks[i],
                       h ? (unsigned)uxTaskGetStackHighWaterMark(h) : 0u);
+    }
+    for (size_t i = 0; i < sizeof(kWatchedOptional) / sizeof(kWatchedOptional[0]) && n < (int)sizeof(line); i++) {
+        TaskHandle_t h = xTaskGetHandle(kWatchedOptional[i]);
+        if (h) {
+            n += snprintf(line + n, sizeof(line) - n, " %s=%u", kWatchedOptional[i],
+                          (unsigned)uxTaskGetStackHighWaterMark(h));
+        }
     }
     ESP_LOGI(TAG, "uptime=%" PRIu32 "s events_dropped=%" PRIu32 " stack_free:%s",
              (uint32_t)(esp_timer_get_time() / 1000000), mao_events_dropped(), line);

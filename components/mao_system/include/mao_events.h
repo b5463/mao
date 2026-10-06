@@ -2,7 +2,8 @@
  * MAO internal event bus.
  *
  * A single FreeRTOS queue drained by one dispatcher task (owned by
- * mao_system). Producers (input driver, system) post small fixed-size events;
+ * mao_system). Producers (input driver, system, battery, IR, perception)
+ * post small fixed-size events;
  * subscribers are plain callbacks invoked sequentially in the dispatcher task.
  * Nothing here knows about LVGL, audio or LEDs.
  */
@@ -48,6 +49,23 @@ typedef enum {
     MAO_EVENT_POWER_WAKE,        /* the knob woke the chip from light sleep; value 1 = the button is held */
     MAO_EVENT_POWER_RESTED,      /* the sleeping screen has settled: the chip may sleep now */
     MAO_EVENT_POWER_DEEP,        /* DEV: deep sleep for value seconds */
+
+    /* Battery (mao_battery; boards with battery wiring). Battery events:
+     * value = state of charge in %. */
+    MAO_EVENT_USB_CONNECTED,
+    MAO_EVENT_USB_DISCONNECTED,
+    MAO_EVENT_CHARGING_STARTED,
+    MAO_EVENT_CHARGING_DONE,     /* charger finished while USB is still present */
+    MAO_EVENT_BATTERY_LOW,
+    MAO_EVENT_BATTERY_CRITICAL,  /* the app puts MAO into its critical-battery sleep */
+
+    /* IR (mao_ir). value = (address << 16) | command of a received NEC frame. */
+    MAO_EVENT_IR_RECEIVED,
+
+    /* Perception (mao_perception): something MAO noticed. value =
+     * mao_percept_pack(percept, confidence, detail), see mao_percept.h.
+     * Sensors never reach the application directly; only percepts do. */
+    MAO_EVENT_PERCEPT,
 
     MAO_EVENT_COUNT,
 } mao_event_type_t;

@@ -1,5 +1,10 @@
+/*
+ * ESP32-C3-LCDkit board implementation (the M0-M4.1 development platform).
+ * Hardware this kit does not have is answered in mao_board_lcdkit_ext.c.
+ */
 #include "mao_board.h"
 #include "mao_board_pins.h"
+#include "mao_board_priv.h"
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
@@ -41,6 +46,7 @@ esp_err_t mao_board_init(void)
                         "unexpected chip model %d", (int)chip.model);
     ESP_LOGI(TAG, "board: %s", MAO_BOARD_NAME);
     mao_board_deep_sleep_hold(false);   /* after MAO's own deep sleep: release the held pins */
+    mao_board_common_init();
     return ESP_OK;
 }
 
@@ -151,6 +157,7 @@ esp_err_t mao_board_display_init(size_t max_transfer_bytes, mao_board_display_t 
         .mirror_y = false,
         .swap_xy = false,
         .swap_bytes = true,
+        .rotation = 0,          /* the reference mounting */
     };
     ESP_LOGI(TAG, "display: GC9A01 %dx%d, SPI2 @ %d MHz, max transfer %u B",
              MAO_LCD_H_RES, MAO_LCD_V_RES, MAO_LCD_PCLK_HZ / 1000000, (unsigned)max_transfer_bytes);
@@ -431,7 +438,11 @@ esp_err_t mao_board_led_init(led_strip_handle_t *out)
 void mao_board_ir_get(mao_board_ir_t *out)
 {
     if (out) {
-        out->gpio = MAO_PIN_IR;
-        out->mode_known = false;
+        *out = (mao_board_ir_t) {
+            .gpio = MAO_PIN_IR,
+            .mode_known = false,
+            .tx_gpio = -1,
+            .rx_gpio = -1,
+        };
     }
 }

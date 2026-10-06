@@ -5,7 +5,14 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 
+#include "sdkconfig.h"
+
+/* The LCDkit keeps its M4.1 queue; boards with sensors and a battery post more. */
+#if CONFIG_MAO_BOARD_LCDKIT
 #define MAO_EVENT_QUEUE_LEN     16
+#else
+#define MAO_EVENT_QUEUE_LEN     24
+#endif
 #define MAO_EVENT_MAX_HANDLERS  8
 
 static const char *TAG = "MAO_SYSTEM";
@@ -101,6 +108,14 @@ const char *mao_event_name(mao_event_type_t type)
     case MAO_EVENT_POWER_WAKE:         return "POWER_WAKE";
     case MAO_EVENT_POWER_RESTED:       return "POWER_RESTED";
     case MAO_EVENT_POWER_DEEP:         return "POWER_DEEP";
+    case MAO_EVENT_USB_CONNECTED:      return "USB_CONNECTED";
+    case MAO_EVENT_USB_DISCONNECTED:   return "USB_DISCONNECTED";
+    case MAO_EVENT_CHARGING_STARTED:   return "CHARGING_STARTED";
+    case MAO_EVENT_CHARGING_DONE:      return "CHARGING_DONE";
+    case MAO_EVENT_BATTERY_LOW:        return "BATTERY_LOW";
+    case MAO_EVENT_BATTERY_CRITICAL:   return "BATTERY_CRITICAL";
+    case MAO_EVENT_IR_RECEIVED:        return "IR_RECEIVED";
+    case MAO_EVENT_PERCEPT:            return "PERCEPT";
     default:                           break;
     }
     ESP_LOGD(TAG, "unknown event %d", (int)type);

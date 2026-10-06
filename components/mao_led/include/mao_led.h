@@ -23,7 +23,8 @@ typedef enum {
     MAO_LED_PULSE_ERROR,        /* red: an actual failure */
 } mao_led_pulse_t;
 
-/* Initialise the LED and show MAO_LED_STATE_BOOTING. */
+/* Initialise the LED and show MAO_LED_STATE_BOOTING. ESP_ERR_NOT_SUPPORTED
+ * on boards without an LED; all other calls are then harmless no-ops. */
 esp_err_t mao_led_init(void);
 
 /* Set the steady base indication. */

@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <stdbool.h>
 #include "esp_err.h"
 #include "mao_events.h"
 
@@ -62,7 +63,9 @@ esp_err_t mao_devcmd_start(void);
 
 /* Let a component own a development command: "mao <name> <arg>" calls fn
  * with the argument text (NULL if none) on the console task. No-op unless
- * CONFIG_MAO_DEV_CONSOLE. Register during init, before mao_system_start(). */
+ * CONFIG_MAO_DEV_CONSOLE. Register during init, before mao_system_start().
+ * This is the one handler signature for every component; "mao help" lists
+ * the registered names. */
 typedef void (*mao_devcmd_handler_t)(char *arg);
 esp_err_t mao_devcmd_register(const char *name, mao_devcmd_handler_t fn);
 
@@ -76,6 +79,16 @@ esp_err_t mao_system_report(const char *name, esp_err_t err);
 
 /* Print "[--] name <reason>" for a subsystem intentionally left disabled. */
 void mao_system_report_disabled(const char *name, const char *reason);
+
+/* For hardware a board may not have: ESP_ERR_NOT_SUPPORTED prints
+ * "[--] name not fitted" and returns ESP_OK; anything else is reported like
+ * mao_system_report(). */
+esp_err_t mao_system_report_optional(const char *name, esp_err_t err);
+
+/* What the last report under this name said (ESP_ERR_NOT_FOUND if no
+ * subsystem of that name reported; ESP_ERR_NOT_SUPPORTED for "not fitted"
+ * and "disabled"). Lets the boot check read the bring-up results. */
+esp_err_t mao_system_report_status(const char *name);
 
 /* Log current heap figures with a short label. */
 void mao_system_log_heap(const char *tag, const char *label);
