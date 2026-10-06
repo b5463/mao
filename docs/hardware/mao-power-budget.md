@@ -15,12 +15,13 @@ links: **LINK_BAT** (R108, the whole board's battery current) and **LINK_REG** (
   driver is on +3V3 (Gate C).
 - Radio: ESP-NOW listening with Wi-Fi power save off (today's firmware); the "radio PS" figures assume an ESP-NOW
   wake window (firmware choice).
-- Backlight: constant-current sink, 28.7 mA at 100 % (94.6 mV / 3.3 Ω), linear in the LEDC duty.
+- Backlight: constant-current sink, 29.0 mA at 100 % (3.2 V × 1.0 / 33.4 = 95.8 mV across 3.3 Ω), linear in the
+  LEDC duty.
 
 ## Deep sleep, per component
 
 Wake sources armed: face press (GPIO14, ext1), dial channel A (GPIO21, ext0), IMU wake-on-motion (GPIO4, ext1),
-RTC timer. Panel, backlight, amplifier, haptic driver, IR receiver and ToF off; every enable held off by its
+USB plugged in (USB_PRESENT_N, GPIO2, ext1; design review 2026-10-06), RTC timer. Panel, backlight, amplifier, haptic driver, IR receiver and ToF off; every enable held off by its
 hardware pull-down, so firmware may leave them Hi-Z.
 
 **+3V3 side (µA, at 3.2 V)**
@@ -34,27 +35,29 @@ hardware pull-down, so firmware may leave them Hi-Z.
 | 2 × DRV5012, SEL low (20 Hz) | 3.2 | 6.6 | 6.6 | SLVSDD5 §6.5, 1.6 / 3.3 µA each at 3.0 V (no 3.3 V row) |
 | MAX17048 SDA/SCL pull-down (IPD) through the 4.7 k pull-ups | 0.4 | 0.8 | 0.8 | Gate C (MAX17048 datasheet) |
 | 2 × TPS22916C off | 0.02 | 0.2 | 0.2 | SLVSDO5F §6.5 ISD 10 / 100 nA |
-| IMU INT1, ToF INT, press, straps, STAT1/2, VBUS divider, enables | 0 | 0.1 | 0.1 | design: no pull is fighting a driven level |
+| IMU INT1, ToF INT, press, straps, STAT1/2, VBUS divider, USB_PRESENT_N pull-up, enables | 0 | 0.1 | 0.1 | design: no pull is fighting a driven level (no VBUS: the divider and the 2N7002's 100 k pull-up carry nothing) |
+| Q102 2N7002 off (USB_PRESENT_N at 3.2 V through 100 k) | 0 | 1.0 | 1.0 | CJ 2N7002 IDSS (60 V spec; far lower at 3.2 V) |
 | TLV9061, panel, IR receiver | 0 | 0 | 0 | unpowered (switched rails) |
-| **Subtotal** | **25.0** | | **43.7** | |
+| **Subtotal** | **25.0** | | **44.7** | |
 
 **Battery side (µA)**
 
 | Item | Typ | Max | Worst used | Source |
 |---|---:|---:|---:|---|
-| +3V3 loads converted (typ: 3.7 V, 87 %; worst: 3.6 V, 80 %) | 24.9 | | 48.6 | Fig. 19, with a 7-point allowance on the worst case |
+| +3V3 loads converted (typ: 3.7 V, 87 %; worst: 3.6 V, 80 %) | 24.9 | | 49.7 | Fig. 19, with a 7-point allowance on the worst case |
 | TPS62840 IQ (VIN + VOS) | 0.09 | 0.48 | 0.48 | SLVSEC6D §7.5 (−40…85 °C max) |
 | BQ25185, battery only | 4.0 | 5.0 | 5.0 | SLUSF65B §5.5 IQ_BAT |
 | MAX17048 hibernate (reset comparator off) | 3.0 | 5.0 | 5.0 | 19-6171 Rev 7 |
 | MAX98357A shutdown | 0.6 | 2.0 | 2.0 | 19-6779 Rev 7 (specified at 5 V) |
-| Backlight sink FET + LEDs (DMG2302UK IDSS) | 0 | 1.0 | 1.0 | DS38439 (16 V spec; far lower at 4 V) |
+| Backlight sink FET + LEDs (DMG2302UKQ IDSS) | 0 | 1.0 | 1.0 | Diodes DMG2302UK/UKQ datasheet (16 V spec; far lower at 4 V) |
 | IR LED switch (AO3400A IDSS) | 0 | 1.0 | 1.0 | AOS Rev 3.1 (30 V spec) |
 | PCB and capacitor leakage | 1.0 | | 3.0 | allowance |
-| **Board total** | **33.6** | | **66.1** | |
+| **Board total** | **33.6** | | **67.2** | |
 | Cell PCM (not the board) | ~2–4 | ~8 | | cell datasheet, at purchase |
 
 **Reading:** 33.6 µA typical, under the 35 µA target, with little margin (the ToF's 5 µA standby is the
-difference to Gate C's 31.4 µA). The every-maximum stack (66 µA) is over the 50 µA hard limit, as Gate C's was
+difference to Gate C's 31.4 µA). The every-maximum stack (67 µA; +1.1 µA for the USB-presence FET's leakage
+allowance, design review 2026-10-06) is over the 50 µA hard limit, as Gate C's was
 (65 µA): two items have no published maximum (S3, IMU wake-on-motion) and carry allowances. **The 50 µA limit is a
 measurement at LINK_BAT on the built board** (bring-up, current meter required). If it fails, the first levers are
 the ToF (its supply could move to AUX_3V3 in A2: −5 µA) and the IMU ODR.
@@ -73,7 +76,8 @@ the ToF (its supply could move to AUX_3V3 in A2: −5 µA) and the IMU ODR.
 1.2 mA max + pull-ups ~2.5 mA = **≈ 543 mA (207 mA margin)**; with the S3 at Espressif's "supply ≥ 0.5 A" rule
 instead of its TX peak: **≈ 688 mA (62 mA margin, 8 %)**. Never reaches the 1.0 A minimum switch limit.
 
-**VSYS worst case:** + amplifier 260 mA (0.77 W into 8 Ω at 3.7 V) + backlight 29 mA + IR 2 × 59 mA ≈ **950 mA**
+**VSYS worst case:** + amplifier 260 mA (0.77 W into 8 Ω at 3.7 V; the firmware's gain ceiling keeps it at
+≤ 0.79 W even at VSYS 4.5 V on USB, design review N5) + backlight 29 mA + IR 2 × 59 mA ≈ **950 mA**
 from the cell: within the BQ25185 BATFET (3.1 A OCP), LINK_BAT (1206 0 Ω), Q1 (AO3401A, 4 A) and just under the
 JST SH contact rating (1 A per contact): see the A1 report, battery connector.
 
