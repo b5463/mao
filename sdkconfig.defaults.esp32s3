@@ -1,0 +1,12 @@
+# MAO - MAO_MAIN A1, ESP32-S3-MINI-1-N8 (applied after sdkconfig.defaults for
+# target esp32s3): 8 MB quad flash in the module, NO PSRAM (the N8 has none).
+
+# --- Flash: 8 MB, QIO @ 80 MHz (mode and speed shared)
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_8mb.csv"
+
+# --- No PSRAM on the MINI-1-N8: every buffer is internal RAM.
+CONFIG_SPIRAM=n
+
+# --- CPU
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y

@@ -1,0 +1,15 @@
+# MAO factory overlay (applied on top of sdkconfig.defaults): assembled-board
+# validation. Same as the dev profile (console on, INFO logs) plus the
+# self-test at every boot. Never ship this build.
+# Build: .\tools\idf.ps1 factory build   (output in build-factory/)
+# Fixture: python tools/factory_test.py <port>   (docs/hardware/mao-factory-test.md)
+
+CONFIG_MAO_DEV_CONSOLE=y
+CONFIG_MAO_PERF_PROBE=n
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_LV_USE_LOG=y
+CONFIG_LV_LOG_LEVEL_WARN=y
+
+CONFIG_MAO_SELFTEST_AT_BOOT=y
+CONFIG_MAO_SELFTEST_AT_BOOT_INTERACTIVE=y
+CONFIG_MAO_SELFTEST_PROMPT_TIMEOUT_S=30

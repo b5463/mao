@@ -1,0 +1,24 @@
+# MAO partition table, 8 MB flash (MAO_MAIN A1, ESP32-S3-MINI-1-N8; was A0).
+# The first 128 KB match partitions.csv (4 MB, LCDkit) so tools and NVS
+# offsets are the same on both boards.
+#
+#   0x000000  bootloader        32 KB   (fixed, second-stage bootloader)
+#   0x008000  partition table    4 KB   (fixed)
+#   0x009000  nvs               24 KB   settings, haptic calibration, pairing data (later)
+#   0x00F000  otadata            8 KB   which OTA slot to boot
+#   0x011000  phy_init           4 KB   RF calibration data
+#   0x012000  coredump          56 KB   post-mortem crash dumps
+#   0x020000  ota_0           3072 KB   app slot A (64 KB aligned)
+#   0x320000  ota_1           3072 KB   app slot B
+#   0x620000  assets          1536 KB   sounds / sprites / fonts (filesystem, later)
+#   0x7A0000  (unallocated)    384 KB   reserve: a later table can grow NVS or assets
+#   0x800000  end of flash
+#
+# Name,     Type, SubType,  Offset,   Size
+nvs,        data, nvs,      0x9000,   0x6000
+otadata,    data, ota,      0xF000,   0x2000
+phy_init,   data, phy,      0x11000,  0x1000
+coredump,   data, coredump, 0x12000,  0xE000
+ota_0,      app,  ota_0,    0x20000,  0x300000
+ota_1,      app,  ota_1,    0x320000, 0x300000
+assets,     data, spiffs,   0x620000, 0x180000
