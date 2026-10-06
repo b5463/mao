@@ -151,7 +151,7 @@ TAB_ARC, TAB_CLEAR = 4.0, 1.5
 # pad) or 'above' (level, over it). The pad positions come from placement.py. Rows 2.8 mm apart.
 FIELD_NAMES = {'TP2': ('GND', 'right'), 'TP3': ('3V3', 'right'), 'TP4': ('SYS', 'right'), 'TP5': ('BAT', 'right'),
                'TP10': ('SCL', 'right'), 'TP1': ('GND', 'right'), 'TP16': ('GND', 'right'),
-               'TP9': ('SDA', 'right'), 'TP8': ('BOOT', 'right'), 'TP7': ('RST', 'right'),
+               'TP9': ('SDA', 'right'), 'TP7': ('RST', 'right'),
                'TP22': ('TSMR', 'right')}
 # The other A1 fixture pads (TP17-TP21, TP23-TP25) sit on their nets away from the field; silk.py names them beside
 # the pad wherever it finds room.

@@ -34,9 +34,10 @@ SLOW_OK = {
     'CHG_STAT1', 'CHG_STAT2', 'VBUS_SENSE', 'TOF_INT_N', 'IMU_INT1', 'LCD_TE', 'LCD_BL',
     'HALL_A', 'HALL_B', 'HALL_FAST', 'IR_RX', 'IR_TX', 'UART_TX', 'UART_RX', 'MCU_EN', 'PRESS_N', 'BOOT',
     'GPIO21', 'GPIO26', 'BAT_NTC', 'CHG_ILIM', 'CHG_ISET', '3V3_LCD',   # (3V3_LCD: ~10 mA panel logic rail)
+    'AMP_BCLK', 'AMP_LRCLK', 'AMP_DIN',      # A1: I2S (3 MHz) may cross on L3: the pin map sends it across the board
 }
 INNER_OK = re.compile(r'(%s)$' % '|'.join(sorted(SLOW_OK)))
-INNER_FAST = re.compile(r'(USB_(C_)?D[PN]|LCD_(SCLK|MOSI|CS|DC)\w*|AMP_(DIN|BCLK|LRCLK)|SPK_[PN]|REG_SW|BL_\w+)$')
+INNER_FAST = re.compile(r'(USB_(C_)?D[PN]|LCD_(SCLK|MOSI|CS|DC)\w*|SPK_[PN]|REG_SW|BL_\w+)$')
 PLANE_NETS = ('GND', '+3V3')     # GND: L2 plane; +3V3: the L3 +3V3 region. Every pad reaches its copper by a via
 
 # Net classes. Power: carries load current. Switch: the buck-boost inductor nodes (ODD JOBS 8).
@@ -52,7 +53,7 @@ def width_for(net, ends=()):
     wider fits (KINO grid_router practice: 0.2 only where a fine-pitch pin allows nothing wider)."""
     if re.match(r'(VSYS|VBAT|BAT_RAW|BAT_IN|REG_IN)$', net):
         return [0.6, 0.4, 0.25]
-    if re.match(r'(VBUS|VBUS_\w+)$', net):
+    if re.match(r'(VBUS)$', net):                 # (not VBUS_SENSE: a 0.5 uA divider tap)
         return [0.5, 0.4, 0.25]
     if net == '+3V3':
         return [0.4, 0.3, 0.2]

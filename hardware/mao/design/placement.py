@@ -144,7 +144,7 @@ at('R103', 6.55, -11.775, 180, 'F')                        # ISET 1.43k level wi
 at('R104', 6.55, -12.975, 180, 'F')                        # ILIM 18k
 at('R117', 11.9, -13.6, 90, 'F')                           # /CE pull-down north-east of pin 4
 at('R119', 14.9, -11.775, 180, 'F')                        # STAT2 pull-up level with pin 3
-at('R118', 6.3, -9.6, 0, 'F')                              # STAT1 pull-up
+at('R118', 6.3, -9.6, 0, 'F')                              # STAT1 pull-up (STAT1 drops to B beside it)
 
 # ==== 3.2 V buck (B, below the charger), TI SLVSEC6D 11.2: VIN/GND pair with CIN, SW to the inductor, COUT ===
 # Turned 180: VIN/EN (REG_IN) east towards LINK_REG and the charger's SYS, SW and VOS west to L101 and COUT.
@@ -256,7 +256,8 @@ at('R207', -8.4, 4.4, 0, 'B')                              # display reset pull-
 # ==== service field (B): A0's block below the power section, the Gate C fixture block below it ==========
 _field = {'TP2': (6.0, -6.1), 'TP3': (8.8, -6.1), 'TP4': (11.6, -6.1), 'TP5': (14.3, -6.1),
           'TP10': (6.0, -3.3), 'TP1': (11.6, -3.3), 'TP16': (14.3, -3.3),
-          'TP9': (6.0, -0.5), 'TP8': (11.6, -0.5), 'TP7': (14.3, -0.5),
+          'TP9': (6.0, -0.5), 'TP7': (14.3, -0.5),
+          'TP8': (17.8, 12.3),       # BOOT (A1): beside the Tag-Connect's GPIO0 pin, the other end of the net
           # Gate C fixture pads (A1), each on its net's own path, so none walls off the module's top-row fan-out
           'TP17': (-3.0, -12.9),     # BL: beside the backlight reference divider
           'TP18': (-15.0, -14.3),    # AMP: beside the amplifier's SD_MODE pull-down

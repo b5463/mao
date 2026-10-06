@@ -153,6 +153,8 @@ band[:e] = band[-e:] = True; band[:, :e] = band[:, -e:] = True
 import mechanical as _m
 _X, _Y = np.meshgrid(cx, cy)
 outside = (np.hypot(_X, _Y) > _m.PCB_R - edge) | ((np.abs(_X) < _m.NOTCH_W / 2 + edge) & (_Y > _m.NOTCH_Y - edge))
+_sx0, _sy0, _sx1, _sy1 = _m.TAIL_SLOT          # MAO A1: the display-tail slot is milled edge too (0.3 mm rule)
+outside |= (_X > _sx0 - edge) & (_X < _sx1 + edge) & (_Y > _sy0 - edge) & (_Y < _sy1 + edge)
 band |= outside
 for l in range(NLAY): lab[l][band & (lab[l] == 0)] = -1
 via_forbid |= outside
