@@ -39,6 +39,8 @@ vias = [t for t in b.GetTracks() if isinstance(t, pcb.PCB_VIA)]
 pads = [p for f in b.GetFootprints() for p in f.Pads()]
 areas = [z for z in list(b.Zones()) + [z for f in b.GetFootprints() for z in f.Zones()]
          if z.GetIsRuleArea() and z.GetDoNotAllowTracks()]      # footprint keep-outs too (SKQG dome, Tag-Connect)
+EDGE_CLR = pcb.FromMM(0.3)            # MAO A1: the board-setup copper-to-edge rule (the display-tail slot is edge too)
+edges = [d.GetEffectiveShape() for d in b.GetDrawings() if d.GetLayer() == pcb.Edge_Cuts]
 
 # ---- obstacle index: 1 mm cells per layer ------------------------------------------------
 CELL = pcb.FromMM(1.0)
@@ -72,6 +74,8 @@ def clear(layer, net, a, c, width, ignore=(), clr=None):
             if seg.Collide(shape, clr): return False
     for z in areas:
         if z.IsOnLayer(layer) and z.Outline().Collide(seg, 0): return False
+    for e in edges:
+        if e.Collide(seg, EDGE_CLR): return False
     return True
 
 def legal(a, c):

@@ -89,6 +89,7 @@ STEPS = {
                           os.environ.setdefault('GR_VIACOST', '160'),    # 4 layers: a via is worth ~4 mm of track
                           run(VENV, 'grid_router.py', log='grid-router.log'),
                           run(KIPY, 'apply_routes.py'), run(sys.executable, 'project.py'), snapshot('gridrouted')),
+    'finish': lambda: (run(KIPY, 'route_finish.py', 'rip'), run(KIPY, 'route_finish.py', 'add'), run(sys.executable, 'project.py')),   # A1: AMP_LRCLK, boxed GND pads
     'freeroute': lambda: (run(KIPY, 'route_freerouting.py', 'export'), run(sys.executable, 'route_freerouting.py', 'run'),
                           run(KIPY, 'route_freerouting.py', 'import'), run(sys.executable, 'project.py'),
                           snapshot('freerouted')),
@@ -110,10 +111,10 @@ STEPS = {
                     run(VENV or sys.executable, 'assembly_drawing.py')),     # replaces kicad-cli's assembly PDFs
 }
 SEQ = {
-    'all': ['capture', 'footprints', 'place', 'power', 'planevias', 'drc', 'gridroute', 'drc',
+    'all': ['capture', 'footprints', 'place', 'power', 'planevias', 'drc', 'gridroute', 'finish', 'drc',
             'prune', 'drc', 'prune', 'drc', 'stitch', 'drc', 'starved', 'drc', 'tidy', 'drc', 'prune', 'drc', 'prune', 'drc', 'starved', 'drc',
             'prune', 'drc', 'offpad', 'drc', 'snap45', 'drc', 'planes'],
-    'route': ['planevias', 'drc', 'gridroute', 'drc', 'prune', 'drc', 'prune', 'drc', 'stitch', 'drc',
+    'route': ['planevias', 'drc', 'gridroute', 'finish', 'drc', 'prune', 'drc', 'prune', 'drc', 'stitch', 'drc',
               'starved', 'drc', 'tidy', 'drc', 'prune', 'drc', 'prune', 'drc', 'starved', 'drc', 'prune', 'drc',
               'offpad', 'drc', 'snap45', 'drc', 'planes'],
     'silk': ['silk', 'labels', 'checksilk', 'drc'],

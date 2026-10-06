@@ -1,9 +1,9 @@
 """Part helpers and the verified part catalogue for MAO_MAIN A1.
 
 Every LCSC number here was checked against JLCPCB/LCSC on 2026-10-03; 470k, 240k and 56R were added
-on 2026-10-05, the A1 values on 2026-10-06 (JLCPCB parts search: part number, value, package and stock;
-stock warnings in docs/hardware/mao-a1-report.md). fab.py refuses to write a BOM line without an LCSC
-number, so a value missing from this table stops the release.
+on 2026-10-05, the A1 values on 2026-10-06 (JLCPCB parts search: part number, value, package and stock).
+The JLC Basic/Extended status and stock of every line is in sourcing.py and docs/hardware/mao-a1-report.md.
+fab.py refuses to write a BOM line without an LCSC number, so a value missing from this table stops the release.
 """
 from model import Part
 
@@ -44,7 +44,7 @@ PASSIVES = {
     ('150k', '0402'): ('C25755', '0402WGF1503TCE', 'UNI-ROYAL'),
     ('3.3R', '0603'): ('C22979', '0603WAF330KT5E', 'UNI-ROYAL'),         # 3.3 ohm 1 %
     ('0R', '0603'): ('C21189', '0603WAF0000T5E', 'UNI-ROYAL'),           # 1 A jumper
-    ('10n', '0402'): ('C318577', 'CL05B103KO5NNNC', 'Samsung'),          # X7R 16 V
+    ('10n', '0402'): ('C15195', 'CL05B103KB5NNNC', 'Samsung'),           # X7R 50 V, JLC Basic (C318577 16 V is Extended)
     ('100p', '0402'): ('C26409', 'CL05C101JB5NNNC', 'Samsung'),          # C0G 50 V
     ('10p', '0402'): ('C318588', 'CL05C100CB5NNNC', 'Samsung'),          # C0G 50 V
     ('1n', '0402'): ('C14442', 'CL05B102KB5NNNC', 'Samsung'),            # X7R 50 V
@@ -98,8 +98,8 @@ class Builder:
 
     def C(self, ref, value, a, b='GND', pkg='0402', voltage='', note='', dnp=False):
         if not voltage:
-            voltage = {'0402': '16V' if value in ('100n', '10n') else '25V' if value == '1u' else
-                               '50V' if value in ('100p', '10p', '1n') else '6.3V',
+            voltage = {'0402': '16V' if value == '100n' else '25V' if value == '1u' else
+                               '50V' if value in ('100p', '10p', '1n', '10n') else '6.3V',
                        '0603': '10V' if value == '10u' else '6.3V' if value == '22u' else '16V',
                        '0805': '25V'}[pkg]
         return self._passive('C', ref, value, a, b, pkg, voltage=voltage, note=note, dnp=dnp)

@@ -19,7 +19,7 @@ links: **LINK_BAT** (R108, the whole board's battery current) and **LINK_REG** (
 
 ## Deep sleep, per component
 
-Wake sources armed: face press (GPIO1, ext1), dial channel A (GPIO2, ext0), IMU wake-on-motion (GPIO4, ext1),
+Wake sources armed: face press (GPIO14, ext1), dial channel A (GPIO21, ext0), IMU wake-on-motion (GPIO4, ext1),
 RTC timer. Panel, backlight, amplifier, haptic driver, IR receiver and ToF off; every enable held off by its
 hardware pull-down, so firmware may leave them Hi-Z.
 

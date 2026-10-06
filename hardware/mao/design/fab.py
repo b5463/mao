@@ -9,13 +9,18 @@ Writes hardware/mao/outputs/fab/:
   CPL-MAO_MAIN_A1.csv     KiCad placement, both sides, mm, DNP and board-only items left out
   CPL-MAO_MAIN_A1-JLC.csv the same rows under JLC's column names (Designator, Mid X, Mid Y, Layer, Rotation)
   BOM-MAO_MAIN_A1-JLC.csv one line per (LCSC, footprint): Comment (the value, or the MPN where one part serves
-                          several functions, e.g. the two touch springs), Designator, Footprint, LCSC Part #,
-                          Manufacturer Part, Manufacturer; DNP and excluded-from-BOM parts left out
+                          several functions), Designator, Footprint, LCSC Part #, Manufacturer Part, Manufacturer,
+                          Quantity, then the sourcing status from sourcing.py (JLC Part Type Basic / Preferred
+                          Extended / Extended, JLC Stock on the check date, Sourcing Note); DNP and
+                          excluded-from-BOM parts left out
+  BOM-MAO_MAIN_A1-offboard-LCSC.csv
+                          "Bought separately - LCSC": the parts that are not assembled on the board (panel, LRA,
+                          speaker, cell, battery plug), with the LCSC number or UNKNOWN and the status
   ASSEMBLY-MAO_MAIN_A1-top.pdf / -bottom.pdf
                           assembly drawing at 2.5:1: Fab outlines, sketched pads, every reference (mao_labels.py puts
                           one on Fab for each part), DNP crossed out; bottom mirrored as seen from below
   FAB-NOTES.txt           order options and assembly notes that travel with the files (ODD JOBS 178)
-The board file is read, never saved. Every BOM line must carry an LCSC number (asserted).
+The board file is read, never saved. Every BOM line must carry an LCSC number with a sourcing status (asserted).
 """
 import csv
 import json
@@ -28,6 +33,7 @@ from collections import OrderedDict
 from pathlib import Path
 
 import pcbnew as pcb
+import sourcing
 from board import TARGET
 from netrules import OUTPUTS, NAME
 import mechanical as m
@@ -147,10 +153,19 @@ def main():
         line['values'].append(f.GetValue())
     with open(OUT / ('BOM-%s-JLC.csv' % NAME), 'w', newline='') as fh:
         w = csv.writer(fh)
-        w.writerow(['Comment', 'Designator', 'Footprint', 'LCSC Part #', 'Manufacturer Part', 'Manufacturer', 'Quantity'])
+        w.writerow(['Comment', 'Designator', 'Footprint', 'LCSC Part #', 'Manufacturer Part', 'Manufacturer', 'Quantity',
+                    'JLC Part Type', 'JLC Stock %s' % sourcing.CHECKED, 'Sourcing Note'])
         for (lcsc, fp), line in lines.items():
             value = line['values'][0] if len(set(line['values'])) == 1 else line['mpn']
-            w.writerow([value, ','.join(line['refs']), fp, lcsc, line['mpn'], line['mfr'], len(line['refs'])])
+            assert lcsc in sourcing.JLC, ('BOM line without a sourcing status (sourcing.py)', lcsc, line['refs'])
+            kind, stock, note = sourcing.JLC[lcsc]
+            w.writerow([value, ','.join(line['refs']), fp, lcsc, line['mpn'], line['mfr'], len(line['refs']),
+                        kind, stock, note])
+    with open(OUT / ('BOM-%s-offboard-LCSC.csv' % NAME), 'w', newline='') as fh:
+        w = csv.writer(fh)
+        w.writerow(['Bought separately - LCSC (not assembled on the board)', 'LCSC Part #', 'Manufacturer Part',
+                    'Manufacturer', 'Quantity', 'Status %s' % sourcing.CHECKED])
+        w.writerows(sourcing.OFFBOARD)
     vias = [t for t in b.GetTracks() if isinstance(t, pcb.PCB_VIA)]
     n_th = sum(1 for f in fps.values() for p in f.Pads()
                if p.GetAttribute() == pcb.PAD_ATTRIB_PTH and p.GetDrillSize().x < pcb.FromMM(0.25))
