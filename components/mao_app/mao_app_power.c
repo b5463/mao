@@ -196,6 +196,18 @@ static void rest_later(uint32_t ms)
 /* ---------------------------------------------------------------------- */
 
 static void critical_rest(bool dark);
+static void light_rest(void);
+
+/* USB power present (A1: VBUS_SENSE; the LCDkit has no line, so false). With
+ * USB present MAO never deep-sleeps: the charger's own NTC window ends near
+ * 60 C while the cell is rated to 45 C, and only the awake firmware applies the
+ * 43 / 40 C charge pause (design review 2026-10-06, finding 1). It rests in
+ * light sleep instead, where the charge limit keeps running. */
+static bool usb_power_present(void)
+{
+    bool on = false;
+    return mao_board_line_get(MAO_LINE_USB_PRESENT, &on) == ESP_OK && on;
+}
 
 /* While the chip rests the event queue does not run: a cell that turns
  * critical in light sleep is acted on from the rest loop itself. */
@@ -298,7 +310,7 @@ static void light_rest(void)
             if (why.usb && !why.dial && !why.press) {
                 mao_battery_poll();                  /* USB came or went: housekeeping, not a wake */
                 if (critical_now()) {
-                    critical_rest(true);             /* does not return */
+                    critical_rest(true);             /* does not return on battery */
                 }
                 continue;
             }
@@ -308,7 +320,7 @@ static void light_rest(void)
             mao_battery_poll();                      /* the gauge and the charge limit (no-op on the LCDkit) */
             if (critical_now()) {
                 ESP_LOGW(TAG, "critical battery while resting");
-                critical_rest(true);                 /* does not return */
+                critical_rest(true);                 /* does not return on battery */
             }
             if (s_dev_wake_s && s_slept_us >= (int64_t)s_dev_wake_s * 1000000 - 20000) {
                 break;                             /* DEV: the timer stands in for the knob */
@@ -342,6 +354,11 @@ static void light_rest(void)
 
 static void deep_rest(uint32_t seconds)
 {
+    if (usb_power_present()) {
+        ESP_LOGI(TAG, "deep sleep skipped: USB power present (the charge limit needs the chip awake)");
+        light_rest();
+        return;
+    }
     vTaskDelay(pdMS_TO_TICKS(DEEP_HOLD_MS));       /* sleeping eyes + the maker's mark: the last frame */
     mao_display_fade_brightness(0, DEEP_FADE_MS);
     vTaskDelay(pdMS_TO_TICKS(DEEP_FADE_MS + 100));
@@ -372,6 +389,10 @@ static void deep_rest(uint32_t seconds)
  * sleeping frame (a recheck that found the cell still critical). */
 static void critical_rest(bool dark)
 {
+    if (usb_power_present()) {
+        ESP_LOGW(TAG, "critical battery with USB power: charging under the awake charge limit, no deep sleep");
+        return;                                    /* the caller carries on (awake, or its light rest) */
+    }
     if (!dark) {
         vTaskDelay(pdMS_TO_TICKS(DEEP_HOLD_MS));   /* the sleeping eyes + the mark: the last frame */
         mao_display_fade_brightness(0, DEEP_FADE_MS);
