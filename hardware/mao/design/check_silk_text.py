@@ -35,7 +35,7 @@ SILK = {pcb.F_SilkS: 'F', pcb.B_SilkS: 'B'}
 MASK = {'F': pcb.F_Mask, 'B': pcb.B_Mask}
 CRT = {'F': pcb.F_CrtYd, 'B': pcb.B_CrtYd}
 INSIDE_OK = set()                                # no reference inside its own part
-INSIDE_PART = {'SPK': 'LS501', 'meow': 'LS501'}  # board texts printed inside a part fitted later (the speaker
+INSIDE_PART = {'SPK': 'LS501'}                  # board texts printed inside a part fitted later (the speaker
                                                  # lies over its contact pads LS501; its name marks where it goes)
 
 def box(t):

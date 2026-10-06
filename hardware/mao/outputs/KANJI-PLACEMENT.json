@@ -1,0 +1,72 @@
+{
+ "maomao": {
+  "side": "F",
+  "centre_mm": [
+   -3.56,
+   -14.43
+  ],
+  "em_mm": 4.0,
+  "vertical": false,
+  "size_mm": [
+   7.826,
+   3.393
+  ],
+  "text": "猫猫"
+ },
+ "gin": {
+  "side": "B",
+  "centre_mm": [
+   24.26,
+   -6.57
+  ],
+  "em_mm": 4.0,
+  "vertical": false,
+  "size_mm": [
+   3.992,
+   3.446
+  ],
+  "text": "銀"
+ },
+ "kusuri": {
+  "side": "F",
+  "centre_mm": [
+   21.81,
+   -12.57
+  ],
+  "em_mm": 5.0,
+  "vertical": false,
+  "size_mm": [
+   4.312,
+   4.64
+  ],
+  "text": "薬"
+ },
+ "sake": {
+  "side": "B",
+  "centre_mm": [
+   11.5,
+   0.77
+  ],
+  "em_mm": 4.4,
+  "vertical": false,
+  "size_mm": [
+   3.824,
+   3.538
+  ],
+  "text": "酒"
+ },
+ "dokumi": {
+  "side": "B",
+  "centre_mm": [
+   -24.84,
+   0.6
+  ],
+  "em_mm": 4.4,
+  "vertical": true,
+  "size_mm": [
+   4.206,
+   8.422
+  ],
+  "text": "毒見"
+ }
+}

@@ -100,6 +100,7 @@ STEPS = {
     'starved': lambda: (run(KIPY, 'gnd_pad_vias.py', *SHARE, *starved_pads()) if starved_pads() else None,
                         run(sys.executable, 'project.py')),
     'prune': lambda: (run(KIPY, 'prune_stubs.py'), run(sys.executable, 'project.py')),
+    'kanji': lambda: run(VENV or sys.executable, 'kanji.py'),     # brush kanji eggs -> brand/kanji-eggs.json (fontTools, pathops)
     'silk': lambda: (run(KIPY, 'silk.py'), run(sys.executable, 'project.py')),
     'labels': lambda: (run(KIPY, 'mao_labels.py'), run(sys.executable, 'project.py')),
     'checksilk': lambda: run(KIPY, 'check_silk_text.py'),
@@ -117,7 +118,7 @@ SEQ = {
     'route': ['planevias', 'drc', 'gridroute', 'finish', 'drc', 'prune', 'drc', 'prune', 'drc', 'stitch', 'drc',
               'starved', 'drc', 'tidy', 'drc', 'prune', 'drc', 'prune', 'drc', 'starved', 'drc', 'prune', 'drc',
               'offpad', 'drc', 'snap45', 'drc', 'planes'],
-    'silk': ['silk', 'labels', 'checksilk', 'drc'],
+    'silk': ['kanji', 'silk', 'labels', 'checksilk', 'drc'],
 }
 
 if __name__ == '__main__':

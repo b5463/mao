@@ -9,10 +9,13 @@ ODD JOBS 41-43, 92-103, 172-177:
            functions with pin cues (USB, BAT - T +, SPK, LRA, REAR, LCD, TAG), test-pad function names
            (never bare TPn), BAT LINK at the 0R link
 Type scale (ODD JOBS 95, 98): identity 1.5 mm > connector names 1.2 > test-pad names 0.9 > references 0.8.
-Easter eggs (MAO is Mandarin for cat): a cat asleep under the face with a paw-print trail, 'boop' at the face
-switch, 'meow' under the speaker, '9 lives' at the reverse-polarity FET, and ODD JOBS' own hidden line 'MADE FOR
-BAD IDEAS' (standard rule 175) under the panel. Each is placed by the same clearance test as every label (off pads, vias, bodies
-and other text) and is skipped, with a note, where nothing clear is found.
+Easter eggs (owner decision 2026-10-06: kanji only; MAO is Mandarin for cat): 'boop' at a face-press switch (MAO's
+nose), brush-calligraphy kanji as filled silk polygons (Yuji Syuku, OFL; kanji.py traces them into
+brand/kanji-eggs.json): 猫猫 (Maomao) beside the face press, 銀 (silver) beside the BAT LINK 0R, 薬 (medicine)
+beside the charger, 酒 (sake) under the cell, 毒見 (poison tasting) under the speaker, and ODD JOBS' own hidden line
+'MADE FOR BAD IDEAS' (standard rule 175) under the panel. All hidden once assembled; each is placed by the same
+clearance test as every label (off pads, vias, bodies and other text) and is skipped, with a note, where nothing clear
+is found.
 Every item goes into one group per side, removed and rebuilt on each run. Reference designators are
 placed by mao_labels.py afterwards (it treats everything here as fixed). Positions are derived from
 the footprints, so a placement change moves the labels with their parts.
@@ -31,7 +34,6 @@ FIELD = {'TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP9', 'TP10', 'TP16', 'TP22'
 GROUPS = ('MAO silk F', 'MAO silk B', 'ODD JOBS maker mark', 'MAO easter eggs')
 IDENT, CONN, DEBUG = 1.5, 1.2, m.FIELD_TEXT  # type scale: identity, connectors, test pads (references 0.8)
 STROKE = 0.15
-ART_STROKE = 0.16                  # easter-egg line art (JLC silk minimum 0.153 mm)
 
 
 def mm(v):
@@ -538,37 +540,18 @@ def main():
     # The references mao_labels.py puts on silk come after this script, so their room is held back here: no egg
     # within 1.4 mm of a part whose reference the silk policy wants (ICs, connectors, semiconductors, the switch,
     # mic, inductor, electrodes and every R/C a procedure names)
-    import eggart, re
+    import re
     EGG = 'MAO easter eggs'
+    boop_at = 'SW303'                      # the face tripod switch with open board round it: 'boop' is MAO's nose
     named = {r for d in ('mao-bringup.md', 'mao-factory-test.md')
              for r in re.findall(r'\b[RC]\d{3}\b', (ROOT.parents[1] / 'docs' / 'hardware' / d).read_text(encoding='utf-8'))}
     held = {'F': [], 'B': []}
     for r_, f_ in fps.items():
         if (''.join(c_ for c_ in r_ if c_.isalpha()) in ('U', 'J', 'Q', 'D', 'SW', 'MK', 'L', 'E') or r_ in named) \
-                and r_ != 'SW301':         # the switch has room all round: 'boop' is its nose
+                and r_ != boop_at:
             held[side_of(f_)] += [(q[0] - 1.4, q[1] - 1.4, q[2] + 1.4, q[3] + 1.4) for q in courtyard_boxes(f_)]
     for sd_ in ('F', 'B'):
         placed[sd_] += held[sd_]
-
-    def art_pts(lines_, dots_, ox, oy, sd):
-        mir = -1 if sd == 'B' else 1       # the back reads mirrored: flip x so the art faces the right way
-        L_ = [[(ox + mir * x_, oy + y_) for x_, y_ in pl] for pl in lines_]
-        D_ = [(ox + mir * x_, oy + y_, r_) for x_, y_, r_ in dots_]
-        return L_, D_
-
-    def art_box(L_, D_):
-        xs = [x_ for pl in L_ for x_, _ in pl] + [x_ + k_ * r_ for x_, _, r_ in D_ for k_ in (-1, 1)]
-        ys = [y_ for pl in L_ for _, y_ in pl] + [y_ + k_ * r_ for _, y_, r_ in D_ for k_ in (-1, 1)]
-        e = ART_STROKE / 2
-        return (min(xs) - e, min(ys) - e, max(xs) + e, max(ys) + e)
-
-    def draw_art(L_, D_, sd):
-        for pl in L_:
-            for (xa, ya), (xb, yb) in zip(pl, pl[1:]):
-                line(xa, ya, xb, yb, sd, ART_STROKE, EGG)
-        for x_, y_, r_ in D_:
-            dot(x_, y_, r_, sd, EGG)
-        placed[sd].append(art_box(L_, D_))
 
     def grid(cx_, cy_, box_, step=0.4):
         pts = [(box_[0] + i * step, box_[1] + j * step) for i in range(int((box_[2] - box_[0]) / step) + 1)
@@ -576,40 +559,147 @@ def main():
         return sorted(pts, key=lambda p_: math.hypot(p_[0] - cx_, p_[1] - cy_))
 
     face = (-14.0, -14.0, 14.0, 14.5)      # under the panel (outline r 17.8): seen only with the face lifted
-    cat_l, cat_d = eggart.sleeping_cat()
-    cat_l = cat_l + eggart.zzz()           # with its three z drifting up from the head, as line art
-    body_l = cat_l[:-3]                    # the cat without its z
-    def scaled(lines_, k):
-        return [[(x_ * k, y_ * k) for x_, y_ in pl] for pl in lines_], [(x_ * k, y_ * k, r_ * k) for x_, y_, r_ in cat_d]
-    spots = [(lines_, k, ox, oy) for lines_, k in ((cat_l, 1.0), (cat_l, 0.9), (body_l, 1.0), (body_l, 0.85))
-             for ox, oy in grid(*CAT_AT, face)]
-    for lines_, k, ox, oy in spots:
-        L_, D_ = art_pts(*scaled(lines_, k), ox, oy, 'F')
-        q = art_box(L_, D_)
-        if clear(q, 'F') and math.hypot(max(abs(q[0]), abs(q[2])), max(abs(q[1]), abs(q[3]))) < 17.0:
-            draw_art(L_, D_, 'F')
-            trail = 0                      # paw prints walking away from the tail while there is room
-            for px_, py_ in ((4.7, 1.25), (5.8, 0.25), (6.9, 1.05), (8.0, 0.05), (9.1, 0.85)):
-                pl_, pd_ = eggart.paw(px_ * k, py_ * k)
-                P_ = art_pts(pl_, pd_, ox, oy, 'F')
-                if not clear(art_box(*P_), 'F'):
-                    break
-                draw_art(*P_, 'F'); trail += 1
-            print('silk: easter egg: cat asleep under the face at (%.1f, %.1f), scale %.2f, %d paw prints' % (ox, oy, k, trail))
-            break
-    else:
-        print('silk: easter egg: sleeping cat skipped (no clear spot under the face)')
-    wx, wy = centre('SW301')               # face side, under the panel: the face switch is MAO's nose
-    label('boop', [], 'F', 0.8, gname=EGG, anchor=(wx, wy, 2.2), quiet=True)
-    label('meow', [(sx + dx_, sy + dy_, 270) for dx_ in (2.2, 1.6, 2.8, 0.8) for dy_ in (4.6, -4.6, 3.6, -3.6, 5.4, -5.4)],
-          'B', 0.8, gname=EGG, inside=('LS501',), quiet=True)          # under the speaker
-    qx, qy = centre('Q101')                # the reverse-polarity FET: a cell put in backwards is survived
-    jx_, jy_ = centre('J102')              # ... or at the cell's own plug
-    label('9 lives', ring(qx, qy, 1.6) + ring(jx_, jy_, 2.6) +
-          [(jx_ + dx_ / 5, jy_ + dy_ / 5, a_) for dx_ in range(-40, 41, 2) for dy_ in range(-40, 41, 2) for a_ in (0, 270)],
-          'B', 0.8, gname=EGG, quiet=True)
-    label('MADE FOR\nBAD IDEAS', [(x_, y_) for x_, y_ in grid(*BAD_IDEAS_AT, face, 0.4)][:1500], 'F', 0.8, gname=EGG,
+    wx, wy = centre(boop_at)
+    boop = label('boop', [(x_, y_, 90 if a_ == 270 else a_) for x_, y_, a_ in ring(wx, wy, 3.6)], 'F', 0.8, gname=EGG,
+                 quiet=True)                 # upright, or reading upwards from the face side
+
+    # Kanji (owner decision 2026-10-06: kanji only): Yuji Syuku brush calligraphy as filled silk polygons, traced once
+    # by kanji.py into brand/kanji-eggs.json (sizes there pass the 0.16 mm opening test). Each word takes the clear
+    # spot nearest its anchor: its box clear of pads, part bodies and other silk, and the strokes themselves 0.1 mm off
+    # every via (silk over a tented via prints badly; the box may span vias between strokes). At 4-5 mm they need
+    # the room held for references too: mao_labels.py, which runs after this script, places the references round them.
+    kanji = json.loads((ROOT / 'brand' / 'kanji-eggs.json').read_text(encoding='utf-8'))['words']
+    vias_xy = [(mm(t.GetPosition().x), mm(t.GetPosition().y), pcb.ToMM(t.GetWidth(pcb.F_Cu)) / 2)
+               for t in b.GetTracks() if isinstance(t, pcb.PCB_VIA)]
+
+    def kanji_polys(name, cx_, cy_, sd, k_=0):
+        mir = -1 if sd == 'B' else 1       # the back reads mirrored: flip x so the word reads from the back
+        return [([(cx_ + mir * x_, cy_ + y_) for x_, y_ in g['outline']],
+                 [[(cx_ + mir * x_, cy_ + y_) for x_, y_ in h_] for h_ in g['holes']])
+                for g in kanji[name]['layouts'][k_]['polygons']]
+
+    def poly_set(polys_):
+        ps = pcb.SHAPE_POLY_SET()
+        for outline_, holes_ in polys_:
+            k_ = ps.NewOutline()
+            for x_, y_ in outline_:
+                ps.Append(pcb.FromMM(50 + x_), pcb.FromMM(50 + y_), k_)
+            for h_ in holes_:
+                hk_ = ps.NewHole(k_)
+                for x_, y_ in h_:
+                    ps.Append(pcb.FromMM(50 + x_), pcb.FromMM(50 + y_), k_, hk_)
+        return ps
+
+    def kanji_box(polys_):
+        xs = [x_ for o_, _ in polys_ for x_, _ in o_]
+        ys = [y_ for o_, _ in polys_ for _, y_ in o_]
+        return (min(xs), min(ys), max(xs), max(ys))
+
+    def kanji_why(polys_, sd, inside=()):
+        bx_ = kanji_box(polys_)
+        for q in pad_boxes[sd]:
+            if overlap(bx_, q, 0.2): return 'pad'
+        if on_electrode(bx_, sd): return 'electrode'
+        for q, owner in bodies[sd]:
+            if owner not in inside and overlap(bx_, q, 0.0): return 'body ' + owner
+        for q in graphics[sd]:
+            if overlap(bx_, q, 0.15): return 'silk'
+        for q in placed[sd]:
+            if q not in held[sd] and overlap(bx_, q, 0.5): return 'text'
+        if not all(math.hypot(x_, y_) < m.PCB_R - 0.5 for x_ in (bx_[0], bx_[2]) for y_ in (bx_[1], bx_[3])):
+            return 'edge'
+        near = [v for v in vias_xy if overlap(bx_, (v[0] - v[2], v[1] - v[2], v[0] + v[2], v[1] + v[2]), 0.1)]
+        if near:
+            ps = poly_set(polys_)
+            for x_, y_, r_ in near:
+                if ps.Collide(at(x_, y_), pcb.FromMM(r_ + 0.1)):
+                    return 'via'
+        return None
+
+    def kanji_clear(polys_, sd, inside=()):
+        return kanji_why(polys_, sd, inside) is None
+
+    def draw_kanji(name, polys_, sd):
+        ps = poly_set(polys_)
+        ps.Fracture()                      # outline + holes as one bridged outline each: what a filled silk polygon keeps
+        for i_ in range(ps.OutlineCount()):
+            one = pcb.SHAPE_POLY_SET()
+            one.AddOutline(ps.Outline(i_))
+            sh = pcb.PCB_SHAPE(b)
+            sh.SetShape(pcb.SHAPE_T_POLY)
+            sh.SetPolyShape(one)
+            sh.SetFilled(True)
+            sh.SetWidth(0)
+            sh.SetLayer(pcb.B_SilkS if sd == 'B' else pcb.F_SilkS)
+            b.Add(sh)
+            group(EGG).AddItem(sh)
+        placed[sd].append(kanji_box(polys_))
+
+    def first_clear(name, sd, spots_, inside=()):
+        """The first spot (in order) where some layout of the word is clear, or None."""
+        for cx_, cy_ in spots_:
+            if any(kanji_clear(kanji_polys(name, cx_, cy_, sd, k_), sd, inside) for k_ in range(len(kanji[name]['layouts']))):
+                return cx_, cy_
+        return None
+
+    def place_kanji(name, sd, spots_, inside=(), why_=''):
+        for cx_, cy_ in spots_:
+            for k_, lay_ in enumerate(kanji[name]['layouts']):     # across or top to bottom, whichever fits first
+                polys_ = kanji_polys(name, cx_, cy_, sd, k_)
+                if kanji_clear(polys_, sd, inside):
+                    draw_kanji(name, polys_, sd)
+                    print('silk: easter egg %s %s (%s, %.1f mm em, %s) at (%.1f, %.1f) %s' % (
+                        kanji[name]['text'], name, sd, kanji[name]['em_mm'],
+                        'top to bottom' if lay_['vertical'] else 'across', cx_, cy_, why_))
+                    eggs_at[name] = {'side': sd, 'centre_mm': [round(cx_, 2), round(cy_, 2)], 'em_mm': kanji[name]['em_mm'],
+                                     'vertical': lay_['vertical'], 'size_mm': lay_['size_mm'], 'text': kanji[name]['text']}
+                    return (cx_, cy_)
+        if os.environ.get('SILK_KANJI_DEBUG'):
+            all_ = []
+            for cx_, cy_ in spots_[::5]:
+                polys_ = kanji_polys(name, cx_, cy_, sd); bx_ = kanji_box(polys_)
+                r_ = set()
+                if any(overlap(bx_, q, 0.2) for q in pad_boxes[sd]): r_.add('pad')
+                if any(owner not in inside and overlap(bx_, q, 0.0) for q, owner in bodies[sd]): r_.add('body')
+                if any(overlap(bx_, q, 0.5) for q in placed[sd]): r_.add('held')
+                if any(overlap(bx_, q, 0.15) for q in graphics[sd]): r_.add('silk')
+                all_.append(tuple(sorted(r_)))
+            from collections import Counter
+            print('   ', name, Counter(all_).most_common(8))
+        print('silk: easter egg %s skipped (no clear spot %s)' % (name, why_))
+        return None
+
+    def around(x_, y_, reach, step=0.2):
+        return sorted(((x_ + i_ * step, y_ + j_ * step) for i_ in range(-int(reach / step), int(reach / step) + 1)
+                       for j_ in range(-int(reach / step), int(reach / step) + 1)),
+                      key=lambda p_: math.hypot(p_[0] - x_, p_[1] - y_))
+
+    eggs_at = {}
+    if os.environ.get('SILK_OBSTACLES'):             # debugging: what the eggs must clear, per side
+        json.dump({sd: {'pads': pad_boxes[sd], 'bodies': [q for q, _ in bodies[sd]], 'held': placed[sd],
+                        'silk': graphics[sd], 'vias': vias_xy} for sd in ('F', 'B')},
+                  open(os.environ['SILK_OBSTACLES'], 'w'))
+    ax_, ay_ = ((tbox(boop)[0] + tbox(boop)[2]) / 2, (tbox(boop)[1] + tbox(boop)[3]) / 2) if boop else (wx, wy)
+    place_kanji('maomao', 'F', around(ax_, ay_, 14.0), why_='beside the face press')
+    kx_, ky_ = centre('R108')
+    place_kanji('gin', 'B', around(kx_, ky_, 14.0), why_='beside the BAT LINK 0R R108')
+    ux_, uy_ = centre('U102')            # on F beside it, or on B under it: whichever side has room nearer
+    near_ = {sd: first_clear('kusuri', sd, around(ux_, uy_, 14.0)) for sd in ('F', 'B')}
+    sd_k = min((sd for sd in near_ if near_[sd]), key=lambda sd: math.hypot(near_[sd][0] - ux_, near_[sd][1] - uy_),
+               default='F')
+    place_kanji('kusuri', sd_k, around(ux_, uy_, 14.0), why_='beside the BQ25185 charger U102')
+    cx0, cy0 = m.BATTERY_CENTRE
+    in_cell = lambda p_: abs(p_[0] - cx0) < m.BATTERY_ENVELOPE[0] / 2 - 2.5 and abs(p_[1] - cy0) < m.BATTERY_ENVELOPE[1] / 2 - 2.5
+    qx, qy = centre('Q101')                # where '9 lives' was: by the reverse-polarity FET, over the cell
+    place_kanji('sake', 'B', [p_ for p_ in around(qx, qy, 14.0) if in_cell(p_)], why_='under the cell')
+    sx, sy = centre('LS501')               # inside the speaker's outline, between its contact pads
+    place_kanji('dokumi', 'B', around(sx, sy, 3.0, 0.1), inside=('LS501',), why_='under the speaker')
+    placed['F'] = [q for q in placed['F'] if q not in held['F']]   # ODD JOBS' line may use the references' room too
+    label('MADE FOR\nBAD IDEAS', [(x_, y_) for x_, y_ in grid(*BAD_IDEAS_AT, face, 0.4)][:3000], 'F', 0.8, gname=EGG,
           quiet=True)
+    placed['F'] += held['F']
+    (ROOT / 'outputs' / 'KANJI-PLACEMENT.json').write_text(json.dumps(eggs_at, ensure_ascii=False, indent=1) + '\n',
+                                                         encoding='utf-8')
 
     for sd_ in ('F', 'B'):                 # the held room is for the references, not a placed item
         placed[sd_] = [q for q in placed[sd_] if q not in held[sd_]]
@@ -650,7 +740,6 @@ SN_SPOTS = sorted(((x_ / 5, y_ / 5) for x_ in range(-60, 61) for y_ in range(-60
                   key=lambda p_: math.hypot(p_[0] - SN_AT[0], p_[1] - SN_AT[1]))
 B_MARK_W = 4.6                   # B mark width: the artwork's finest strokes (0.07 mm at 2 mm) reach 0.16 mm
 B_MARK_AT = m.B_IDENT_AT          # B: the reserved via-free spot (mechanical.B_IDENT_KEEPOUT); a clear field outside the cell wins
-CAT_AT = (-4.3, -7.7)            # F, under the panel: preferred centre of the sleeping cat
 BAD_IDEAS_AT = (6.0, 6.0)        # F, under the panel: preferred spot of the ODD JOBS line (rule 175), two lines
 
 if __name__ == '__main__':
