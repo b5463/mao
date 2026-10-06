@@ -1,5 +1,5 @@
 {
- "broadside_total_mm": 15.4,
+ "broadside_total_mm": 16.7,
  "broadside_pairs": [
   [
    2.58,
@@ -25,6 +25,11 @@
    1.27,
    "PRESS_N",
    "BL_FB"
+  ],
+  [
+   1.24,
+   "PRESS_N",
+   "+3V3"
   ],
   [
    1.1,
