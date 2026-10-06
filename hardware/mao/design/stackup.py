@@ -5,7 +5,7 @@ JLCPCB JLC04161H-1080, 4 layers, 1.6 mm, as published on jlcpcb.com/impedance:
   | L4 B.Cu 1 oz
 The thinnest of JLC's standard 4-layer prepregs: L1 sits 0.076 mm over the L2 ground plane and L4 0.076 mm
 under the L3 power layer (brief: outer layers as close to their reference as the standard options allow).
-Black solder mask, white legend, ENIG (FAB-NOTES). The Gerber job file and the 3D view take these from the
+Purple solder mask (JLC "Purple", owner decision 2026-10-06), white legend, ENIG (FAB-NOTES). The Gerber job file and the 3D view take these from the
 board, so the release package and the renders show the board as ordered. Rewrites any existing stackup block.
 """
 import re
@@ -16,7 +16,7 @@ FR4 = '(material "FR4") (epsilon_r 4.1) (loss_tangent 0.02)'
 LAYERS = [
     '(layer "F.SilkS" (type "Top Silk Screen") (color "White"))',
     '(layer "F.Paste" (type "Top Solder Paste"))',
-    '(layer "F.Mask" (type "Top Solder Mask") (color "Black") (thickness 0.01))',
+    '(layer "F.Mask" (type "Top Solder Mask") (color "Purple") (thickness 0.01))',
     '(layer "F.Cu" (type "copper") (thickness 0.035))',
     '(layer "dielectric 1" (type "prepreg") (color "FR4 natural") (thickness 0.0764) %s)' % FR4,
     '(layer "In1.Cu" (type "copper") (thickness 0.0152))',
@@ -24,7 +24,7 @@ LAYERS = [
     '(layer "In2.Cu" (type "copper") (thickness 0.0152))',
     '(layer "dielectric 3" (type "prepreg") (color "FR4 natural") (thickness 0.0764) %s)' % FR4,
     '(layer "B.Cu" (type "copper") (thickness 0.035))',
-    '(layer "B.Mask" (type "Bottom Solder Mask") (color "Black") (thickness 0.01))',
+    '(layer "B.Mask" (type "Bottom Solder Mask") (color "Purple") (thickness 0.01))',
     '(layer "B.Paste" (type "Bottom Solder Paste"))',
     '(layer "B.SilkS" (type "Bottom Silk Screen") (color "White"))',
     '(copper_finish "ENIG")',
@@ -60,7 +60,7 @@ def main():
     assert m, 'no setup section'
     s = s[:m.end()] + block(m.group(1) + '\t') + s[m.end():]
     TARGET.write_text(s, encoding='utf-8')
-    print('stackup: JLC04161H-1080, %.4f mm dielectric+copper, black mask, ENIG' % (
+    print('stackup: JLC04161H-1080, %.4f mm dielectric+copper, purple mask, white legend, ENIG' % (
         2 * 0.035 + 2 * 0.0152 + 2 * 0.0764 + 1.265), flush=True)
 
 

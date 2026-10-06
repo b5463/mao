@@ -618,7 +618,7 @@ def main():
     tb.SetRevision('A1')
     tb.SetDate(DATE)
     tb.SetCompany('ODD JOBS')
-    tb.SetComment(0, 'Main board, 4 layers (JLC04161H-1080), 1.6 mm, ENIG, black mask')
+    tb.SetComment(0, 'Main board, 4 layers (JLC04161H-1080), 1.6 mm, ENIG, purple mask, white legend')
     tb.SetComment(1, 'docs/hardware/mao-a1-report.md')
     pcb.SaveBoard(str(TARGET), b)
     import project

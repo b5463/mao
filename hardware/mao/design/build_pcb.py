@@ -239,7 +239,7 @@ def trim_silk(board, margin=0.25):
 
 
 def stackup(board):
-    """JLCPCB standard 4-layer 1.6 mm (JLC04161H-1080), matte black mask, white silk, ENIG.
+    """JLCPCB standard 4-layer 1.6 mm (JLC04161H-1080), purple mask (owner decision 2026-10-06), white silk, ENIG.
     L1 F parts + signals | L2 In1 solid GND | L3 In2 power regions + slow signals | L4 B parts + signals.
     L1 sits 0.076 mm over the ground plane, L4 0.076 mm under the power layer (ODD JOBS 17-19)."""
     ds = board.GetDesignSettings()
