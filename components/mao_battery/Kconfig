@@ -1,0 +1,32 @@
+menu "MAO battery"
+
+    config MAO_BATTERY_CRITICAL_MV
+        int "Critical cell voltage (mV, loaded)"
+        range 3000 3800
+        default 3550
+        help
+            On battery, a cell voltage below this (three gauge readings in a
+            row, or SOC <= 2 %) posts MAO_EVENT_BATTERY_CRITICAL and the
+            application puts MAO into its critical-battery deep sleep.
+            Provisional floor 3.55 V under load from M5 Gate C (the panel and
+            radio peaks must not reach the regulator's dropout / the 3V3
+            UVLO). VERIFY AT BRING-UP against the measured discharge curve.
+
+    config MAO_BATTERY_CRITICAL_SLEEP
+        bool "Deep sleep on a critical battery"
+        default y
+        help
+            After MAO_EVENT_BATTERY_CRITICAL the application lets MAO fall
+            asleep (the resting mark, then deep sleep) with only the press
+            and a recheck timer as wake sources.
+
+    config MAO_BATTERY_CRITICAL_RECHECK_MIN
+        int "Critical-battery deep sleep: recheck timer (minutes)"
+        depends on MAO_BATTERY_CRITICAL_SLEEP
+        range 5 1440
+        default 60
+        help
+            USB cannot wake the A1 from deep sleep (VBUS_SENSE is not an RTC
+            pad), so a timer wakes it to see whether it is being charged.
+
+endmenu

@@ -1,12 +1,15 @@
 #include "mao_audio.h"
 
 #include <math.h>
+#include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "driver/i2s_common.h"
+#if CONFIG_MAO_BOARD_LCDKIT
 #include "driver/i2s_pdm.h"
+#endif
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -19,17 +22,33 @@ static const char *TAG = "MAO_AUDIO";
 #define AUDIO_TASK_PRIO      6
 #define AUDIO_QUEUE_LEN      4
 #define CHUNK_FRAMES         160            /* 10 ms per i2s write */
-/* The line idles at the bottom of the PDM range: an almost static signal.
- * PDM silence at mid scale is a dense bit pattern that the NS4150 (no
- * enable pin) turns into an audible ring, and stopping / starting the
- * stream cracks. So the stream never stops, idles at this floor, and every
- * sound rides up from it inside its own soft envelope. */
+/* Two speaker paths, picked by the board at build time:
+ *
+ * LCDkit (MAO_AUDIO_PDM): the line idles at the bottom of the PDM range: an
+ * almost static signal. PDM silence at mid scale is a dense bit pattern that
+ * the NS4150 (no enable pin) turns into an audible ring, and stopping /
+ * starting the stream cracks. So the stream never stops, idles at this
+ * floor, and every sound rides up from it inside its own soft envelope.
+ *
+ * A1 (standard I2S into a MAX98357A): a true zero exists, so the floor is 0
+ * and the waveform is symmetric around it. The amplifier's SD_MODE
+ * (MAO_RAIL_AMP) rises only once the stream runs at silence, a sound waits
+ * AMP_WAKE_MS for its turn-on (7-7.5 ms), and SD_MODE drops again after
+ * AMP_IDLE_OFF_MS without a sound - and always before the stream stops. */
+#if CONFIG_MAO_BOARD_LCDKIT
+#define MAO_AUDIO_PDM        1
 #define FLOOR                (-32768)       /* the very bottom: no PDM pulses at all */
+#else
+#define MAO_AUDIO_PDM        0
+#define FLOOR                0              /* I2S silence */
+#define AMP_WAKE_MS          8              /* MAX98357A turn-on 7-7.5 ms after SD_MODE, clocks running */
+#define AMP_IDLE_OFF_MS      3000
+#endif
 #define TICK_MIN_GAP_MS      35             /* hard ceiling for tick rate */
+#define ROOM_TAIL_MS         150            /* reverb / mechanical ring-out after a sound (perception) */
 
-/* volume 100 % -> gain 0.58, so the 60 % default equals the M0 level (0.35).
- * The NS4150 is loud; restraint is deliberate. */
-#define GAIN_AT_FULL_VOLUME  0.58f
+/* volume 100 % -> the board's gain (0.58 on the LCDkit), so the 60 % default
+ * equals the M0 level (0.35). The NS4150 is loud; restraint is deliberate. */
 
 #define SINE_LUT_BITS        8
 #define SINE_LUT_SIZE        (1 << SINE_LUT_BITS)
@@ -47,6 +66,8 @@ typedef enum {
     SOUND_THUNK,
     SOUND_DEPART,
     SOUND_SHUTTER,
+    SOUND_TSK,
+    SOUND_TEST,
     SOUND_COUNT,
 } sound_id_t;
 
@@ -116,6 +137,24 @@ static const tone_seg_t kDepart[] = {
     { .freq_hz = 1180, .dur_ms = 45, .attack_ms = 3, .release_ms = 36, .amp_q15 = 6000 },
 };
 
+/* "tsk": two dry, very short high clicks (the second a touch lower) with a
+ * gap: disapproval without a melody (A0 vocabulary; not used by the M4.1
+ * character, kept for the self-test and later use). freq 0 = silence. */
+static const tone_seg_t kTsk[] = {
+    { .freq_hz = 3900, .dur_ms = 9,  .attack_ms = 1, .release_ms = 7,  .amp_q15 = 11000 },
+    { .freq_hz = 0,    .dur_ms = 55, .attack_ms = 0, .release_ms = 0,  .amp_q15 = 0 },
+    { .freq_hz = 3300, .dur_ms = 12, .attack_ms = 1, .release_ms = 9,  .amp_q15 = 12000 },
+};
+/* Self-test chirp: a stepped sweep across the speaker's useful band. */
+static const tone_seg_t kTest[] = {
+    { .freq_hz = 700,  .dur_ms = 70, .attack_ms = 3, .release_ms = 5, .amp_q15 = 20000 },
+    { .freq_hz = 1200, .dur_ms = 70, .attack_ms = 3, .release_ms = 5, .amp_q15 = 20000 },
+    { .freq_hz = 2000, .dur_ms = 70, .attack_ms = 3, .release_ms = 5, .amp_q15 = 20000 },
+    { .freq_hz = 3000, .dur_ms = 70, .attack_ms = 3, .release_ms = 5, .amp_q15 = 20000 },
+    { .freq_hz = 4200, .dur_ms = 70, .attack_ms = 3, .release_ms = 5, .amp_q15 = 20000 },
+    { .freq_hz = 2000, .dur_ms = 120, .attack_ms = 3, .release_ms = 40, .amp_q15 = 20000 },
+};
+
 #define SOUND(arr) { arr, (uint8_t)(sizeof(arr) / sizeof(arr[0])) }
 static const sound_t kSounds[SOUND_COUNT] = {
     [SOUND_TICK]    = SOUND(kTick),
@@ -130,6 +169,8 @@ static const sound_t kSounds[SOUND_COUNT] = {
     [SOUND_THUNK]   = SOUND(kThunk),
     [SOUND_DEPART]  = SOUND(kDepart),
     [SOUND_SHUTTER] = SOUND(kShutter),
+    [SOUND_TSK]     = SOUND(kTsk),
+    [SOUND_TEST]    = SOUND(kTest),
 };
 
 static i2s_chan_handle_t s_tx;
@@ -143,6 +184,26 @@ typedef struct {
     uint8_t level;       /* 0..255 per-play level (ticks get softer at speed) */
 } play_t;
 static volatile int32_t s_gain_q15 = (int32_t)(0.35f * 32767);
+static float s_gain_full = 0.58f;           /* mao_board_audio_gain() */
+static volatile uint32_t s_busy_until_ms;   /* MAO's own sound may still be heard until then */
+static volatile uint8_t s_test_gain_pct;    /* self-test: fixed level, independent of volume */
+#if !MAO_AUDIO_PDM
+static bool s_amp_on;
+static int64_t s_last_sound_us;
+
+static void amp_power(bool on)
+{
+    if (s_amp_on == on) {
+        return;
+    }
+    if (mao_board_rail_set(MAO_RAIL_AMP, on) == ESP_OK) {
+        s_amp_on = on;
+        if (on) {
+            vTaskDelay(pdMS_TO_TICKS(AMP_WAKE_MS));   /* the stream plays silence meanwhile */
+        }
+    }
+}
+#endif
 
 static void render_segment(const tone_seg_t *seg, uint8_t level)
 {
@@ -167,9 +228,15 @@ static void render_segment(const tone_seg_t *seg, uint8_t level)
             } else if (release && n >= total - release) {
                 env = env * (int32_t)(total - n) / (int32_t)release;
             }
-            /* Peak amplitude a, riding on the floor: floor .. floor + 2a. */
             const int32_t a = (env * gain) >> 15;
+#if MAO_AUDIO_PDM
+            /* Peak amplitude a, riding on the floor: floor .. floor + 2a. */
             const int32_t s = FLOOR + a + ((s_sine[phase >> (32 - SINE_LUT_BITS)] * a) >> 15);
+#else
+            /* Symmetric around the true zero: -a .. +a, the same 2a peak to
+             * peak as the PDM path's swing above its floor. */
+            const int32_t s = (s_sine[phase >> (32 - SINE_LUT_BITS)] * a) >> 15;
+#endif
             s_chunk[i] = (int16_t)s;
             phase += phase_inc;
         }
@@ -217,10 +284,14 @@ static void start_on_floor(void)
         loaded = 0;
         i2s_channel_preload_data(s_tx, s_chunk, CHUNK_FRAMES * sizeof(int16_t), &loaded);
     }
+#if MAO_AUDIO_PDM
     mao_board_audio_line_rise();              /* the line glides up to the floor's level ... */
     i2s_channel_enable(s_tx);
     vTaskDelay(pdMS_TO_TICKS(20));            /* ... the stream runs on its floor ... */
     mao_board_audio_line_attach();            /* ... and takes the line */
+#else
+    i2s_channel_enable(s_tx);                 /* clocks at silence; SD_MODE rises with the next sound */
+#endif
 }
 
 static void audio_task(void *arg)
@@ -235,6 +306,11 @@ static void audio_task(void *arg)
         /* Keep the DMA fed with the floor: if it ever ran dry it would play
          * mid-scale zeros, a jump the speaker hears. */
         if (xQueueReceive(s_queue, &p, 0) != pdTRUE) {
+#if !MAO_AUDIO_PDM
+            if (s_amp_on && (s_suspend || esp_timer_get_time() - s_last_sound_us > (int64_t)AMP_IDLE_OFF_MS * 1000)) {
+                amp_power(false);             /* quiet for a while (or resting): amplifier off first */
+            }
+#endif
             park_if_asked();
             for (int i = 0; i < CHUNK_FRAMES; i++) {
                 s_chunk[i] = FLOOR;
@@ -243,9 +319,36 @@ static void audio_task(void *arg)
             continue;
         }
         if (p.id < SOUND_COUNT) {
+            uint32_t dur = 0;
             for (uint8_t i = 0; i < kSounds[p.id].count; i++) {
-                render_segment(&kSounds[p.id].segs[i], p.level);
+                dur += kSounds[p.id].segs[i].dur_ms;
             }
+            /* Tell listeners (perception) this sound is MAO's own. */
+            s_busy_until_ms = (uint32_t)(esp_timer_get_time() / 1000) + dur + ROOM_TAIL_MS
+#if !MAO_AUDIO_PDM
+                              + AMP_WAKE_MS
+#endif
+                              ;
+#if !MAO_AUDIO_PDM
+            amp_power(true);
+            s_last_sound_us = esp_timer_get_time();
+#endif
+            if (p.id == SOUND_TEST) {
+                /* the self-test's fixed level, then the volume as it is now */
+                const int32_t saved = s_gain_q15;
+                s_gain_q15 = (int32_t)(s_gain_full * 32767.0f * (float)s_test_gain_pct / 100.0f);
+                for (uint8_t i = 0; i < kSounds[p.id].count; i++) {
+                    render_segment(&kSounds[p.id].segs[i], p.level);
+                }
+                s_gain_q15 = saved;
+            } else {
+                for (uint8_t i = 0; i < kSounds[p.id].count; i++) {
+                    render_segment(&kSounds[p.id].segs[i], p.level);
+                }
+            }
+#if !MAO_AUDIO_PDM
+            s_last_sound_us = esp_timer_get_time();
+#endif
         }
     }
 }
@@ -257,6 +360,7 @@ esp_err_t mao_audio_init(void)
     }
 
     ESP_RETURN_ON_ERROR(mao_board_audio_init(SAMPLE_RATE_HZ, &s_tx), TAG, "board audio");
+    s_gain_full = mao_board_audio_gain();
     /* The channel runs for the lifetime of the firmware (the task starts it
      * on its floor, then keeps it fed between sounds; only a rest stops it). */
 
@@ -284,7 +388,11 @@ esp_err_t mao_audio_suspend(void)
         s_suspend = false;
         return ESP_ERR_TIMEOUT;
     }
+#if MAO_AUDIO_PDM
     mao_board_audio_line_rest();              /* the line glides from the floor's level to still ... */
+#endif
+    /* (I2S: the task dropped SD_MODE before it parked, so the amplifier is
+     * off before its clocks stop.) */
     return i2s_channel_disable(s_tx);         /* ... and the stream stops behind it, off the pin */
 }
 
@@ -292,6 +400,11 @@ esp_err_t mao_audio_suspend(void)
  * 3 x4), reconfigured live - to find where the floor reaches a still line. */
 esp_err_t mao_audio_debug_scale(int hp, int sd)
 {
+#if !MAO_AUDIO_PDM
+    (void)hp;
+    (void)sd;
+    return ESP_ERR_NOT_SUPPORTED;             /* no PDM modulator on this board */
+#else
     ESP_RETURN_ON_ERROR(mao_audio_suspend(), TAG, "park");
     i2s_pdm_tx_slot_config_t slot = I2S_PDM_TX_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO);
     slot.hp_en = false;
@@ -302,6 +415,7 @@ esp_err_t mao_audio_debug_scale(int hp, int sd)
     const esp_err_t err = i2s_channel_reconfig_pdm_tx_slot(s_tx, &slot);
     mao_audio_resume();
     return err;
+#endif
 }
 
 esp_err_t mao_audio_resume(void)
@@ -320,7 +434,7 @@ void mao_audio_set_volume(uint8_t percent)
     if (percent > 100) {
         percent = 100;
     }
-    s_gain_q15 = (int32_t)(GAIN_AT_FULL_VOLUME * 32767.0f * (float)percent / 100.0f);
+    s_gain_q15 = (int32_t)(s_gain_full * 32767.0f * (float)percent / 100.0f);
 }
 
 static void enqueue(sound_id_t id)
@@ -391,4 +505,20 @@ void mao_audio_shutter(void)
 void mao_audio_depart(void)
 {
     enqueue(SOUND_DEPART);
+}
+
+void mao_audio_tsk(void)
+{
+    enqueue(SOUND_TSK);
+}
+
+void mao_audio_test_chirp(uint8_t level_percent)
+{
+    s_test_gain_pct = level_percent > 100 ? 100 : level_percent;
+    enqueue(SOUND_TEST);
+}
+
+uint32_t mao_audio_busy_until_ms(void)
+{
+    return s_busy_until_ms;
 }

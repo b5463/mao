@@ -1,5 +1,7 @@
 /*
- * MAO audio: tiny synthesised UI sounds on the speaker (I2S0 PDM TX).
+ * MAO audio: tiny synthesised UI sounds on the speaker (the board's I2S TX
+ * channel: PDM into the NS4150 on the LCDkit, standard I2S into a MAX98357A
+ * on the A1).
  *
  * Vocabulary (all < 170 ms, synthesised, no assets). One purpose each:
  *   tick     - dial detent; softer and sparser as the dial spins faster.
@@ -34,7 +36,8 @@ void mao_audio_set_volume(uint8_t percent);
  * while suspended are dropped. */
 esp_err_t mao_audio_suspend(void);
 esp_err_t mao_audio_resume(void);
-/* DEV: the PDM gain stages (0 /2, 1 x1, 2 x2, 3 x4). */
+/* DEV: the PDM gain stages (0 /2, 1 x1, 2 x2, 3 x4). LCDkit only
+ * (ESP_ERR_NOT_SUPPORTED elsewhere). */
 esp_err_t mao_audio_debug_scale(int hp, int sd);
 
 /* intensity 0 (slow) .. 255 (fastest spin). */
@@ -50,6 +53,17 @@ void mao_audio_bump(uint8_t strength);
 void mao_audio_depart(void);
 /* A frame was taken (the camera's shutter). */
 void mao_audio_shutter(void);
+/* Two dry clicks: mild disapproval (A0 vocabulary; not used by the M4.1
+ * character). */
+void mao_audio_tsk(void);
+
+/* Self-test: a ~450 ms stepped sweep at a fixed level (0..100 % of the
+ * board's full gain), independent of the volume setting. */
+void mao_audio_test_chirp(uint8_t level_percent);
+
+/* ms since boot (esp_timer) until which MAO's own sound may still be heard,
+ * so perception does not mistake it for the room. */
+uint32_t mao_audio_busy_until_ms(void);
 
 #ifdef __cplusplus
 }
