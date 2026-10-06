@@ -126,15 +126,15 @@ b.at('power', 'CHARGER',
      '(TP TSMR). /CE from GPIO%d (CHG_CE_N, 100k pull-down: charging on from reset): firmware pauses charging outside '
      'the cell\'s 0-45 C. STAT1/STAT2 open-drain, 10k pull-ups to +3V3, to GPIO%d/%d: high-Z on battery, 0 uA. '
      'BATFET off below 3.0 V (BUVLO): the hardware floor that replaces A0\'s UVLO divider. '
-     'Caps per TI: IN 1 uF 25 V, SYS 10 uF 25 V, BAT 1 uF.' % (G['CHG_CE_N'], G['CHG_STAT1'], G['CHG_STAT2']))
+     'Caps per TI: IN and BAT 2.2 uF 25 V 0402 (>= 1 uF left after DC bias, SLUSF65B 7.2.2.3), SYS 10 uF 25 V.' % (G['CHG_CE_N'], G['CHG_STAT1'], G['CHG_STAT2']))
 b.part('U2', 'MAO:BQ25185', 'Package_DFN_QFN:Texas_DLH0010A_WSON-10-1EP_2.2x2mm_P0.4mm_EP0.9x1.5mm',
        'BQ25185DLHR', {'10': 'VBUS', '1': 'VSYS', '2': 'VBAT', '9': 'CHG_STAT1', '3': 'CHG_STAT2', '4': 'CHG_CE_N',
                        '5': 'GND', '11': 'GND', '6': 'BAT_NTC', '7': 'CHG_ILIM', '8': 'CHG_ISET'},
        lcsc='C19725033', mpn='BQ25185DLHR', mfr='TI',
        note='1 A linear charger, power path, 3.0 V battery UVLO, factory mode on TS/MR')
-b.C('C1', '1u', 'VBUS', voltage='25V', note='charger IN (TI: 1 uF, 25 V rating)')
+b.C('C1', '2.2u', 'VBUS', voltage='25V', note='charger IN: 2.2 uF 25 V 0402 keeps >= 1 uF at 5 V DC bias (SLUSF65B 7.2.2.3)')
 b.C('C2', '10u', 'VSYS', pkg='0603', voltage='25V', note='charger SYS (TI: 10 uF, 25 V rating)')
-b.C('C3', '1u', 'VBAT', note='charger BAT (TI: >= 1 uF)')
+b.C('C3', '2.2u', 'VBAT', voltage='25V', note='charger BAT: 2.2 uF 25 V 0402 keeps >= 1 uF at 4.2 V DC bias (SLUSF65B 7.2.2.3)')
 b.R('R3', '1.43k', 'CHG_ISET', 'GND', note='ISET: 300 AOhm / 1.43k = 210 mA (199-220 mA with KISET 285-315); cell max 250 mA')
 b.R('R4', '18k', 'CHG_ILIM', 'GND', note='ILIM/VSET: 4.2 V, 500 mA input limit (SLUSF65B table 6-1)')
 
@@ -333,8 +333,8 @@ b.part('SW301', 'Switch:SW_Push', 'Button_Switch_SMD:SW_SPST_SKQG_WithStem', 'SK
 
 b.at('interface', 'BACKLIGHT',
      'Constant-current low-side sink from VSYS (Gate C): LCD_BL (GPIO%d, LEDC ~30 kHz) -> 32.4k / 1.0k -> BL_REF '
-     '(0 / 94.6 mV at 3.2 V); TLV9061 on 3V3_LCD (0 uA in deep sleep) drives DMG2302UK so that BL_SENSE follows '
-     'BL_REF: Rs 3.3 ohm 1%% = 28.7 mA at 100 %% (Gate C 30 mA at 3.3 V). Regulates for VSYS >= Vf (3.4 V max) + '
+     '(0 / 95.8 mV at 3.2 V: 3.2 V x 1.0 / 33.4); TLV9061 on 3V3_LCD (0 uA in deep sleep) drives DMG2302UKQ so that BL_SENSE follows '
+     'BL_REF: Rs 3.3 ohm 1%% = 29.0 mA at 100 %% (Gate C 30 mA at 3.3 V). Regulates for VSYS >= Vf (3.4 V max) + '
      '0.1 V. Off from reset: LCD_BL 100k, BL_REF 1.0k, gate 100k to GND, op-amp unpowered with the panel. '
      'DNP 100 pF loop compensation (fit if the sink rings). Rs is re-set when Winstar\'s backlight data arrives.'
      % G['LCD_BL'])
@@ -392,10 +392,10 @@ b.at('feedback', 'HAPTIC',
      'shares the always-on rail of the I2C pull-ups and is never supply-gated). VDD pin 10 and VDD/NC pin 6 to +3V3. '
      'I2C 0x5A, EN from GPIO%d with 100k pull-down (4 uA off). IN/TRIG low: playback by I2C. REG 1 uF, VDD 1 uF. '
      'LRA LD0832AA (235 Hz, 1.8 Vrms) glued to the base, leads to J501.' % G['HAPTIC_EN'])
-b.part('U502', 'Driver:DRV2605LDGS', 'Package_SO:MSOP-10_3x3mm_P0.5mm', 'DRV2605LDGSR',
+b.part('U502', 'Driver:DRV2605LDGS', 'Package_SO:MSOP-10_3x3mm_P0.5mm', 'DRV2605LDGST',
        {'1': 'HAP_REG', '2': 'I2C_SCL', '3': 'I2C_SDA', '4': 'GND', '5': 'HAPTIC_EN', '6': '+3V3',
         '7': 'LRA_P', '8': 'GND', '9': 'LRA_N', '10': '+3V3'},
-       lcsc='C527464', mpn='DRV2605LDGSR', mfr='TI', note='haptic driver, auto-resonance')
+       lcsc='C425927', mpn='DRV2605LDGST', mfr='TI', note='haptic driver, auto-resonance (DGST: the DGSR part on a 250-piece reel)')
 b.C('C504', '1u', '+3V3', note='haptic VDD (table 32: 1 uF)')
 b.C('C505', '1u', 'HAP_REG', note='DRV2605L internal regulator (required, 1 uF)')
 b.part('J501', 'Connector_Generic:Conn_01x02', 'MAO:WirePads_1x02_P2.5mm_1.0x1.8mm', 'LRA',
@@ -454,7 +454,7 @@ b.C('C96', '10p', 'USB_DN', note='USB D- EMI option, DNP', dnp=True)
 
 b.at('interface', 'BACKLIGHT')
 b.R('R311', '100k', 'LCD_BL', 'GND', note='LCD_BL default off through reset')
-b.R('R312', '32.4k', 'LCD_BL', 'BL_REF', note='reference divider top: 3.2 V -> 94.6 mV')
+b.R('R312', '32.4k', 'LCD_BL', 'BL_REF', note='reference divider top: 3.2 V x 1.0 / 33.4 = 95.8 mV')
 b.R('R313', '1.0k', 'BL_REF', 'GND', note='reference divider bottom')
 b.C('C306', '100n', '3V3_LCD', note='TLV9061 supply')
 b.part('U304', 'Amplifier_Operational:TLV9061xDBV', 'Package_TO_SOT_SMD:SOT-23-5', 'TLV9061IDBVR',
@@ -463,11 +463,11 @@ b.part('U304', 'Amplifier_Operational:TLV9061xDBV', 'Package_TO_SOT_SMD:SOT-23-5
 b.R('R314', '1.0k', 'BL_SENSE', 'BL_FB', note='feedback isolation')
 b.C('C307', '100p', 'BL_DRIVE', b='BL_FB', note='loop compensation, C0G, DNP: fit if the sink rings', dnp=True)
 b.R('R315', '100R', 'BL_DRIVE', 'BL_GATE', note='gate isolation from the op-amp output')
-b.part('Q302', 'Transistor_FET:DMG2302U', 'Package_TO_SOT_SMD:SOT-23', 'DMG2302UK',
-       {'1': 'BL_GATE', '2': 'BL_SENSE', '3': 'LCD_BL_K'}, lcsc='C460977', mpn='DMG2302UK-7', mfr='Diodes',
-       note='backlight sink FET (pins 1 G, 2 S, 3 D)')
+b.part('Q302', 'Transistor_FET:DMG2302U', 'Package_TO_SOT_SMD:SOT-23', 'DMG2302UKQ',
+       {'1': 'BL_GATE', '2': 'BL_SENSE', '3': 'LCD_BL_K'}, lcsc='C5224573', mpn='DMG2302UKQ-7', mfr='Diodes',
+       note='backlight sink FET (pins 1 G, 2 S, 3 D); DMG2302UKQ-7 = the automotive-qualified DMG2302UK, same pinout')
 b.R('R316', '100k', 'BL_GATE', 'GND', note='gate held off with the op-amp unpowered')
-b.R('R317', '3.3R', 'BL_SENSE', 'GND', pkg='0603', note='Rs: 94.6 mV / 3.3 ohm = 28.7 mA LED current')
+b.R('R317', '3.3R', 'BL_SENSE', 'GND', pkg='0603', note='Rs: 95.8 mV / 3.3 ohm = 29.0 mA LED current')
 b.C('C305', '100n', 'VSYS', note='VLED+ bypass at J301 pin 7')
 b.at('interface', 'FACE PRESS')
 b.R('R318', '100k', '+3V3', 'PRESS_N', note='press pull-up (draws 32 uA only while pressed)')

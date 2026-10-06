@@ -31,7 +31,8 @@ JLC = {
     'C19666': ('Basic', 2500000, ''),                       # 4.7u 0603
     'C19702': ('Basic', 10300000, ''),                      # 10u 0603
     'C2933066': ('Extended', 177764, 'no Basic 102k 0402'),
-    'C2680319': ('Extended', 89, 'LOW STOCK (2 per board); DSBGA-4 0.4 mm pitch: JLC capability UNKNOWN'),
+    'C2680319': ('Extended', 77, 'LOW STOCK (2 per board, enough for the 5-unit build); 0.4 mm WCSP: order JLC Standard '
+                 'PCBA. Fallback TPS22916BYFPR C2150095 (21,486): fast rise, check the 3V3_LCD / AUX_3V3 inrush'),
     'C25741': ('Basic', 8200000, ''),                       # 100k
     'C2913206': ('Extended', 6018, ''),                     # ESP32-S3-MINI-1-N8
     'C59461': ('Basic', 8000000, ''),                       # 22u 0603
@@ -44,7 +45,7 @@ JLC = {
     'C15195': ('Basic', 3900000, ''),                       # 10n 0402 50 V X7R
     'C3178291': ('Extended', 11527, ''),                    # VL53L4CDV0DH/1
     'C910544': ('Extended', 25277, ''),                     # MAX98357AETE+T
-    'C527464': ('Extended', 128, 'LOW STOCK'),              # DRV2605LDGSR
+    'C425927': ('Extended', 858, 'DRV2605LDGST: the DGSR part on a 250-piece reel (review 2026-10-06)'),
     'C53672': ('Extended', 12341, ''),                      # IR12-21C/TR8
     'C25196': ('Preferred Extended', 1070000, 'no Basic 56R 0603'),
     'C20917': ('Basic', 953963, ''),                        # AO3400A
@@ -55,9 +56,11 @@ JLC = {
     'C26974': ('Extended', 37795, 'no Basic 32.4k 0402'),
     'C11702': ('Basic', 7000000, 'LCSC shop stock 0 on 2026-10-06; JLC assembly stock fine'),
     'C398358': ('Extended', 289451, ''),                    # TLV9061IDBVR
-    'C460977': ('Extended', 124, 'LOW STOCK; Si2302CDS C10488 (78,854) a candidate, VGS(th)/pinout unverified'),
+    'C5224573': ('Extended', 990, 'DMG2302UKQ-7: the automotive-qualified DMG2302UK-7 (C460977, 124 left), same '
+                 'SOT-23 pinout'),
     'C22979': ('Extended', 280671, 'no Basic 3.3R 0603'),
     'C100082': ('Extended', 354360, 'no Basic 2.2u X7R 0603 (Basic C23630 is X5R)'),
+    'C307418': ('Extended', 897637, 'no Basic/Preferred 2.2u 25 V 0402 in the JLC library (review 2026-10-06)'),
     # DNP lines (not in the JLC BOM; listed so a fitted variant has its status)
     'C318588': ('Extended', 14698, 'DNP'),                  # 10p C0G
     'C26409': ('Extended', 809562, 'DNP'),                  # 100p C0G

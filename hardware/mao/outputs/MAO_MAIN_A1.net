@@ -1,8 +1,8 @@
 (export
 	(version "E")
 	(design
-		(source "C:\\Users\\AlexanderMoravcik\\Desktop\\ODD JOBS\\MAO 01\\mao-a1-hw\\hardware\\mao\\MAO_MAIN_A1.kicad_sch")
-		(date "2026-10-06T16:07:49")
+		(source "C:\\Users\\AlexanderMoravcik\\Desktop\\ODD JOBS\\MAO 01\\mao-a1\\hardware\\mao\\MAO_MAIN_A1.kicad_sch")
+		(date "2026-10-06T17:55:11")
 		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
@@ -296,23 +296,23 @@
 	(components
 		(comp
 			(ref "C101")
-			(value "1uF 25V")
+			(value "2.2uF 25V")
 			(footprint "Capacitor_SMD:C_0402_1005Metric")
-			(description "charger IN (TI: 1 uF, 25 V rating)")
+			(description "charger IN: 2.2 uF 25 V 0402 keeps >= 1 uF at 5 V DC bias (SLUSF65B 7.2.2.3)")
 			(fields
 				(field
-					(name "MPN") "CL05A105KA5NQNC")
+					(name "MPN") "CL05A225KA5NUNC")
 				(field
 					(name "Manufacturer") "Samsung")
 				(field
-					(name "LCSC") "C52923")
+					(name "LCSC") "C307418")
 				(field
 					(name "Footprint") "Capacitor_SMD:C_0402_1005Metric")
 				(field
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "charger IN (TI: 1 uF, 25 V rating)")
+					(name "Description") "charger IN: 2.2 uF 25 V 0402 keeps >= 1 uF at 5 V DC bias (SLUSF65B 7.2.2.3)")
 			)
 			(libsource
 				(lib "Device")
@@ -321,7 +321,7 @@
 			)
 			(property
 				(name "MPN")
-				(value "CL05A105KA5NQNC")
+				(value "CL05A225KA5NUNC")
 			)
 			(property
 				(name "Manufacturer")
@@ -329,7 +329,7 @@
 			)
 			(property
 				(name "LCSC")
-				(value "C52923")
+				(value "C307418")
 			)
 			(property
 				(name "Sheetname")
@@ -440,23 +440,23 @@
 		)
 		(comp
 			(ref "C103")
-			(value "1uF 25V")
+			(value "2.2uF 25V")
 			(footprint "Capacitor_SMD:C_0402_1005Metric")
-			(description "charger BAT (TI: >= 1 uF)")
+			(description "charger BAT: 2.2 uF 25 V 0402 keeps >= 1 uF at 4.2 V DC bias (SLUSF65B 7.2.2.3)")
 			(fields
 				(field
-					(name "MPN") "CL05A105KA5NQNC")
+					(name "MPN") "CL05A225KA5NUNC")
 				(field
 					(name "Manufacturer") "Samsung")
 				(field
-					(name "LCSC") "C52923")
+					(name "LCSC") "C307418")
 				(field
 					(name "Footprint") "Capacitor_SMD:C_0402_1005Metric")
 				(field
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "charger BAT (TI: >= 1 uF)")
+					(name "Description") "charger BAT: 2.2 uF 25 V 0402 keeps >= 1 uF at 4.2 V DC bias (SLUSF65B 7.2.2.3)")
 			)
 			(libsource
 				(lib "Device")
@@ -465,7 +465,7 @@
 			)
 			(property
 				(name "MPN")
-				(value "CL05A105KA5NQNC")
+				(value "CL05A225KA5NUNC")
 			)
 			(property
 				(name "Manufacturer")
@@ -473,7 +473,7 @@
 			)
 			(property
 				(name "LCSC")
-				(value "C52923")
+				(value "C307418")
 			)
 			(property
 				(name "Sheetname")
@@ -7358,23 +7358,23 @@
 		)
 		(comp
 			(ref "Q302")
-			(value "DMG2302UK")
+			(value "DMG2302UKQ")
 			(footprint "Package_TO_SOT_SMD:SOT-23")
-			(description "backlight sink FET (pins 1 G, 2 S, 3 D)")
+			(description "backlight sink FET (pins 1 G, 2 S, 3 D); DMG2302UKQ-7 = the automotive-qualified DMG2302UK, same pinout")
 			(fields
 				(field
-					(name "MPN") "DMG2302UK-7")
+					(name "MPN") "DMG2302UKQ-7")
 				(field
 					(name "Manufacturer") "Diodes")
 				(field
-					(name "LCSC") "C460977")
+					(name "LCSC") "C5224573")
 				(field
 					(name "Footprint") "Package_TO_SOT_SMD:SOT-23")
 				(field
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "backlight sink FET (pins 1 G, 2 S, 3 D)")
+					(name "Description") "backlight sink FET (pins 1 G, 2 S, 3 D); DMG2302UKQ-7 = the automotive-qualified DMG2302UK, same pinout")
 			)
 			(libsource
 				(lib "Transistor_FET")
@@ -7383,7 +7383,7 @@
 			)
 			(property
 				(name "MPN")
-				(value "DMG2302UK-7")
+				(value "DMG2302UKQ-7")
 			)
 			(property
 				(name "Manufacturer")
@@ -7391,7 +7391,7 @@
 			)
 			(property
 				(name "LCSC")
-				(value "C460977")
+				(value "C5224573")
 			)
 			(property
 				(name "Sheetname")
@@ -7723,7 +7723,7 @@
 			(ref "R312")
 			(value "32.4k")
 			(footprint "Resistor_SMD:R_0402_1005Metric")
-			(description "reference divider top: 3.2 V -> 94.6 mV")
+			(description "reference divider top: 3.2 V x 1.0 / 33.4 = 95.8 mV")
 			(fields
 				(field
 					(name "MPN") "0402WGF3242TCE")
@@ -7737,7 +7737,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "reference divider top: 3.2 V -> 94.6 mV")
+					(name "Description") "reference divider top: 3.2 V x 1.0 / 33.4 = 95.8 mV")
 			)
 			(libsource
 				(lib "Device")
@@ -8083,7 +8083,7 @@
 			(ref "R317")
 			(value "3.3R")
 			(footprint "Resistor_SMD:R_0603_1608Metric")
-			(description "Rs: 94.6 mV / 3.3 ohm = 28.7 mA LED current")
+			(description "Rs: 95.8 mV / 3.3 ohm = 29.0 mA LED current")
 			(fields
 				(field
 					(name "MPN") "0603WAF330KT5E")
@@ -8097,7 +8097,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "Rs: 94.6 mV / 3.3 ohm = 28.7 mA LED current")
+					(name "Description") "Rs: 95.8 mV / 3.3 ohm = 29.0 mA LED current")
 			)
 			(libsource
 				(lib "Device")
@@ -10659,23 +10659,23 @@
 		)
 		(comp
 			(ref "U502")
-			(value "DRV2605LDGSR")
+			(value "DRV2605LDGST")
 			(footprint "Package_SO:MSOP-10_3x3mm_P0.5mm")
-			(description "haptic driver, auto-resonance")
+			(description "haptic driver, auto-resonance (DGST: the DGSR part on a 250-piece reel)")
 			(fields
 				(field
-					(name "MPN") "DRV2605LDGSR")
+					(name "MPN") "DRV2605LDGST")
 				(field
 					(name "Manufacturer") "TI")
 				(field
-					(name "LCSC") "C527464")
+					(name "LCSC") "C425927")
 				(field
 					(name "Footprint") "Package_SO:MSOP-10_3x3mm_P0.5mm")
 				(field
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "haptic driver, auto-resonance")
+					(name "Description") "haptic driver, auto-resonance (DGST: the DGSR part on a 250-piece reel)")
 			)
 			(libsource
 				(lib "Driver")
@@ -10684,7 +10684,7 @@
 			)
 			(property
 				(name "MPN")
-				(value "DRV2605LDGSR")
+				(value "DRV2605LDGST")
 			)
 			(property
 				(name "Manufacturer")
@@ -10692,7 +10692,7 @@
 			)
 			(property
 				(name "LCSC")
-				(value "C527464")
+				(value "C425927")
 			)
 			(property
 				(name "Sheetname")

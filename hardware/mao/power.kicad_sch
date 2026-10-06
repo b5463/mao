@@ -3952,7 +3952,7 @@
 	)
 	(rectangle
 		(start 166.37 20.32)
-		(end 325.12 107.95)
+		(end 330.2 107.95)
 		(stroke (width 0.15) (type dash) (color 120 120 120 1))
 		(fill (type none))
 		(uuid "ce1cc936-55c3-55e6-b833-e740a2484c10")
@@ -3966,50 +3966,50 @@
 		)
 		(uuid "f4f26b15-bdf9-54b6-815d-9eed38eb727e")
 	)
-	(text "BQ25185 linear charger with power path: runs MAO from USB while charging, SYS 4.5 V on USB. ILIM/VSET R104 18k = 4.2 V, 500 mA input limit (SLUSF65B table 6-1)."
+	(text "BQ25185 linear charger with power path: runs MAO from USB while charging, SYS 4.5 V on USB. ILIM/VSET R104 18k = 4.2 V, 500 mA input limit (SLUSF65B table 6-1). ISET"
 		(exclude_from_sim no)
 		(at 168.91 93.98 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "2dbef76c-6a24-56c9-a930-2da107b30ce0")
+		(uuid "e7038965-92dd-576b-a7b1-418a277fe89e")
 	)
-	(text "ISET R103 1.43k 1% = 300 AOhm / 1.43k = 210 mA charge (199-220 mA), as A0 (the LP503035 cell allows 250 mA, 0.5C). TS/MR to the cell's 10k NTC (DNP 10k fallback"
+	(text "R103 1.43k 1% = 300 AOhm / 1.43k = 210 mA charge (199-220 mA), as A0 (the LP503035 cell allows 250 mA, 0.5C). TS/MR to the cell's 10k NTC (DNP 10k fallback R110); the"
 		(exclude_from_sim no)
 		(at 168.91 96.52 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "0d48147f-4ef8-5265-a9ff-c22de5af2982")
+		(uuid "9e85f7c6-b43c-56be-a82d-2cfdc17b3415")
 	)
-	(text "R110); the fixture enters factory (ship) mode by holding TS/MR low 10 s with USB present (TP TSMR). /CE from GPIO18 (CHG_CE_N, 100k pull-down: charging on from"
+	(text "fixture enters factory (ship) mode by holding TS/MR low 10 s with USB present (TP TSMR). /CE from GPIO18 (CHG_CE_N, 100k pull-down: charging on from reset): firmware"
 		(exclude_from_sim no)
 		(at 168.91 99.06 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "e664c005-8c32-5270-9167-592c3d7c493e")
+		(uuid "ecc4c689-0b8f-50d6-a003-2c5d37e9c616")
 	)
-	(text "reset): firmware pauses charging outside the cell's 0-45 C. STAT1/STAT2 open-drain, 10k pull-ups to +3V3, to GPIO33/34: high-Z on battery, 0 uA. BATFET off below"
+	(text "pauses charging outside the cell's 0-45 C. STAT1/STAT2 open-drain, 10k pull-ups to +3V3, to GPIO33/34: high-Z on battery, 0 uA. BATFET off below 3.0 V (BUVLO): the"
 		(exclude_from_sim no)
 		(at 168.91 101.6 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "30a9008e-1e73-50c1-ac08-6497eb160c85")
+		(uuid "23b7a86b-8f2d-556d-a669-8c93613158f9")
 	)
-	(text "3.0 V (BUVLO): the hardware floor that replaces A0's UVLO divider. Caps per TI: IN 1 uF 25 V, SYS 10 uF 25 V, BAT 1 uF."
+	(text "hardware floor that replaces A0's UVLO divider. Caps per TI: IN and BAT 2.2 uF 25 V 0402 (>= 1 uF left after DC bias, SLUSF65B 7.2.2.3), SYS 10 uF 25 V."
 		(exclude_from_sim no)
 		(at 168.91 104.14 0)
 		(effects
 			(font (size 1 1))
 			(justify left bottom)
 		)
-		(uuid "4e802e1f-c521-5120-9e33-4930823dd6df")
+		(uuid "de720726-b008-5c5f-833f-c7919b98d7d3")
 	)
 	(symbol
 		(lib_id "MAO:BQ25185")
@@ -4438,7 +4438,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1uF 25V"
+		(property "Value" "2.2uF 25V"
 			(at 252.73 40.64 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -4459,14 +4459,14 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "charger IN (TI: 1 uF, 25 V rating)"
+		(property "Description" "charger IN: 2.2 uF 25 V 0402 keeps >= 1 uF at 5 V DC bias (SLUSF65B 7.2.2.3)"
 			(at 250.19 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "MPN" "CL05A105KA5NQNC"
+		(property "MPN" "CL05A225KA5NUNC"
 			(at 250.19 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -4480,7 +4480,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C52923"
+		(property "LCSC" "C307418"
 			(at 250.19 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -4601,7 +4601,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 266.7 39.37 0)
+		(at 269.24 39.37 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4610,56 +4610,56 @@
 		(fields_autoplaced yes)
 		(uuid "67cbd13b-05da-5197-bc0b-6a454faf99a4")
 		(property "Reference" "C102"
-			(at 269.24 38.1 0)
+			(at 271.78 38.1 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Value" "10uF 25V"
-			(at 269.24 40.64 0)
+			(at 271.78 40.64 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 266.7 39.37 0)
+			(at 269.24 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 266.7 39.37 0)
+			(at 269.24 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Description" "charger SYS (TI: 10 uF, 25 V rating)"
-			(at 266.7 39.37 0)
+			(at 269.24 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "MPN" "CL10A106MA8NRNC"
-			(at 266.7 39.37 0)
+			(at 269.24 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Manufacturer" "Samsung"
-			(at 266.7 39.37 0)
+			(at 269.24 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "LCSC" "C96446"
-			(at 266.7 39.37 0)
+			(at 269.24 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
@@ -4682,42 +4682,42 @@
 	)
 	(symbol
 		(lib_id "MAO:VSYS")
-		(at 266.7 35.56 0)
+		(at 269.24 35.56 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "1b3e8091-5309-5125-a998-2af0bb93c1c4")
+		(uuid "2c298f25-136b-54db-8c5f-4fd505c70b24")
 		(property "Reference" "#PWR218"
-			(at 266.7 35.56 0)
+			(at 269.24 35.56 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Value" "VSYS"
-			(at 266.7 31.75 0)
+			(at 269.24 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 			)
 		)
 		(property "Footprint" ""
-			(at 266.7 35.56 0)
+			(at 269.24 35.56 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 266.7 35.56 0)
+			(at 269.24 35.56 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(pin "1"
-			(uuid "a6bbcaaa-ca39-58da-9812-182766d56636")
+			(uuid "eb5990c7-1d17-5911-929c-fa6f31dda382")
 		)
 		(instances
 			(project "MAO_MAIN_A1"
@@ -4730,43 +4730,43 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 266.7 43.18 0)
+		(at 269.24 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "9dfdd53b-371a-564d-95bd-d6b662e07b0f")
+		(uuid "59489431-bbac-5d26-9bda-02bcf500dae3")
 		(property "Reference" "#PWR219"
-			(at 266.7 43.18 0)
+			(at 269.24 43.18 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Value" "GND"
-			(at 266.7 46.99 0)
+			(at 269.24 46.99 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Footprint" ""
-			(at 266.7 43.18 0)
+			(at 269.24 43.18 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 266.7 43.18 0)
+			(at 269.24 43.18 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(pin "1"
-			(uuid "399a0284-14e7-5dbc-840a-278fb50f2433")
+			(uuid "b4e5cced-ff0d-5f54-8f84-29ba65ff440e")
 		)
 		(instances
 			(project "MAO_MAIN_A1"
@@ -4779,7 +4779,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 284.48 39.37 0)
+		(at 287.02 39.37 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4788,56 +4788,56 @@
 		(fields_autoplaced yes)
 		(uuid "7ad4d8e1-64e7-533b-8fdd-265f0730e09a")
 		(property "Reference" "C103"
-			(at 287.02 38.1 0)
+			(at 289.56 38.1 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
-		(property "Value" "1uF 25V"
-			(at 287.02 40.64 0)
+		(property "Value" "2.2uF 25V"
+			(at 289.56 40.64 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 284.48 39.37 0)
+			(at 287.02 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 284.48 39.37 0)
+			(at 287.02 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "Description" "charger BAT (TI: >= 1 uF)"
-			(at 284.48 39.37 0)
+		(property "Description" "charger BAT: 2.2 uF 25 V 0402 keeps >= 1 uF at 4.2 V DC bias (SLUSF65B 7.2.2.3)"
+			(at 287.02 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "MPN" "CL05A105KA5NQNC"
-			(at 284.48 39.37 0)
+		(property "MPN" "CL05A225KA5NUNC"
+			(at 287.02 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Manufacturer" "Samsung"
-			(at 284.48 39.37 0)
+			(at 287.02 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C52923"
-			(at 284.48 39.37 0)
+		(property "LCSC" "C307418"
+			(at 287.02 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
@@ -4860,42 +4860,42 @@
 	)
 	(symbol
 		(lib_id "MAO:VBAT")
-		(at 284.48 35.56 0)
+		(at 287.02 35.56 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "593db75a-3b38-5864-a272-76295087683e")
+		(uuid "0c1d2607-b844-529e-93b7-f5246738c43b")
 		(property "Reference" "#PWR220"
-			(at 284.48 35.56 0)
+			(at 287.02 35.56 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Value" "VBAT"
-			(at 284.48 31.75 0)
+			(at 287.02 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 			)
 		)
 		(property "Footprint" ""
-			(at 284.48 35.56 0)
+			(at 287.02 35.56 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 284.48 35.56 0)
+			(at 287.02 35.56 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(pin "1"
-			(uuid "44169304-9b9f-56c5-9f30-dfbe1fed5789")
+			(uuid "6e5c4206-06ae-5910-9593-0aa5ee178160")
 		)
 		(instances
 			(project "MAO_MAIN_A1"
@@ -4908,43 +4908,43 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 284.48 43.18 0)
+		(at 287.02 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "3f4d8557-202f-5c40-8b31-c2855fabe721")
+		(uuid "ae7f8970-b275-5e8e-905e-f7e8dfccb670")
 		(property "Reference" "#PWR221"
-			(at 284.48 43.18 0)
+			(at 287.02 43.18 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Value" "GND"
-			(at 284.48 46.99 0)
+			(at 287.02 46.99 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Footprint" ""
-			(at 284.48 43.18 0)
+			(at 287.02 43.18 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 284.48 43.18 0)
+			(at 287.02 43.18 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(pin "1"
-			(uuid "41fbad63-00fc-59cd-9354-643fb43c7a26")
+			(uuid "f44e9066-4ad0-5ae8-ad74-7eed13b18279")
 		)
 		(instances
 			(project "MAO_MAIN_A1"
@@ -4957,7 +4957,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 300.99 44.45 0)
+		(at 304.8 44.45 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4966,56 +4966,56 @@
 		(fields_autoplaced yes)
 		(uuid "ff95c854-1eb1-5bb5-9922-9e0939ed5b9f")
 		(property "Reference" "R117"
-			(at 303.53 43.18 0)
+			(at 307.34 43.18 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Value" "100k"
-			(at 303.53 45.72 0)
+			(at 307.34 45.72 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 300.99 44.45 0)
+			(at 304.8 44.45 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 300.99 44.45 0)
+			(at 304.8 44.45 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Description" "/CE default low: charging on from reset and in deep sleep"
-			(at 300.99 44.45 0)
+			(at 304.8 44.45 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "MPN" "0402WGF1003TCE"
-			(at 300.99 44.45 0)
+			(at 304.8 44.45 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Manufacturer" "UNI-ROYAL"
-			(at 300.99 44.45 0)
+			(at 304.8 44.45 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "LCSC" "C25741"
-			(at 300.99 44.45 0)
+			(at 304.8 44.45 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
@@ -5038,53 +5038,53 @@
 	)
 	(global_label "CHG_CE_N"
 		(shape bidirectional)
-		(at 300.99 40.64 90)
+		(at 304.8 40.64 90)
 		(fields_autoplaced yes)
 		(effects
 			(font (size 1.27 1.27))
 			(justify left)
 		)
-		(uuid "db12d1e9-b1d9-5121-b77a-986298170a26")
+		(uuid "3fccaa59-daca-5701-9881-185bda2535e8")
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 300.99 48.26 0)
+		(at 304.8 48.26 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "574edac9-921a-5863-8d54-fb9794b949e7")
+		(uuid "c449cca3-fee9-587d-a772-9c63e4b4262d")
 		(property "Reference" "#PWR222"
-			(at 300.99 48.26 0)
+			(at 304.8 48.26 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Value" "GND"
-			(at 300.99 52.07 0)
+			(at 304.8 52.07 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Footprint" ""
-			(at 300.99 48.26 0)
+			(at 304.8 48.26 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 300.99 48.26 0)
+			(at 304.8 48.26 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(pin "1"
-			(uuid "e837a0d3-3897-5a54-939f-4e6b74b8d76a")
+			(uuid "6b12706f-e1a8-58a8-ac01-7e055ebe29b3")
 		)
 		(instances
 			(project "MAO_MAIN_A1"
@@ -5097,7 +5097,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 313.69 39.37 0)
+		(at 317.5 39.37 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5106,56 +5106,56 @@
 		(fields_autoplaced yes)
 		(uuid "c2a0320a-2e3e-541e-b73b-b9f5b82544d8")
 		(property "Reference" "R118"
-			(at 316.23 38.1 0)
+			(at 320.04 38.1 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Value" "10k"
-			(at 316.23 40.64 0)
+			(at 320.04 40.64 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 313.69 39.37 0)
+			(at 317.5 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 313.69 39.37 0)
+			(at 317.5 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Description" "STAT1 pull-up (SLUSF65B: 1-20k); off on battery: 0 uA"
-			(at 313.69 39.37 0)
+			(at 317.5 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "MPN" "0402WGF1002TCE"
-			(at 313.69 39.37 0)
+			(at 317.5 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Manufacturer" "UNI-ROYAL"
-			(at 313.69 39.37 0)
+			(at 317.5 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "LCSC" "C25744"
-			(at 313.69 39.37 0)
+			(at 317.5 39.37 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
@@ -5178,42 +5178,42 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 313.69 35.56 0)
+		(at 317.5 35.56 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "02729d8a-18bd-52a1-9b37-83ac2e3b023b")
+		(uuid "1c1a5a63-7a2a-5066-b1a9-d1ee25402e94")
 		(property "Reference" "#PWR223"
-			(at 313.69 35.56 0)
+			(at 317.5 35.56 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Value" "+3V3"
-			(at 313.69 31.75 0)
+			(at 317.5 31.75 0)
 			(effects
 				(font (size 1.27 1.27))
 			)
 		)
 		(property "Footprint" ""
-			(at 313.69 35.56 0)
+			(at 317.5 35.56 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(property "Datasheet" ""
-			(at 313.69 35.56 0)
+			(at 317.5 35.56 0)
 			(effects
 				(font (size 1.27 1.27))
 				(hide yes)
 			)
 		)
 		(pin "1"
-			(uuid "75e77a0c-e4b9-5ba4-8023-7ff53b41c771")
+			(uuid "f3d037fb-8d23-59a4-8d5b-6aefd071fd10")
 		)
 		(instances
 			(project "MAO_MAIN_A1"
@@ -5226,13 +5226,13 @@
 	)
 	(global_label "CHG_STAT1"
 		(shape bidirectional)
-		(at 313.69 43.18 270)
+		(at 317.5 43.18 270)
 		(fields_autoplaced yes)
 		(effects
 			(font (size 1.27 1.27))
 			(justify right)
 		)
-		(uuid "37569c07-7915-5b84-b7dc-f8a5cd09fa0f")
+		(uuid "aa98a7ed-218c-5180-b146-dc8ff7ba5c0d")
 	)
 	(symbol
 		(lib_id "Device:R")

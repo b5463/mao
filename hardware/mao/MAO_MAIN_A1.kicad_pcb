@@ -6667,7 +6667,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF 25V"
+		(property "Value" "2.2uF 25V"
 			(at 0 1.16 270)
 			(layer "F.Fab")
 			(hide yes)
@@ -6690,7 +6690,7 @@
 				)
 			)
 		)
-		(property "Description" "charger BAT (TI: >= 1 uF)"
+		(property "Description" "charger BAT: 2.2 uF 25 V 0402 keeps >= 1 uF at 4.2 V DC bias (SLUSF65B 7.2.2.3)"
 			(at 0 0 270)
 			(layer "F.Fab")
 			(hide yes)
@@ -6713,7 +6713,7 @@
 				)
 			)
 		)
-		(property "MPN" "CL05A105KA5NQNC"
+		(property "MPN" "CL05A225KA5NUNC"
 			(at 0 0 270)
 			(layer "F.Fab")
 			(hide yes)
@@ -6737,7 +6737,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C52923"
+		(property "LCSC" "C307418"
 			(at 0 0 270)
 			(layer "F.Fab")
 			(hide yes)
@@ -7762,7 +7762,7 @@
 				)
 			)
 		)
-		(property "Value" "1uF 25V"
+		(property "Value" "2.2uF 25V"
 			(at 0 1.16 270)
 			(layer "F.Fab")
 			(hide yes)
@@ -7785,7 +7785,7 @@
 				)
 			)
 		)
-		(property "Description" "charger IN (TI: 1 uF, 25 V rating)"
+		(property "Description" "charger IN: 2.2 uF 25 V 0402 keeps >= 1 uF at 5 V DC bias (SLUSF65B 7.2.2.3)"
 			(at 0 0 270)
 			(layer "F.Fab")
 			(hide yes)
@@ -7808,7 +7808,7 @@
 				)
 			)
 		)
-		(property "MPN" "CL05A105KA5NQNC"
+		(property "MPN" "CL05A225KA5NUNC"
 			(at 0 0 270)
 			(layer "F.Fab")
 			(hide yes)
@@ -7832,7 +7832,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C52923"
+		(property "LCSC" "C307418"
 			(at 0 0 270)
 			(layer "F.Fab")
 			(hide yes)
@@ -16803,7 +16803,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" "reference divider top: 3.2 V -> 94.6 mV"
+		(property "Description" "reference divider top: 3.2 V x 1.0 / 33.4 = 95.8 mV"
 			(at 0 0 180)
 			(layer "B.Fab")
 			(hide yes)
@@ -19021,7 +19021,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "DMG2302UK"
+		(property "Value" "DMG2302UKQ"
 			(at 0 -2.4 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -19046,7 +19046,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" "backlight sink FET (pins 1 G, 2 S, 3 D)"
+		(property "Description" "backlight sink FET (pins 1 G, 2 S, 3 D); DMG2302UKQ-7 = the automotive-qualified DMG2302UK, same pinout"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -19071,7 +19071,7 @@
 				(justify mirror)
 			)
 		)
-		(property "MPN" "DMG2302UK-7"
+		(property "MPN" "DMG2302UKQ-7"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -19097,7 +19097,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC" "C460977"
+		(property "LCSC" "C5224573"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -27522,7 +27522,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" "Rs: 94.6 mV / 3.3 ohm = 28.7 mA LED current"
+		(property "Description" "Rs: 95.8 mV / 3.3 ohm = 29.0 mA LED current"
 			(at 0 0 180)
 			(layer "B.Fab")
 			(hide yes)
@@ -27885,7 +27885,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "DRV2605LDGSR"
+		(property "Value" "DRV2605LDGST"
 			(at 0 -2.45 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -27910,7 +27910,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" "haptic driver, auto-resonance"
+		(property "Description" "haptic driver, auto-resonance (DGST: the DGSR part on a 250-piece reel)"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -27935,7 +27935,7 @@
 				(justify mirror)
 			)
 		)
-		(property "MPN" "DRV2605LDGSR"
+		(property "MPN" "DRV2605LDGST"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -27961,7 +27961,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC" "C527464"
+		(property "LCSC" "C425927"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)

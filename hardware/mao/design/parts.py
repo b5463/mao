@@ -50,6 +50,7 @@ PASSIVES = {
     ('1n', '0402'): ('C14442', 'CL05B102KB5NNNC', 'Samsung'),            # X7R 50 V
     ('2.2u', '0603', '10V'): ('C100082', 'CL10B225KP8NNNC', 'Samsung'),  # X7R 10 V
     ('10u', '0603', '25V'): ('C96446', 'CL10A106MA8NRNC', 'Samsung'),    # X5R 25 V (charger SYS, TI: 25 V)
+    ('2.2u', '0402', '25V'): ('C307418', 'CL05A225KA5NUNC', 'Samsung'),  # X5R 25 V (charger IN/BAT, review 2026-10-06)
 }
 
 FP = {
