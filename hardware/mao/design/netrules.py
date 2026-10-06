@@ -33,7 +33,7 @@ SLOW_OK = {
     'LCD_PWR_EN', 'HAPTIC_EN', 'TOF_XSHUT', 'AUX_PWR_EN', 'LCD_RST_N', 'AMP_SD', 'CHG_CE_N',
     'CHG_STAT1', 'CHG_STAT2', 'VBUS_SENSE', 'TOF_INT_N', 'IMU_INT1', 'LCD_TE', 'LCD_BL',
     'HALL_A', 'HALL_B', 'HALL_FAST', 'IR_RX', 'IR_TX', 'UART_TX', 'UART_RX', 'MCU_EN', 'PRESS_N', 'BOOT',
-    'GPIO21', 'GPIO26', 'BAT_NTC', 'CHG_ILIM', 'CHG_ISET',
+    'GPIO21', 'GPIO26', 'BAT_NTC', 'CHG_ILIM', 'CHG_ISET', '3V3_LCD',   # (3V3_LCD: ~10 mA panel logic rail)
 }
 INNER_OK = re.compile(r'(%s)$' % '|'.join(sorted(SLOW_OK)))
 INNER_FAST = re.compile(r'(USB_(C_)?D[PN]|LCD_(SCLK|MOSI|CS|DC)\w*|AMP_(DIN|BCLK|LRCLK)|SPK_[PN]|REG_SW|BL_\w+)$')
@@ -78,12 +78,13 @@ def priority(net):
 # the direct paths; everything else follows by the default priority above.
 ROUTE_ORDER = [
     'USB_C_DP', 'USB_C_DN', 'USB_DP', 'USB_DN', 'USB_CC1', 'USB_CC2',
-    'LCD_SCLK_P', 'LCD_MOSI_P', 'LCD_CS', 'LCD_DC', 'LCD_SCLK', 'LCD_MOSI', 'LCD_RST_N', 'LCD_TE',
-    'LCD_BL_K', 'BL_SENSE', 'BL_FB', 'BL_DRIVE', 'BL_GATE', 'BL_REF', 'LCD_BL', '3V3_LCD', 'LCD_PWR_EN',
-    'VBUS', 'VBAT', 'VSYS', 'REG_IN', 'BAT_NTC', 'CHG_ISET', 'CHG_ILIM', 'CHG_CE_N', 'CHG_STAT1', 'CHG_STAT2',
-    'AMP_BCLK', 'AMP_LRCLK', 'AMP_DIN', 'AMP_SD', 'SPK_P', 'SPK_N',
-    'I2C_SDA', 'I2C_SCL',
-    'IR_TX', 'IR_TX_G', 'IR_LED_K', 'IR_RX', 'AUX_3V3', 'IR_RX_VCC', 'AUX_PWR_EN',
-    'HALL_A', 'HALL_B', 'HALL_FAST', 'PRESS_N', 'IMU_INT1', 'TOF_INT_N', 'TOF_XSHUT', 'HAPTIC_EN', 'HAP_REG',
-    'UART_TX', 'UART_RX', 'MCU_EN', 'BOOT', 'VBUS_SENSE', 'GPIO21', 'GPIO26',
+    'LCD_SCLK_P', 'LCD_MOSI_P', 'LCD_CS', 'LCD_DC', 'LCD_SCLK', 'LCD_MOSI', 'LCD_RST_N',
+    # A1: the lines the pin map sends across the board go before the local ones, so they find their lanes
+    'AMP_BCLK', 'AMP_LRCLK', 'AMP_DIN', 'AMP_SD', 'HALL_A', 'HALL_B', 'HALL_FAST', 'LCD_TE', 'IMU_INT1',
+    'TOF_INT_N', 'TOF_XSHUT', 'HAPTIC_EN', 'I2C_SDA', 'I2C_SCL', 'IR_TX', 'IR_RX', 'AUX_PWR_EN', 'PRESS_N',
+    'CHG_CE_N', 'CHG_STAT1', 'CHG_STAT2', 'VBUS_SENSE', 'LCD_BL', 'LCD_PWR_EN',
+    'LCD_BL_K', 'BL_SENSE', 'BL_FB', 'BL_DRIVE', 'BL_GATE', 'BL_REF', '3V3_LCD',
+    'VBUS', 'VBAT', 'VSYS', 'REG_IN', 'BAT_NTC', 'CHG_ISET', 'CHG_ILIM',
+    'SPK_P', 'SPK_N', 'IR_TX_G', 'IR_LED_K', 'AUX_3V3', 'IR_RX_VCC', 'HAP_REG',
+    'UART_TX', 'UART_RX', 'MCU_EN', 'BOOT', 'GPIO21', 'GPIO26',
 ]

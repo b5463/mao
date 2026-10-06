@@ -194,8 +194,8 @@ pin('C202', 270, 'B', '1', 'U201', '3', -1.6, 0.0)         # 3V3 HF at pad 3, GN
 pin('C201', 270, 'B', '1', 'U201', '3', -3.1, 0.0)         # 3V3 bulk beside it
 at('R202', -9.4, 18.7, 0, 'F')                             # BOOT pull-up on F over pin 4's escape via (on B it
                                                            # would sit in PRESS_N's escape row)
-pin('R201', 90, 'B', '2', 'U201', '45', 1.6, 0.0)          # EN pull-up at pin 45
-pin('C203', 90, 'B', '1', 'U201', '45', 2.9, 0.0)          # EN delay
+at('R201', 8.9, 20.0, 180, 'B')                            # EN pull-up below the EN line, +3V3 end east
+at('C203', 10.3, 21.25, 0, 'B')                            # EN delay at the end of the EN line
 # USB 22R on F over pins 23 (D-) / 24 (D+): the pair arrives on F from the ESD array and drops beside the pins
 # through one via each, so B north of pins 25/26 stays open for the spare GPIOs' test pads
 at('R216', -0.55, 5.6, 270, 'F')                           # D- 22R, module end south
@@ -222,7 +222,7 @@ at('R209', -12.4, round(14.85 + DYM, 3), 270, 'B')        # EN pull-down below p
 at('U401', 3.2, 7.0, 0, 'F')
 at('C402', 2.2, 9.25, 0, 'F')              # VDDIO 10 nF under pin 5
 at('C401', 4.843, 9.25, 180, 'F')          # VDD 100 nF under pin 8
-at('C408', 6.7, 7.0, 0, 'F')                                # VDD 2.2 uF X7R
+at('C408', 6.9, 7.0, 0, 'F')                                # VDD 2.2 uF X7R
 at('R404', -0.9, 9.4, 0, 'F')                              # INT1 pull-up west of the IMU, clear of the USB vias
 
 # ==== Tag-Connect at the module's UART pins (B) ========================================================
