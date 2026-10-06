@@ -1,6 +1,6 @@
 {
  "board": "MAO_MAIN_A1.kicad_pcb",
- "silk_texts": 74,
+ "silk_texts": 76,
  "findings": 0,
  "by_kind": {},
  "references_on_fab_only": [
@@ -58,6 +58,7 @@
   "R120",
   "R121",
   "R122",
+  "R123",
   "R201",
   "R202",
   "R207",
@@ -100,6 +101,7 @@
   "TP23",
   "TP24",
   "TP25",
+  "TP26",
   "TP3",
   "TP4",
   "TP5",

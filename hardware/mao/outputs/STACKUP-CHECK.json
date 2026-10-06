@@ -1,10 +1,15 @@
 {
- "broadside_total_mm": 12.2,
+ "broadside_total_mm": 15.4,
  "broadside_pairs": [
   [
    2.58,
    "I2C_SCL",
    "LCD_DC"
+  ],
+  [
+   2.2,
+   "USB_PRESENT_N",
+   "UART_RX"
   ],
   [
    1.9,
@@ -25,6 +30,11 @@
    1.1,
    "BOOT",
    "GND"
+  ],
+  [
+   1.0,
+   "VBUS_SENSE",
+   "REG_IN"
   ],
   [
    1.0,
@@ -93,10 +103,6 @@
   [
    1.98,
    "C502"
-  ],
-  [
-   1.74,
-   "C105"
   ],
   [
    1.61,

@@ -50,12 +50,13 @@ BOARD
   prepreg 0.0764 mm outer, 1.265 mm core). Round, 58.0 mm diameter, with a {notch_w:.1f} mm wide notch at
   6 o'clock (antenna), {notch_d:.2f} mm deep on the axis. Layer order: L1 F.Cu (parts, signals), L2 In1.Cu (solid GND, no tracks),
   L3 In2.Cu (power regions + slow signals), L4 B.Cu (parts, signals).
-- Copper 1 oz outer, 0.5 oz inner (default). No impedance control ordered: USB 2.0 full speed only.
+- Copper 1 oz outer, 0.5 oz inner (default). No impedance control ordered (USB 2.0 full speed): the D+/D- pair is
+  drawn 0.15 mm wide with a 0.25 mm gap on L1 over the L2 ground, about 90 ohm differential on this stack-up.
 - ENIG. Black solder mask, white silkscreen (visible product board, ODD JOBS 172). Green is acceptable
   for the 5-unit EVT build if black costs schedule: inspection is easier on green (ODD JOBS 173).
 - Through vias only (no blind/buried): {n_std} x 0.3 mm drill / 0.6 mm pad (plane and power vias) and
-  {n_fan} x 0.2 / 0.5 mm (designed fan-out beside fine-pitch parts), all tented both sides. {n_th} x 0.2 mm
-  thermal vias inside the U501 exposed pad. Via-in-pad: choose epoxy-filled and capped (POFV) if JLC offers it
+  {n_fan} x 0.2 / 0.5 mm (designed fan-out beside fine-pitch parts; two of them in the U102 BQ25185 exposed pad, as
+  in TI's layout example), all tented both sides. {n_th} x 0.2 mm thermal vias inside the U501 exposed pad. Via-in-pad: choose epoxy-filled and capped (POFV) if JLC offers it
   for this order; otherwise tented / unplugged is acceptable for this EVT. Min track 0.15 mm, min clearance
   0.15 mm: JLC standard 4-layer capability. Two 0.4 mm-pitch WCSP parts (U105, U504, TPS22916C): 0.23 mm
   NSMD lands, JLC fine-pitch assembly.
@@ -67,12 +68,14 @@ BOARD
 - Order number: print it only where the face-side silkscreen reads JLCJLCJLCJLC (under the 6 x 6 mm S/N
   field). Select "Specify a location" when ordering.
 
-ASSEMBLY (JLC PCBA, both sides)
-- Top (F.Cu): charger, the two load switches, IMU, face switch, ToF and IR receiver, Hall sensors, USB ESD.
+ASSEMBLY (JLC PCBA, both sides): order STANDARD PCBA. The two 0.4 mm-pitch WCSP load switches (U105, U504,
+  TPS22916CYFPR) and parts on both sides are outside Economic PCBA.
+- Top (F.Cu): charger, the two load switches, IMU, face switch, ToF and IR receiver, Hall sensors, USB ESD, the
+  USB-presence FET Q102.
   Bottom (B.Cu): module, 3.2 V buck, gauge, backlight sink, display connector, audio, haptics, USB-C,
   battery connector.
 - USB-C J101 has 4 through-hole shell legs: hand-solder or select THT assembly.
-- Footprints without a part: test pads TP1-TP10, TP13, TP15-TP25, Tag-Connect J201 (cable footprint), speaker
+- Footprints without a part: test pads TP1-TP10, TP13, TP15-TP26, Tag-Connect J201 (cable footprint), speaker
   contact pads LS501 (the speaker is bought separately; the enclosure presses its spring contacts on them). The
   LRA (J501) is wired by hand after assembly. Display connector J301 (HDGC 0.5K-HX-18PWB, 18-pin 0.5 mm back-flip
   FPC, LCSC C2919497) IS fitted, on the bottom side with its entry facing the tail slot; the panel's tail passes
@@ -86,7 +89,7 @@ ASSEMBLY (JLC PCBA, both sides)
   silkscreen carries the other ICs, connectors, transistors and diodes, the service resistors and capacitors,
   and the test-pad names.
 - Placement file: KiCad rotations. Check every polarised part and pin 1 in JLC's preview, bottom side
-  mirrored: SOT-23 (Q101, Q302, Q501), SOT-23-5 (U304), SOT-553 (U101), WSON/TDFN/VSON/TQFN (U102, U103,
+  mirrored: SOT-23 (Q101, Q102, Q302, Q501), SOT-23-5 (U304), SOT-553 (U101), WSON/TDFN/VSON/TQFN (U102, U103,
   U104, U501), DSBGA-4 (U105, U504), LGA-14 (U401), VL53L4CD (U402), DRV5012 (U301, U302), MSOP-10 (U502),
   diode (D101), LEDs (D501, D502), JST SH (J102), USB-C (J101), FPC connector (J301, bottom: pad 1 towards
   6 o'clock, FPC entry towards the slot at 9 o'clock), module (U201, antenna over the notch).

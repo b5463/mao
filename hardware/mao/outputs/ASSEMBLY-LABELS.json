@@ -7,7 +7,7 @@
     0.15
   ],
   "reference_layers": "F.SilkS/B.SilkS (plus a Fab copy at the part centre for the assembly drawing)",
-  "reference_count": 32,
+  "reference_count": 33,
   "silk_reference_classes": [
     "U",
     "J",
@@ -73,6 +73,7 @@
     "R120",
     "R121",
     "R122",
+    "R123",
     "R201",
     "R202",
     "R207",
@@ -501,6 +502,29 @@
         6.105,
         -8.525,
         9.036
+      ],
+      "distance_to_own_part_mm": 0.36,
+      "ambiguity_mm": 0.0,
+      "placement": "search"
+    },
+    {
+      "reference": "Q102",
+      "side": "F",
+      "text_xy_mm": [
+        10.75,
+        16.268
+      ],
+      "offset_mm": [
+        -0.25,
+        2.968
+      ],
+      "angle_deg": 0,
+      "text_height_mm": 0.8,
+      "bounding_box_mm": [
+        9.265,
+        15.755,
+        12.235,
+        16.781
       ],
       "distance_to_own_part_mm": 0.36,
       "ambiguity_mm": 0.0,
