@@ -12,7 +12,7 @@ and the VL53L4CD proximity sensor. Everything is generated from `hardware/mao/de
 
 | Face (display side) | Back (service side) |
 |---|---|
-| ![top](renders/mao-main-a1-top.png) | ![bottom](renders/mao-main-a1-bottom.png) |
+| ![top](renders/mao-main-a1-top.jpg) | ![bottom](renders/mao-main-a1-bottom.jpg) |
 
 ## What changed from A0, and why
 
