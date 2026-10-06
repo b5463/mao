@@ -7,14 +7,15 @@ and reports a verdict plus a JSON record per board.
     python tools/factory_test.py COM13                    # start "mao selftest", operator at the bench
     python tools/factory_test.py COM13 --auto             # automatic steps only (no operator)
     python tools/factory_test.py COM13 --reset --wait-boot   # factory build: reset, the test runs at boot
-    python tools/factory_test.py /dev/ttyACM0 --serial MAO-A0-0042 --record results/
+    python tools/factory_test.py /dev/ttyACM0 --serial MAO-A1-0042 --record results/
     python tools/factory_test.py COM13 --dmm "python fixture/dmm.py --pad {pad}"   # DMM on the probe pads
 
 Firmware: any dev build ("mao selftest" on the console) or the factory
 profile (sdkconfig.factory: the test starts by itself two seconds after
 boot). Procedure, fixture and limits: docs/hardware/mao-factory-test.md.
 
-Probe pads (TP13 3V3_LCD, TP14 MIC_VDD, TP15 IR_RX_VCC): the firmware
+Probe pads (A1: the display logic rail and the IR receiver supply, provisionally
+TP13 / TP15 as on the A0 until the A1 board names them): the firmware
 switches each rail off and on and asks for a reading ("SELFTEST MEASURE").
 With --dmm the given command is run per reading ({pad}, {net}, {state} are
 filled in; it must print the voltage in volts) and the result is sent back;
@@ -91,7 +92,7 @@ class Console:
 
     def reset(self):
         # USB-Serial/JTAG reset as esptool does it: RTS pulse with DTR low.
-        # VERIFY on the A0 (GPIO0 must not be held, or the ROM loader starts).
+        # VERIFY AT BRING-UP on the A1 (GPIO0 = BOOT pad only, so the press can no longer start the ROM loader).
         self.ser.dtr = False
         self.ser.rts = True
         time.sleep(0.1)
@@ -160,7 +161,7 @@ def main() -> int:
     ap.add_argument("--yes", action="store_true", help="answer every confirm prompt 'yes' (unattended runs)")
     ap.add_argument("--dmm", default="", help="command that prints the voltage (V) at a probe pad; "
                     "{pad}, {net}, {state} are substituted")
-    ap.add_argument("--no-pads", action="store_true", help="skip the probe-pad measurements (TP13-TP15)")
+    ap.add_argument("--no-pads", action="store_true", help="skip the probe-pad measurements (switched rails)")
     ap.add_argument("--timeout", type=float, default=600.0, help="overall limit in seconds (default 600)")
     ap.add_argument("--serial", default="", help="board serial / label to put in the record")
     ap.add_argument("--record", default="", help="directory for a JSON record per board")

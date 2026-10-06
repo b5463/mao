@@ -195,6 +195,21 @@ static void rest_later(uint32_t ms)
 /* The power task: the chip's rest                                        */
 /* ---------------------------------------------------------------------- */
 
+static void critical_rest(bool dark);
+
+/* While the chip rests the event queue does not run: a cell that turns
+ * critical in light sleep is acted on from the rest loop itself. */
+static bool critical_now(void)
+{
+#if CONFIG_MAO_BATTERY_CRITICAL_SLEEP
+    mao_battery_status_t st;
+    mao_battery_get_status(&st);
+    return st.critical && !st.usb_present;
+#else
+    return false;
+#endif
+}
+
 /* Everything besides the display and the audio that rests with the chip
  * (all no-ops on the LCDkit). */
 static void peripherals_rest(bool rest)
@@ -283,12 +298,19 @@ static void light_rest(void)
         if (causes & (1u << ESP_SLEEP_WAKEUP_GPIO)) {
             if (why.usb && !why.dial && !why.press) {
                 mao_battery_poll();                  /* USB came or went: housekeeping, not a wake */
+                if (critical_now()) {
+                    critical_rest(true);             /* does not return */
+                }
                 continue;
             }
             break;
         }
         if (causes & (1u << ESP_SLEEP_WAKEUP_TIMER)) {
             mao_battery_poll();                      /* the gauge and the charge limit (no-op on the LCDkit) */
+            if (critical_now()) {
+                ESP_LOGW(TAG, "critical battery while resting");
+                critical_rest(true);                 /* does not return */
+            }
             if (s_dev_wake_s && s_slept_us >= (int64_t)s_dev_wake_s * 1000000 - 20000) {
                 break;                             /* DEV: the timer stands in for the knob */
             }
