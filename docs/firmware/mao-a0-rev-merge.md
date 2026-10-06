@@ -1,3 +1,5 @@
+> **SUPERSEDED** by [mao-a1-firmware.md](mao-a1-firmware.md): the A0 board firmware was ported onto the M4.1 tree for the MAO_MAIN A1 (2026-10-06). Kept for history; do not apply.
+
 # MAO_MAIN A0 board revision: firmware merge guide
 
 How to carry the firmware changes for the revised MAO_MAIN A0 board onto a

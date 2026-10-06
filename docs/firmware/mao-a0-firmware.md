@@ -1,3 +1,5 @@
+> **SUPERSEDED** by [mao-a1-firmware.md](mao-a1-firmware.md): the A0 board firmware was ported onto the M4.1 tree for the MAO_MAIN A1 (2026-10-06). Kept for history; do not apply.
+
 # MAO_MAIN A0 firmware
 
 Firmware support for the MAO_MAIN A0 board (ESP32-S3-WROOM-1-N8R2) next to
