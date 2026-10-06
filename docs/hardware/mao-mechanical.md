@@ -19,8 +19,8 @@ Coordinates: board millimetres, origin on the puck axis (display centre), +x to 
 | Air / foam | 0.2 | no pressure on the panel glass |
 | Display, 1.28" round GC9A01 (Winstar WF0128BTYAA4DNN0, 35.6 × 37.74 × 1.56) | ~2.0 | on a printed carrier that floats with the window (press travel 0.25 mm) |
 | Panel standoff | 2.7 | carrier + 0.5 mm foam; the slack of the panel's 70 mm FPC tail lies as one long loop in a 0.4 mm pocket of the carrier, turning in a 2.4 mm well, and the tail drops through the board slot at 9 o'clock to J301 on B.Cu (§4a). Set by the tallest part under the window border, the IR receiver (4.0 ± 0.3 mm with its dome): 0.35 mm clearance at worst case with the face pressed (ODD JOBS 135) |
-| PCB F.Cu side (Zone A) | (≤ 1.2) | inside the standoff, under the panel; tallest parts are the SKQG switch with stem (1.5, pressed by the carrier boss by design), the display rail switch U105 (SC70-6, 1.1) and the charger U102 (1.0). Nothing under the carrier's tail well (x 6 … 12, y ±5.75) or beside the slot. Under the window border (sensor band) parts may reach 4.3 mm; under the ring's lower lip (r > 24 mm, lip 1.9 mm above F.Cu) ≤ 0.95 mm (0603). `design/mech_check.py` checks every part's 3D-model height against these limits: 0 findings |
-| PCB | 1.6 | 4 layers (JLC04161H-1080), black mask, ENIG |
+| PCB F.Cu side (Zone A) | (≤ 1.2) | inside the standoff, under the panel; tallest parts are the three SKQG face switches with stems (1.5, pressed by the carrier's three bosses by design, A1 §4), the display rail switch U105 (SC70-6, 1.1) and the charger U102 (1.0). Nothing under the carrier's tail well (x 6 … 12, y ±5.75) or beside the slot. Under the window border (sensor band) parts may reach 4.3 mm; under the ring's lower lip (r > 24 mm, lip 1.9 mm above F.Cu) ≤ 0.95 mm (0603). `design/mech_check.py` checks every part's 3D-model height against these limits: 0 findings |
+| PCB | 1.6 | 4 layers (JLC04161H-1080), A1: purple mask, white legend, ENIG (owner decision 2026-10-06; A0: black) |
 | PCB B.Cu side (Zone B) | ≤ 3.2 | USB-C 3.2 mm, module 3.1 mm, JST SH 2.96 mm, everything else ≤ 1.2; nothing in the tail corridor between the slot and J301, nothing under the speaker but its contact pads |
 | Insulator | 0.3 | Kapton or fish paper on the cell's top face |
 | Cell LP503035 | 5.1 | 35.5 × 30 mm, centred at (0, −5.6), long axis along x: 12.05 mm from the antenna boundary |
@@ -66,26 +66,39 @@ Alternative if a mechanical click is wanted: a printed leaf spring with a 0.6 mm
 the ring's inner wall (audible, some wear). The earlier steel-pin magnetic detent needs strong sintered
 magnets, which must not pass over the antenna.
 
-## 4. Face press
+## 4. Face press (A1: tripod, owner decision 2026-10-06)
 
-The face (window, display and printed carrier) is one rocking plate on flexures. FDM cannot hold the 0.1 mm
-sliding fit a guided plunger would need, so nothing slides:
+The face (window, display and printed carrier) rests on **three tact switches** and floats on its flexures. FDM
+cannot hold the 0.1 mm sliding fit a guided plunger would need, so nothing slides. A1 replaces A0's single SKQG at
+the centre (the face rocked about the lip onto one boss) with a tripod, so the face moves almost straight down and
+every part of it clicks the same.
 
-- **Suspension:** three S-shaped flexure arms printed in one piece with the carrier (PETG, 0.8 mm thick, 1.2 mm
-  wide, about 18 mm long along the sensor band) at 60°, 180° and 300°, clear of the sensor apertures and the TOP
-  spring. Their outer ends are pinned to bosses in the top shell. They centre the face, stop it turning with the
-  ring, and preload it up against the shell's 0.6 mm lip by about 0.5 mm of deflection (≈ 0.3 N).
-- **Hinge:** the lip all round is the fulcrum. A press anywhere tips the face about the lip opposite the finger
-  and drives the Ø2 boss under the carrier (at (0, −2.5), reaching down through the 2.7 mm standoff) onto the
-  SKQG stem. At the centre that is about 2.6 N and 0.25 mm; at the rim about 1.3 N and 0.5 mm.
-- **Stop:** the switch bottoming out is the hard stop; at full travel nothing under the panel comes closer than
-  0.5 mm (U105 and U102, 1.1 / 1.0 mm, the tallest parts there besides the switch). Flexure stress at full travel is about 11 MPa, a fifth of PETG's yield.
-- **Feel:** a short, firm, quiet tick from the switch's dome as the face dips a fraction of a millimetre, and one
-  firm LRA click on every press (firmware) so centre and rim presses feel alike.
+- **Switches:** three ALPS **SKQGAFE010** (LCSC C202424, JLC Extended, 24,977 in stock on 2026-10-06; 0.98 N, 0.25 mm
+  travel, 1.5 mm with stem, 500,000 cycles), SW301 / SW302 / SW303 in parallel on PRESS_N (GPIO14, the 100 k
+  pull-up R318; no firmware or pin change). Positions (`mechanical.PRESS_TRIPOD`, board mm, angle clockwise from
+  12 o'clock): SW301 **70°, r 17.6** (16.54, −6.02); SW302 **190°, r 14.5** (−2.52, 14.28); SW303 **310°, r 14.5**
+  (−11.11, −9.32). The angles are 120° apart. The radii are not equal: on the 3 o'clock side of the panel area the
+  tail well (x 6 … 12, y ±5.75), the IR receiver's courtyard and the charger leave one pocket for a 5.2 mm switch
+  with its keep-outs, at r 17.6 (still under the panel's rim, outline r 17.8); the other two sit at r 14.5 where the
+  F routing leaves them room. The support triangle's centroid is 1.0 mm from the axis.
+- **Bosses:** three Ø2 bosses on the carrier's underside, one over each stem, reaching from the panel's rear plane
+  (2.7 mm above F.Cu) down 1.2 mm onto the 1.5 mm stems (`mechanical.BOSS_D`, `SWITCH_H`). Set them to touch the
+  stems with the flexures relaxed (no preload on the domes); print them solid (100 % infill) so they do not creep.
+  The flexures' 0.5 mm preload against the shell's 0.6 mm lip (≈ 0.3 N) is unchanged.
+- **Suspension:** the three S-shaped flexure arms (PETG, 0.8 × 1.2 mm, about 18 mm long along the sensor band) now
+  only **centre** the face and stop it turning with the ring; they no longer form a hinge. Put their roots between
+  the bosses, at 10°, 130° and 250°, clear of the ToF (332°) and IR (90°) apertures.
+- **Force and travel:** a press at the centre loads the three domes in proportion to 1/r (29 / 35.5 / 35.5 %):
+  the first dome clicks at about 2.8 N, all three by about 3.4 N (three × 0.98 N nominal ≤ 4 N). A press over one
+  switch clicks that switch at about 1 N plus the flexures' share; a press between two switches tips the face a
+  little about the line through them and clicks them both. Travel 0.25 mm wherever it is pressed; nothing slides.
+- **Stop:** the domes bottoming out are the hard stop; at full travel nothing under the panel comes closer than
+  0.5 mm (U105 and U102, 1.1 / 1.0 mm). The tail's long loop flexes 0.25 mm, not a fold (§4a).
+- **Feel:** an even, short click anywhere on the face (the nearest dome or two), plus one LRA click on every press
+  (firmware). Check at bring-up that a press at the 70° rim (SW301's longer lever) and at the centre feel alike.
 - **Look:** a flat clear window 0.6 mm below a thin rim, so laying MAO face-down never presses it.
-- The tail's slack is one long loop, so the face's travel flexes the loop, not a fold (§4a).
-- Holding the face during a reset enters the ROM bootloader (GPIO0), as with the LCDkit knob. The reset is TP7 RST,
-  Tag-Connect EN, or plugging USB into a board with no cell: with a cell fitted, plugging USB does not reset the chip.
+- A1 has no strap on the press (GPIO14): holding the face during a reset does not enter the ROM bootloader; use
+  the BOOT pad (TP8) or the Tag-Connect.
 
 ## 4a. Display tail (stock Winstar WF0128BTYAA4DNN0, 70.1 mm)
 
