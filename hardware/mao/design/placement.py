@@ -226,7 +226,7 @@ at('C408', 6.9, 7.0, 0, 'F')                                # VDD 2.2 uF X7R
 at('R404', -0.9, 9.4, 0, 'F')                              # INT1 pull-up west of the IMU, clear of the USB vias
 
 # ==== Tag-Connect at the module's UART pins (B) ========================================================
-at('J201', 14.4, 16.6, 90, 'B')
+at('J201', 14.4, 16.6, 270, 'B')
 
 # ==== F: window-border sensors, Hall pair (A0 places) ==================================================
 P['U402'] = rim(m.TOF_R, m.TOF_ANGLE, 'F')
@@ -257,12 +257,12 @@ at('R207', -8.4, 4.4, 0, 'B')                              # display reset pull-
 _field = {'TP2': (6.0, -6.1), 'TP3': (8.8, -6.1), 'TP4': (11.6, -6.1), 'TP5': (14.3, -6.1),
           'TP10': (6.0, -3.3), 'TP1': (11.6, -3.3), 'TP16': (14.3, -3.3),
           'TP9': (6.0, -0.5), 'TP7': (14.3, -0.5),
-          'TP8': (17.8, 12.3),       # BOOT (A1): beside the Tag-Connect's GPIO0 pin, the other end of the net
+          'TP8': (11.2, 18.4),       # BOOT (A1): beside the Tag-Connect's GPIO0 pin, the other end of the net
           # Gate C fixture pads (A1), each on its net's own path, so none walls off the module's top-row fan-out
           'TP17': (-3.0, -12.9),     # BL: beside the backlight reference divider
           'TP18': (-15.0, -14.3),    # AMP: beside the amplifier's SD_MODE pull-down
           'TP19': (9.7, 7.4),        # TE: at the module's TE escape (pin 31)
-          'TP20': (-2.4, 2.4),       # PRS: under the face switch
+          'TP20': (-3.0, 3.6),       # PRS: on the press line between the module and the face switch
           'TP21': (1.4, 3.05),       # HLA: north of module pin 25 (GPIO21, the dial's wake line)
           'TP22': (14.3, 2.3),       # TSMR: on the NTC line between the charger and the battery plug
           'TP23': (9.4, -14.3),      # CE: beside the charger's /CE pull-down
