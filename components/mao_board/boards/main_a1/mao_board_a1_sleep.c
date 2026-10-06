@@ -3,9 +3,9 @@
  * and pad does while it sleeps.
  *
  * Deep sleep (RTC pads only):
- *   - ext1 ANY_LOW: face press GPIO1 (100 k pull-up) and IMU INT1 GPIO4
+ *   - ext1 ANY_LOW: face press PRESS_N (GPIO14, 100 k pull-up) and IMU INT1 (GPIO4)
  *     (open drain, active low, latched, 100 k pull-up);
- *   - ext0: dial channel A GPIO2, armed at the level it is NOT at now, so
+ *   - ext0: dial channel A HALL_A (GPIO21), armed at the level it is NOT at now, so
  *     any turn of the ring wakes MAO (the Hall latch keeps sampling in its
  *     low-power mode, HALL_FAST low);
  *   - VBUS_SENSE (GPIO39) is not an RTC pad: USB cannot wake MAO from deep

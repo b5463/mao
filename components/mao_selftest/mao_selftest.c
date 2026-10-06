@@ -76,8 +76,8 @@ static const char *TAG = "MAO_SELFTEST";
 /* Switched rails at their probe pads (the display logic rail behind
  * LCD_PWR_EN, the IR receiver supply behind AUX_PWR_EN; both TPS22916C load
  * switches on +3V3), measured to GND by the fixture DMM or the operator.
- * VERIFY AT BRING-UP: the A1 pad names (TP13 / TP15 kept from the A0 until
- * the A1 board assigns them) and the limits against the A1 +3V3. */
+ * A1 pads (hardware/mao/design/circuit.py TEST_PADS): TP13 = 3V3_LCD, TP15 =
+ * IR_RX_VCC. VERIFY AT BRING-UP: the limits against the A1 +3V3. */
 #define PAD_LCD                 "TP13"
 #define PAD_IRV                 "TP15"
 #define LIM_PAD_OFF_MAX_MV      300

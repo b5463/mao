@@ -14,8 +14,8 @@ Firmware: any dev build ("mao selftest" on the console) or the factory
 profile (sdkconfig.factory: the test starts by itself two seconds after
 boot). Procedure, fixture and limits: docs/hardware/mao-factory-test.md.
 
-Probe pads (A1: the display logic rail and the IR receiver supply, provisionally
-TP13 / TP15 as on the A0 until the A1 board names them): the firmware
+Probe pads (A1: TP13 = the display logic rail 3V3_LCD, TP15 = the IR receiver
+supply IR_RX_VCC, per hardware/mao/design/circuit.py TEST_PADS): the firmware
 switches each rail off and on and asks for a reading ("SELFTEST MEASURE").
 With --dmm the given command is run per reading ({pad}, {net}, {state} are
 filled in; it must print the voltage in volts) and the result is sent back;

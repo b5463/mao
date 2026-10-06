@@ -70,12 +70,12 @@ generates is byte-identical to the M4.1 one.
 |---|---|
 | Module | ESP32-S3-MINI-1-N8, no PSRAM; chip checked at `mao_board_init()` |
 | Revision | NVS `mao`/`hw_rev`, written at manufacturing (`mao board rev A1`, dev console); `"A1"` when absent. The boot check's own record moved to `mao`/`chk_rev` |
-| Rails / enables | plain GPIOs, each with a hardware pull-down (off from reset): LCD_PWR_EN 6, LCD_RST_N 7, AMP_SD 9, HAPTIC_EN 14, TOF_XSHUT 15, AUX_PWR_EN 16 (IR receiver), IR_TX 17, CHG_CE_N 18. Latched low as outputs at init (input+output, so the self-test reads them back). Held in light and deep sleep |
+| Rails / enables | plain GPIOs, each with a hardware pull-down (off from reset): LCD_PWR_EN 6, LCD_RST_N 7, AMP_SD 9, HAPTIC_EN 1, TOF_XSHUT 15, AUX_PWR_EN 38 (IR receiver), IR_TX 17, CHG_CE_N 18. Latched low as outputs at init (input+output, so the self-test reads them back). Held in light and deep sleep |
 | Display | GC9A01 on SPI2 IO_MUX pads (SCLK 12, MOSI 11, CS 10), DC 13, TE 35 (input, unused yet); rail + reset sequence as on the A0; rotation `CONFIG_MAO_A1_LCD_ROTATION` (default 90), SPI clock `CONFIG_MAO_A1_LCD_PCLK_MHZ` (default 80) |
 | Backlight | LEDC on GPIO8 into the analogue current sink: the LCDkit's LEDC code (30 kHz, 9 bit, RC_FAST, kept alive in light sleep, hardware fades), so the M4.1 3 % rest level and the fades work unchanged. No AW9364 |
-| Dial / press | Hall A GPIO2 / B GPIO37, rest mask 00\|11, 2 transitions per detent, 30 per revolution; press GPIO1 (off every strap). HALL_FAST GPIO5 high while awake, low (low-power sampling) in sleep (`mao_input_sleep`) |
+| Dial / press | Hall A GPIO21 / B GPIO37, rest mask 00\|11, 2 transitions per detent, 30 per revolution; press GPIO14 (off every strap). HALL_FAST GPIO5 high while awake, low (low-power sampling) in sleep (`mao_input_sleep`) |
 | Light-sleep wake | the knob (`mao_board_knob_wake_arm`: Hall A / B at the level they are not at, press low) plus, from the rest loop, VBUS_SENSE at its other level |
-| Deep-sleep wake | ext1 ANY_LOW: press GPIO1, IMU INT1 GPIO4; ext0: Hall A GPIO2 at its other level. USB cannot wake (GPIO39 is not an RTC pad) |
+| Deep-sleep wake | ext1 ANY_LOW: press GPIO14, IMU INT1 GPIO4; ext0: Hall A GPIO21 at its other level. USB cannot wake (GPIO39 is not an RTC pad) |
 | I2C | I2C0 SDA 47 / SCL 48, 4.7 k, 400 kHz: ICM-42670-P 0x68, VL53L4CD 0x29, MAX17048 0x36, DRV2605L 0x5A; ToF and haptic powered for the boot probe and a scan |
 | Charger | BQ25185: STAT1 33 / STAT2 34 (H/H done or no input, H/L charging, L/H recoverable fault, L/L latched fault: `mao_board_charger_status()`), /CE = CHG_CE_N (high pauses), VBUS_SENSE 39 (divider, high = present) |
 | Audio | MAX98357A on I2S0 standard TX (BCLK 40, LRCLK 41, DIN 42), SD_MODE = AMP_SD |
