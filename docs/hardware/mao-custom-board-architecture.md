@@ -1,3 +1,5 @@
+> **Superseded 2026-10-06 (kept as history):** this document describes MAO_MAIN **A0**. The current board is MAO_MAIN **A1** (A0 moved to the M5 Gate C architecture): see [mao-a1-report.md](mao-a1-report.md).
+
 # MAO_MAIN A0: architecture
 
 MAO_MAIN A0 is the first custom MAO board (engineering prototype, EVT). It replaces the

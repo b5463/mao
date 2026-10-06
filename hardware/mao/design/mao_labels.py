@@ -51,7 +51,7 @@ def on_board(q, edge):
         if x * x + y * y > (m.PCB_R - edge) ** 2: return False
     return not (q[2] > -m.NOTCH_W / 2 - edge and q[0] < m.NOTCH_W / 2 + edge and q[3] > m.NOTCH_Y - edge)
 
-prototype = True                 # MAO A0 is a prototype: references stay on silk (ODD JOBS 177)
+prototype = True                 # MAO A1 is a prototype: references stay on silk (ODD JOBS 177)
 SIZES = [(.8, .15)]             # type scale: identity 1.5 > connectors 1.2 > references and test-pad names 0.8 (0.15 mm stroke)
 BODY_GAP, TEXT_GAP, EDGE, AMBIGUITY = .15, .25, .5, .3
 ALIGN = float(__import__('os').environ.get('LBL_ALIGN', .6))                     # score per mm a label sits off the middle of its part's side

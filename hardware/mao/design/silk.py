@@ -1,9 +1,9 @@
 # Brand placement adapted from b5463/kino-d4 hardware/pcb/kino-d4-carrier-a0/design/apply_brand.py @ 68aba75.
-"""MAO_MAIN A0 silkscreen: identity, function labels, service marks (KiCad python). Idempotent.
+"""MAO_MAIN A1 silkscreen: identity, function labels, service marks (KiCad python). Idempotent.
 
 ODD JOBS 41-43, 92-103, 172-177:
   F.SilkS  ODD JOBS maker's mark (approved artwork from brand/odd-jobs-symbol.json, traced from the
-           supplied PNG, never redrawn) above MAO / MAIN A0 / date, on the calm lower-left of the face
+           supplied PNG, never redrawn) above MAO / MAIN A1 / date, on the calm lower-left of the face
            side; LCD, TOP and the antenna keep-clear note
   B.SilkS  maker's mark and product line in the corner visible with the cell fitted; connector
            functions with pin cues (USB, BAT - T +, SPK, LRA, REAR, LCD, TAG), test-pad function names
@@ -27,7 +27,8 @@ from board import ROOT, TARGET, at, courtyard_boxes
 import mechanical as m
 
 DATE = '2026-10'
-FIELD = {'TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP8', 'TP9', 'TP10', 'TP11', 'TP16'}
+FIELD = {'TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP7', 'TP8', 'TP9', 'TP10', 'TP16',
+         'TP17', 'TP18', 'TP19', 'TP20', 'TP21', 'TP22', 'TP23', 'TP24', 'TP25'}
 GROUPS = ('MAO silk F', 'MAO silk B', 'ODD JOBS maker mark', 'MAO easter eggs')
 IDENT, CONN, DEBUG = 1.5, 1.2, m.FIELD_TEXT  # type scale: identity, connectors, test pads (references 0.8)
 STROKE = 0.15
@@ -296,12 +297,12 @@ def main():
         placed[sd].append(tbox(t))
         return t
 
-    # ---- identity, face side (F): maker's mark over MAO / MAIN A0 / date, the S/N field below ---------------
+    # ---- identity, face side (F): maker's mark over MAO / MAIN A1 / date, the S/N field below ---------------
     w = 4.6
     h = mark(BRAND_CENTRE, w, 'F')
     bx, by = BRAND_CENTRE
     placed['F'].append((bx - w / 2, by - h / 2, bx + w / 2, by + h / 2))
-    for s_, dy, size, bold in (('MAO', 1.45, IDENT, True), ('MAIN A0', 3.4, 1.0, False), (DATE, 4.85, 0.8, False)):
+    for s_, dy, size, bold in (('MAO', 1.45, IDENT, True), ('MAIN A1', 3.4, 1.0, False), (DATE, 4.85, 0.8, False)):
         t = text(s_, bx, by + h / 2 + dy, 'F', size, bold=bold, gname='ODD JOBS maker mark')
         placed['F'].append(tbox(t))
     # S/N field (ODD JOBS 101): a 6 x 6 mm box for a DataMatrix sticker or laser mark, its name above it, and
@@ -334,9 +335,6 @@ def main():
         placed['F'].append(tbox(text(s_, x_, y_, 'F', 0.8)))
 
     # ---- face side function labels --------------------------------------------------------------------
-    tx, ty = centre('J302')
-    label('TOP', [(tx, ty + 2.6), (tx, ty - 2.6), (tx + 2.6, ty, 90), (tx - 2.6, ty, 90)], 'F', CONN,
-          anchor=(tx, ty, 1.6))
     ny = m.NOTCH_Y
     one = [(0.0, ny - 0.9), (0.0, ny - 0.8), (0.0, ny - 0.7), (0.0, ny - 1.2), (0.0, ny - 1.5)] + \
           [(dx_, ny - 1.8 - 0.3 * k) for k in range(5) for dx_ in (0.0, -0.5, 0.5, -1.0, 1.0)]
@@ -350,7 +348,7 @@ def main():
     bw = B_MARK_W                          # the back mark (4.6 mm: its finest strokes stay >= 0.15 mm), the product
     bh = bw * (data['pixel_bounds'][3] - 1) / (data['pixel_bounds'][2] - 1)   # line centred under it
     def block(cx_, cy_, ident=1.5):        # identity 1.5 mm (1.3 / 1.2 where the back has no field for it)
-        lines_ = [('MAO A0', cy_ + bh / 2 + 0.45 + ident / 2, ident, True), (DATE, cy_ + bh / 2 + ident + 1.45, 0.8, False)]
+        lines_ = [('MAO A1', cy_ + bh / 2 + 0.45 + ident / 2, ident, True), (DATE, cy_ + bh / 2 + ident + 1.45, 0.8, False)]
         boxes_ = [(cx_ - bw / 2, cy_ - bh / 2, cx_ + bw / 2, cy_ + bh / 2)]
         boxes_ += [measure(s_, cx_, y_, 'B', size) for s_, y_, size, _ in lines_]
         return lines_, boxes_
@@ -420,8 +418,6 @@ def main():
           inside=('LS501',), anchor=(sx, sy, 7.0))
     lx, ly = centre('J501')
     label('LRA', [(lx - 2.05, ly + 2.3), (lx - 2.5, ly - 2.4), (lx + 1.25, ly + 3.5)], 'B', CONN, anchor=(lx, ly, 1.5))
-    rx, ry = centre('J303')
-    label('REAR', [(rx, ry - 3.8), (rx - 0.6, ry - 3.8), (rx, ry - 4.2), (rx + 3.6, ry)], 'B', CONN, anchor=(rx, ry, 1.5))
     jx, jy = centre('J301')                # display FPC on B: the name on the side the tail comes in from
     label('LCD', [(jx - 2.9, jy, 270), (jx - 3.3, jy, 270), (jx + 2.6, jy, 270), (jx, jy - 6.6), (jx, jy + 6.6)],
           'B', CONN, anchor=(jx, jy, 3.0))
@@ -502,8 +498,10 @@ def main():
         flat_c = [(x, y + r + 0.7), (x, y - (r + 0.7)), (x + r + 0.45 + wd / 2, y), (x - (r + 0.45 + wd / 2), y)]
         label(f.GetValue(), [(cx_, cy_, 270) for cx_, cy_ in side_c] + flat_c, 'B', DEBUG, anchor=(x, y, r))
 
-    # ---- face side: IMU axes (ODD JOBS 156), from ST AN5192 Fig. 1: pin 1 top left, +X towards pins 8-11,
-    # +Y towards pins 12-14, +Z out of the top. U401 sits on F at 0 deg: +X = board +x, +Y = towards 12 o'clock.
+    # ---- face side: IMU axes (ODD JOBS 156). A1: ICM-42670-P, TDK DS-000451 r1.0 Fig. 4 / Fig. 15: pin 1 top left,
+    # +X towards pins 8-11, +Y towards pins 12-14, +Z out of the top (the same package convention as A0's LSM6DSOX).
+    # U401 sits on F at 0 deg: +X = board +x, +Y = towards 12 o'clock, +Z out of the face. Firmware confirms the map at
+    # bring-up (a still board, face up, reads +1 g on Z).
     ix, iy = centre('U401')
     spots = [(ix + dx, iy + dy) for dx in (3.2, 3.6, 4.0, -4.6) for dy in (1.5, 1.1, 0.7, 1.9)]
     for ox, oy in spots:
@@ -602,12 +600,12 @@ def main():
     for sd_ in ('F', 'B'):                 # the held room is for the references, not a placed item
         placed[sd_] = [q for q in placed[sd_] if q not in held[sd_]]
     tb = b.GetTitleBlock()                 # drawings plotted from the board (assembly PDFs) carry the identity too
-    tb.SetTitle('MAO_MAIN A0')
-    tb.SetRevision('A0')
+    tb.SetTitle('MAO_MAIN A1')
+    tb.SetRevision('A1')
     tb.SetDate(DATE)
     tb.SetCompany('ODD JOBS')
     tb.SetComment(0, 'Main board, 4 layers (JLC04161H-1080), 1.6 mm, ENIG, black mask')
-    tb.SetComment(1, 'docs/hardware/mao-rev-a0-review.md')
+    tb.SetComment(1, 'docs/hardware/mao-a1-report.md')
     pcb.SaveBoard(str(TARGET), b)
     import project
     project.write()

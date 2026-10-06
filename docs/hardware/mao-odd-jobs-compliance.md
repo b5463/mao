@@ -1,3 +1,5 @@
+> **Superseded 2026-10-06 (kept as history):** this document describes MAO_MAIN **A0**. The current board is MAO_MAIN **A1** (A0 moved to the M5 Gate C architecture): see [mao-a1-report.md](mao-a1-report.md).
+
 # MAO_MAIN A0: ODD JOBS standard, rule by rule
 
 Every rule of `hardware/mao/ODD-JOBS-STANDARD.txt` (V1.0, rules 1–200 plus the RF picture and the release gates),

@@ -235,10 +235,10 @@ at('R401', -5.81, -18.5, 180, 'F')         # TOF_INT pull-up square to pin 7
 pin('R210', 90, 'F', '1', 'U402', '5', 1.2, -0.6)
 at('C506', 23.6, -3.9, 0, 'F')             # IR receiver VCC cap beside pin 4
 at('R506', 23.6, 3.6, 0, 'F')              # OUT pull-up beside pin 3
-at('R505', 21.96, 6.75, 180, 'F')          # RC filter from the switched rail (AUX_3V3 east, as A0)
-at('U504', 19.4, 4.6, 0, 'F')              # TPS22916C for the receiver rail
-at('C508', 17.3, 4.6, 90, 'F')             # its VIN 1 uF
-at('R211', 19.4, 6.75, 0, 'F')             # AUX_PWR_EN pull-down
+at('R505', 21.96, 6.75, 0, 'F')            # RC filter from the switched rail (AUX_3V3 west, towards U504)
+at('U504', 19.4, 4.6, 180, 'F')            # TPS22916C for the receiver rail: VOUT towards R505
+at('C508', 17.3, 4.6, 90, 'F')             # its VIN 1 uF, west of its courtyard
+at('R211', 16.05, 4.0, 270, 'F')            # AUX_PWR_EN pull-down west of the switch's VIN cap
 P['C303'] = rim(24.0, 117.0, 'F')[:2] + (0, 'F')
 P['C304'] = rim(24.0, 124.0, 'F')[:2] + (0, 'F')
 P['R306'] = rim(24.0, 130.0, 'F')[:2] + (0, 'F')
