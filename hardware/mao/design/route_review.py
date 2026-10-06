@@ -19,6 +19,19 @@ identical channels swap (circuit.py: pin 3 D-, pin 5 D+), so each line passes th
 pair between the I2C clock's via (3.4, -5.45) and the I2C data line's corner, the data line turns 0.35 mm earlier
 ((3.95, -7.0) -> (4.75, -6.2)); the I2C clock's B -> L3 via north of the 22R moves from (0.1, 3.45) to (0.5, 2.6),
 out of the pair's way into R216 / R215.
+
+Finding 4 (VBUS feed to the charger): the 0.4 mm L3 run from the VBUS strip to the charger's IN via becomes 0.8 mm,
+re-drawn 0.3-1.7 mm further east so it clears the vias beside it; the router's VBUS_SENSE run beside it on L3 moves
+0.35 mm east under the buck (x 6.6) to leave room for the buck's GND via; the F link from the via to C101 / U102.10
+widens to 0.4-0.5 mm (0.3 mm for the last 0.5 mm into the 0.2 mm pin).
+
+Finding 5 (BQ25185 exposed pad): two 0.5 / 0.2 mm GND vias in the pad's south half (TI's layout example puts vias in
+the thermal pad); the north half sits over LINK_REG R122 on B, so the pad keeps its third via just outside, as before.
+
+Finding 6 (TPS62840 grounds and the module's 3V3): one 0.5 / 0.2 mm GND via 0.6 mm from GND pin 1, on F between
+R103 / R104's ground pads and on B joined to the ground web of pins 1, 3 and 6 and C105's ground (1.8 mm of 0.3 mm
+track); no other site exists round the part (REG_IN, REG_SW, VSET and the R118 / IR_TX copper box it in). A second
++3V3 plane via sits on the module's 3V3 track between C202 and C201 (0.8 mm from C201.1).
 """
 import sys
 
@@ -57,6 +70,26 @@ FINDINGS = {
         ('I2C_SDA', 'F', 0.2, [(3.95, -18.95), (3.95, -7.0), (4.75, -6.2), (6.1, -6.2)]),
         ('I2C_SCL', 'B', 0.2, [(0.5, 2.6), (-0.75, 2.6)]), ('I2C_SCL', V, None, [(0.5, 2.6)]),
         ('I2C_SCL', 'I2', 0.2, [(0.5, 2.6), (0.15, 2.95), (0.15, 5.15), (3.2, 5.15)]),   # west of C206's GND via
+    ]),
+    4: ([
+        ('VBUS', 'I2', (9.0, -7.9), (9.0, -12.0)), ('VBUS', 'I2', (5.0, -16.0), (5.0, -17.3)),
+        ('VBUS', 'I2', (9.0, -12.0), (5.0, -16.0)),
+        ('VBUS', 'F', (9.0, -9.78), (9.0, -7.9)), ('VBUS', 'F', (8.31, -9.78), (9.0, -9.78)),
+        ('VBUS', 'F', (8.31, -10.975), (8.31, -9.78)),
+        ('VBUS_SENSE', 'I2', (6.25, -13.1), (5.0, -13.1)), ('VBUS_SENSE', 'I2', (6.25, -8.4), (6.25, -13.1)),
+    ], [
+        ('VBUS', 'I2', 0.8, [(4.9, -17.1), (7.3, -14.7), (7.3, -12.2), (9.0, -10.5), (9.0, -7.9)]),
+        ('VBUS', 'F', 0.4, [(9.0, -7.9), (9.0, -9.78)]),                      # 0.4 beside C101's ground pad
+        ('VBUS', 'F', 0.5, [(9.0, -9.78), (8.31, -9.78), (8.31, -10.5)]),
+        ('VBUS', 'F', 0.3, [(8.31, -10.5), (8.31, -10.975)]),
+        ('VBUS_SENSE', 'I2', 0.2, [(5.0, -13.1), (6.6, -13.1), (6.6, -9.35), (6.25, -9.0), (6.25, -8.4)]),
+    ]),
+    5: ([], [
+        ('GND', V, 0.5, [(9.185, -12.2)]), ('GND', V, 0.5, [(9.635, -12.2)]),
+    ]),
+    6: ([], [
+        ('GND', V, 0.5, [(6.05, -12.35)]), ('GND', 'B', 0.3, [(6.05, -12.35), (6.4, -12.0)]),
+        ('+3V3', V, None, [(-9.3, 19.55)]),
     ]),
 }
 
