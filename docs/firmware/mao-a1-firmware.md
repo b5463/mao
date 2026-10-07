@@ -249,6 +249,10 @@ starts within 150 ms of a detent is part of the turn:
 
 The LCDkit's guard is 0, so its behaviour is unchanged. `mao status` reports
 `presses` and `turn_presses`.
+Checked on the LCDkit (MAO, 2026-10-07, dev build): the owner tried click, double
+click, long press, hold-and-turn, the push nudge and plain turns, and reported
+"all good". The counters read 26 presses, 0 turn presses and 524 detents, with 0
+invalid / recovered / bounced detents and 0 dropped events.
 
 Dev commands registered by components (dev builds): `board [rev X]`,
 `rotate`, `battery [charge off|on]`, `sense`, `haptic`, `ir`, `percept`,
