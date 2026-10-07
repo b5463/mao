@@ -73,7 +73,7 @@ generates is byte-identical to the M4.1 one.
 | Rails / enables | plain GPIOs, each with a hardware pull-down (off from reset): LCD_PWR_EN 6, LCD_RST_N 7, AMP_SD 9, HAPTIC_EN 1, TOF_XSHUT 15, AUX_PWR_EN 38 (IR receiver), IR_TX 17, CHG_CE_N 18. Latched low as outputs at init (input+output, so the self-test reads them back). Held in light and deep sleep |
 | Display | GC9A01 on SPI2 IO_MUX pads (SCLK 12, MOSI 11, CS 10), DC 13, TE 35 (input, unused yet; internal pull-down on while the panel rail is off, released when the rail comes up, held through deep sleep: design review N3); rail + reset sequence as on the A0; rotation `CONFIG_MAO_A1_LCD_ROTATION` (default 90), SPI clock `CONFIG_MAO_A1_LCD_PCLK_MHZ` (default 80) |
 | Backlight | LEDC on GPIO8 into the analogue current sink: the LCDkit's LEDC code (30 kHz, 9 bit, RC_FAST, kept alive in light sleep, hardware fades), so the M4.1 3 % rest level and the fades work unchanged. No AW9364 |
-| Dial / press | Hall A GPIO21 / B GPIO37, rest mask 00\|11, 2 transitions per detent, 30 per revolution; press GPIO14 (off every strap). HALL_FAST GPIO5 high while awake, low (low-power sampling) in sleep (`mao_input_sleep`) |
+| Dial / press | Hall A GPIO21 / B GPIO37, rest mask 00\|11, 2 transitions per detent, 30 per revolution; press GPIO14 (off every strap). HALL_FAST GPIO5 high while awake, low (low-power sampling) in sleep (`mao_input_sleep`). Turn guard `A1_PRESS_TURN_GUARD_MS` 150 (below) |
 | Light-sleep wake | the knob (`mao_board_knob_wake_arm`: Hall A / B at the level they are not at, press low) plus, from the rest loop, USB_PRESENT_N at its other level |
 | Deep-sleep wake | ext1 ANY_LOW: press GPIO14, IMU INT1 GPIO4, USB_PRESENT_N GPIO2 (plugging USB in; armed only while it idles high, i.e. on battery); ext0: Hall A GPIO21 at its other level. Design review 2026-10-06, finding 1: the VBUS divider drives a 2N7002 whose drain (100 k pull-up) is the RTC pad GPIO2; GPIO39 is a spare |
 | I2C | I2C0 SDA 47 / SCL 48, 4.7 k, 400 kHz: ICM-42670-P 0x68, VL53L4CD 0x29, MAX17048 0x36, DRV2605L 0x5A; ToF and haptic powered for the boot probe and a scan |
@@ -231,8 +231,24 @@ mao_perception_rest(bool); mao_perception_deep_sleep(); mao_perception_woke(uint
 mao_display_ok / _set_rotation / _get_rotation / _test_show / _test_clear / _rail
 mao_ui_fault(const char *code);
 mao_audio_tsk / _test_chirp / _busy_until_ms
-mao_input_stats_t: edges_a, edges_b, detents_cw, detents_ccw, presses
+mao_input_stats_t: edges_a, edges_b, detents_cw, detents_ccw, presses, turn_presses
+mao_board_encoder_t.press_turn_guard_ms   (A1 150, LCDkit 0)
 ```
+
+**Press during a turn (P3, 2026-10-07).** On A1 the whole top presses, so turning
+the wheel pushes on the switch, and a firm thumb can close it mid-turn. Unfiltered,
+that press would click, or open the hold options (PRESS followed by a detent), and
+letting go would choose one. The press gesture now lives in `mao_press.c`, pure
+logic host-tested by `tests/press`. With the board's turn guard set, a press that
+starts within 150 ms of a detent is part of the turn:
+- It is not heard, and the detents stay plain turns.
+- If it is still held 250 ms after the last detent (`MAO_INPUT_TURN_SETTLE_MS`),
+  it becomes a press from then on. A push-and-hold after turning still works, a
+  little later, and its long press is timed from then.
+- A press with no turn just before it is unchanged, press-then-turn included.
+
+The LCDkit's guard is 0, so its behaviour is unchanged. `mao status` reports
+`presses` and `turn_presses`.
 
 Dev commands registered by components (dev builds): `board [rev X]`,
 `rotate`, `battery [charge off|on]`, `sense`, `haptic`, `ir`, `percept`,
@@ -257,7 +273,7 @@ Behaviour is M4.1's. What differs, and why it does not change behaviour:
   (on the LCDkit the hold arms nothing, so the order makes no difference).
 
 Tests (all green, `CC` = zig cc): `tests/{accent, character_harness
-(identical to expected.txt), fiddle, hold, power, quirks, relationships,
+(identical to expected.txt), fiddle, hold, press, power, quirks, relationships,
 odd_contract, link_security}` and `tests/host/check.sh` (perception engine
 with three A1 scenarios, battery policy; 188 checks; `run.sh` / make adds
 the sanitizers).
@@ -272,6 +288,10 @@ the sanitizers).
   sleep on the S3.
 - **Dial**: direction (`A1_DIAL_REVERSE`), Hall wake latency at
   HALL_FAST low, ext0 dial wake from deep sleep.
+- **Press during a turn**: turn the wheel firmly for a minute and read
+  `turn_presses` in `mao status`. No click and no options should appear. Then
+  turn and confirm quickly: the click must still come. Tune
+  `A1_PRESS_TURN_GUARD_MS` (150) and `MAO_INPUT_TURN_SETTLE_MS` (250) if not.
 - **Audio**: gain (`A1_AUDIO_GAIN` 0.58, by ear), MAX98357A turn-on (8 ms)
   without a pop, SD_MODE off after 3 s, no click at suspend / resume.
   `mao_board_audio_gain()` never returns more than `A1_AUDIO_GAIN_MAX`

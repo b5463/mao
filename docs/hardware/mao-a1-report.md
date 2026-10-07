@@ -158,7 +158,7 @@ Generated table: [mao-pin-map.md](mao-pin-map.md) (source `pinmap.py`, header
 | Stack-up | `stackup.py`, `stackup_check.py` | JLC04161H-1080, 1.518 mm, purple mask; L3/L4 broadside 16.8 mm (17 pairs, all slow lines; longest I2C_SCL over LCD_DC 2.58 mm, new with P3: HALL_A over I2C_SDA 1.05 mm, PRESS_N over I2C_SCL 0.78 mm); 30 perimeter GND vias, largest gap 69° (the antenna notch); module GND pins 1 / 40 / 41 at 1.0 / 1.97 / 1.31 mm from a via; 3 decoupling GND pads 1.6-2.5 mm from a via (C102, C502, C504; C105 now within 1.6 mm); closest SMD pads to the edge 0.30 mm (IR LEDs D501/D502 at the rim, by design) |
 | Fab | `fab.py` | gerbers 12 files, drill 4, BOM 49 lines / 100 parts (every line with LCSC number and sourcing status), CPL 100 rows, assembly drawings, FAB-NOTES and README (JLC purple mask, white legend, ENIG) |
 | Kanji | `kanji.py` | 5 words and 2 drawings pass: a 0.16 mm disc opening loses < 2 % ink, closing adds < 5 % (`outputs/KANJI-CHECK.json`) |
-| Firmware | `tools/idf.ps1` | `s3-dev` and `dev` (C3) build, 0 warnings (after the owner decisions; no firmware change); host 188 checks / 0 failures, character invariants 51 runs, harness 36 runs identical |
+| Firmware | `tools/idf.ps1` | `s3-dev` and `dev` (C3) build, 0 warnings (after P3: the press turn guard, below); host 188 checks / 0 failures, press 72, hold 29, character invariants 51 runs, harness 36 runs identical |
 
 Reproducibility: the grid router is not deterministic between runs (process-dependent ordering); the release
 board is router pass 10 (79 of 80 nets) plus `route_finish.py`, the clean-up passes and the design review's
@@ -419,11 +419,12 @@ the enclosure side in [mao-a1-enclosure-wheelstone.md](mao-a1-enclosure-wheelsto
 
 | Item | Value |
 |---|---|
-| Part | ALPS **SKQGADE010** (2.55 N, 0.25 mm travel, 1.5 mm with stem), LCSC **C116647**, 49,220 in LCSC stock (2026-10-07); JLC library type to confirm at order. SW302 / SW303 and the SKQGAFE010 line are gone |
+| Part | ALPS **SKQGADE010** (2.55 N, 0.25 mm travel, 1.5 mm with stem, 100,000 cycles, ALPS status "Standard": recommended for new designs; ALPS publishes no static stem load), LCSC **C116647**, 49,220 in LCSC stock (2026-10-07); JLC library type to confirm at order (A0 had JLC assemble the same part). SW302 / SW303 and the SKQGAFE010 line are gone |
 | Position | SW301 on **B.Cu** at (8.0, 3.8), 8.9 mm off the axis (`mechanical.PRESS_SWITCH`): the nearest B spot to the centre clear of every courtyard and the service field's names, once the LCD_TE debug pad TP19 stepped 0.45 mm to (9.7, 7.85) |
 | Circuit | PRESS_N (GPIO14, 100 k pull-up R318, DNP C308); no pin or firmware change |
 | Press | dome carries the top; click after 0.33 mm (switch 0.25 + finger 0.08), hard stop on the base's guide columns at 0.45 mm (`mechanical.TOP_TRAVEL`), ≈ 6 N on the switch there |
 | Tail well | back to x **6 … 12** (y ±5.75): F.Cu has no switch at 3 o'clock any more |
+| Firmware | turning the wheel now pushes on the switch: a press that starts within 150 ms of a detent is part of the turn (no click, no hold options) unless it is held on after the turn stops. A1 only; LCDkit unchanged ([mao-a1-firmware.md](../firmware/mao-a1-firmware.md)) |
 
 **Copper** (`route_press3.py` place / well / rip / escape / add, recorded): SW301 moves to B and TP19 steps aside;
 SW302 / SW303 go. The copper SW301 now sits on goes (its keep-outs, other nets within 0.2 mm of its pads), then the

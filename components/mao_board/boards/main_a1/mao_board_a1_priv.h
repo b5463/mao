@@ -56,6 +56,12 @@
 #define A1_DIAL_DETENTS_PER_REV     30
 /* VERIFY AT BRING-UP: CW/CCW sense depends on which latch leads. */
 #define A1_DIAL_REVERSE             false
+/* P3: the whole top presses, so turning the wheel pushes on the switch. A
+ * press that starts this soon after a detent is part of the turn (not heard
+ * unless it outlasts the turn by MAO_INPUT_TURN_SETTLE_MS).
+ * VERIFY AT BRING-UP: `mao status` turn_presses while turning firmly, and a
+ * quick turn-then-confirm still clicks. */
+#define A1_PRESS_TURN_GUARD_MS      150
 
 /* --- Audio: MAX98357A on I2S0 (standard Philips TX), SD_MODE = AMP_SD ------ */
 /* VERIFY AT BRING-UP: started at the LCDkit's NS4150 value; tune by ear. */

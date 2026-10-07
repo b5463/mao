@@ -119,6 +119,7 @@ typedef struct {
     uint8_t rest_mask;               /* bit n set: AB == n is a detent rest position */
     uint8_t detents_per_rev;
     bool reverse;                    /* swap CW/CCW sense */
+    uint16_t press_turn_guard_ms;    /* a press this soon after a detent is part of the turn (0: off) */
 } mao_board_encoder_t;
 
 /* Configure dial / press GPIOs as inputs (no ISR installed). */

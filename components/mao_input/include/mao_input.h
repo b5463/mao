@@ -12,20 +12,25 @@
  *   Turning while held (hold-and-turn) cancels that press's CLICK and LONG PRESS;
  *   PRESS / RELEASE still frame it. In the first 200 ms of a press a single
  *   detent is dropped (the nudge of pushing the knob).
+ *   Where the whole top presses (A1), a press that starts during a turn is
+ *   part of the turn and is not heard unless it outlasts it (mao_press.h).
+ * The gesture itself is pure logic in mao_press.c (host-tested: tests/press).
  */
 #pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
+#include "mao_press.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define MAO_INPUT_DEBOUNCE_MS      20
-#define MAO_INPUT_LONG_PRESS_MS    900   /* M4.1: a slow press is still a press, not the options */
-#define MAO_INPUT_DOUBLE_CLICK_MS  350
+#define MAO_INPUT_LONG_PRESS_MS    MAO_PRESS_LONG_MS
+#define MAO_INPUT_DOUBLE_CLICK_MS  MAO_PRESS_DOUBLE_MS
+#define MAO_INPUT_TURN_SETTLE_MS   250   /* a turn press held this still is a press */
 
 /* Encoder decoder diagnostics since boot. */
 typedef struct {
@@ -38,6 +43,7 @@ typedef struct {
     uint32_t detents_cw;           /* reported detents by direction (after board reversal) */
     uint32_t detents_ccw;
     uint32_t presses;              /* debounced presses */
+    uint32_t turn_presses;         /* of those, taken as part of a turn (not heard) */
 } mao_input_stats_t;
 
 /* Requires mao_board_init() and mao_system_init(). */

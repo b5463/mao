@@ -206,6 +206,7 @@ esp_err_t mao_board_input_init(mao_board_encoder_t *out)
         .rest_mask = MAO_ENC_REST_MASK,
         .detents_per_rev = MAO_ENC_DETENTS_PER_REV,
         .reverse = MAO_ENC_REVERSE,
+        .press_turn_guard_ms = 0,    /* the EC11 is turned from the side */
     };
     return ESP_OK;
 }

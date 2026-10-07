@@ -206,6 +206,7 @@ esp_err_t mao_board_input_init(mao_board_encoder_t *out)
         .rest_mask = A1_DIAL_REST_MASK,
         .detents_per_rev = A1_DIAL_DETENTS_PER_REV,
         .reverse = A1_DIAL_REVERSE,
+        .press_turn_guard_ms = A1_PRESS_TURN_GUARD_MS,
     };
     return ESP_OK;
 }

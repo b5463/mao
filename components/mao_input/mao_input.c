@@ -9,6 +9,7 @@
 #include "esp_timer.h"
 #include "mao_board.h"
 #include "mao_events.h"
+#include "mao_press.h"
 
 static const char *TAG = "MAO_INPUT";
 
@@ -129,27 +130,12 @@ static void button_isr(void *arg)
 }
 
 /* ---------------------------------------------------------------------- */
-/* Button state machine (task context)                                    */
+/* Button: debounce here, the gesture in mao_press.c (task context)       */
 /* ---------------------------------------------------------------------- */
 
-typedef struct {
-    bool pressed;            /* debounced state */
-    bool debouncing;
-    bool long_fired;
-    int64_t debounce_until_us;
-    int64_t pressed_at_us;
-    int64_t last_click_us;
-    bool turned_early;       /* turned deliberately while the press was still debouncing */
-} button_t;
-
-static button_t s_btn;
-
-/* Pushing an EC11 often nudges it by a detent. In the first moments of a
- * press, turning counts only once it reaches two detents: a nudge is not a
- * turn, and must neither move anything nor cancel the press. */
-#define PRESS_JIGGLE_MS      200
-#define PRESS_JIGGLE_DETENTS 2
-static int32_t s_jiggle;             /* detents held back at the start of a press */
+static mao_press_t s_press;          /* the gesture; its .pressed is the debounced level */
+static bool s_debouncing;
+static int64_t s_debounce_until_us;
 
 static bool button_raw_pressed(void)
 {
@@ -157,64 +143,45 @@ static bool button_raw_pressed(void)
     return s_enc.switch_active_low ? (level == 0) : (level != 0);
 }
 
+static void press_emit(mao_event_type_t type, int32_t value, void *ctx)
+{
+    (void)ctx;
+    mao_event_post(type, value);
+}
+
 static void button_on_edge(int64_t now)
 {
     /* Any edge (including bounce) restarts the stability window. */
-    s_btn.debouncing = true;
-    s_btn.debounce_until_us = now + MAO_INPUT_DEBOUNCE_MS * 1000;
+    s_debouncing = true;
+    s_debounce_until_us = now + MAO_INPUT_DEBOUNCE_MS * 1000;
 }
 
 static void button_process(int64_t now)
 {
-    if (s_btn.debouncing && now >= s_btn.debounce_until_us) {
-        s_btn.debouncing = false;
+    if (s_debouncing && now >= s_debounce_until_us) {
+        s_debouncing = false;
         const bool pressed = button_raw_pressed();
-        if (pressed != s_btn.pressed) {
-            s_btn.pressed = pressed;
+        if (pressed != s_press.pressed) {
             if (pressed) {
-                s_btn.pressed_at_us = now;
-                s_btn.long_fired = s_btn.turned_early;   /* already a hold-and-turn */
-                s_btn.turned_early = false;
                 portENTER_CRITICAL(&s_lock);
                 s_stats.presses++;
                 portEXIT_CRITICAL(&s_lock);
-                mao_event_post(MAO_EVENT_INPUT_PRESS, 0);
-            } else {
-                mao_event_post(MAO_EVENT_INPUT_RELEASE, 0);
-                if (!s_btn.long_fired) {
-                    mao_event_post(MAO_EVENT_INPUT_CLICK, 0);
-                    if (s_btn.last_click_us != 0 &&
-                        now - s_btn.last_click_us <= MAO_INPUT_DOUBLE_CLICK_MS * 1000) {
-                        mao_event_post(MAO_EVENT_INPUT_DOUBLE_CLICK, 0);
-                        s_btn.last_click_us = 0;
-                    } else {
-                        s_btn.last_click_us = now;
-                    }
-                }
             }
+            mao_press_level(&s_press, now, pressed);
+            portENTER_CRITICAL(&s_lock);
+            s_stats.turn_presses = s_press.turn_presses;
+            portEXIT_CRITICAL(&s_lock);
         }
     }
-
-    if (s_btn.pressed && !s_btn.long_fired &&
-        now - s_btn.pressed_at_us >= MAO_INPUT_LONG_PRESS_MS * 1000) {
-        s_btn.long_fired = true;
-        s_btn.last_click_us = 0;
-        mao_event_post(MAO_EVENT_INPUT_LONG_PRESS, 0);
-    }
+    mao_press_tick(&s_press, now);
 }
 
 /* Ticks until the next button deadline, or portMAX_DELAY when idle. */
 static TickType_t button_next_timeout(int64_t now)
 {
-    int64_t deadline = INT64_MAX;
-    if (s_btn.debouncing) {
-        deadline = s_btn.debounce_until_us;
-    }
-    if (s_btn.pressed && !s_btn.long_fired) {
-        const int64_t lp = s_btn.pressed_at_us + MAO_INPUT_LONG_PRESS_MS * 1000;
-        if (lp < deadline) {
-            deadline = lp;
-        }
+    int64_t deadline = mao_press_deadline(&s_press);
+    if (s_debouncing && s_debounce_until_us < deadline) {
+        deadline = s_debounce_until_us;
     }
     if (deadline == INT64_MAX) {
         return portMAX_DELAY;
@@ -236,27 +203,10 @@ static void encoder_flush(void)
     s_pending_detents = 0;
     portEXIT_CRITICAL(&s_lock);
 
+    const bool pressing = s_debouncing && !s_press.pressed && button_raw_pressed();
+    detents = mao_press_detents(&s_press, now, detents, pressing);
     if (detents == 0) {
-        return;
-    }
-    const bool pressing = s_btn.debouncing && !s_btn.pressed && button_raw_pressed();
-    const bool fresh = pressing || (s_btn.pressed && now - s_btn.pressed_at_us < PRESS_JIGGLE_MS * 1000);
-    if (!fresh) {
-        s_jiggle = 0;
-    } else {
-        s_jiggle += detents;
-        if (abs(s_jiggle) < PRESS_JIGGLE_DETENTS) {
-            return;                        /* a nudge from pushing the knob */
-        }
-        detents = s_jiggle;
-        s_jiggle = 0;
-    }
-    if (s_btn.pressed || pressing) {
-        /* Turned while held (M4.1: hold-and-turn): this press is a gesture of
-         * its own - it must not also become a CLICK or a LONG PRESS. */
-        s_btn.long_fired = true;
-        s_btn.last_click_us = 0;
-        s_btn.turned_early = pressing;
+        return;                            /* nothing, or a nudge from pushing the knob */
     }
     if (s_enc.reverse) {
         detents = -detents;
@@ -304,7 +254,11 @@ esp_err_t mao_input_init(void)
         ESP_LOGW(TAG, "encoder not at a detent at boot (AB=%u%u); resyncing at the next detent",
                  (s_prev_ab >> 1) & 1, s_prev_ab & 1);
     }
-    s_btn.pressed = button_raw_pressed();
+    const mao_press_cfg_t press_cfg = {
+        .turn_guard_ms = s_enc.press_turn_guard_ms,
+        .turn_settle_ms = MAO_INPUT_TURN_SETTLE_MS,
+    };
+    mao_press_init(&s_press, &press_cfg, button_raw_pressed(), press_emit, NULL);
 
     if (xTaskCreate(input_task, "mao_input", INPUT_TASK_STACK, NULL, INPUT_TASK_PRIO, &s_task) != pdPASS) {
         return ESP_ERR_NO_MEM;
@@ -321,10 +275,12 @@ esp_err_t mao_input_init(void)
     ESP_RETURN_ON_ERROR(gpio_isr_handler_add(s_enc.gpio_switch, button_isr, NULL), TAG, "sw isr");
 
     ESP_LOGI(TAG, "encoder: quadrature ISR decoder, %u transitions/detent, %u detents/rev, "
-             "rest states mask 0x%02x%s; switch debounce %d ms, long press %d ms, double click %d ms",
+             "rest states mask 0x%02x%s; switch debounce %d ms, long press %d ms, double click %d ms, "
+             "turn guard %u ms",
              s_enc.transitions_per_detent, s_enc.detents_per_rev, s_enc.rest_mask,
              s_enc.reverse ? ", reversed" : "",
-             MAO_INPUT_DEBOUNCE_MS, MAO_INPUT_LONG_PRESS_MS, MAO_INPUT_DOUBLE_CLICK_MS);
+             MAO_INPUT_DEBOUNCE_MS, MAO_INPUT_LONG_PRESS_MS, MAO_INPUT_DOUBLE_CLICK_MS,
+             s_enc.press_turn_guard_ms);
     return ESP_OK;
 }
 

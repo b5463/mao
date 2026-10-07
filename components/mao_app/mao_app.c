@@ -1070,9 +1070,9 @@ static void on_dev_command(int32_t value, int64_t now)
                  mao_ui_view_name(st->view), st->menu_index, st->dial_position, st->awake,
                  mao_state_idle_ms(now), mao_character_state_name(mao_character_get_state()));
         ESP_LOGI(TAG, "status: encoder detents=%" PRIu32 " invalid=%" PRIu32 " recovered=%" PRIu32
-                 " rest_bounces=%" PRIu32 " events_dropped=%" PRIu32,
+                 " rest_bounces=%" PRIu32 " presses=%" PRIu32 " turn_presses=%" PRIu32 " events_dropped=%" PRIu32,
                  in.detents, in.invalid_transitions, in.recovered_detents, in.rest_bounces,
-                 mao_events_dropped());
+                 in.presses, in.turn_presses, mao_events_dropped());
         mao_system_log_heap(TAG, "status");
         mao_devices_log_status();
     } else if (value == MAO_DEVCMD_PERF_BURST) {
