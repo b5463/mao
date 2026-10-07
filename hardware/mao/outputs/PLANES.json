@@ -5,7 +5,7 @@
   "layer": "In1.Cu",
   "pieces": [
    {
-    "area_mm2": 2207.6,
+    "area_mm2": 2208.0,
     "vias": 89,
     "bbox": [
      -28.5,
@@ -59,7 +59,7 @@
   "layer": "In2.Cu",
   "pieces": [
    {
-    "area_mm2": 1581.3,
+    "area_mm2": 1573.2,
     "vias": 27,
     "bbox": [
      -28.5,

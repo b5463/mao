@@ -52,7 +52,7 @@ EP_LINKS = ['U501.3>U501.17', 'U501.11>U501.17', 'U501.15>U501.17', 'U102.5>U102
 # 4 layers: neighbouring plane pins share one via to In1 / In2 (brief: fewer vias than the 6-layer A0)
 SHARE = ['--share', '1.6']
 # pour-joined resistors whose GND pad the routing boxes in (DRC: starved thermal / island): own via up front
-POUR_BOXED = ['R504.2', 'SW302.2', 'TP2.1']
+POUR_BOXED = ['R504.2', 'TP2.1']
 
 def starved_pads():
     """GND pads DRC reports as starved thermals (pour-joined resistors boxed in by routing): each gets its own via."""

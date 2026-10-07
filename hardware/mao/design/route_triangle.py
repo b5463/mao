@@ -1,4 +1,6 @@
 """Face-press switches to an even triangle (owner decision 2026-10-07), applied to the routed board (KiCad python).
+Superseded by P3 (route_press3.py): only its 'drop' phase (exact dangling removal) is still used; 'place' needs
+mechanical.PRESS_TRIPOD as of commit 2e4791e.
 
     <KiCad python> route_triangle.py place   SW301..303 to mechanical.PRESS_TRIPOD; the TAIL WELL rule area to
                                              mechanical.TAIL_WELL (shortened so the 84 deg switch clears it)

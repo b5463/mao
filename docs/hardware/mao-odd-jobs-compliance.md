@@ -10,7 +10,7 @@ The rows below are A0's. For A1 (`MAO_MAIN_A1.kicad_pcb`, checks on the final fi
 | Rule | A1 |
 |---|---|
 | 75 Z-height zones | `mech_check.py` 0 findings; the three face-tripod switches SW301–SW303 (1.5 mm with stem) are the designed exceptions under the panel |
-| 138 Button tolerance | The face rests on three SKQGAFE010 domes at 120° (bosses on the carrier, flexures only centre it); nothing slides |
+| 138 Button tolerance | P3 (2026-10-07): the whole top slides 0.45 mm on three brass spacers in the base's columns onto one SKQGADE010 on the board's back, over a base-fixed steel finger; the columns are the hard stop, the click is the same anywhere on the stone |
 | 172 Standard colour | **Purple** solder mask, white legend, ENIG (owner decision; the standard lists black as one option, "if visible and brand-relevant, standardize") |
 | 173 Black mask inspection | Not applicable: purple is lighter than black, tracks and joints stay inspectable |
 | 175 Hidden details | Eggs are kanji only, all hidden once assembled: 猫猫 by the face press with "boop", 銀 by the BAT LINK 0R, 薬 by the charger, 酒 under the cell, 毒見 under the speaker, plus "MADE FOR BAD IDEAS" under the panel. Brush kanji are filled silk polygons sized so a 0.16 mm opening loses < 2 % of their ink (JLC silk line 0.153 mm) |

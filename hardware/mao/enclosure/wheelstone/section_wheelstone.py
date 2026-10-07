@@ -3,7 +3,7 @@
     python section_wheelstone.py out.png 0 33 70 100 180 242 270
 
 Each panel: the plane through the dial axis at that angle (angles from +x towards +y, 0 = 3 o'clock), radius
-0..42 left to right, z up. Grey stone parts, plum wheel, near-black bezel, blue window, green PCB, orange board
+0..42 left to right, z up. Grey stone parts, plum wheel, near-black bezel, blue window, steel-blue press finger, green PCB, orange board
 parts, the cell and the speaker.
 """
 import math
@@ -17,7 +17,7 @@ import wheelstone as w
 S = 24                       # px per mm
 R0, R1, Z0, Z1 = 0.0, 42.0, -0.5, 21.0
 COLS = {'base': (176, 168, 158), 'frame': (122, 118, 124), 'wheel': (122, 92, 142), 'bezel': (38, 38, 44),
-        'carrier': (78, 78, 90), 'window': (150, 200, 232), 'panel': (20, 20, 30)}
+        'carrier': (78, 78, 90), 'window': (150, 200, 232), 'panel': (20, 20, 30), 'finger': (70, 96, 128)}
 
 
 def panel(deg, pressed=False):

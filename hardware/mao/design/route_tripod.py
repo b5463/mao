@@ -1,4 +1,5 @@
 """Face-press tripod (owner decision 2026-10-06) applied to the routed MAO_MAIN A1 board (KiCad python), in place.
+Historical: superseded by P3 (route_press3.py); it needs mechanical.PRESS_TRIPOD as of commit 2e4791e.
 
     <KiCad python> sync_fields.py --add       SW302 / SW303 onto the board at their placement.py spots, SW301's fields
     <KiCad python> route_tripod.py place      SW301 moves from the centre to its tripod spot (mechanical.PRESS_TRIPOD)

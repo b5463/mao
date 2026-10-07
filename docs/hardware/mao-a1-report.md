@@ -1,12 +1,12 @@
 # MAO_MAIN A1 report
 
 MAO_MAIN A0 moved to the M5 Gate C locked architecture ([m5_0_gate_c.md](m5_0_gate_c.md)), 2026-10-06, branch
-`feat/mao-main-a1-hw`. A1 keeps A0's round Ø58 mm puck, the ring dial (2 × DRV5012 on a 30-pole ring), the face press
-(since 2026-10-06 a tripod of three switches) and the VL53L4CD proximity sensor. Everything is generated from `hardware/mao/design/` by `pipeline.py`.
+`feat/mao-main-a1-hw`. A1 keeps A0's round Ø58 mm puck, the ring dial (2 × DRV5012 on a 30-pole ring), the press
+(since 2026-10-07 the whole top presses one switch on the back, P3) and the VL53L4CD proximity sensor. Everything is generated from `hardware/mao/design/` by `pipeline.py`.
 
 **Status:** routed, independently reviewed (2026-10-06) and the review's fixes applied surgically (see "Design review
 2026-10-06"), then the owner decisions of 2026-10-06 applied surgically (purple mask, tripod face press, kanji eggs:
-see "Owner decisions 2026-10-06"); checked on the final files: ERC 0, kicad-cli DRC 0 violations / 0 unconnected / 0 parity, every plane one
+see "Owner decisions 2026-10-06"), then the P3 whole-top press of 2026-10-07; checked on the final files: ERC 0, kicad-cli DRC 0 violations / 0 unconnected / 0 parity, every plane one
 piece, silk and mechanical checks 0 findings, fab package written. **Not ready to order:** the owner decisions and Gate D
 items under "What still blocks an order" are open, and nothing here is measured.
 
@@ -35,7 +35,7 @@ Each item is the owner's A1 brief, traced to Gate C. Parts keep their A0 referen
 | 7 | MAX98357A on VSYS, SD_MODE **directly** from GPIO9 + 100 k pull-down, I2S GPIO40/41/42. **A0's 2.2 k series resistor removed:** its datasheet reason (a logic high above the amplifier's VDD) cannot occur, +3V3 ≤ VSYS by topology | 2.2 k series | Audio |
 | 8 | IR receiver supply through a **TPS22916C** (U504) on +3V3, AUX_PWR_EN (GPIO38, see pin swaps) + 100 k; IR_TX GPIO17 + 100 k pull-down; A0's IR12-21C LEDs, AO3400A and IRM-H638T kept | expander-RC | New at Gate C item 1 (receiver on a 3.3 V gate) |
 | 9 | ToF: XSHUT GPIO15 + 100 k pull-down, INT GPIO16 (see pin swaps) + 10 k pull-up | expander | Owner brief |
-| 10 | Dial: HALL_A GPIO21 (RTC, ext0 wake; see pin swaps), HALL_B GPIO37, HALL_FAST GPIO5 + 100 k pull-down; press PRESS_N GPIO14 + 100 k pull-up (DNP 1 nF), three SKQGAFE010 in parallel (tripod, owner decision 2026-10-06) | press on GPIO0, one SKQGADE010 | Encoder / wake |
+| 10 | Dial: HALL_A GPIO21 (RTC, ext0 wake; see pin swaps), HALL_B GPIO37, HALL_FAST GPIO5 + 100 k pull-down; press PRESS_N GPIO14 + 100 k pull-up (DNP 1 nF), one SKQGADE010 on B.Cu (P3 whole-top press, owner decision 2026-10-07) | press on GPIO0, one SKQGADE010 | Encoder / wake |
 | 11 | USB: A0's USB-C, CC 5.1 k, ESD kept (its two channels in the pair's order: pin 3 D−, pin 5 D+); D+/D− one designed pair on F over L2, w 0.15 / gap 0.25 (~90 Ω); 22 R series (R215/R216) near module pins 23/24, DNP 10 pF (C206/C207); VBUS 100 k / 150 k divider → 2N7002 Q102 → **USB_PRESENT_N on GPIO2** (RTC: USB wakes from deep sleep; 100 k pull-up R123); GPIO39 spare | — | USB-C |
 | 12 | **Battery connector: JST SH kept (owner decision, below)** | SH clone | Gate C asks for JST PH |
 | 13 | Test pads added: BL (TP17), AMP (TP18), TE (TP19), PRS (TP20), HLA (TP21), TSMR (TP22), CE (TP23), USB (TP24, USB_PRESENT_N), spares IO26 (TP25) and IO39 (TP26); A0's named pads kept where their nets exist | — | ODD JOBS 103 |
@@ -60,8 +60,8 @@ Each item is the owner's A1 brief, traced to Gate C. Parts keep their A0 referen
   124): design review 2026-10-06. The Si2302CDS candidate is no longer needed.
 - **Fixture/test pad TP8 (BOOT)** moved beside the Tag-Connect's GPIO0 pin; SKQG keep-out and the UART order turned
   the Tag-Connect footprint (J201) by 180°.
-- **Face-press tripod is an even triangle** (owner decision 2026-10-07): all three at r 13.5, 120° apart, square-on
-  to the centre, with the tail well shortened to clear SW301; see "Owner decisions 2026-10-07".
+- **Press is P3, the whole top** (owner decision 2026-10-07): one SKQGADE010 on B.Cu presses a steel finger fixed to
+  the base; the face tripod (and its even triangle of the same morning) is gone; see "Owner decisions 2026-10-07".
 
 ## Layout notes
 
@@ -150,13 +150,13 @@ Generated table: [mao-pin-map.md](mao-pin-map.md) (source `pinmap.py`, header
 
 | Check | Tool | Result |
 |---|---|---|
-| ERC | `build_sch.py` (kicad-cli) | **0** violations; 102 fitted + 5 DNP parts of 142, 76 nets |
+| ERC | `build_sch.py` (kicad-cli) | **0** violations; 100 fitted + 5 DNP parts of 140, 76 nets |
 | DRC | `review.py drc` (kicad-cli `--severity-all --schematic-parity --refill-zones`) | **0** violations, **0** unconnected, **0** schematic parity |
-| Planes | `plane_check.py` | GND (L2) 1 piece / 92 vias, VBUS 1, VSYS 1, +3V3 (L3) 1 piece / 27 vias; no necks in GND or the rail regions (the +3V3 mesh round the L3 slow lines has parallel paths, reported only) |
-| Silk text | `check_silk_text.py` | 77 texts, **0** findings; 107 references on Fab only (R/C by policy); the kanji are filled polygons (not text), placed off pads, bodies, silk and vias by `silk.py`, stroke widths by `kanji.py` (below) |
-| Mechanical | `mech_check.py` | 142 parts, **0** findings; tallest on B: LS501 3.30 mm (speaker pads' body model), J101 3.20, J102 2.96, U201 2.50; F: U503 4.00 under the window, SW301–SW303 1.50 (the tripod, by design), Q102 1.2 mm under the panel (limit 1.2); no part under the tail well |
-| Stack-up | `stackup.py`, `stackup_check.py` | JLC04161H-1080, 1.518 mm, purple mask; L3/L4 broadside 16.7 mm (14 pairs, slow lines; new with the tripod: PRESS_N over BL_FB 1.27 mm and over +3V3 1.24 mm); 30 perimeter GND vias, largest gap 69° (the antenna notch); module GND pins 1 / 40 / 41 at 1.0 / 1.97 / 1.31 mm from a via; 3 decoupling GND pads 1.6-2.5 mm from a via (C102, C502, C504; C105 now within 1.6 mm); closest SMD pads to the edge 0.30 mm (IR LEDs D501/D502 at the rim, by design) |
-| Fab | `fab.py` | gerbers 12 files, drill 4, BOM 49 lines / 102 parts (every line with LCSC number and sourcing status), CPL 102 rows, assembly drawings, FAB-NOTES and README (JLC purple mask, white legend, ENIG) |
+| Planes | `plane_check.py` | GND (L2) 1 piece / 89 vias, VBUS 1, VSYS 1, +3V3 (L3) 1 piece / 27 vias; no necks in GND or the rail regions (the +3V3 mesh round the L3 slow lines has parallel paths, reported only) |
+| Silk text | `check_silk_text.py` | 73 texts, **0** findings; 109 references on Fab only (R/C by policy); the kanji are filled polygons (not text), placed off pads, bodies, silk and vias by `silk.py`, stroke widths by `kanji.py` (below) |
+| Mechanical | `mech_check.py` | 140 parts, **0** findings; tallest on B: LS501 3.30 mm (speaker pads' body model), J101 3.20, J102 2.96, U201 2.50, SW301 1.50 (the press, on the base's finger by design); F: U503 4.00 under the window, Q102 1.2 mm under the panel (limit 1.2); no part under the tail well |
+| Stack-up | `stackup.py`, `stackup_check.py` | JLC04161H-1080, 1.518 mm, purple mask; L3/L4 broadside 16.8 mm (17 pairs, all slow lines; longest I2C_SCL over LCD_DC 2.58 mm, new with P3: HALL_A over I2C_SDA 1.05 mm, PRESS_N over I2C_SCL 0.78 mm); 30 perimeter GND vias, largest gap 69° (the antenna notch); module GND pins 1 / 40 / 41 at 1.0 / 1.97 / 1.31 mm from a via; 3 decoupling GND pads 1.6-2.5 mm from a via (C102, C502, C504; C105 now within 1.6 mm); closest SMD pads to the edge 0.30 mm (IR LEDs D501/D502 at the rim, by design) |
+| Fab | `fab.py` | gerbers 12 files, drill 4, BOM 49 lines / 100 parts (every line with LCSC number and sourcing status), CPL 100 rows, assembly drawings, FAB-NOTES and README (JLC purple mask, white legend, ENIG) |
 | Kanji | `kanji.py` | 5 words and 2 drawings pass: a 0.16 mm disc opening loses < 2 % ink, closing adds < 5 % (`outputs/KANJI-CHECK.json`) |
 | Firmware | `tools/idf.ps1` | `s3-dev` and `dev` (C3) build, 0 warnings (after the owner decisions; no firmware change); host 188 checks / 0 failures, character invariants 51 runs, harness 36 runs identical |
 
@@ -209,7 +209,7 @@ WCSP load switches (U105, U504) and parts on both sides are outside Economic PCB
 | R315,R503,R505 | 100R | C25076 | 0402WGF1000TCE | Basic | 4,000,000 | LCSC shop stock 0 on 2026-10-06; JLC assembly stock fine |
 | R317 | 3.3R | C22979 | 0603WAF330KT5E | Extended | 280,671 | no Basic 3.3R 0603 |
 | R501,R502 | 56R | C25196 | 0603WAF560JT5E | Preferred Extended | 1,070,000 | no Basic 56R 0603 |
-| SW301,SW302,SW303 | SKQGAFE010 | C202424 | SKQGAFE010 | Extended | 24,977 | face tripod, 3 per board (owner decision 2026-10-06) |
+| SW301 | SKQGADE010 | C116647 | SKQGADE010 | Extended (to confirm) | 49,220 (LCSC) | whole-top press, 1 per board (owner decision 2026-10-07); JLC library type to confirm at order |
 | U101 | TPD2E2U06 | C1972959 | TPD2E2U06DRLR | Extended | 7,569 |  |
 | U102 | BQ25185DLHR | C19725033 | BQ25185DLHR | Extended | 3,623 |  |
 | U103 | MAX17048G+T10 | C2682616 | MAX17048G+T10 | Extended | 25,799 |  |
@@ -301,7 +301,7 @@ Applied surgically to the committed board (the router is not deterministic), eac
 |---|---|
 | Part | ALPS **SKQGAFE010**, LCSC **C202424**, JLC Extended, **24,977** in stock (2026-10-06); ALPS: 0.98 N, travel 0.25 mm, height 1.5 mm with stem, 500,000 cycles, "Standard" status. One part number for all three; same footprint as A1's SKQGADE010 (KiCad `SW_SPST_SKQG_WithStem` and its 3D model) |
 | Circuit | SW301 / SW302 / SW303 in parallel on PRESS_N (GPIO14, 100 k pull-up R318, DNP C308); no pin or firmware change |
-| Positions | Superseded on 2026-10-07 by the even triangle (below). Were: SW301 70°, r 17.6; SW302 190°, r 14.5; SW303 310°, r 14.5 |
+| Positions | Superseded on 2026-10-07 by the even triangle, then the tripod by P3 (below). Were: SW301 70°, r 17.6; SW302 190°, r 14.5; SW303 310°, r 14.5 |
 | Force | Even triangle: centre press shares 34 / 32 / 34 %, the three click together at ≈ 2.9 N (≤ 4 N); over a switch ≈ 1 N plus the flexures |
 | Mechanics | Three Ø2 bosses on the carrier reach 1.2 mm below the panel's rear plane onto the stems; the flexures only centre the face (roots at 10° / 130° / 250°); see [mao-mechanical.md](mao-mechanical.md) §4 |
 
@@ -332,21 +332,21 @@ only (regenerated for the tripod copper).
 
 ### 3. Easter eggs: kanji and two ink drawings
 
-The A0 line art (sleeping cat, paws, zzz) and "9 lives" / "meow" are gone (`eggart.py` removed); "boop" stays by a
-face-press switch (SW303) and "MADE FOR BAD IDEAS" under the panel. Brush-calligraphy kanji from **Yuji Syuku**
+The A0 line art (sleeping cat, paws, zzz) and "9 lives" / "meow" are gone (`eggart.py` removed); "boop" stays by the
+press switch (SW301, on B since P3) and "MADE FOR BAD IDEAS" under the panel. Brush-calligraphy kanji from **Yuji Syuku**
 (SIL OFL 1.1; `hardware/mao/brand/YujiSyuku-Regular.ttf` + `OFL-YujiSyuku.txt`) as filled silk polygons:
 `kanji.py` merges each glyph's overlapping strokes (skia-pathops), traces them into `brand/kanji-eggs.json` and
 checks them; `silk.py` places them (mirrored on B); pipeline step `kanji` before `silk`.
 
 | Word | Meaning | Side, where (centre mm) | em mm | Size mm | Opening loss | Closing gain |
 |---|---|---|---:|---|---:|---:|
-| 猫猫 | Maomao, "cat cat" | F, under the panel by the face press and "boop" (−3.6, −14.4) | 4.0 | 7.8 × 3.4 | 1.94 % | 2.5 % |
+| 猫猫 | Maomao, "cat cat" | F, under the panel, on the tripod's old 3 o'clock spot (13.7, −1.2) | 4.0 | 7.8 × 3.4 | 1.94 % | 2.5 % |
 | 銀 | silver | B, by the BAT LINK 0R R108 (24.3, −6.6) | 4.0 | 4.0 × 3.5 | 1.37 % | 4.5 % |
-| 薬 | medicine | F, by the BQ25185 charger, under the window border / ring lip (21.8, −12.6) | 5.0 | 4.3 × 4.6 | 1.94 % | 4.2 % |
-| 酒 | sake | B, under the cell (11.5, 0.8) | 4.4 | 3.8 × 3.5 | 1.84 % | 1.6 % |
+| 薬 | medicine | F, by the BQ25185 charger, under the window border (16.0, −9.0) | 5.0 | 4.3 × 4.6 | 1.94 % | 4.2 % |
+| 酒 | sake | B, under the cell (−5.9, −14.2) | 4.4 | 3.8 × 3.5 | 1.84 % | 1.6 % |
 | 毒見 | poison tasting | B, under the speaker, top to bottom (−24.8, 0.6) | 4.4 | 4.2 × 8.4 | 1.06 % | 4.8 % |
-| (drawing) | the sleeping cat with its z's | F, nearest 猫猫 where it fits whole (−14.2, 9.8) | – | 9.2 × 6.8 | 1.12 % | 1.6 % |
-| (drawing) | a sake bottle and cup | B, beside 酒 (17.9, 8.6) | – | 6.4 × 6.5 | 0.68 % | 1.7 % |
+| (drawing) | the sleeping cat with its z's | F, nearest 猫猫 where it fits whole (−1.3, 13.4) | – | 9.2 × 6.8 | 1.12 % | 1.6 % |
+| (drawing) | a sake bottle and cup | B, the clear field nearest 酒 (18.5, 8.4) | – | 6.4 × 6.5 | 0.68 % | 1.7 % |
 
 **Drawings (owner decision 2026-10-06, the hairpin dropped):** the ink sleeping cat and the sake set are brush
 strokes with pressure (`design/ink_eggs.py`, never thinner than 0.17 mm). `kanji.py` unions each drawing's strokes,
@@ -363,11 +363,12 @@ adds < 5 % (it also fills the strokes' inside corners, so a 2 % limit there woul
 practical size; gaps narrower than the disc are part of what it measures). Close-ups from the purple render (the
 speaker's model hidden): [renders/mao-main-a1-kanji.jpg](renders/mao-main-a1-kanji.jpg). 薬 sits just outside the
 panel, under the window's black border and the ring's lip: the only clear 5 mm field near the charger. 猫猫 is
-about 5 mm from "boop" and 9 mm from SW303 (centres) (the clear field nearest the press under the panel).
+about 5 mm from "boop" and 9 mm from SW303 (centres) (the clear field nearest the press under the panel). After P3
+the silk run placed them afresh (positions in the table): 猫猫 now sits where the tripod's 3 o'clock switch was.
 
 ## Owner decisions 2026-10-07
 
-### Face press: an even triangle, and the display tail's well
+### Face press: an even triangle, and the display tail's well (superseded the same day by P3, below)
 
 The owner asked for the three switches as a neat triangle pointing at the centre, with the display ribbon kept clear of
 them. The ribbon keeps its 9 o'clock exit, slot and J301; its slack loop now turns in a shorter well.
@@ -405,3 +406,51 @@ identity); the field moved to (7.2, −2.4), and JLC's order-number placeholder 
 | Wheel-stone clash check | 0 findings against the new switch spots and the shorter well |
 
 R213's reference joins the 6 others kept on Fab for lack of a clear spot.
+
+### P3: the whole top presses (supersedes the face tripod)
+
+The owner chose P3 for manufacture: one switch instead of three, nothing in the face stack moving against the board,
+and the same click wherever the stone is pressed. The whole top (wheel, bezel, window, panel, carrier, frame and the
+board) slides 0.45 mm down on the base. One switch on the board's back meets a 1.5 mm stainless finger, fixed to the
+base, that reaches over the cell from 12 o'clock. The mechanics are in [mao-mechanical.md](mao-mechanical.md) §4,
+the enclosure side in [mao-a1-enclosure-wheelstone.md](mao-a1-enclosure-wheelstone.md) (Press).
+
+![P3 seen from below: the cell, the steel finger and its root posts, SW301 on the dimple, the three guide columns](renders/mao-main-a1-press-p3.jpg)
+
+| Item | Value |
+|---|---|
+| Part | ALPS **SKQGADE010** (2.55 N, 0.25 mm travel, 1.5 mm with stem), LCSC **C116647**, 49,220 in LCSC stock (2026-10-07); JLC library type to confirm at order. SW302 / SW303 and the SKQGAFE010 line are gone |
+| Position | SW301 on **B.Cu** at (8.0, 3.8), 8.9 mm off the axis (`mechanical.PRESS_SWITCH`): the nearest B spot to the centre clear of every courtyard and the service field's names, once the LCD_TE debug pad TP19 stepped 0.45 mm to (9.7, 7.85) |
+| Circuit | PRESS_N (GPIO14, 100 k pull-up R318, DNP C308); no pin or firmware change |
+| Press | dome carries the top; click after 0.33 mm (switch 0.25 + finger 0.08), hard stop on the base's guide columns at 0.45 mm (`mechanical.TOP_TRAVEL`), ≈ 6 N on the switch there |
+| Tail well | back to x **6 … 12** (y ±5.75): F.Cu has no switch at 3 o'clock any more |
+
+**Copper** (`route_press3.py` place / well / rip / escape / add, recorded): SW301 moves to B and TP19 steps aside;
+SW302 / SW303 go. The copper SW301 now sits on goes (its keep-outs, other nets within 0.2 mm of its pads), then the
+exact dangling clean-up (`route_triangle.py drop`) and the grid router. Its pad-entry rules could not close the 1.7 mm
+strip between the module's pad row and SW301, so these were drawn by hand after a free-space search confirmed each
+route:
+- The three module pins in that strip (CHG_STAT1, CHG_STAT2, I2C_SCL) fan out together on 0.5 mm vias. I2C_SCL runs
+  down SW301's channel between its keep-outs, onto its F run to the fuel gauge.
+- CHG_STAT1 goes L3 west of SW301, F past its west pads, B past the service field and F into R118.
+- CHG_STAT2 goes F diagonally under the panel, B past the service field and F into its old line.
+- HALL_A goes from TP21 round SW301's west pads, L3 below LCD_TE's diagonal (clear of the gap that joins the IMU's
+  patch of the +3V3 plane to the rest), and F out to U301.
+- LCD_TE goes from TP19 on B beside SW301's east pads, to a via under its body, then L3 to its west part.
+
+Silk: "boop" follows SW301 to B. The S/N field's inside must hold no other silk, JLC's placeholder takes its own
+spot, and the kanji and drawings were placed afresh (table above). Eight references stay on Fab for lack of a clear
+spot (U102, U104, Q101, R108, R213, R214, Q302, U201).
+
+**Checks after the change:**
+
+| Check | Result |
+|---|---|
+| ERC | 0 violations |
+| kicad-cli DRC | 0 violations, 0 unconnected, 0 schematic parity |
+| Planes | every plane one piece (+3V3 on L3 one piece, 27 vias) |
+| Mechanical check | 140 parts, 0 findings |
+| Silk text | 0 findings |
+| Stack-up | broadside 16.8 mm, 17 pairs, all slow lines |
+| Fab | BOM 49 lines / 100 parts, CPL 100 rows; SW301 C116647 has its sourcing status |
+| Wheel-stone clash check | 0 findings at 0.2 mm, at rest and pressed (the base's guide columns needed slots in the frame wall); finger to U104 / D101 0.35 mm at the stop, to the cell 0.35 mm |

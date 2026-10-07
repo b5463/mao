@@ -20,6 +20,7 @@ rr.MATS.update({
     'wheel': (np.array([0.36, 0.28, 0.42]), 0.12),       # plum, the turning shoulder
     'bezel': (np.array([0.16, 0.15, 0.18]), 0.20),
     'carrier': (np.array([0.22, 0.22, 0.24]), 0.10),
+    'finger': (np.array([0.58, 0.60, 0.63]), 0.55),       # stainless press finger, fixed to the base
     'window': (np.array([0.03, 0.03, 0.05]), 0.9),
 })
 

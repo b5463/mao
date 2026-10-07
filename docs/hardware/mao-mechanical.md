@@ -15,13 +15,13 @@ Coordinates: board millimetres, origin on the puck axis (display centre), +x to 
 
 | Layer (top → bottom) | Thickness | Notes |
 |---|---:|---|
-| Clear window | 1.0 | **Not FDM**: FDM is never optically clear. Use laser-cut 1 mm PMMA or PC (Ø47), bonded to the display carrier so window, panel and carrier float together in the top shell's bore (§4). Back-printed or masked black except over the face and the three sensor apertures. Its underside is 4.9 mm above F.Cu (4.65 mm with the face pressed) |
+| Clear window | 1.0 | **Not FDM**: FDM is never optically clear. Use laser-cut 1 mm PMMA or PC (Ø47), bonded to the display carrier so window, panel and carrier float together in the top shell's bore (§4). Back-printed or masked black except over the face and the three sensor apertures. Its underside is 4.9 mm above F.Cu, fixed: the press moves the board with the face (§4) |
 | Air / foam | 0.2 | no pressure on the panel glass |
-| Display, 1.28" round GC9A01 (Winstar WF0128BTYAA4DNN0, 35.6 × 37.74 × 1.56) | ~2.0 | on a printed carrier that floats with the window (press travel 0.25 mm) |
-| Panel standoff | 2.7 | carrier + 0.5 mm foam; the slack of the panel's 70 mm FPC tail lies as one long loop in a 0.4 mm pocket of the carrier, turning in a 2.4 mm well, and the tail drops through the board slot at 9 o'clock to J301 on B.Cu (§4a). Set by the tallest part under the window border, the IR receiver (4.0 ± 0.3 mm with its dome): 0.35 mm clearance at worst case with the face pressed (ODD JOBS 135) |
-| PCB F.Cu side (Zone A) | (≤ 1.2) | inside the standoff, under the panel; tallest parts are the three SKQG face switches with stems (1.5, pressed by the carrier's three bosses by design, A1 §4), the display rail switch U105 (SC70-6, 1.1) and the charger U102 (1.0). Nothing under the carrier's tail well (x 5.6 … 9.9, y ±5.75) or beside the slot. Under the window border (sensor band) parts may reach 4.3 mm; under the ring's lower lip (r > 24 mm, lip 1.9 mm above F.Cu) ≤ 0.95 mm (0603). `design/mech_check.py` checks every part's 3D-model height against these limits: 0 findings |
+| Display, 1.28" round GC9A01 (Winstar WF0128BTYAA4DNN0, 35.6 × 37.74 × 1.56) | ~2.0 | on a printed carrier that stands on the board on three feet; window, panel, carrier and board press together (§4) |
+| Panel standoff | 2.7 | carrier + 0.5 mm foam; the slack of the panel's 70 mm FPC tail lies as one long loop in a 0.4 mm pocket of the carrier, turning in a 2.4 mm well, and the tail drops through the board slot at 9 o'clock to J301 on B.Cu (§4a). Set by the tallest part under the window border, the IR receiver (4.0 ± 0.3 mm with its dome): 0.6 mm clearance at worst case, which a press no longer closes (ODD JOBS 135) |
+| PCB F.Cu side (Zone A) | (≤ 1.2) | inside the standoff, under the panel; tallest parts are the display rail switch U105 (SC70-6, 1.1) and the charger U102 (1.0); the carrier's three feet stand on bare mask. Nothing under the carrier's tail well (x 6 … 12, y ±5.75) or beside the slot. Under the window border (sensor band) parts may reach 4.3 mm; under the ring's lower lip (r > 24 mm, lip 1.9 mm above F.Cu) ≤ 0.95 mm (0603). `design/mech_check.py` checks every part's 3D-model height against these limits: 0 findings |
 | PCB | 1.6 | 4 layers (JLC04161H-1080), A1: purple mask, white legend, ENIG (owner decision 2026-10-06; A0: black) |
-| PCB B.Cu side (Zone B) | ≤ 3.2 | USB-C 3.2 mm, module 3.1 mm, JST SH 2.96 mm, everything else ≤ 1.2; nothing in the tail corridor between the slot and J301, nothing under the speaker but its contact pads |
+| PCB B.Cu side (Zone B) | ≤ 3.2 | USB-C 3.2 mm, module 3.1 mm, JST SH 2.96 mm, the press switch SW301 1.5 mm with its stem (on the base's steel finger, §4), everything else ≤ 1.2; nothing in the tail corridor between the slot and J301, nothing under the speaker but its contact pads |
 | Insulator | 0.3 | Kapton or fish paper on the cell's top face |
 | Cell LP503035 | 5.1 | 35.5 × 30 mm, centred at (0, −5.6), long axis along x: 12.05 mm from the antenna boundary |
 | Base floor | 1.2 | speaker sits in the left crescent beside the cell |
@@ -66,40 +66,33 @@ Alternative if a mechanical click is wanted: a printed leaf spring with a 0.6 mm
 the ring's inner wall (audible, some wear). The earlier steel-pin magnetic detent needs strong sintered
 magnets, which must not pass over the antenna.
 
-## 4. Face press (A1: tripod, owner decision 2026-10-06)
+## 4. Press (A1: P3 whole-top press, owner decision 2026-10-07)
 
-The face (window, display and printed carrier) rests on **three tact switches** and floats on its flexures. FDM
-cannot hold the 0.1 mm sliding fit a guided plunger would need, so nothing slides. A1 replaces A0's single SKQG at
-the centre (the face rocked about the lip onto one boss) with a tripod, so the face moves almost straight down and
-every part of it clicks the same.
+The whole top presses: wheel, bezel, window, panel, carrier, frame and the board slide down on the base as one
+piece, and **one tact switch on the board's back** meets a steel finger fixed to the base. This replaces A1's face
+tripod of 2026-10-06 (three SKQGAFE010 on F.Cu under the display carrier) and A0's single centre switch, under which
+the face rocked about the lip. The owner chose it for manufacture: one switch instead of three, nothing in the face
+stack moves against the board, and the click is the same wherever the stone is pressed. The enclosure side is in
+[mao-a1-enclosure-wheelstone.md](mao-a1-enclosure-wheelstone.md) (Press).
 
-- **Switches:** three ALPS **SKQGAFE010** (LCSC C202424, JLC Extended, 24,977 in stock on 2026-10-06; 0.98 N, 0.25 mm
-  travel, 1.5 mm with stem, 500,000 cycles), SW301 / SW302 / SW303 in parallel on PRESS_N (GPIO14, the 100 k
-  pull-up R318; no firmware or pin change). Positions (`mechanical.PRESS_TRIPOD`, board mm, angle clockwise from
-  12 o'clock): an **even triangle** (owner decision 2026-10-07), 120° apart: SW301 **85°, r 13.5** (13.45, −1.18);
-  SW302 **205°, r 14.25** (−6.02, 12.92); SW303 **325°, r 13.5** (−7.74, −11.06). Each switch sits square-on to the
-  centre (the body's sides radial and tangential). SW302 is turned a further 90° on its own centre, which looks the same,
-  and sits 0.75 mm further out: at r 13.5 with its legs tangential, its keep-out covered the module's pin 12–14 escape
-  vias and that corner could not be re-routed. The spot was found by a sweep over every rotation, radius and turn
-  against every F courtyard and keep-out. The one near 3 o'clock fits only with the tail well shortened to x 5.6 … 9.9
-  (§4a), with 0.18 mm to the IR receiver's courtyard. The support triangle's centroid is 0.25 mm from the axis.
-- **Bosses:** three Ø2 bosses on the carrier's underside, one over each stem, reaching from the panel's rear plane
-  (2.7 mm above F.Cu) down 1.2 mm onto the 1.5 mm stems (`mechanical.BOSS_D`, `SWITCH_H`). Set them to touch the
-  stems with the flexures relaxed (no preload on the domes); print them solid (100 % infill) so they do not creep.
-  The flexures' 0.5 mm preload against the shell's 0.6 mm lip (≈ 0.3 N) is unchanged.
-- **Suspension:** the three S-shaped flexure arms (PETG, 0.8 × 1.2 mm, about 18 mm long along the sensor band) now
-  only **centre** the face and stop it turning with the ring; they no longer form a hinge. Put their roots between
-  the bosses, at 10°, 130° and 250°, clear of the ToF (332°) and IR (90°) apertures.
-- **Force and travel:** a press at the centre loads the three domes almost equally (34 / 32 / 34 %): they click
-  together at about 2.9 N (three × 0.98 N nominal ≤ 4 N). A press over one
-  switch clicks that switch at about 1 N plus the flexures' share; a press between two switches tips the face a
-  little about the line through them and clicks them both. Travel 0.25 mm wherever it is pressed; nothing slides.
-- **Stop:** the domes bottoming out are the hard stop; at full travel nothing under the panel comes closer than
-  0.5 mm (U105 and U102, 1.1 / 1.0 mm). The tail's long loop flexes 0.25 mm, not a fold (§4a).
-- **Feel:** an even, short click anywhere on the face (the nearest dome or two), plus one LRA click on every press
-  (firmware). Check at bring-up that a press at the rim over each switch and at the centre feel alike.
-- **Look:** a flat clear window 0.6 mm below a thin rim, so laying MAO face-down never presses it.
-- A1 has no strap on the press (GPIO14): holding the face during a reset does not enter the ROM bootloader; use
+- **Switch:** ALPS **SKQGADE010** (LCSC C116647; 2.55 N, 0.25 mm travel, 1.5 mm with stem), SW301 on **B.Cu** at
+  (8.0, 3.8), `mechanical.PRESS_SWITCH`. It is on PRESS_N (GPIO14, the 100 k pull-up R318), so there is no firmware or
+  pin change.
+- **Why there:** on B the cell fills the board's centre, so the finger has to reach over the cell to the switch. (8.0, 3.8),
+  8.9 mm off the axis, is the nearest B spot to the centre that clears every courtyard and the service field's names.
+  To get it, the LCD_TE debug pad TP19 moved 0.45 mm (it has no fixture position).
+- **Finger:** 1.5 mm stainless (301), laser cut. Its root is held by two M2 screws on base posts at 12 o'clock, past
+  the cell. It reaches 24.7 mm over the cell to a 0.3 mm dimple under the stem, and gives 0.08 mm at the click
+  (about 30 N/mm). `mechanical.FINGER`; the outline is `wheelstone.FINGER_POLY`.
+- **Guide and stop:** three M2 screws through Ø3 brass spacers sliding in base columns at r 32.4 (0°, 150°, 300°)
+  into the frame's inserts. The columns' tops stop the top after `mechanical.TOP_TRAVEL` = **0.45 mm**.
+- **Force and travel:** the dome carries the top at rest. It clicks after 0.33 mm (0.25 mm switch travel plus the
+  finger's give) and stops at 0.45 mm, with about 6 N on the switch. Wherever the stone is pressed, the spacers keep
+  the top level, so it clicks the same.
+- **Clearances:** the finger is 0.35 mm over the cell. Its nearest B parts (U104, D101) clear it by 0.80 mm at rest
+  and 0.35 mm at the stop. The wheel-stone clash check is 0 at rest and pressed.
+- **Feel:** one short click from anywhere on the stone, plus one LRA click on every press (firmware).
+- A1 has no strap on the press (GPIO14): holding the stone down during a reset does not enter the ROM bootloader; use
   the BOOT pad (TP8) or the Tag-Connect.
 
 ## 4a. Display tail (stock Winstar WF0128BTYAA4DNN0, 70.1 mm)
@@ -110,7 +103,7 @@ The panel is the stock part with its full 70.1 ± 0.5 mm tail (spec §8); nothin
 |---|---|---|
 | 1 | leaves the panel at 9 o'clock (image up = 12 o'clock: the GC9A01 turns only in 90° steps, so the exit is cardinal) | 13.05 mm wide near the glass, 9.50 ± 0.1 mm at the contacts |
 | 2 | folds back under the panel at its bending area | fold radius ≥ 1 mm |
-| 3 | one long loop under the panel: two flat layers (2 × 0.11 mm) in a 0.4 mm deep pocket of the face carrier, inward to about x +8, where the loop turns in a 2.4 mm deep well of the carrier, and back out | takes up the slack (about 45 mm). The turn has room for a ≥ 1 mm radius, and the ±0.5 mm tail tolerance only moves it within the well (x 5.6 … 9.9, y ±5.75, shortened on 2026-10-07 to clear SW301; no parts under it on F.Cu, `mech_check.py`). If the first print shows the loop longer than the well, the drop to J301 takes up to 2 mm more in its bend (4.5 mm of room). A press flexes the long loop, not a crease |
+| 3 | one long loop under the panel: two flat layers (2 × 0.11 mm) in a 0.4 mm deep pocket of the face carrier, inward to about x +8, where the loop turns in a 2.4 mm deep well of the carrier, and back out | takes up the slack (about 45 mm). The turn has room for a ≥ 1 mm radius, and the ±0.5 mm tail tolerance only moves it within the well (x 6 … 12, y ±5.75; no parts under it on F.Cu, `mech_check.py`). If the first print shows the loop longer than the well, the drop to J301 takes up to 2 mm more in its bend (4.5 mm of room). The press moves panel and board together, so the tail does not flex on a press |
 | 4 | leaves the face at r ≈ 19 and drops through the board slot | slot x −19.3 … −18.3, y ±5.75; F.Cu part-free x −19.4 … −17.7, y ±6.4 |
 | 5 | bends inward under the board into J301 on B.Cu | J301 (HDGC 0.5K-HX-18PWB, back-flip, 1.0 mm high) at (−11.15, 0), entry facing the slot, 4.5 mm for the bend; B.Cu corridor x −18.3 … −14.4, y ±5.9: tracks only, no parts |
 
@@ -119,7 +112,7 @@ J301, which is pad 18 on the flipped connector (panel pin k = pad 19 − k; `cir
 contacts are on both faces of J301, so the tail can enter either way up.
 
 For the enclosure: model the carrier pocket (0.4 mm deep, 14 mm wide, from the rim channel to x +6), the well
-(2.4 mm deep, x 5.6 … 9.9, y ±5.75, its far wall rounded to ≥ 1.2 mm) and a 1.5 mm wide channel in the carrier's rim at
+(2.4 mm deep, x 6 … 12, y ±5.75, its far wall rounded to ≥ 1.2 mm) and a 1.5 mm wide channel in the carrier's rim at
 9 o'clock for the tail to pass from the pocket down to the slot. Check the first print by pressing the face at the
 rim above the tail a few hundred times: the panel must stay lit and the colour test must stay clean. Check the
 Winstar bending rule (spec §8) against the turn before the first print.
@@ -128,9 +121,9 @@ Winstar bending rule (spec §8) against the turn before the first print.
 
 | Sensor | Position | Window treatment |
 |---|---|---|
-| ToF VL53L4CD (U402) | 11 o'clock, r 21.2 | Clear aperture Ø3, no paint. The sensor top is 3.9 mm below the window, so the air gap is bridged by a **black light-blocking gasket**: closed-cell foam (PORON or EPDM) 4.2 mm free, about 3.9 mm fitted, with separate Ø1.2 openings over the emitter and the receiver, bonded to the window underside and resting on the sensor cap. This is ST AN5231's configuration for sub-1 m ranging (gasket required, window ≤ 1.5 mm, no open air gap). The 0.25 mm press travel only compresses the foam. Run crosstalk calibration at the factory station |
+| ToF VL53L4CD (U402) | 11 o'clock, r 21.2 | Clear aperture Ø3, no paint. The sensor top is 3.9 mm below the window, so the air gap is bridged by a **black light-blocking gasket**: closed-cell foam (PORON or EPDM) 4.2 mm free, about 3.9 mm fitted, with separate Ø1.2 openings over the emitter and the receiver, bonded to the window underside and resting on the sensor cap. This is ST AN5231's configuration for sub-1 m ranging (gasket required, window ≤ 1.5 mm, no open air gap). The press moves the sensor and the window together, so it does not load the foam. Run crosstalk calibration at the factory station |
 | Light OPT3004 (U403) | 1 o'clock, r 21.2 | Clear aperture Ø2; or a 50 % ink dot so it reads "dim" like an eye. The aperture, 4.25 mm above the die, limits the view to about ±17°: enough for room level and "covered"; calibrate the lux scale at bring-up |
-| IR receiver IRM-H638T (U503) | 3 o'clock, r 21.4 | IR-transparent (visible-black) ink acceptable. The dome top (4.0 ± 0.3 mm) sits 0.6–0.9 mm under the window (0.35–0.65 mm pressed) |
+| IR receiver IRM-H638T (U503) | 3 o'clock, r 21.4 | IR-transparent (visible-black) ink acceptable. The dome top (4.0 ± 0.3 mm) sits 0.6–0.9 mm under the window |
 | Microphone SPH0641 (MK401) | 3–4 o'clock, B.Cu, bottom port through the board | Ø0.8 hole in the window border above it, with a mesh. A foam gasket tube (Ø4 / Ø1.2, 5.2 mm free, about 4.9 mm fitted) seals the path from the copper-free ring round the port hole on F.Cu to the window hole, so the mic hears the room, not the cavity |
 | IR LEDs (D501/D502) | back edge, 11 and 1 o'clock, side-emitting outwards | Ø3 IR-transparent windows in the wall (or the wall itself in IR-clear PETG) |
 
@@ -179,6 +172,6 @@ Winstar bending rule (spec §8) against the turn before the first print.
 ## 11. Assembly order
 
 1. Glue the pole strip into the ring's groove (check the 30 poles with magnetic viewing film or the dial test).
-2. Bond the window to the display carrier, fit the display onto the carrier with its tail laid as one loop in the carrier pocket (turning in the well) and out through the rim channel at 9 o'clock (§4a), fit the ToF and mic gaskets under the window border. Pin the carrier's three flexure arms to the top shell's bosses.
+2. Bond the window to the display carrier, fit the display onto the carrier with its tail laid as one loop in the carrier pocket (turning in the well) and out through the rim channel at 9 o'clock (§4a), fit the ToF and mic gaskets under the window border. The carrier stands on the board on its three feet and moves with it (§4; the wheel stone's own order is in mao-a1-enclosure-wheelstone.md).
 3. Thread the tail down through the board's slot as the board goes into the top shell on the peg and inserts, fold it inward under the board, open J301's back-flip actuator (bottom side), insert the tail (contacts either way up) and close the actuator. The display can be lifted out and replaced the same way.
-4. Insulator, cell (plug J102), speaker in its cradle (contacts up, under LS501), LRA. Close the base with 2 × M2.
+4. Insulator, cell (plug J102), speaker in its cradle (contacts up, under LS501), LRA; the press finger screwed to its two posts in the base (§4). Close the base.

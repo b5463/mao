@@ -23,7 +23,7 @@ DISPLAY_STANDOFF = 2.7      # panel rear to PCB top surface (foam + carrier)
 DISPLAY_STACK_H = 2.0      # panel (1.56) on its carrier face
 WINDOW_AIR = 0.2           # panel glass to window underside
 WINDOW_Z = DISPLAY_STANDOFF + DISPLAY_STACK_H + WINDOW_AIR   # window underside above F.Cu: 4.9
-PRESS_TRAVEL = 0.25        # the face assembly moves down this far when pressed
+PRESS_TRAVEL = 0.0         # the face moves with the board (P3: the whole top presses, see PRESS_SWITCH)
 # The tallest part under the window border is the IR receiver (IRM-H6xxT, 4.0 +-0.3 mm with its dome): the
 # window keeps WINDOW_Z - PRESS_TRAVEL - 4.3 = 0.35 mm over it at worst case, pressed (ODD JOBS 135).
 ZONE_A_MAX_H = 1.2          # max part height on F.Cu under the panel (ODD JOBS 75)
@@ -67,8 +67,7 @@ TAIL_SLOT = (-19.3, -5.75, -18.3, 5.75)    # routed slot x0, y0, x1, y1: 1.0 mm 
 TAIL_ENTRY_X = -14.0        # J301 FPC entry edge on B.Cu: 4.5 mm for the tail's bend from vertical to the entry
 TAIL_CORRIDOR = (-18.3, -5.9, -14.4, 5.9)  # B.Cu between slot and J301's courtyard: tracks allowed, no parts
 TAIL_F_CLEAR = (-19.4, -6.4, -17.7, 6.4)   # F.Cu on the slot's inboard side: no parts (the tail drops there)
-TAIL_WELL = (5.6, -5.75, 9.9, 5.75)        # F.Cu under the carrier's well where the tail loop turns: no parts
-                                           # (2026-10-07: 6..12 -> 5.6..9.9, clear of SW301; its wall stops short of U401)
+TAIL_WELL = (6.0, -5.75, 12.0, 5.75)       # F.Cu under the carrier's well where the tail loop turns: no parts
 
 # Antenna: ESP32-S3-MINI-1 on B.Cu at 6 o'clock, long axis radial, antenna over a notch in the board edge.
 # Footprint RF_Module:ESP32-S2-MINI-1 (the S3-MINI-1 land, Gate C audit): body (F.Fab) x +-7.7, y -9.75 ... 10.25 about
@@ -99,22 +98,23 @@ USB_ANGLE = 0.0
 USB_FRONT_Y = -29.6            # receptacle mating face, 0.6 mm past the board edge
 IR_TX_ANGLES = (-21.0, 21.0)
 
-# Face press, tripod (owner decisions 2026-10-06 / 2026-10-07): three ALPS SKQGAFE010 (0.98 N, 0.25 mm travel, 1.5 mm
-# with stem) on F.Cu under the display carrier, in parallel on PRESS_N; three bosses on the carrier rest on their stems,
-# so the face sits on three domes and moves almost straight down. ref: (angle clockwise from 12 o'clock, radius, KiCad
-# orientation). An even triangle (2026-10-07): one radius, 120 deg apart, each switch square-on to the centre (legs
-# tangential on SW301 / SW303), so a centre press shares the load 1/3 each. Searched over every rotation, radius
-# and orientation (no other orientation fits: the charger, the IR receiver and Q102 box the others in); the one
-# spot near 3 o'clock needs the tail well shortened to x <= 9.9 (TAIL_WELL).
-PRESS_TRIPOD = {'SW301': (85.0, 13.5, -85.0), 'SW302': (205.0, 14.25, -115.0), 'SW303': (325.0, 13.5, 35.0)}
-# SW302 is turned a further 90 deg about its own centre (same square body, legs radial) and sits 0.75 mm further out:
-# at r 13.5 with its legs tangential its west keep-out covered the module's pin 12-14 escape vias (LCD_BL, AMP_SD,
-# LCD_CS) and the fan-out could not be re-routed; turned and at r 14.25 its keep-outs miss every module via
-PRESS_SIDE = 'F'
-PRESS_FORCE_N = 0.98       # each switch (ALPS SKQGAFE010); three in parallel: a centre press clicks at ~2.9 N (1/3 shares)
-BOSS_D = 2.0               # carrier boss tip on each stem (A0's single boss was d 2 too)
-SWITCH_H = 1.5             # SKQG with stem, its top above F.Cu: each boss reaches from the panel's rear plane
-                           # (DISPLAY_STANDOFF above F.Cu) down DISPLAY_STANDOFF - SWITCH_H = 1.2 mm onto its stem
+# Face press, P3 whole-top press (owner decision 2026-10-07): the top (ring, face, frame and this board) slides
+# TOP_TRAVEL down on the base, guided by three M2 shoulder screws; one ALPS SKQGADE010 (2.55 N, 1.5 mm with stem) on
+# B.Cu presses a steel finger fixed to the base, which reaches over the cell (the cell fills the board's centre on
+# B, so the switch sits 8.9 mm off it: the one near-centre B spot clear of the service field once the debug pad TP19
+# steps 0.45 mm). The switch's dome carries the top (~0.5 N) and clicks at ~2 N net.
+# ref: ((x, y) board mm, KiCad orientation, side).
+# (Replaces the face tripod of 2026-10-06 / 2026-10-07: three SKQGAFE010 on F under the display carrier.)
+PRESS_SWITCH = {'SW301': ((8.0, 3.8), 0.0, 'B')}
+PRESS_SIDE = 'B'
+PRESS_FORCE_N = 2.55       # ALPS SKQGADE010
+TOP_TRAVEL = 0.45          # the whole top to its hard stop on the base (the base's guide columns): switch travel
+                           # 0.25 + finger give 0.08 at the click + 0.12 for print tolerance; ~6 N on the switch at
+                           # the stop, under its rating (enclosure/wheelstone/wheelstone.py holds the same number)
+FINGER = (6.3, -22.8, 8.0, 3.8, 1.5, 2.8)   # steel finger from its root (two M2 posts in the base, past the cell
+                                            # at 12 o'clock) to its tip under the stem: x0, y0 -> x1, y1, thickness,
+                                            # width; 1.5 mm stainless, laser cut, a 0.3 mm dimple under the stem
+                                            # (outline: wheelstone.FINGER_POLY)
 
 # Base: battery under the PCB, shifted towards 12 o'clock so its can sits >= 12 mm (radial) from the
 # antenna and the centre of mass stays near the axis. B.Cu parts may be up to 3.2 mm tall (module);

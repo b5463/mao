@@ -1,5 +1,5 @@
 {
- "broadside_total_mm": 16.7,
+ "broadside_total_mm": 16.8,
  "broadside_pairs": [
   [
    2.58,
@@ -12,11 +12,6 @@
    "UART_RX"
   ],
   [
-   1.9,
-   "LCD_TE",
-   "LCD_SCLK"
-  ],
-  [
    1.85,
    "LCD_BL",
    "GND"
@@ -27,14 +22,14 @@
    "BL_FB"
   ],
   [
-   1.24,
-   "PRESS_N",
-   "+3V3"
-  ],
-  [
    1.1,
    "BOOT",
    "GND"
+  ],
+  [
+   1.05,
+   "HALL_A",
+   "I2C_SDA"
   ],
   [
    1.0,
@@ -47,6 +42,11 @@
    "GND"
   ],
   [
+   0.78,
+   "PRESS_N",
+   "I2C_SCL"
+  ],
+  [
    0.75,
    "3V3_LCD",
    "HAPTIC_EN"
@@ -57,9 +57,19 @@
    "GND"
   ],
   [
-   0.49,
-   "IR_TX",
-   "CHG_STAT1"
+   0.65,
+   "I2C_SCL",
+   "LCD_TE"
+  ],
+  [
+   0.55,
+   "AMP_BCLK",
+   "LCD_RST_N"
+  ],
+  [
+   0.5,
+   "I2C_SCL",
+   "LCD_SCLK_P"
   ],
   [
    0.32,
@@ -70,6 +80,11 @@
    0.3,
    "I2C_SCL",
    "LCD_RST_N"
+  ],
+  [
+   0.25,
+   "I2C_SCL",
+   "BL_REF"
   ]
  ],
  "perimeter_gnd_vias": 30,

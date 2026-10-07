@@ -6,7 +6,8 @@
     "R108",
     "R214",
     "R213",
-    "Q302"
+    "Q302",
+    "U201"
   ],
   "reason": "no clear position beside the part; reference kept on Fab at the part centre"
 }

@@ -9,7 +9,7 @@ ODD JOBS 41-43, 92-103, 172-177:
            functions with pin cues (USB, BAT - T +, SPK, LRA, REAR, LCD, TAG), test-pad function names
            (never bare TPn), BAT LINK at the 0R link
 Type scale (ODD JOBS 95, 98): identity 1.5 mm > connector names 1.2 > test-pad names 0.9 > references 0.8.
-Easter eggs (owner decision 2026-10-06: kanji only; MAO is Mandarin for cat): 'boop' at a face-press switch (MAO's
+Easter eggs (owner decision 2026-10-06: kanji only; MAO is Mandarin for cat): 'boop' at the press switch on the back (MAO's
 nose), brush-calligraphy kanji as filled silk polygons (Yuji Syuku, OFL; kanji.py traces them into
 brand/kanji-eggs.json): 猫猫 (Maomao) beside the face press, 銀 (silver) beside the BAT LINK 0R, 薬 (medicine)
 beside the charger, 酒 (sake) under the cell, 毒見 (poison tasting) under the speaker, two brush-ink drawings
@@ -560,7 +560,7 @@ def main():
     # mic, inductor, electrodes and every R/C a procedure names)
     import re
     EGG = 'MAO easter eggs'
-    boop_at = 'SW303'                      # the face tripod switch with open board round it: 'boop' is MAO's nose
+    boop_at = 'SW301'                      # the press switch (B, under the board): 'boop' is MAO's nose
     named = {r for d in ('mao-bringup.md', 'mao-factory-test.md')
              for r in re.findall(r'\b[RC]\d{3}\b', (ROOT.parents[1] / 'docs' / 'hardware' / d).read_text(encoding='utf-8'))}
     held = {'F': [], 'B': []}
@@ -578,8 +578,9 @@ def main():
 
     face = (-14.0, -14.0, 14.0, 14.5)      # under the panel (outline r 17.8): seen only with the face lifted
     wx, wy = centre(boop_at)
-    boop = label('boop', [(x_, y_, 90 if a_ == 270 else a_) for x_, y_, a_ in ring(wx, wy, 3.6)], 'F', 0.8, gname=EGG,
-                 quiet=True)                 # upright, or reading upwards from the face side
+    boop = label('boop', [(x_, y_, 0) for x_, y_, a_ in ring(wx, wy, 4.4)] +
+                 [(x_, y_, 0) for x_, y_, a_ in ring(wx, wy, 5.6)], 'B', 0.8, gname=EGG,
+                 quiet=True)                 # upright, read from the back
 
     # Kanji (owner decision 2026-10-06: kanji only): Yuji Syuku brush calligraphy as filled silk polygons, traced once
     # by kanji.py into brand/kanji-eggs.json (sizes there pass the 0.16 mm opening test). Each word takes the clear
@@ -717,17 +718,17 @@ def main():
     cx0, cy0 = m.BATTERY_CENTRE
     in_cell = lambda p_: abs(p_[0] - cx0) < m.BATTERY_ENVELOPE[0] / 2 - 2.5 and abs(p_[1] - cy0) < m.BATTERY_ENVELOPE[1] / 2 - 2.5
     qx, qy = centre('Q101')                # where '9 lives' was: by the reverse-polarity FET, over the cell
-    place_kanji('sake', 'B', [p_ for p_ in around(qx, qy, 14.0) if in_cell(p_)], why_='under the cell')
+    place_kanji('sake', 'B', [p_ for p_ in around(qx, qy, 24.0) if in_cell(p_)], why_='under the cell')
     # the brush-ink drawings (ink_eggs.py, through kanji.py's check) beside their kanji: the sleeping cat by 猫猫,
     # the sake set by 酒 (owner decision 2026-10-06)
     if 'maomao' in eggs_at:
         place_kanji('cat', 'F', around(*eggs_at['maomao']['centre_mm'], 30.0), why_='nearest 猫猫', layout_first=True)
     if 'sake' in eggs_at:
-        place_kanji('sake_set', 'B', around(*eggs_at['sake']['centre_mm'], 14.0), why_='beside 酒')
+        place_kanji('sake_set', 'B', around(*eggs_at['sake']['centre_mm'], 34.0), why_='nearest 酒')
     sx, sy = centre('LS501')               # inside the speaker's outline, between its contact pads
     place_kanji('dokumi', 'B', around(sx, sy, 3.0, 0.1), inside=('LS501',), why_='under the speaker')
     placed['F'] = [q for q in placed['F'] if q not in held['F']]   # ODD JOBS' line may use the references' room too
-    label('MADE FOR\nBAD IDEAS', [(x_, y_) for x_, y_ in grid(*BAD_IDEAS_AT, face, 0.4)][:3000], 'F', 0.8, gname=EGG,
+    label('MADE FOR\nBAD IDEAS', [(x_, y_) for x_, y_ in grid(*BAD_IDEAS_AT, face, 0.4)], 'F', 0.8, gname=EGG,
           quiet=True)
     placed['F'] += held['F']
     (ROOT / 'outputs' / 'KANJI-PLACEMENT.json').write_text(json.dumps(eggs_at, ensure_ascii=False, indent=1) + '\n',

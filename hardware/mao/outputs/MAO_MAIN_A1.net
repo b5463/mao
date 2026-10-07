@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "C:\\Users\\AlexanderMoravcik\\Desktop\\ODD JOBS\\MAO 01\\mao-a1\\hardware\\mao\\MAO_MAIN_A1.kicad_sch")
-		(date "2026-10-06T19:07:16")
+		(date "2026-10-07T15:03:52")
 		(tool "Eeschema 10.0.6")
 		(sheet
 			(number "1")
@@ -8452,23 +8452,23 @@
 		)
 		(comp
 			(ref "SW301")
-			(value "SKQGAFE010")
+			(value "SKQGADE010")
 			(footprint "Button_Switch_SMD:SW_SPST_SKQG_WithStem")
-			(description "face tripod 70 deg: 0.98 N, 0.25 mm travel, 1.5 mm with stem")
+			(description "whole-top press, B side: 2.55 N, 1.5 mm with stem; carries the top, clicks at ~2 N net")
 			(fields
 				(field
-					(name "MPN") "SKQGAFE010")
+					(name "MPN") "SKQGADE010")
 				(field
 					(name "Manufacturer") "ALPS")
 				(field
-					(name "LCSC") "C202424")
+					(name "LCSC") "C116647")
 				(field
 					(name "Footprint") "Button_Switch_SMD:SW_SPST_SKQG_WithStem")
 				(field
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "face tripod 70 deg: 0.98 N, 0.25 mm travel, 1.5 mm with stem")
+					(name "Description") "whole-top press, B side: 2.55 N, 1.5 mm with stem; carries the top, clicks at ~2 N net")
 			)
 			(libsource
 				(lib "Switch")
@@ -8477,7 +8477,7 @@
 			)
 			(property
 				(name "MPN")
-				(value "SKQGAFE010")
+				(value "SKQGADE010")
 			)
 			(property
 				(name "Manufacturer")
@@ -8485,7 +8485,7 @@
 			)
 			(property
 				(name "LCSC")
-				(value "C202424")
+				(value "C116647")
 			)
 			(property
 				(name "Sheetname")
@@ -8504,142 +8504,6 @@
 				(tstamps "/bb8bfd75-01b4-5045-8e72-3398fff8dcf0/")
 			)
 			(tstamps "5415d591-77d8-5285-9bbf-92b0622fe0f7")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "SW302")
-			(value "SKQGAFE010")
-			(footprint "Button_Switch_SMD:SW_SPST_SKQG_WithStem")
-			(description "face tripod 190 deg: 0.98 N, 0.25 mm travel, 1.5 mm with stem")
-			(fields
-				(field
-					(name "MPN") "SKQGAFE010")
-				(field
-					(name "Manufacturer") "ALPS")
-				(field
-					(name "LCSC") "C202424")
-				(field
-					(name "Footprint") "Button_Switch_SMD:SW_SPST_SKQG_WithStem")
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "face tripod 190 deg: 0.98 N, 0.25 mm travel, 1.5 mm with stem")
-			)
-			(libsource
-				(lib "Switch")
-				(part "SW_Push")
-				(description "Push button switch, generic, two pins")
-			)
-			(property
-				(name "MPN")
-				(value "SKQGAFE010")
-			)
-			(property
-				(name "Manufacturer")
-				(value "ALPS")
-			)
-			(property
-				(name "LCSC")
-				(value "C202424")
-			)
-			(property
-				(name "Sheetname")
-				(value "Interface")
-			)
-			(property
-				(name "Sheetfile")
-				(value "interface.kicad_sch")
-			)
-			(property
-				(name "ki_keywords")
-				(value "switch normally-open pushbutton push-button")
-			)
-			(sheetpath
-				(names "/Interface/")
-				(tstamps "/bb8bfd75-01b4-5045-8e72-3398fff8dcf0/")
-			)
-			(tstamps "e18e2b4a-b64c-5328-b489-858d2e8598a3")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "SW303")
-			(value "SKQGAFE010")
-			(footprint "Button_Switch_SMD:SW_SPST_SKQG_WithStem")
-			(description "face tripod 310 deg: 0.98 N, 0.25 mm travel, 1.5 mm with stem")
-			(fields
-				(field
-					(name "MPN") "SKQGAFE010")
-				(field
-					(name "Manufacturer") "ALPS")
-				(field
-					(name "LCSC") "C202424")
-				(field
-					(name "Footprint") "Button_Switch_SMD:SW_SPST_SKQG_WithStem")
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "face tripod 310 deg: 0.98 N, 0.25 mm travel, 1.5 mm with stem")
-			)
-			(libsource
-				(lib "Switch")
-				(part "SW_Push")
-				(description "Push button switch, generic, two pins")
-			)
-			(property
-				(name "MPN")
-				(value "SKQGAFE010")
-			)
-			(property
-				(name "Manufacturer")
-				(value "ALPS")
-			)
-			(property
-				(name "LCSC")
-				(value "C202424")
-			)
-			(property
-				(name "Sheetname")
-				(value "Interface")
-			)
-			(property
-				(name "Sheetfile")
-				(value "interface.kicad_sch")
-			)
-			(property
-				(name "ki_keywords")
-				(value "switch normally-open pushbutton push-button")
-			)
-			(sheetpath
-				(names "/Interface/")
-				(tstamps "/bb8bfd75-01b4-5045-8e72-3398fff8dcf0/")
-			)
-			(tstamps "af6aeee5-22ac-543a-acea-8dfd96107a9d")
 			(units
 				(unit
 					(name "A")
@@ -14316,18 +14180,6 @@
 				(pintype "passive")
 			)
 			(node
-				(ref "SW302")
-				(pin "2")
-				(pinfunction "2_2")
-				(pintype "passive")
-			)
-			(node
-				(ref "SW303")
-				(pin "2")
-				(pinfunction "2_2")
-				(pintype "passive")
-			)
-			(node
 				(ref "TP1")
 				(pin "1")
 				(pinfunction "1_1")
@@ -15378,18 +15230,6 @@
 			)
 			(node
 				(ref "SW301")
-				(pin "1")
-				(pinfunction "1_1")
-				(pintype "passive")
-			)
-			(node
-				(ref "SW302")
-				(pin "1")
-				(pinfunction "1_1")
-				(pintype "passive")
-			)
-			(node
-				(ref "SW303")
 				(pin "1")
 				(pinfunction "1_1")
 				(pintype "passive")

@@ -2,8 +2,8 @@
  "maomao": {
   "side": "F",
   "centre_mm": [
-   -15.2,
-   -2.36
+   13.72,
+   -1.17
   ],
   "em_mm": 4.0,
   "vertical": true,
@@ -30,8 +30,8 @@
  "kusuri": {
   "side": "F",
   "centre_mm": [
-   17.81,
-   -9.17
+   16.01,
+   -8.97
   ],
   "em_mm": 5.0,
   "vertical": false,
@@ -44,8 +44,8 @@
  "sake": {
   "side": "B",
   "centre_mm": [
-   10.7,
-   -0.03
+   -5.9,
+   -14.23
   ],
   "em_mm": 4.4,
   "vertical": false,
@@ -58,22 +58,22 @@
  "cat": {
   "side": "F",
   "centre_mm": [
-   -23.2,
-   -2.36
+   -1.28,
+   13.43
   ],
   "em_mm": null,
   "vertical": false,
   "size_mm": [
-   6.457,
-   3.802
+   9.196,
+   6.791
   ],
   "text": ""
  },
  "sake_set": {
   "side": "B",
   "centre_mm": [
-   17.9,
-   8.57
+   18.5,
+   8.37
   ],
   "em_mm": null,
   "vertical": false,

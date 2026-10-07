@@ -107,9 +107,8 @@ def at(ref, x, y, rot, side):
 # ==== anchors: module, USB-C, mechanics ==============================================================
 at('U201', 0.0, m.MODULE_CY, 0, 'B')
 at('J101', 0.0, m.USB_FRONT_Y + 3.65, 0, 'B')      # B.Cu flip mirrors y: mating face towards 12 o'clock
-for ref, (a, r, rot) in m.PRESS_TRIPOD.items():   # face press tripod: three switches at 120 deg
-    x, y = m.polar(r, a)
-    at(ref, round(x, 3), round(y, 3), rot, m.PRESS_SIDE)
+for ref, ((x, y), rot, side) in m.PRESS_SWITCH.items():   # P3 whole-top press: one switch on B
+    at(ref, x, y, rot, side)
 for ref, a in (('H1', m.SCREW_ANGLES[0]), ('H2', m.SCREW_ANGLES[1]), ('H3', m.PEG_ANGLE)):
     x, y = m.polar(m.MOUNT_R, a)
     at(ref, round(x, 3), round(y, 3), 0, 'F')

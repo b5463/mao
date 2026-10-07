@@ -1,6 +1,6 @@
 {
  "board": "MAO_MAIN_A1.kicad_pcb",
- "parts": 142,
+ "parts": 140,
  "findings": [],
  "speaker_wall_clearance_mm": 1.1,
  "max_body_r_mm": [
@@ -10,7 +10,7 @@
  "limits_mm": {
   "wall: body r max": 29.0,
   "under the panel": 1.2,
-  "under the window (pressed)": 4.35,
+  "under the window (pressed)": 4.6,
   "under the ring lip": 0.95,
   "B side": 3.2
  },
@@ -248,7 +248,7 @@
     22.77
    ],
    "zone": "under the window",
-   "limit_mm": 4.35
+   "limit_mm": 4.6
   },
   {
    "ref": "C404",
@@ -281,7 +281,7 @@
     21.12
    ],
    "zone": "under the window",
-   "limit_mm": 4.35
+   "limit_mm": 4.6
   },
   {
    "ref": "C502",
@@ -673,7 +673,7 @@
     19.64
    ],
    "zone": "under the window",
-   "limit_mm": 4.35
+   "limit_mm": 4.6
   },
   {
    "ref": "R120",
@@ -731,7 +731,7 @@
     21.48
    ],
    "zone": "under the window",
-   "limit_mm": 4.35
+   "limit_mm": 4.6
   },
   {
    "ref": "R207",
@@ -771,7 +771,7 @@
     23.05
    ],
    "zone": "under the window",
-   "limit_mm": 4.35
+   "limit_mm": 4.6
   },
   {
    "ref": "R211",
@@ -936,7 +936,7 @@
     19.87
    ],
    "zone": "under the window",
-   "limit_mm": 4.35
+   "limit_mm": 4.6
   },
   {
    "ref": "R404",
@@ -994,7 +994,7 @@
     23.62
    ],
    "zone": "under the window",
-   "limit_mm": 4.35
+   "limit_mm": 4.6
   },
   {
    "ref": "R506",
@@ -1009,33 +1009,13 @@
   },
   {
    "ref": "SW301",
-   "side": "F",
+   "side": "B",
    "height_mm": 1.5,
    "r_mm": [
-    10.8,
-    16.68
+    5.47,
+    12.45
    ],
-   "note": "face tripod switch: its stem meets a carrier boss"
-  },
-  {
-   "ref": "SW302",
-   "side": "F",
-   "height_mm": 1.5,
-   "r_mm": [
-    10.37,
-    18.29
-   ],
-   "note": "face tripod switch: its stem meets a carrier boss"
-  },
-  {
-   "ref": "SW303",
-   "side": "F",
-   "height_mm": 1.5,
-   "r_mm": [
-    9.37,
-    17.67
-   ],
-   "note": "face tripod switch: its stem meets a carrier boss"
+   "note": "whole-top press switch: its stem meets the base's steel finger"
   },
   {
    "ref": "TP1",
@@ -1105,8 +1085,8 @@
    "side": "B",
    "height_mm": null,
    "r_mm": [
-    11.12,
-    13.29
+    11.39,
+    13.57
    ]
   },
   {
@@ -1384,7 +1364,7 @@
     23.19
    ],
    "zone": "under the window",
-   "limit_mm": 4.35
+   "limit_mm": 4.6
   },
   {
    "ref": "U504",
@@ -1395,7 +1375,7 @@
     20.46
    ],
    "zone": "under the window",
-   "limit_mm": 4.35
+   "limit_mm": 4.6
   }
  ]
 }
