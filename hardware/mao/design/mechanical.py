@@ -111,7 +111,7 @@ PRESS_FORCE_N = 2.55       # ALPS SKQGADE010
 TOP_TRAVEL = 0.45          # the whole top to its hard stop on the base (the base's guide columns): switch travel
                            # 0.25 + finger give 0.08 at the click + 0.12 for print tolerance; ~6 N on the switch at
                            # the stop, under its rating (enclosure/wheelstone/wheelstone.py holds the same number)
-FINGER = (6.3, -22.8, 8.0, 3.8, 1.5, 2.8)   # steel finger from its root (two M2 posts in the base, past the cell
+FINGER = (7.0, -22.8, 8.0, 3.8, 1.5, 2.8)   # steel finger from its root (two M2 posts in the base, past the cell
                                             # at 12 o'clock) to its tip under the stem: x0, y0 -> x1, y1, thickness,
                                             # width; 1.5 mm stainless, laser cut, a 0.3 mm dimple under the stem
                                             # (outline: wheelstone.FINGER_POLY)

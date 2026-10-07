@@ -58,9 +58,11 @@ Z_STEM = Z_PCB0 - 1.5                                              # the switch 
 # the finger: 1.5 mm stainless, top 0.3 below the stem tip, a 0.3 mm boss under the stem; a polygon (x, y) between
 # the back's taller parts (J101, Q501, L101), root at 12 o'clock past the cell
 FINGER_T, FINGER_Z1 = 1.5, Z_PCB0 - 1.5 - 0.3
-FINGER_POLY = [(4.9, -26.0), (7.7, -26.0), (7.7, -0.6), (10.6, 1.4), (10.6, 6.2), (5.4, 6.2), (5.4, 1.4),
-               (4.9, 0.4)]
-FINGER_ROOT = [(6.3, -25.0), (6.3, -22.8)]                         # M2 into heat-set inserts in two base posts
+FINGER_POLY = [(4.9, -26.0), (9.1, -26.0), (9.1, -21.3), (7.7, -19.9), (7.7, -0.6), (10.6, 1.4), (10.6, 6.2),
+               (5.4, 6.2), (5.4, 1.4), (4.9, 0.4)]
+FINGER_ROOT = [(7.0, -25.0), (7.0, -22.8)]                         # M2 into heat-set inserts in two base posts; x 7.0
+                                                                   # keeps the posts 0.58 mm off the USB-C receptacle
+                                                                   # (taller than SW301: at x 6.3 it landed on them)
 FINGER_L = PRESS[1] - (FINGER_ROOT[1][1] + 1.9)                  # from the root post's edge to the stem
 FINGER_K = 3 * 193000.0 * (2.8 * FINGER_T ** 3 / 12) / FINGER_L ** 3  # cantilever, stainless 301 (E 193 GPa), 2.8 wide
 GUIDE_Z1 = 6.0                                                     # base columns' tops (the hard stop)
@@ -399,6 +401,37 @@ def clash(ws, depth=0.06):
     return found
 
 
+PRESS_GAP = 0.3   # least clearance (mm) wanted between a back-side part and the fixed press parts, at the stop
+
+
+def press_check(gap=PRESS_GAP):
+    """Exact check (no voxels) of the fixed press parts under the board, which the voxel clash check sees only to its
+    grid: the finger, its root posts and the guide columns against every B-side part's box, at rest and at the stop.
+    A part counts when the two overlap in height and their outlines come closer than `gap` in plan (or overlap);
+    SW301 on the finger's dimple is the designed contact. Returns [(state, fixed part, ref, plan clearance)]."""
+    from shapely.geometry import Point, Polygon, box as sbox
+    fixed = [('finger', Polygon(FINGER_POLY), FINGER_Z1 - FINGER_T, FINGER_Z1),
+             ('dimple', Point(PRESS).buffer(1.0), FINGER_Z1, Z_STEM)]
+    fixed += [('finger post', Point(x, y).buffer(1.9), 0.0, FINGER_Z1 - FINGER_T) for x, y in FINGER_ROOT]
+    fixed += [('guide column', Point(*polar(rr, deg)).buffer(2.6), 0.0, GUIDE_Z1) for rr, deg in JOIN]
+    parts = json.load(open(os.path.join(HERE, 'board_parts.json')))['parts']
+    out = []
+    for state, dz in (('rest', 0.0), ('pressed', -TOP_TRAVEL)):
+        for p in parts:
+            if p['side'] != 'B':
+                continue
+            z0, z1 = Z_PCB0 - p['height'] + dz, Z_PCB0 + dz
+            for name, shape, f0, f1 in fixed:
+                if p['ref'] == 'SW301' and name in ('dimple', 'finger'):
+                    continue
+                if min(z1, f1) <= max(z0, f0):
+                    continue                                        # no overlap in height
+                d = min(sbox(x0, y0, x1, y1).distance(shape) for x0, y0, x1, y1 in p['boxes'])
+                if d < gap:
+                    out.append((state, name, p['ref'], round(d, 2)))
+    return out
+
+
 if __name__ == '__main__':
     import sys
     res = float(sys.argv[1]) if len(sys.argv) > 1 else 0.2
@@ -409,3 +442,7 @@ if __name__ == '__main__':
     for c in out:
         print('CLASH', c)
     print('clash check:', len(out), 'findings at', res, 'mm')
+    pc = press_check()
+    for c in pc:
+        print('PRESS', c)
+    print('press check:', len(pc), 'findings (exact, %.1f mm plan clearance)' % PRESS_GAP)

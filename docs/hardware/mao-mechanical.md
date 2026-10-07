@@ -90,7 +90,9 @@ stack moves against the board, and the click is the same wherever the stone is p
   finger's give) and stops at 0.45 mm, with about 6 N on the switch. Wherever the stone is pressed, the spacers keep
   the top level, so it clicks the same.
 - **Clearances:** the finger is 0.35 mm over the cell. Its nearest B parts (U104, D101) clear it by 0.80 mm at rest
-  and 0.35 mm at the stop. The wheel-stone clash check is 0 at rest and pressed.
+  and 0.35 mm at the stop. Taller back parts hang lower than SW301's stem, so they must stay clear of the base: the
+  module U201 keeps 0.70 mm at the stop, and the USB-C receptacle keeps 0.58 mm in plan from the finger's root posts.
+  The wheel-stone clash check and its exact press check are both 0 at rest and pressed.
 - **Feel:** one short click from anywhere on the stone, plus one LRA click on every press (firmware).
 - A1 has no strap on the press (GPIO14): holding the stone down during a reset does not enter the ROM bootloader; use
   the BOOT pad (TP8) or the Tag-Connect.

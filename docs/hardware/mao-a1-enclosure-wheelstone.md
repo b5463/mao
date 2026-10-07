@@ -43,7 +43,9 @@ no press gaps, and the click is the same wherever the stone is pressed.
   finger give), and the stop after 0.45 mm. The switch sees about 6.1 N at the stop, within its rating (the domes
   take a static load well above their click force; check against ALPS at the fit print).
 - **Clearances:** the finger is 0.35 mm above the cell. Its nearest B parts (U104, D101) clear it by 0.80 mm at
-  rest and 0.35 mm at the stop.
+  rest and 0.35 mm at the stop. The back's taller parts stand lower than SW301's stem, so they stay clear of the
+  floor: the module U201 (2.5 mm) keeps 0.70 mm at the stop. The USB-C receptacle J101 (3.2 mm) stands beside the
+  finger's root, 0.58 mm from its posts and 0.38 mm from the finger in plan.
 
 ## Parts
 
@@ -87,6 +89,12 @@ below, which exposes the barbs.
   - The base posts cut 57 mm³ into the cell.
 - **P3 review:** the base's guide columns ran through the frame's wall (31 mm³ at rest, 36 mm³ pressed). The wall is
   now slotted round them.
+- **Press check (exact, `press_check()`):** the finger, its root posts and the guide columns as true outlines against
+  every back part's box, at rest and at the stop. Anything that overlaps in height must keep 0.3 mm in plan, and the
+  result is 0 findings. It was added after the owner noted that the back parts stand taller than SW301. The voxel
+  check had missed the root posts landing 0.35 mm on the USB-C receptacle (J101, 3.2 mm tall) at the stop: a 0.12 mm
+  sliver in plan, finer than its grid. The posts moved from x 6.3 to 7.0 (0.58 mm clear), with a wider root pad on
+  the finger.
 - **STL export:** every mesh is closed and a single body (trimesh), then decimated to about 0.2 mm where it stays closed.
 
 | Item | Value |

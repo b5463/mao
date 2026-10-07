@@ -454,3 +454,4 @@ spot (U102, U104, Q101, R108, R213, R214, Q302, U201).
 | Stack-up | broadside 16.8 mm, 17 pairs, all slow lines |
 | Fab | BOM 49 lines / 100 parts, CPL 100 rows; SW301 C116647 has its sourcing status |
 | Wheel-stone clash check | 0 findings at 0.2 mm, at rest and pressed (the base's guide columns needed slots in the frame wall); finger to U104 / D101 0.35 mm at the stop, to the cell 0.35 mm |
+| Exact press check | 0 findings (0.3 mm in plan): finger, root posts and guide columns against every back part. It found the root posts landing on the USB-C receptacle at the stop, which the voxel check had missed; the posts moved 0.7 mm |
