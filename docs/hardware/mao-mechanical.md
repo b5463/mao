@@ -19,7 +19,7 @@ Coordinates: board millimetres, origin on the puck axis (display centre), +x to 
 | Air / foam | 0.2 | no pressure on the panel glass |
 | Display, 1.28" round GC9A01 (Winstar WF0128BTYAA4DNN0, 35.6 × 37.74 × 1.56) | ~2.0 | on a printed carrier that floats with the window (press travel 0.25 mm) |
 | Panel standoff | 2.7 | carrier + 0.5 mm foam; the slack of the panel's 70 mm FPC tail lies as one long loop in a 0.4 mm pocket of the carrier, turning in a 2.4 mm well, and the tail drops through the board slot at 9 o'clock to J301 on B.Cu (§4a). Set by the tallest part under the window border, the IR receiver (4.0 ± 0.3 mm with its dome): 0.35 mm clearance at worst case with the face pressed (ODD JOBS 135) |
-| PCB F.Cu side (Zone A) | (≤ 1.2) | inside the standoff, under the panel; tallest parts are the three SKQG face switches with stems (1.5, pressed by the carrier's three bosses by design, A1 §4), the display rail switch U105 (SC70-6, 1.1) and the charger U102 (1.0). Nothing under the carrier's tail well (x 6 … 12, y ±5.75) or beside the slot. Under the window border (sensor band) parts may reach 4.3 mm; under the ring's lower lip (r > 24 mm, lip 1.9 mm above F.Cu) ≤ 0.95 mm (0603). `design/mech_check.py` checks every part's 3D-model height against these limits: 0 findings |
+| PCB F.Cu side (Zone A) | (≤ 1.2) | inside the standoff, under the panel; tallest parts are the three SKQG face switches with stems (1.5, pressed by the carrier's three bosses by design, A1 §4), the display rail switch U105 (SC70-6, 1.1) and the charger U102 (1.0). Nothing under the carrier's tail well (x 5.6 … 9.9, y ±5.75) or beside the slot. Under the window border (sensor band) parts may reach 4.3 mm; under the ring's lower lip (r > 24 mm, lip 1.9 mm above F.Cu) ≤ 0.95 mm (0603). `design/mech_check.py` checks every part's 3D-model height against these limits: 0 findings |
 | PCB | 1.6 | 4 layers (JLC04161H-1080), A1: purple mask, white legend, ENIG (owner decision 2026-10-06; A0: black) |
 | PCB B.Cu side (Zone B) | ≤ 3.2 | USB-C 3.2 mm, module 3.1 mm, JST SH 2.96 mm, everything else ≤ 1.2; nothing in the tail corridor between the slot and J301, nothing under the speaker but its contact pads |
 | Insulator | 0.3 | Kapton or fish paper on the cell's top face |
@@ -76,11 +76,13 @@ every part of it clicks the same.
 - **Switches:** three ALPS **SKQGAFE010** (LCSC C202424, JLC Extended, 24,977 in stock on 2026-10-06; 0.98 N, 0.25 mm
   travel, 1.5 mm with stem, 500,000 cycles), SW301 / SW302 / SW303 in parallel on PRESS_N (GPIO14, the 100 k
   pull-up R318; no firmware or pin change). Positions (`mechanical.PRESS_TRIPOD`, board mm, angle clockwise from
-  12 o'clock): SW301 **70°, r 17.6** (16.54, −6.02); SW302 **190°, r 14.5** (−2.52, 14.28); SW303 **310°, r 14.5**
-  (−11.11, −9.32). The angles are 120° apart. The radii are not equal: on the 3 o'clock side of the panel area the
-  tail well (x 6 … 12, y ±5.75), the IR receiver's courtyard and the charger leave one pocket for a 5.2 mm switch
-  with its keep-outs, at r 17.6 (still under the panel's rim, outline r 17.8); the other two sit at r 14.5 where the
-  F routing leaves them room. The support triangle's centroid is 1.0 mm from the axis.
+  12 o'clock): an **even triangle** (owner decision 2026-10-07), 120° apart: SW301 **85°, r 13.5** (13.45, −1.18);
+  SW302 **205°, r 14.25** (−6.02, 12.92); SW303 **325°, r 13.5** (−7.74, −11.06). Each switch sits square-on to the
+  centre (the body's sides radial and tangential). SW302 is turned a further 90° on its own centre, which looks the same,
+  and sits 0.75 mm further out: at r 13.5 with its legs tangential, its keep-out covered the module's pin 12–14 escape
+  vias and that corner could not be re-routed. The spot was found by a sweep over every rotation, radius and turn
+  against every F courtyard and keep-out. The one near 3 o'clock fits only with the tail well shortened to x 5.6 … 9.9
+  (§4a), with 0.18 mm to the IR receiver's courtyard. The support triangle's centroid is 0.25 mm from the axis.
 - **Bosses:** three Ø2 bosses on the carrier's underside, one over each stem, reaching from the panel's rear plane
   (2.7 mm above F.Cu) down 1.2 mm onto the 1.5 mm stems (`mechanical.BOSS_D`, `SWITCH_H`). Set them to touch the
   stems with the flexures relaxed (no preload on the domes); print them solid (100 % infill) so they do not creep.
@@ -88,14 +90,14 @@ every part of it clicks the same.
 - **Suspension:** the three S-shaped flexure arms (PETG, 0.8 × 1.2 mm, about 18 mm long along the sensor band) now
   only **centre** the face and stop it turning with the ring; they no longer form a hinge. Put their roots between
   the bosses, at 10°, 130° and 250°, clear of the ToF (332°) and IR (90°) apertures.
-- **Force and travel:** a press at the centre loads the three domes in proportion to 1/r (29 / 35.5 / 35.5 %):
-  the first dome clicks at about 2.8 N, all three by about 3.4 N (three × 0.98 N nominal ≤ 4 N). A press over one
+- **Force and travel:** a press at the centre loads the three domes almost equally (34 / 32 / 34 %): they click
+  together at about 2.9 N (three × 0.98 N nominal ≤ 4 N). A press over one
   switch clicks that switch at about 1 N plus the flexures' share; a press between two switches tips the face a
   little about the line through them and clicks them both. Travel 0.25 mm wherever it is pressed; nothing slides.
 - **Stop:** the domes bottoming out are the hard stop; at full travel nothing under the panel comes closer than
   0.5 mm (U105 and U102, 1.1 / 1.0 mm). The tail's long loop flexes 0.25 mm, not a fold (§4a).
 - **Feel:** an even, short click anywhere on the face (the nearest dome or two), plus one LRA click on every press
-  (firmware). Check at bring-up that a press at the 70° rim (SW301's longer lever) and at the centre feel alike.
+  (firmware). Check at bring-up that a press at the rim over each switch and at the centre feel alike.
 - **Look:** a flat clear window 0.6 mm below a thin rim, so laying MAO face-down never presses it.
 - A1 has no strap on the press (GPIO14): holding the face during a reset does not enter the ROM bootloader; use
   the BOOT pad (TP8) or the Tag-Connect.
@@ -108,7 +110,7 @@ The panel is the stock part with its full 70.1 ± 0.5 mm tail (spec §8); nothin
 |---|---|---|
 | 1 | leaves the panel at 9 o'clock (image up = 12 o'clock: the GC9A01 turns only in 90° steps, so the exit is cardinal) | 13.05 mm wide near the glass, 9.50 ± 0.1 mm at the contacts |
 | 2 | folds back under the panel at its bending area | fold radius ≥ 1 mm |
-| 3 | one long loop under the panel: two flat layers (2 × 0.11 mm) in a 0.4 mm deep pocket of the face carrier, inward to about x +8, where the loop turns in a 2.4 mm deep well of the carrier, and back out | takes up the slack (about 45 mm). The turn has room for a ≥ 1 mm radius, and the ±0.5 mm tail tolerance only moves it within the well (x 6 … 12, y ±5.75; no parts under it on F.Cu, `mech_check.py`). A press flexes the long loop, not a crease |
+| 3 | one long loop under the panel: two flat layers (2 × 0.11 mm) in a 0.4 mm deep pocket of the face carrier, inward to about x +8, where the loop turns in a 2.4 mm deep well of the carrier, and back out | takes up the slack (about 45 mm). The turn has room for a ≥ 1 mm radius, and the ±0.5 mm tail tolerance only moves it within the well (x 5.6 … 9.9, y ±5.75, shortened on 2026-10-07 to clear SW301; no parts under it on F.Cu, `mech_check.py`). If the first print shows the loop longer than the well, the drop to J301 takes up to 2 mm more in its bend (4.5 mm of room). A press flexes the long loop, not a crease |
 | 4 | leaves the face at r ≈ 19 and drops through the board slot | slot x −19.3 … −18.3, y ±5.75; F.Cu part-free x −19.4 … −17.7, y ±6.4 |
 | 5 | bends inward under the board into J301 on B.Cu | J301 (HDGC 0.5K-HX-18PWB, back-flip, 1.0 mm high) at (−11.15, 0), entry facing the slot, 4.5 mm for the bend; B.Cu corridor x −18.3 … −14.4, y ±5.9: tracks only, no parts |
 
@@ -117,7 +119,7 @@ J301, which is pad 18 on the flipped connector (panel pin k = pad 19 − k; `cir
 contacts are on both faces of J301, so the tail can enter either way up.
 
 For the enclosure: model the carrier pocket (0.4 mm deep, 14 mm wide, from the rim channel to x +6), the well
-(2.4 mm deep, x 6 … 12, y ±5.75, its far wall rounded to ≥ 1.2 mm) and a 1.5 mm wide channel in the carrier's rim at
+(2.4 mm deep, x 5.6 … 9.9, y ±5.75, its far wall rounded to ≥ 1.2 mm) and a 1.5 mm wide channel in the carrier's rim at
 9 o'clock for the tail to pass from the pocket down to the slot. Check the first print by pressing the face at the
 rim above the tail a few hundred times: the panel must stay lit and the colour test must stay clean. Check the
 Winstar bending rule (spec §8) against the turn before the first print.

@@ -1,6 +1,6 @@
 {
  "board": "MAO_MAIN_A1.kicad_pcb",
- "silk_texts": 77,
+ "silk_texts": 76,
  "findings": 0,
  "by_kind": {},
  "references_on_fab_only": [
@@ -66,6 +66,7 @@
   "R209",
   "R210",
   "R211",
+  "R213",
   "R214",
   "R215",
   "R216",

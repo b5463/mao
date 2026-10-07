@@ -67,7 +67,8 @@ TAIL_SLOT = (-19.3, -5.75, -18.3, 5.75)    # routed slot x0, y0, x1, y1: 1.0 mm 
 TAIL_ENTRY_X = -14.0        # J301 FPC entry edge on B.Cu: 4.5 mm for the tail's bend from vertical to the entry
 TAIL_CORRIDOR = (-18.3, -5.9, -14.4, 5.9)  # B.Cu between slot and J301's courtyard: tracks allowed, no parts
 TAIL_F_CLEAR = (-19.4, -6.4, -17.7, 6.4)   # F.Cu on the slot's inboard side: no parts (the tail drops there)
-TAIL_WELL = (6.0, -5.75, 12.0, 5.75)       # F.Cu under the carrier's well where the tail loop turns: no parts
+TAIL_WELL = (5.6, -5.75, 9.9, 5.75)        # F.Cu under the carrier's well where the tail loop turns: no parts
+                                           # (2026-10-07: 6..12 -> 5.6..9.9, clear of SW301; its wall stops short of U401)
 
 # Antenna: ESP32-S3-MINI-1 on B.Cu at 6 o'clock, long axis radial, antenna over a notch in the board edge.
 # Footprint RF_Module:ESP32-S2-MINI-1 (the S3-MINI-1 land, Gate C audit): body (F.Fab) x +-7.7, y -9.75 ... 10.25 about
@@ -98,16 +99,19 @@ USB_ANGLE = 0.0
 USB_FRONT_Y = -29.6            # receptacle mating face, 0.6 mm past the board edge
 IR_TX_ANGLES = (-21.0, 21.0)
 
-# Face press, tripod (owner decision 2026-10-06): three ALPS SKQGAFE010 (0.98 N, 0.25 mm travel, 1.5 mm with stem)
-# on F.Cu at 120 deg under the display carrier, in parallel on PRESS_N; three bosses on the carrier rest on their
-# stems, so the face sits on three domes and moves almost straight down. ref: (angle clockwise from 12 o'clock,
-# radius, KiCad orientation). The angles are 120 deg apart; the radii are not equal: the 3 o'clock half of the
-# panel area is the tail well (TAIL_WELL), the IR receiver's courtyard and the charger, so the 70 deg switch sits
-# in the only pocket there (between the well, the receiver and the charger's BAT capacitor) at r 17.6, the other
-# two at r 14.5 where the F routing leaves them room. A centre press shares the load 1/r: 29 / 35.5 / 35.5 %.
-PRESS_TRIPOD = {'SW301': (70.0, 17.6, 200.0), 'SW302': (190.0, 14.5, 90.0), 'SW303': (310.0, 14.5, 260.0)}
+# Face press, tripod (owner decisions 2026-10-06 / 2026-10-07): three ALPS SKQGAFE010 (0.98 N, 0.25 mm travel, 1.5 mm
+# with stem) on F.Cu under the display carrier, in parallel on PRESS_N; three bosses on the carrier rest on their stems,
+# so the face sits on three domes and moves almost straight down. ref: (angle clockwise from 12 o'clock, radius, KiCad
+# orientation). An even triangle (2026-10-07): one radius, 120 deg apart, each switch square-on to the centre (legs
+# tangential on SW301 / SW303), so a centre press shares the load 1/3 each. Searched over every rotation, radius
+# and orientation (no other orientation fits: the charger, the IR receiver and Q102 box the others in); the one
+# spot near 3 o'clock needs the tail well shortened to x <= 9.9 (TAIL_WELL).
+PRESS_TRIPOD = {'SW301': (85.0, 13.5, -85.0), 'SW302': (205.0, 14.25, -115.0), 'SW303': (325.0, 13.5, 35.0)}
+# SW302 is turned a further 90 deg about its own centre (same square body, legs radial) and sits 0.75 mm further out:
+# at r 13.5 with its legs tangential its west keep-out covered the module's pin 12-14 escape vias (LCD_BL, AMP_SD,
+# LCD_CS) and the fan-out could not be re-routed; turned and at r 14.25 its keep-outs miss every module via
 PRESS_SIDE = 'F'
-PRESS_FORCE_N = 0.98       # each switch (ALPS SKQGAFE010); three in parallel: a centre press clicks at ~2.8 N (1/r shares)
+PRESS_FORCE_N = 0.98       # each switch (ALPS SKQGAFE010); three in parallel: a centre press clicks at ~2.9 N (1/3 shares)
 BOSS_D = 2.0               # carrier boss tip on each stem (A0's single boss was d 2 too)
 SWITCH_H = 1.5             # SKQG with stem, its top above F.Cu: each boss reaches from the panel's rear plane
                            # (DISPLAY_STANDOFF above F.Cu) down DISPLAY_STANDOFF - SWITCH_H = 1.2 mm onto its stem

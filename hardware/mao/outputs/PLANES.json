@@ -5,8 +5,8 @@
   "layer": "In1.Cu",
   "pieces": [
    {
-    "area_mm2": 2212.6,
-    "vias": 92,
+    "area_mm2": 2207.6,
+    "vias": 89,
     "bbox": [
      -28.5,
      -28.5,
@@ -59,7 +59,7 @@
   "layer": "In2.Cu",
   "pieces": [
    {
-    "area_mm2": 1662.6,
+    "area_mm2": 1581.3,
     "vias": 27,
     "bbox": [
      -28.5,
@@ -69,6 +69,6 @@
     ]
    }
   ],
-  "neck_0.5_mm": "mesh, 3 pieces"
+  "neck_0.5_mm": "mesh, 2 pieces"
  }
 ]

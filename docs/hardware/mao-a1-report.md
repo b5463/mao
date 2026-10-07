@@ -60,8 +60,8 @@ Each item is the owner's A1 brief, traced to Gate C. Parts keep their A0 referen
   124): design review 2026-10-06. The Si2302CDS candidate is no longer needed.
 - **Fixture/test pad TP8 (BOOT)** moved beside the Tag-Connect's GPIO0 pin; SKQG keep-out and the UART order turned
   the Tag-Connect footprint (J201) by 180°.
-- **Face-press tripod radii unequal** (owner asked for r ~14–16 mm): SW301 sits at r 17.6, the other two at r 14.5;
-  see "Owner decisions 2026-10-06".
+- **Face-press tripod is an even triangle** (owner decision 2026-10-07): all three at r 13.5, 120° apart, square-on
+  to the centre, with the tail well shortened to clear SW301; see "Owner decisions 2026-10-07".
 
 ## Layout notes
 
@@ -301,8 +301,8 @@ Applied surgically to the committed board (the router is not deterministic), eac
 |---|---|
 | Part | ALPS **SKQGAFE010**, LCSC **C202424**, JLC Extended, **24,977** in stock (2026-10-06); ALPS: 0.98 N, travel 0.25 mm, height 1.5 mm with stem, 500,000 cycles, "Standard" status. One part number for all three; same footprint as A1's SKQGADE010 (KiCad `SW_SPST_SKQG_WithStem` and its 3D model) |
 | Circuit | SW301 / SW302 / SW303 in parallel on PRESS_N (GPIO14, 100 k pull-up R318, DNP C308); no pin or firmware change |
-| Positions | SW301 70°, r 17.6 → (16.54, −6.02), rot 200°; SW302 190°, r 14.5 → (−2.52, 14.28), rot 90°; SW303 310°, r 14.5 → (−11.11, −9.32), rot 260° (`mechanical.PRESS_TRIPOD`) |
-| Force | Centre press: shares 1/r = 29 / 35.5 / 35.5 %, first click ≈ 2.8 N, all three ≈ 3.4 N (≤ 4 N); over a switch ≈ 1 N plus the flexures |
+| Positions | Superseded on 2026-10-07 by the even triangle (below). Were: SW301 70°, r 17.6; SW302 190°, r 14.5; SW303 310°, r 14.5 |
+| Force | Even triangle: centre press shares 34 / 32 / 34 %, the three click together at ≈ 2.9 N (≤ 4 N); over a switch ≈ 1 N plus the flexures |
 | Mechanics | Three Ø2 bosses on the carrier reach 1.2 mm below the panel's rear plane onto the stems; the flexures only centre the face (roots at 10° / 130° / 250°); see [mao-mechanical.md](mao-mechanical.md) §4 |
 
 **Why the radii are not equal:** 120° spacing puts one switch in the 3 o'clock half of the panel area, and from 21° to
@@ -364,3 +364,44 @@ practical size; gaps narrower than the disc are part of what it measures). Close
 speaker's model hidden): [renders/mao-main-a1-kanji.jpg](renders/mao-main-a1-kanji.jpg). 薬 sits just outside the
 panel, under the window's black border and the ring's lip: the only clear 5 mm field near the charger. 猫猫 is
 about 5 mm from "boop" and 9 mm from SW303 (centres) (the clear field nearest the press under the panel).
+
+## Owner decisions 2026-10-07
+
+### Face press: an even triangle, and the display tail's well
+
+The owner asked for the three switches as a neat triangle pointing at the centre, with the display ribbon kept clear of
+them. The ribbon keeps its 9 o'clock exit, slot and J301; its slack loop now turns in a shorter well.
+
+| Item | Value |
+|---|---|
+| Positions | SW301 85°, r 13.5 → (13.45, −1.18), rot −85°; SW302 205°, r 14.25 → (−6.02, 12.92), rot −115°; SW303 325°, r 13.5 → (−7.74, −11.06), rot 35° (`mechanical.PRESS_TRIPOD`) |
+| Look | 120° apart, every switch square-on to the centre; SW302 turned a further 90° on its centre (same square body) and 0.75 mm further out |
+| Force | Centre press shares 34 / 32 / 34 % (was 29 / 35.5 / 35.5), first click ≈ 2.9 N |
+| Tail well | x 6 … 12 → **5.6 … 9.9** (y ±5.75): clear of SW301 by 0.34 mm; its 0.6 mm wall stops short of the IMU U401. If the first print shows the loop longer than the well, the drop to J301 takes up to 2 mm more in its 4.5 mm bend |
+| How it was found | A sweep over every rotation (0–120°), radius (9–16.6 mm) and turn of the switch against every F courtyard and keep-out: no even triangle fits the board as it was; the one family that does needs the well shortened, near 85°. Only the square-on turn fits; 45° or legs-radial hit the charger, the IR receiver or Q102 |
+
+**Copper** (`route_triangle.py` place / rip / cluster / add / drop / pocket, recorded): the switches move and the
+tail-well rule area shortens; the copper they sit on goes (keep-outs and pads). The grid router re-routes AMP_BCLK,
+AMP_DIN, IMU_INT1, I2C_SCL, 3V3_LCD, LCD_DC and HALL_FAST round them. Three connections it could not find were drawn by
+hand after a free-space search confirmed a route:
+- PRESS_N up SW302's centre line onto the module pin 18 via.
+- AMP_SD from module pin 13 to the amplifier, once LCD_TE was lifted out of its way.
+- LCD_TE re-routed J301.5 → L3 → F across the centre → L3 → TP19, with 4 vias.
+
+The +3V3 line of the panel rail switch (U105.A2, C110) lost its L3 plane pocket and now drops on F and B to a via in the
+main plane; a 1.7 × 1.1 mm no-pour area on L3 keeps the pocket it passes from becoming a plane island. One GND stitching
+via went to free the S/N field. Silk: the S/N field's inside must now hold no other silk (it had framed the MAO
+identity); the field moved to (7.2, −2.4), and JLC's order-number placeholder sits on its own nearest clear spot
+(10.8, −6.4).
+
+**Checks after the change:**
+
+| Check | Result |
+|---|---|
+| kicad-cli DRC | 0 violations, 0 unconnected |
+| Planes | every plane one piece |
+| Mechanical check | 0 findings |
+| Silk text | 0 findings |
+| Wheel-stone clash check | 0 findings against the new switch spots and the shorter well |
+
+R213's reference joins the 6 others kept on Fab for lack of a clear spot.

@@ -316,24 +316,29 @@ def main():
         t = text(s_, bx, by + h / 2 + dy, 'F', size, bold=bold, gname='ODD JOBS maker mark')
         placed['F'].append(tbox(t))
     # S/N field (ODD JOBS 101): a 6 x 6 mm box for a DataMatrix sticker or laser mark, its name above it, and
-    # JLC's order-number placeholder below (the fab prints its number there and nowhere else)
+    # JLC's order-number placeholder below it, or above its name where vias crowd the space below (the fab prints its
+    # number there and nowhere else)
     def sn_layout(sx_, sy_):
-        """Field, its name above, and the order-number placeholder below it (slid sideways round FID2)."""
+        """Field and its name above; the order-number placeholder next to it where it fits (below, else above the
+        name), else None (placed on its own afterwards)."""
         e_ = STROKE / 2                    # the field's four edges (its inside may lie over tented vias)
         field_ = [(sx_ - 3.0 - e_, sy_ - 3.0 - e_, sx_ + 3.0 + e_, sy_ - 3.0 + e_),
                   (sx_ - 3.0 - e_, sy_ + 3.0 - e_, sx_ + 3.0 + e_, sy_ + 3.0 + e_),
                   (sx_ - 3.0 - e_, sy_ - 3.0 - e_, sx_ - 3.0 + e_, sy_ + 3.0 + e_),
                   (sx_ + 3.0 - e_, sy_ - 3.0 - e_, sx_ + 3.0 + e_, sy_ + 3.0 + e_),
                   measure('S/N', sx_ - 2.2, sy_ - 3.95, 'F')]
-        for jx in (0.0, -0.5, -1.0, -1.5, 0.5, 1.0, -2.0, 1.5):
-            for jy in (3.8, 4.2):
-                jq = measure('JLCJLCJLCJLC', sx_ + jx, sy_ + jy, 'F')
-                if clear(jq, 'F'):
-                    return field_ + [jq], (sx_ + jx, sy_ + jy)
-        return field_ + [measure('JLCJLCJLCJLC', sx_, sy_ + 3.8, 'F')], (sx_, sy_ + 3.8)
+        for jy in (3.8, 4.2, 4.6, 5.0, -5.1, -5.5):   # below, nearest first; above the S/N name as a fallback
+            for jx in (0.0, -0.5, 0.5, -1.0, 1.0, -1.5, 1.5, -2.0, 2.0, -2.5, 2.5, -3.0, 3.0):
+                if clear(measure('JLCJLCJLCJLC', sx_ + jx, sy_ + jy, 'F'), 'F'):
+                    return field_, (sx_ + jx, sy_ + jy, 'F')
+        return field_, None
+    def sn_empty(sx_, sy_):
+        """The field's inside holds no other silk (it may lie over tented vias, not over text or the mark)."""
+        inner = (sx_ - 3.0, sy_ - 3.0, sx_ + 3.0, sy_ + 3.0)
+        return not any(overlap(inner, q, 0.3) for q in placed['F'] + graphics['F'])
     for sx_, sy_ in SN_SPOTS:
         boxes_, jxy = sn_layout(sx_, sy_)
-        if all(clear(q, 'F') for q in boxes_):
+        if sn_empty(sx_, sy_) and all(clear(q, 'F') for q in boxes_):
             break
     else:
         sx_, sy_ = SN_SPOTS[0]
@@ -341,8 +346,20 @@ def main():
         print('silk: S/N field: no clear 6 x 6 spot |', [why(q, 'F') for q in boxes_])
     rect(sx_ - 3.0, sy_ - 3.0, sx_ + 3.0, sy_ + 3.0, 'F')
     placed['F'].append((sx_ - 3.0, sy_ - 3.0, sx_ + 3.0, sy_ + 3.0))
-    for s_, x_, y_ in (('S/N', sx_ - 2.2, sy_ - 3.95), ('JLCJLCJLCJLC', jxy[0], jxy[1])):
-        placed['F'].append(tbox(text(s_, x_, y_, 'F', 0.8)))
+    placed['F'].append(tbox(text('S/N', sx_ - 2.2, sy_ - 3.95, 'F', 0.8)))
+    if jxy is None:                        # JLC prints its order number wherever this placeholder is: nearest clear
+        for sd_ in ('F', 'B'):             # spot on the face, else on the back
+            spots_ = sorted(((x_ / 5, y_ / 5) for x_ in range(-140, 141) for y_ in range(-140, 141)
+                             if math.hypot(x_ / 5, y_ / 5) < m.PCB_R - 4.0),
+                            key=lambda p_: math.hypot(p_[0] - sx_, p_[1] - sy_))
+            jxy = next(((x_, y_, sd_) for x_, y_ in spots_ if clear(measure('JLCJLCJLCJLC', x_, y_, sd_), sd_)), None)
+            if jxy:
+                break
+        print('silk: order-number placeholder on its own at (%.1f, %.1f) %s' % jxy if jxy else
+              'silk: order-number placeholder: no clear spot')
+    if jxy:
+        placed[jxy[2]].append(tbox(text('JLCJLCJLCJLC', jxy[0], jxy[1], jxy[2], 0.8)))
+    print('silk: S/N field at (%.1f, %.1f)' % (sx_, sy_))
 
     # ---- face side function labels --------------------------------------------------------------------
     ny = m.NOTCH_Y
@@ -750,8 +767,8 @@ BRAND_SPOTS = sorted(((x_ / 5, y_ / 5) for x_ in range(-70, 71) for y_ in range(
 SN_AT = (0.0, -1.5)              # F: preferred centre of the 6 x 6 mm S/N field (the back has no clear 6 x 6 field): the
                                  # panel centre the single face switch left (A1 had it at (0, 14), where the tripod's
                                  # 190 deg switch sits now); the nearest clear spot under the panel wins
-SN_SPOTS = sorted(((x_ / 5, y_ / 5) for x_ in range(-60, 61) for y_ in range(-60, 61)
-                   if math.hypot(x_ / 5, y_ / 5) < 12.0),
+SN_SPOTS = sorted(((x_ / 5, y_ / 5) for x_ in range(-75, 76) for y_ in range(-75, 76)
+                   if math.hypot(x_ / 5, y_ / 5) < 15.0),      # under the panel (r 17.8) with the field's half-diagonal
                   key=lambda p_: math.hypot(p_[0] - SN_AT[0], p_[1] - SN_AT[1]))
 B_MARK_W = 4.6                   # B mark width: the artwork's finest strokes (0.07 mm at 2 mm) reach 0.16 mm
 B_MARK_AT = m.B_IDENT_AT          # B: the reserved via-free spot (mechanical.B_IDENT_KEEPOUT); a clear field outside the cell wins

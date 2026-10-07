@@ -11,8 +11,8 @@ BOARD
 - ENIG. PURPLE solder mask (JLC's "Purple" option), WHITE silkscreen: owner decision 2026-10-06 (the visible
   product board's colour, ODD JOBS 172; lighter than black, so tracks and joints stay easier to inspect, ODD JOBS 173).
   Both sides purple.
-- Through vias only (no blind/buried): 187 x 0.3 mm drill / 0.6 mm pad (plane and power vias) and
-  54 x 0.2 / 0.5 mm (designed fan-out beside fine-pitch parts; two of them in the U102 BQ25185 exposed pad, as
+- Through vias only (no blind/buried): 195 x 0.3 mm drill / 0.6 mm pad (plane and power vias) and
+  48 x 0.2 / 0.5 mm (designed fan-out beside fine-pitch parts; two of them in the U102 BQ25185 exposed pad, as
   in TI's layout example), all tented both sides. 4 x 0.2 mm thermal vias inside the U501 exposed pad. Via-in-pad: choose epoxy-filled and capped (POFV) if JLC offers it
   for this order; otherwise tented / unplugged is acceptable for this EVT. Min track 0.15 mm, min clearance
   0.15 mm: JLC standard 4-layer capability. Two 0.4 mm-pitch WCSP parts (U105, U504, TPS22916C): 0.23 mm
@@ -42,7 +42,7 @@ ASSEMBLY (JLC PCBA, both sides): order STANDARD PCBA. The two 0.4 mm-pitch WCSP 
 - Fiducials: FID1-3 front, FID4-6 back (1 mm copper, 2 mm mask opening).
 - Assembly drawing: ASSEMBLY-MAO_MAIN_A1-top.pdf / -bottom.pdf, one A3 sheet per side at 4.5:1 (the back seen
   from the back), every reference legible: in its part or beside it with a leader, pads drawn without
-  numbers. Resistors and capacitors that no procedure names, and Q101, Q302, R108, R214, U102, U104 (no clear silk spot) are identified there only; the
+  numbers. Resistors and capacitors that no procedure names, and Q101, Q302, R108, R213, R214, U102, U104 (no clear silk spot) are identified there only; the
   silkscreen carries the other ICs, connectors, transistors and diodes, the service resistors and capacitors,
   and the test-pad names.
 - Placement file: KiCad rotations. Check every polarised part and pin 1 in JLC's preview, bottom side

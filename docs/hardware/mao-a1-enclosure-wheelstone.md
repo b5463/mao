@@ -31,7 +31,7 @@ tree as the earlier study.
 | frame | – | A bearing wall round the board and the 0.6 mm deck the wheel rides on, which also passes over the Hall pair. Four ribs hold the board rim down. 3 × M2 heat-set inserts at r 32.4 (0°, 150°, 300°, clear of USB and the antenna), screwed from below through the base. |
 | wheel | turns | Solid (11.2 cm³, about 14 g in PETG: a little flywheel). Its flat underside rides the deck with 0.15 mm clearance and carries the 30-pole strip at r 26.3 in a groove open to the bore (the strip is self-adhesive). A skirt hides the joint. The inner edge steps down under the bezel lip, which holds the wheel down. |
 | bezel | – | Fitted last. A 0.9 mm tube inside the deck, with a lip that holds the wheel down at its outer edge and stops the window at its inner edge. Three snap tongues (70°, 190°, 300°, where nothing sits under the deck edge) catch 0.55 mm under the deck, and a lead-in on each barb guides it past. A notch clears the IR receiver; a slot takes the carrier's key. |
-| carrier | presses | A tray under the panel with three bosses on the switch stems, and the tail pocket and well from `mechanical.py`. The tail drops at 9 o'clock past the panel's glass ledge. Six posts up to the window sit between the sensors and the tail: none over the IR receiver (3 o'clock), the ToF (≈ 242°) or the tail. A key into the bezel stops it rotating. |
+| carrier | presses | A tray under the panel with three bosses on the switch stems (the even triangle of 2026-10-07), and the tail pocket and the shortened well (x 5.6 … 9.9) from `mechanical.py`. The tail drops at 9 o'clock past the panel's glass ledge. Six posts up to the window sit between the sensors and the tail: none over the IR receiver (3 o'clock), the ToF (≈ 242°) or the tail. A key into the bezel stops it rotating. |
 | window | presses | 1 mm clear PMMA disc, Ø45.8, laser cut and bonded to the posts. The switch springs push it up against the lip, with 0.5 mm under the lip. |
 
 The face stack follows the board's: switch stems 1.5 mm, panel rear 2.7 mm and window underside 4.9 mm above F.Cu,
@@ -94,7 +94,7 @@ All files are in `hardware/mao/enclosure/wheelstone/`.
 | `mao-wheelstone-frame.stl` | 4.9 cm³ | Deck down. |
 | `mao-wheelstone-wheel.stl` | 11.2 cm³ | Underside down; supports under the 0.75 mm step to the skirt (hidden). |
 | `mao-wheelstone-bezel.stl` | 0.9 cm³ | Lip down. Snap tongues: MJF PA12 or PETG, not brittle resin. |
-| `mao-wheelstone-carrier.stl` | 1.4 cm³ | Small and precise: SLA resin, posts up. |
+| `mao-wheelstone-carrier.stl` | 1.5 cm³ | Small and precise: SLA resin, posts up. |
 | `mao-wheelstone-feel-model.stl` | 83.7 cm³ | One solid piece; print it first to judge size and grip. |
 
 JLCPCB's 3D-printing service covers all of these: MJF PA12 for the bezel and SLA resin for the carrier, in keeping with
